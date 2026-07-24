@@ -1,0 +1,126 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Instalar dependências
+      run: npm ci
+    
+    - name: Instalar browsers do Playwright
+      run: npx playwright install --with-deps chromium
+    
+    - name: Build aplicação
+      run: npm run build
+    
+    - name: Rodar testes E2E
+      run: npm run test:e2e
+      continue-on-error: false
+    
+    - name: Upload relatório de testes
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 30
+    
+    - name: Upload screenshots de falhas
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: test-screenshots
+        path: test-results/
+        retention-days: 30
+    
+    - name: Comentar resultado no PR
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request' && always()
+      with:
+        script: |
+          const fs = require('fs');
+          const resultsPath = 'playwright-report/index.html';
+          
+          let comment = '## 🧪 Resultado dos Testes E2E\n\n';
+          
+          if (fs.existsSync(resultsPath)) {
+            comment += '✅ Testes executados com sucesso!\n\n';
+            comment += '[📊 Ver relatório completo](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n';
+          } else {
+            comment += '❌ Falha na execução dos testes.\n\n';
+            comment += '[🔍 Ver detalhes](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n';
+          }
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  test-all-browsers:
+    timeout-minutes: 90
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    strategy:
+      matrix:
+        browser: [chromium, firefox, webkit]
+    
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Instalar dependências
+      run: npm ci
+    
+    - name: Instalar browser ${{ matrix.browser }}
+      run: npx playwright install --with-deps ${{ matrix.browser }}
+    
+    - name: Build aplicação
+      run: npm run build
+    
+    - name: Rodar testes no ${{ matrix.browser }}
+      run: npx playwright test --project=${{ matrix.browser }}
+    
+    - name: Upload relatório ${{ matrix.browser }}
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-report-${{ matrix.browser }}
+        path: playwright-report/
+        retention-days: 30
