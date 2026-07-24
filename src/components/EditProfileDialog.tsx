@@ -67,9 +67,9 @@ export function EditProfileDialog({ open, onOpenChange, user, onSuccess }: EditP
     
     if (!selectedUser || !user?.id) return;
 
-    try {
-      setIsSubmitting(true);
+    setIsSubmitting(true);
 
+    try {
       const updates: Partial<SystemUser> = {
         name: selectedUser.name,
         email: selectedUser.email,
@@ -100,18 +100,23 @@ export function EditProfileDialog({ open, onOpenChange, user, onSuccess }: EditP
         description: "Perfil atualizado com sucesso!",
       });
       
+      // Chama onSuccess primeiro para atualizar o contexto
       onSuccess();
-      onOpenChange(false);
+      
+      // Aguarda um pequeno delay para garantir que o contexto foi atualizado
+      setTimeout(() => {
+        setIsSubmitting(false);
+        onOpenChange(false);
+      }, 100);
+      
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
+      setIsSubmitting(false);
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o perfil.",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
-      onOpenChange?.(false);
     }
   };
 
