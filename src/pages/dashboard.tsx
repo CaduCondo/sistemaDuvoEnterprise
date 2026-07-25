@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
+import Head from "next/head";
 import { Layout } from "@/components/Layout";
 import { OverviewCards } from "@/components/dashboard/OverviewCards";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -7,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SEO } from "@/components/SEO";
 import { useAuth } from "@/contexts/AuthContext";
 import { WelcomeCard } from "@/components/dashboard/WelcomeCard";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/router";
 import { motion } from "framer-motion";
 
 // Lazy load dos gráficos (não bloqueiam o carregamento inicial)
