@@ -57,13 +57,14 @@ interface UserDialogProps {
 }
 
 export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps) {
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     username: "",
     password: "",
-    role: "broker",
+    role: "" as "" | "admin" | "broker" | "financial",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -114,7 +115,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           email: formData.email,
           phone: formData.phone || null,
           username: formData.username,
-          role: formData.role,
+          role: formData.role as "admin" | "broker" | "financial",
           password: formData.password || undefined,
         });
 
@@ -132,7 +133,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           phone: formData.phone || null,
           username: formData.username,
           password: temporaryPassword,
-          role: formData.role,
+          role: formData.role as "admin" | "broker" | "financial",
           requires_password_change: true,
           temporary_password: true,
         });
@@ -162,7 +163,8 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         });
       }
 
-      onSuccess();
+      // Chamar onSave para recarregar a lista
+      await onSave({});
       onOpenChange(false);
     } catch (error) {
       console.error("Erro ao salvar usuário:", error);
@@ -280,7 +282,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                 <Label htmlFor="role">Perfil <span className="text-red-500">*</span></Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(value) =>
+                  onValueChange={(value: "admin" | "broker" | "financial") =>
                     setFormData({ ...formData, role: value })
                   }
                   disabled={isSubmitting}
