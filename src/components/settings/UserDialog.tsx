@@ -55,7 +55,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         phone: "",
         username: "",
         password: "",
-        role: "broker",
+        role: "", // Vem em branco para novo usuário
       });
     }
   }, [user, open]);
@@ -127,7 +127,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome Completo</Label>
+                <Label htmlFor="name">Nome Completo <span className="text-red-500">*</span></Label>
                 <Input
                   id="name"
                   value={formData.name}
@@ -140,7 +140,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
+                <Label htmlFor="email">E-mail <span className="text-red-500">*</span></Label>
                 <Input
                   id="email"
                   type="email"
@@ -188,16 +188,17 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="role">Perfil</Label>
+                <Label htmlFor="role">Perfil <span className="text-red-500">*</span></Label>
                 <Select
                   value={formData.role}
                   onValueChange={(value) =>
                     setFormData({ ...formData, role: value })
                   }
                   disabled={isSubmitting}
+                  required
                 >
                   <SelectTrigger className="h-11">
-                    <SelectValue />
+                    <SelectValue placeholder="Selecione um perfil" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Administrador</SelectItem>

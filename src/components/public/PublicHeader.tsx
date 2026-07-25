@@ -19,6 +19,7 @@ export function PublicHeader() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [attempts, setAttempts] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +35,8 @@ export function PublicHeader() {
       const result = await login({ email: username, password });
       
       if (result.success && result.user) {
+        // Resetar tentativas em caso de sucesso
+        setAttempts(0);
         toast({
           title: "Login realizado",
           description: "Redirecionando para o painel...",
@@ -43,7 +46,27 @@ export function PublicHeader() {
         return;
       }
 
-      setError("Credenciais inválidas.");
+      // Incrementar tentativas
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      
+      // Mensagens amigáveis baseadas no número de tentativas
+      if (result.error?.includes("bloqueada")) {
+        setError(result.error);
+      } else {
+        const remaining = 3 - newAttempts;
+        if (remaining > 0) {
+          setError(`Senha incorreta. Você tem mais ${remaining} tentativa${remaining > 1 ? 's' : ''}.`);
+        } else {
+          setError("Conta bloqueada temporariamente por muitas tentativas falhas. Tente novamente em 30 minutos.");
+          setOpen(false);
+          toast({
+            title: "Conta bloqueada",
+            description: "Muitas tentativas falhas. Aguarde 30 minutos para tentar novamente.",
+            variant: "destructive",
+          });
+        }
+      }
       
     } catch (error) {
       console.error("Erro durante login:", error);
@@ -75,7 +98,14 @@ export function PublicHeader() {
             </div>
           </div>
 
-          <DropdownMenu open={open} onOpenChange={setOpen}>
+          <DropdownMenu open={open} onOpenChange={(isOpen) => {
+            setOpen(isOpen);
+            if (!isOpen) {
+              // Resetar ao fechar
+              setError("");
+              setPassword("");
+            }
+          }}>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"

@@ -502,32 +502,64 @@ export default function Settings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 h-auto">
-            <TabsTrigger id="settings-tab-company" value="company" className="gap-2 py-3">
+          <TabsList className="inline-flex h-12 items-center justify-start rounded-lg bg-muted p-1 text-muted-foreground w-full overflow-x-auto">
+            <TabsTrigger 
+              id="settings-tab-company" 
+              value="company" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+            >
               <Building2 className="h-4 w-4" />
-              Dados da Empresa
+              <span className="hidden sm:inline">Dados da Empresa</span>
+              <span className="sm:hidden">Empresa</span>
             </TabsTrigger>
-            <TabsTrigger id="settings-tab-payment-methods" value="payment-methods" className="gap-2 py-3">
+            <TabsTrigger 
+              id="settings-tab-payment-methods" 
+              value="payment-methods" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+            >
               <Wallet className="h-4 w-4" />
-              Formas Pagamento
+              <span className="hidden sm:inline">Formas Pagamento</span>
+              <span className="sm:hidden">Pagamento</span>
             </TabsTrigger>
-            <TabsTrigger id="settings-tab-admin-fees" value="admin-fees" className="gap-2 py-3">
+            <TabsTrigger 
+              id="settings-tab-admin-fees" 
+              value="admin-fees" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+            >
               <Percent className="h-4 w-4" />
-              Taxas Admin
+              <span className="hidden sm:inline">Taxas Admin</span>
+              <span className="sm:hidden">Taxas</span>
             </TabsTrigger>
-            <TabsTrigger id="settings-tab-fines" value="fines" className="gap-2 py-3">
+            <TabsTrigger 
+              id="settings-tab-fines" 
+              value="fines" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+            >
               <AlertCircle className="h-4 w-4" />
-              Multas e Juros
+              <span className="hidden sm:inline">Multas e Juros</span>
+              <span className="sm:hidden">Multas</span>
             </TabsTrigger>
-            <TabsTrigger id="settings-tab-users" value="users" className="gap-2 py-3">
+            <TabsTrigger 
+              id="settings-tab-users" 
+              value="users" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+            >
               <Users className="h-4 w-4" />
               Usuários
             </TabsTrigger>
-            <TabsTrigger id="settings-tab-permissions" value="permissions" className="gap-2 py-3">
+            <TabsTrigger 
+              id="settings-tab-permissions" 
+              value="permissions" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+            >
               <Shield className="h-4 w-4" />
               Permissões
             </TabsTrigger>
-            <TabsTrigger id="settings-tab-locations" value="locations" className="flex items-center gap-2">
+            <TabsTrigger 
+              id="settings-tab-locations" 
+              value="locations" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+            >
               <MapPin className="h-4 w-4" />
               Locais
             </TabsTrigger>
