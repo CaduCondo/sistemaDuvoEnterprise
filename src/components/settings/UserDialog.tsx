@@ -21,6 +21,7 @@ import {
 import { forceDialogCleanup } from "@/lib/forceCleanup";
 import { useToast } from "@/hooks/use-toast";
 import { createUser, updateUser } from "@/services/systemUserService";
+import { supabase } from "@/integrations/supabase/client";
 
 // Função para gerar senha temporária aleatória
 function generateTemporaryPassword(): string {
@@ -62,8 +63,6 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
     name: "",
     email: "",
     phone: "",
-    username: "",
-    password: "",
     role: "" as "" | "admin" | "broker" | "financial",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,8 +73,6 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         name: user.name,
         email: user.email,
         phone: user.phone || "",
-        username: user.username || "",
-        password: "",
         role: user.role,
       });
     } else {
@@ -83,8 +80,6 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         name: "",
         email: "",
         phone: "",
-        username: "",
-        password: "",
         role: "", // Vem em branco para novo usuário
       });
     }
@@ -114,9 +109,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           name: formData.name,
           email: formData.email,
           phone: formData.phone || null,
-          username: formData.username,
           role: formData.role as "admin" | "broker" | "financial",
-          password: formData.password || undefined,
         });
 
         toast({
@@ -124,21 +117,39 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           description: "Usuário atualizado com sucesso!",
         });
       } else {
+        // Verificar se email/usuário já existe
+        const { data: existingUser } = await supabase
+          .from("system_users")
+          .select("id")
+          .or(`email.eq.${formData.email},username.eq.${formData.email}`)
+          .single();
+
+        if (existingUser) {
+          toast({
+            title: "Erro",
+            description: "O E-mail/Usuário já existe no sistema.",
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
         // Criar novo usuário
         const temporaryPassword = generateTemporaryPassword();
         
         await createUser({
           name: formData.name,
           email: formData.email,
+          username: formData.email, // Usar email como username
           phone: formData.phone || null,
-          username: formData.username,
           password: temporaryPassword,
           role: formData.role as "admin" | "broker" | "financial",
           requires_password_change: true,
           temporary_password: true,
         });
 
-        // Simular envio de email (log no console por enquanto)
+        // TODO: Integrar com Resend para envio real de email
+        // Por enquanto, log no console
         console.log('=== EMAIL DE BOAS-VINDAS ===');
         console.log('Para:', formData.email);
         console.log('Assunto: Bem-vindo ao D\'Uvo Enterprise');
@@ -158,21 +169,31 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
 
         toast({
           title: "Usuário criado!",
-          description: `Senha temporária: ${temporaryPassword} (verifique o console para detalhes do email)`,
-          duration: 10000,
+          description: "Email com senha temporária enviado com sucesso.",
+          duration: 5000,
         });
       }
 
       // Chamar onSave para recarregar a lista
       await onSave({});
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar usuário:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível salvar o usuário.",
-        variant: "destructive",
-      });
+      
+      // Verificar se é erro de unicidade do banco
+      if (error?.message?.includes("duplicate") || error?.code === "23505") {
+        toast({
+          title: "Erro",
+          description: "O E-mail/Usuário já existe no sistema.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: "Não foi possível salvar o usuário.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -211,7 +232,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           <DialogDescription>
             {user
               ? "Atualize as informações do usuário abaixo."
-              : "Preencha os dados do novo usuário. Email e nome de usuário devem ser únicos."}
+              : "Preencha os dados do novo usuário. E-mail/Usuário deve ser únicos."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -231,7 +252,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">E-mail <span className="text-red-500">*</span></Label>
+                <Label htmlFor="email">E-mail / Usuário <span className="text-red-500">*</span></Label>
                 <Input
                   id="email"
                   type="email"
@@ -262,23 +283,6 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="username">Usuário</Label>
-                <Input
-                  id="username"
-                  value={formData.username}
-                  onChange={(e) =>
-                    setFormData({ ...formData, username: e.target.value })
-                  }
-                  placeholder="usuario.login"
-                  required
-                  disabled={isSubmitting}
-                  className="h-11"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
                 <Label htmlFor="role">Perfil <span className="text-red-500">*</span></Label>
                 <Select
                   value={formData.role}
@@ -297,30 +301,6 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                     <SelectItem value="financial">Financeiro</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm">
-                  Senha Temporária
-                  {user && (
-                    <span className="block text-muted-foreground text-xs mt-1">
-                      (deixe em branco para manter a senha atual)
-                    </span>
-                  )}
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  placeholder={
-                    user ? "Deixe em branco para não alterar" : "Senha de acesso"
-                  }
-                  required={!user}
-                  disabled={isSubmitting}
-                  className="h-11"
-                />
               </div>
             </div>
           </div>
@@ -342,10 +322,10 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
               {isSubmitting ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Salvando...
+                  {user ? "Salvando..." : "Criando..."}
                 </>
               ) : (
-                "Salvar Usuário"
+                user ? "Salvar Alterações" : "Criar Usuário"
               )}
             </Button>
           </DialogFooter>

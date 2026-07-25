@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, LogIn, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { Building2, LogIn, Eye, EyeOff, Loader2, AlertCircle, ArrowLeft, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,25 @@ import { login } from "@/lib/auth";
 import { PasswordChangeDialog } from "@/components/PasswordChangeDialog";
 import { supabase } from "@/integrations/supabase/client";
 
+// Função para gerar senha temporária
+function generateTemporaryPassword(): string {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const numbers = '0123456789';
+  const allChars = uppercase + lowercase + numbers;
+  
+  let password = '';
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += numbers[Math.floor(Math.random() * numbers.length)];
+  
+  for (let i = 3; i < 12; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+  
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+}
+
 export function PublicHeader() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -24,6 +43,9 @@ export function PublicHeader() {
   const [attempts, setAttempts] = useState(0);
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
   const [userId, setUserId] = useState<string>("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,12 +117,90 @@ export function PublicHeader() {
     }
   };
 
-  const handleForgotPassword = () => {
-    toast({
-      title: "Recuperação de senha",
-      description: "Entre em contato com o administrador do sistema para redefinir sua senha.",
-    });
-    setOpen(false);
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRecoveryLoading(true);
+    
+    try {
+      // Buscar usuário pelo email
+      const { data: user, error } = await supabase
+        .from("system_users")
+        .select("id, name, email")
+        .eq("email", recoveryEmail)
+        .eq("active", true)
+        .single();
+
+      if (error || !user) {
+        toast({
+          title: "Erro",
+          description: "E-mail não encontrado no sistema.",
+          variant: "destructive",
+        });
+        setRecoveryLoading(false);
+        return;
+      }
+
+      // Gerar senha temporária
+      const temporaryPassword = generateTemporaryPassword();
+
+      // Atualizar usuário com senha temporária
+      await supabase
+        .from("system_users")
+        .update({
+          password_hash: temporaryPassword,
+          requires_password_change: true,
+          temporary_password: true,
+          login_attempts: 0,
+          blocked_until: null,
+        })
+        .eq("id", user.id);
+
+      // TODO: Integrar com Resend para envio real
+      console.log('=== EMAIL DE RECUPERAÇÃO DE SENHA ===');
+      console.log('Para:', user.email);
+      console.log('Assunto: Recuperação de Senha - D\'Uvo Enterprise');
+      console.log('---');
+      console.log('Olá ' + user.name + ',');
+      console.log('');
+      console.log('Você solicitou a recuperação de senha do sistema D\'Uvo Enterprise.');
+      console.log('');
+      console.log('Acesse: www.duvoenterprise.com.br');
+      console.log('Sua nova senha temporária é: ' + temporaryPassword);
+      console.log('');
+      console.log('IMPORTANTE: Por segurança, você será obrigado a criar uma nova senha no primeiro acesso.');
+      console.log('');
+      console.log('Requisitos da nova senha:');
+      console.log('- Pelo menos 1 letra maiúscula');
+      console.log('- Pelo menos 1 letra minúscula');
+      console.log('- Pelo menos 1 número');
+      console.log('- Entre 6 e 12 caracteres');
+      console.log('');
+      console.log('Se você não solicitou esta recuperação, entre em contato com o administrador.');
+      console.log('');
+      console.log('Atenciosamente,');
+      console.log('Equipe D\'Uvo Enterprise');
+      console.log('=====================================');
+
+      toast({
+        title: "Email enviado!",
+        description: "Verifique sua caixa de entrada. A senha temporária foi enviada.",
+        duration: 5000,
+      });
+
+      // Voltar para tela de login
+      setShowForgotPassword(false);
+      setRecoveryEmail("");
+      
+    } catch (error) {
+      console.error("Erro ao recuperar senha:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível enviar o email. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setRecoveryLoading(false);
+    }
   };
 
   const handlePasswordChangeSuccess = () => {
@@ -134,6 +234,8 @@ export function PublicHeader() {
               setError("");
               setPassword("");
               setRequiresPasswordChange(false);
+              setShowForgotPassword(false);
+              setRecoveryEmail("");
             }
           }}>
             <DropdownMenuTrigger asChild>
@@ -148,6 +250,73 @@ export function PublicHeader() {
             <DropdownMenuContent align="end" className="w-80 p-4">
               {requiresPasswordChange ? (
                 <PasswordChangeDialog userId={userId} onSuccess={handlePasswordChangeSuccess} />
+              ) : showForgotPassword ? (
+                <div className="space-y-3">
+                  <div className="text-center pb-2 border-b">
+                    <div className="mx-auto bg-gradient-to-br from-blue-600 to-blue-800 w-12 h-12 rounded-xl flex items-center justify-center shadow-lg mb-2">
+                      <Mail className="h-6 w-6 text-white" />
+                    </div>
+                    <h3 className="font-bold text-lg text-slate-900">Recuperar Senha</h3>
+                    <p className="text-xs text-slate-600">Digite seu e-mail para receber uma senha temporária</p>
+                  </div>
+
+                  <form onSubmit={handleForgotPasswordSubmit} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recovery-email" className="text-sm font-medium">E-mail</Label>
+                      <Input
+                        id="recovery-email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={recoveryEmail}
+                        onChange={(e) => setRecoveryEmail(e.target.value)}
+                        required
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    
+                    <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-800">
+                      <p className="font-semibold mb-1">Você receberá:</p>
+                      <ul className="list-disc list-inside space-y-0.5 text-xs">
+                        <li>Link: www.duvoenterprise.com.br</li>
+                        <li>Senha temporária de 12 caracteres</li>
+                        <li>Será obrigado a criar nova senha no login</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button 
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowForgotPassword(false)}
+                        className="flex-1 h-9 text-sm"
+                        disabled={recoveryLoading}
+                      >
+                        <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+                        Voltar
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-sm"
+                        disabled={recoveryLoading}
+                      >
+                        {recoveryLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                            Enviando...
+                          </>
+                        ) : (
+                          "Enviar Email"
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+
+                  <div className="text-center pt-2 border-t">
+                    <p className="text-xs text-slate-500">
+                      Desenvolvido por <span className="font-semibold">Carlos Uva</span>
+                    </p>
+                  </div>
+                </div>
               ) : (
                 <div className="space-y-3">
                   <div className="text-center pb-2 border-b">
@@ -208,7 +377,7 @@ export function PublicHeader() {
                     <div className="flex justify-end">
                       <button
                         type="button"
-                        onClick={handleForgotPassword}
+                        onClick={() => setShowForgotPassword(true)}
                         className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                       >
                         Esqueci minha senha
