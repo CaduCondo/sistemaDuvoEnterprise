@@ -1,3 +1,4 @@
+import React from "react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,14 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MoreVertical, Plus, Edit, Trash2, Key, Ban, CheckCircle, Lock } from "lucide-react";
+import { Plus, Trash2, Key, Ban, CheckCircle, Lock } from "lucide-react";
 import { UserDialog } from "./UserDialog";
 import {
   AlertDialog,
@@ -31,6 +25,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { SystemUser } from "@/types";
 import { forceDialogCleanup } from "@/lib/forceCleanup";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface UsersTabProps {
   users: SystemUser[];
@@ -139,7 +139,8 @@ export function UsersTab({
     }
   };
 
-  const handleDeleteClick = (user: SystemUser) => {
+  const handleDeleteClick = (e: React.MouseEvent, user: SystemUser) => {
+    e.stopPropagation(); // Evitar que o clique abra a edição
     setUserToDelete(user);
   };
 
@@ -150,16 +151,9 @@ export function UsersTab({
     }
   };
 
-  const handleToggleActive = async (userId: string) => {
-    await onToggleStatus(userId);
-  };
-
-  const handleResetPassword = async (userId: string) => {
+  const handleResetPassword = async (e: React.MouseEvent, userId: string) => {
+    e.stopPropagation(); // Evitar que o clique abra a edição
     await onResetPassword(userId);
-  };
-
-  const handleUnblock = async (userId: string) => {
-    await onUnblockUser(userId);
   };
 
   return (
@@ -191,7 +185,7 @@ export function UsersTab({
                     <TableHead>E-mail</TableHead>
                     <TableHead>Perfil</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="w-[100px]">Ações</TableHead>
+                    <TableHead className="w-[100px] text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -200,7 +194,11 @@ export function UsersTab({
                     const StatusIcon = status.icon;
                     
                     return (
-                      <TableRow key={user.id}>
+                      <TableRow 
+                        key={user.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleEditUser(user)}
+                      >
                         <TableCell className="font-medium">{user.name}</TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
@@ -225,54 +223,41 @@ export function UsersTab({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button id={`users-actions-${user.id}`} variant="ghost" size="sm">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem id={`users-edit-${user.id}`} onClick={() => handleEditUser(user)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Editar
-                              </DropdownMenuItem>
-                              
-                              {/* Mostrar Desbloquear quando bloqueado temporariamente */}
-                              {status.type === "blocked_temp" && (
-                                <DropdownMenuItem id={`users-unblock-${user.id}`} onClick={() => handleUnblock(user.id)}>
-                                  <CheckCircle className="mr-2 h-4 w-4" />
-                                  Desbloquear
-                                </DropdownMenuItem>
-                              )}
-                              
-                              {/* Mostrar Ativar/Desativar apenas quando NÃO bloqueado temporariamente */}
-                              {status.type !== "blocked_temp" && (
-                                <DropdownMenuItem id={`users-toggle-${user.id}`} onClick={() => handleToggleActive(user.id)}>
-                                  {user.active ? (
-                                    <>
-                                      <Ban className="mr-2 h-4 w-4" />
-                                      Desativar
-                                    </>
-                                  ) : (
-                                    <>
-                                      <CheckCircle className="mr-2 h-4 w-4" />
-                                      Ativar
-                                    </>
-                                  )}
-                                </DropdownMenuItem>
-                              )}
-                              
-                              <DropdownMenuItem id={`users-reset-password-${user.id}`} onClick={() => handleResetPassword(user.id)}>
-                                <Key className="mr-2 h-4 w-4" />
-                                Resetar Senha
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem id={`users-delete-${user.id}`} onClick={() => handleDeleteClick(user)} className="text-red-600">
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Excluir
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <TooltipProvider>
+                            <div className="flex items-center justify-center gap-2">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => handleResetPassword(e, user.id)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Key className="h-4 w-4 text-blue-600" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Resetar Senha</p>
+                                </TooltipContent>
+                              </Tooltip>
+
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => handleDeleteClick(e, user)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Excluir</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TooltipProvider>
                         </TableCell>
                       </TableRow>
                     );

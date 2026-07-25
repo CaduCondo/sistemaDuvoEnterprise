@@ -22,6 +22,7 @@ import { forceDialogCleanup } from "@/lib/forceCleanup";
 import { useToast } from "@/hooks/use-toast";
 import { createUser, updateUser } from "@/services/systemUserService";
 import { supabase } from "@/integrations/supabase/client";
+import { applyPhoneMask } from "@/lib/masks";
 
 // Função para gerar senha temporária aleatória
 function generateTemporaryPassword(): string {
@@ -50,6 +51,17 @@ function generateTemporaryPassword(): string {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
+// Validação de email
+function isValidEmail(email: string): boolean {
+  return email.includes('@') && email.length > 3;
+}
+
+// Validação de telefone
+function isValidPhone(phone: string): boolean {
+  const numbers = phone.replace(/\D/g, '');
+  return numbers.length === 10 || numbers.length === 11;
+}
+
 interface UserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -64,8 +76,11 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
     email: "",
     phone: "",
     role: "" as "" | "admin" | "broker" | "financial",
+    active: true,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -74,32 +89,75 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         email: user.email,
         phone: user.phone || "",
         role: user.role,
+        active: user.active !== undefined ? user.active : true,
       });
     } else {
       setFormData({
         name: "",
         email: "",
         phone: "",
-        role: "", // Vem em branco para novo usuário
+        role: "",
+        active: true, // Ativado por padrão
       });
     }
+    setEmailError("");
+    setPhoneError("");
   }, [user, open]);
 
   // Force cleanup when dialog closes
   useEffect(() => {
     if (!open) {
       setIsSubmitting(false);
-      // Use the centralized cleanup function with delay
       setTimeout(() => {
         forceDialogCleanup();
       }, 100);
     }
   }, [open]);
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const masked = applyPhoneMask(e.target.value);
+    setFormData({ ...formData, phone: masked });
+    
+    // Validar apenas se tiver conteúdo
+    if (masked) {
+      const numbers = masked.replace(/\D/g, '');
+      if (numbers.length > 0 && !isValidPhone(masked)) {
+        setPhoneError("Telefone inválido. Use (XX) XXXXX-XXXX ou (XX) XXXX-XXXX");
+      } else {
+        setPhoneError("");
+      }
+    } else {
+      setPhoneError("");
+    }
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const email = e.target.value;
+    setFormData({ ...formData, email });
+    
+    // Validar apenas se tiver conteúdo
+    if (email && !isValidEmail(email)) {
+      setEmailError("E-mail inválido. Deve conter @");
+    } else {
+      setEmailError("");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (isSubmitting) return;
+
+    // Validações finais
+    if (!isValidEmail(formData.email)) {
+      setEmailError("E-mail inválido. Deve conter @");
+      return;
+    }
+
+    if (formData.phone && !isValidPhone(formData.phone)) {
+      setPhoneError("Telefone inválido. Use (XX) XXXXX-XXXX ou (XX) XXXX-XXXX");
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -110,6 +168,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           email: formData.email,
           phone: formData.phone || null,
           role: formData.role as "admin" | "broker" | "financial",
+          active: formData.active,
         });
 
         toast({
@@ -140,16 +199,16 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         await createUser({
           name: formData.name,
           email: formData.email,
-          username: formData.email, // Usar email como username
+          username: formData.email,
           phone: formData.phone || null,
           password: temporaryPassword,
           role: formData.role as "admin" | "broker" | "financial",
+          active: formData.active,
           requires_password_change: true,
           temporary_password: true,
         });
 
         // TODO: Integrar com Resend para envio real de email
-        // Por enquanto, log no console
         console.log('=== EMAIL DE BOAS-VINDAS ===');
         console.log('Para:', formData.email);
         console.log('Assunto: Bem-vindo ao D\'Uvo Enterprise');
@@ -180,7 +239,6 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
     } catch (error: any) {
       console.error("Erro ao salvar usuário:", error);
       
-      // Verificar se é erro de unicidade do banco
       if (error?.message?.includes("duplicate") || error?.code === "23505") {
         toast({
           title: "Erro",
@@ -211,7 +269,6 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         className="sm:max-w-[600px] max-w-[95vw] max-h-[90vh] overflow-y-auto"
         onCloseAutoFocus={(e) => {
           e.preventDefault();
-          // Additional cleanup on close
           forceDialogCleanup();
         }}
         onEscapeKeyDown={(e) => {
@@ -257,14 +314,15 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                   id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
+                  onChange={handleEmailChange}
                   required
                   disabled={isSubmitting}
                   className="h-11"
                   placeholder="usuario@exemplo.com"
                 />
+                {emailError && (
+                  <p className="text-xs text-red-600">{emailError}</p>
+                )}
               </div>
             </div>
 
@@ -274,13 +332,15 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                 <Input
                   id="phone"
                   value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
+                  onChange={handlePhoneChange}
                   disabled={isSubmitting}
                   placeholder="(00) 00000-0000"
                   className="h-11"
+                  maxLength={15}
                 />
+                {phoneError && (
+                  <p className="text-xs text-red-600">{phoneError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Perfil <span className="text-red-500">*</span></Label>
@@ -303,6 +363,35 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                 </Select>
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.active ? "active" : "inactive"}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, active: value === "active" })
+                }
+                disabled={isSubmitting}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-600"></div>
+                      Ativado
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="inactive">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-red-600"></div>
+                      Desativado
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
             <Button 
@@ -316,7 +405,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
             </Button>
             <Button 
               type="submit" 
-              disabled={isSubmitting}
+              disabled={isSubmitting || !!emailError || !!phoneError}
               className="w-full sm:w-auto h-11"
             >
               {isSubmitting ? (
