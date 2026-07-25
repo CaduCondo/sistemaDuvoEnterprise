@@ -449,3 +449,122 @@ Após executar, veja:
 **Novidade:**
 - Testes Gherkin em `e2e/features/*.feature`
 - Execute com `npm run test:cucumber`
+
+## 📋 Testes Disponíveis
+
+### ✅ Testes de Autenticação
+
+#### Login via Dropdown (`tests/auth/login-dropdown.spec.ts`)
+- ✅ Abrir dropdown de login no header público
+- ✅ Preencher credenciais e fazer login
+- ✅ Verificar redirecionamento para dashboard
+- ✅ Verificar carregamento do tema do usuário
+- ✅ Validar comportamento de mostrar/ocultar senha
+- ✅ Testar link "Esqueci minha senha"
+
+#### Sistema de 3 Tentativas (`tests/auth/three-attempts.spec.ts`)
+- ✅ Primeira tentativa falha: "Você tem mais 2 tentativas"
+- ✅ Segunda tentativa falha: "Você tem mais 1 tentativa"
+- ✅ Terceira tentativa falha: Bloqueio por 30 minutos
+- ✅ Verificar impossibilidade de login quando bloqueado
+- ✅ Verificar reset de tentativas após login bem-sucedido
+
+#### Recuperação de Senha (`tests/auth/password-recovery.spec.ts`)
+- ✅ Abrir tela de recuperação no dropdown
+- ✅ Preencher email e solicitar recuperação
+- ✅ Verificar mensagem de sucesso
+- ✅ Validar email inválido/não encontrado
+- ✅ Verificar reset de bloqueio após recuperação
+
+#### Troca Obrigatória de Senha (`tests/auth/password-change-required.spec.ts`)
+- ✅ Detectar senha temporária no primeiro login
+- ✅ Exibir tela de troca de senha no dropdown
+- ✅ Validação em tempo real (maiúscula, minúscula, número, tamanho)
+- ✅ Feedback visual (❌ vermelho → ✅ verde)
+- ✅ Validar senhas idênticas (onBlur do segundo campo)
+- ✅ Desabilitar botão quando requisitos não atendidos
+- ✅ Salvar nova senha e redirecionar para dashboard
+
+#### Sistema de Tema (`tests/auth/theme-switching.spec.ts`)
+- ✅ Carregar tema do banco no login
+- ✅ Mostrar opção de tema oposto no menu
+- ✅ Trocar de light para dark
+- ✅ Trocar de dark para light
+- ✅ Persistir tema após logout e login
+- ✅ Manter tema em diferentes dispositivos
+- ✅ Aplicar tema imediatamente sem reload
+
+### 👥 Testes de Gestão de Usuários
+
+#### CRUD de Usuários (`tests/users/users-management.spec.ts`)
+- ✅ Exibir tabela de usuários
+- ✅ Abrir dialog de criação
+- ✅ Validar email com @
+- ✅ Aplicar máscara no telefone
+- ✅ Validar telefone (10 ou 11 dígitos)
+- ✅ Criar novo usuário com sucesso
+- ✅ Impedir criação com email duplicado
+- ✅ Abrir edição ao clicar na linha
+- ✅ Resetar senha do usuário
+- ✅ Excluir usuário com confirmação
+- ✅ Alternar status Ativado/Desativado
+- ✅ Exibir status correto na tabela
+
+### 🔌 Testes de API
+
+#### API de Autenticação (`tests/api/auth.api.spec.ts`)
+
+**POST /api/auth/login**
+- ✅ Login com credenciais válidas
+- ✅ Erro com credenciais inválidas
+- ✅ Incrementar tentativas após senha incorreta
+- ✅ Bloquear após 3 tentativas
+- ✅ Retornar erro quando conta bloqueada
+- ✅ Resetar tentativas após login bem-sucedido
+- ✅ Retornar requires_password_change para senha temporária
+
+**POST /api/auth/forgot-password**
+- ✅ Gerar senha temporária para email válido
+- ✅ Erro para email não encontrado
+- ✅ Resetar tentativas e bloqueio
+- ✅ Marcar requires_password_change como true
+
+**POST /api/auth/change-password**
+- ✅ Aceitar senha válida
+- ✅ Rejeitar senha sem maiúscula
+- ✅ Rejeitar senha sem minúscula
+- ✅ Rejeitar senha sem número
+- ✅ Rejeitar senha com menos de 6 caracteres
+- ✅ Rejeitar senha com mais de 12 caracteres
+- ✅ Marcar requires_password_change como false
+
+#### API de Usuários (`tests/api/users.api.spec.ts`)
+
+**GET /api/users**
+- ✅ Listar todos os usuários
+- ✅ Retornar 401 sem autenticação
+
+**POST /api/users**
+- ✅ Criar usuário com dados válidos
+- ✅ Rejeitar email duplicado
+- ✅ Rejeitar email sem @
+- ✅ Rejeitar telefone inválido
+- ✅ Aceitar telefone fixo (10 dígitos)
+- ✅ Aceitar telefone celular (11 dígitos)
+- ✅ Criar usuário ativado por padrão
+
+**PUT /api/users/:id**
+- ✅ Atualizar dados do usuário
+- ✅ Alterar status ativo/inativo
+- ✅ Atualizar tema do usuário
+- ✅ Rejeitar tema inválido
+
+**POST /api/users/:id/reset-password**
+- ✅ Resetar senha do usuário
+- ✅ Marcar requires_password_change após reset
+- ✅ Resetar tentativas de login
+
+**DELETE /api/users/:id**
+- ✅ Excluir usuário
+- ✅ Retornar 404 ao buscar usuário excluído
+- ✅ Retornar 403 sem permissão de admin
