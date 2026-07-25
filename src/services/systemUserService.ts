@@ -28,17 +28,22 @@ export async function getUserByEmail(email: string): Promise<SystemUser | null> 
 export async function createUser(userData: {
   name: string;
   email: string;
-  phone?: string;
+  phone?: string | null;
   username?: string;
   role: "admin" | "broker" | "financial";
   password: string;
-  active: boolean;
+  active?: boolean;
+  requires_password_change?: boolean;
+  temporary_password?: boolean;
 }): Promise<SystemUser> {
   // Converter password para password_hash
   // TODO: Em produção, usar bcrypt.hash antes de salvar
   const dbData = {
     ...userData,
     password_hash: userData.password, // TEMPORÁRIO: até bcrypt ser implementado
+    active: userData.active !== undefined ? userData.active : true,
+    requires_password_change: userData.requires_password_change || false,
+    temporary_password: userData.temporary_password || false,
   };
   
   // Remover password do objeto (não existe mais no banco)

@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { forceDialogCleanup } from "@/lib/forceCleanup";
+import { useToast } from "@/hooks/use-toast";
+import { createUser, updateUser } from "@/services/systemUserService";
 
 // Função para gerar senha temporária aleatória
 function generateTemporaryPassword(): string {
