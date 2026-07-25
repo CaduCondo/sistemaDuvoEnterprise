@@ -139,6 +139,426 @@ if (session) {
 
 ---
 
+### Sistema de Autenticação Completo
+
+#### 1. login (via authService)
+
+```typescript
+async function login(credentials: {
+  email: string;
+  password: string;
+}): Promise<LoginResult>
+```
+
+**Descrição:** Autentica usuário com sistema de 3 tentativas
+
+**Parâmetros:**
+- `email` (string) - Email ou username
+- `password` (string) - Senha do usuário
+
+**Retorno:**
+```typescript
+interface LoginResult {
+  success: boolean;
+  user?: {
+    id: string;
+    email: string;
+    name: string;
+    username: string;
+    role: "admin" | "financial" | "broker";
+    theme?: string;
+  };
+  error?: string;
+}
+```
+
+**Validações Automáticas:**
+
+1. **Verificação de bloqueio:**
+   - Se `blocked_until` > agora → erro de bloqueio
+   - Mostra tempo restante em minutos
+
+2. **Validação de senha:**
+   - Senha correta → login bem-sucedido, reset tentativas
+   - Senha incorreta → incrementa tentativas
+
+3. **Sistema de 3 tentativas:**
+   - 1ª erro: "Senha incorreta. Você tem mais 2 tentativas."
+   - 2ª erro: "Senha incorreta. Você tem mais 1 tentativa."
+   - 3ª erro: Bloqueio por 30 minutos
+
+4. **Troca de senha obrigatória:**
+   - Se `requires_password_change = true` → redireciona para tela de troca
+
+**Exemplo:**
+```typescript
+import { login } from "@/lib/auth";
+
+const result = await login({
+  email: "usuario@exemplo.com",
+  password: "senha123"
+});
+
+if (result.success && result.user) {
+  // Verificar se precisa trocar senha
+  if (result.user.requires_password_change) {
+    // Mostrar tela de troca de senha
+  } else {
+    // Redirecionar para dashboard
+    window.location.href = "/dashboard";
+  }
+} else {
+  console.error(result.error);
+}
+```
+
+---
+
+#### 2. forgotPassword
+
+```typescript
+async function forgotPassword(email: string): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+}>
+```
+
+**Descrição:** Gera senha temporária e envia email de recuperação
+
+**Parâmetros:**
+- `email` (string) - Email do usuário
+
+**Processo:**
+
+1. Valida se email existe no sistema
+2. Gera senha temporária (12 caracteres)
+3. Atualiza banco de dados:
+   - `password_hash` = nova senha
+   - `requires_password_change = true`
+   - `temporary_password = true`
+   - `login_attempts = 0`
+   - `blocked_until = null`
+4. Envia email com senha temporária
+5. Retorna sucesso
+
+**Retorno:**
+```typescript
+{
+  success: true,
+  message: "Email enviado com sucesso"
+}
+```
+
+**Erros:**
+```typescript
+{
+  success: false,
+  error: "E-mail não encontrado no sistema"
+}
+```
+
+**Exemplo:**
+```typescript
+const result = await forgotPassword("usuario@exemplo.com");
+
+if (result.success) {
+  toast({
+    title: "Email enviado!",
+    description: "Verifique sua caixa de entrada"
+  });
+}
+```
+
+---
+
+#### 3. changePassword
+
+```typescript
+async function changePassword(
+  userId: string,
+  newPassword: string
+): Promise<{
+  success: boolean;
+  error?: string;
+}>
+```
+
+**Descrição:** Atualiza senha do usuário após validação
+
+**Parâmetros:**
+- `userId` (string) - ID do usuário
+- `newPassword` (string) - Nova senha
+
+**Validações da nova senha:**
+- ✅ Pelo menos 1 letra maiúscula
+- ✅ Pelo menos 1 letra minúscula
+- ✅ Pelo menos 1 número
+- ✅ Mínimo 6 caracteres
+- ✅ Máximo 12 caracteres
+
+**Processo:**
+
+1. Valida requisitos da senha
+2. Atualiza `password_hash`
+3. Define `requires_password_change = false`
+4. Define `temporary_password = false`
+5. Reseta `login_attempts = 0`
+
+**Exemplo:**
+```typescript
+const result = await changePassword(userId, "NovaSenha123");
+
+if (result.success) {
+  toast({ title: "Senha atualizada!" });
+  window.location.href = "/dashboard";
+}
+```
+
+---
+
+## 👥 Serviços de Usuários
+
+### systemUserService.ts
+
+**Localização:** `src/services/systemUserService.ts`
+
+#### Métodos Disponíveis
+
+##### 1. fetchUsers
+
+```typescript
+async function fetchUsers(): Promise<SystemUser[]>
+```
+
+**Descrição:** Busca todos os usuários do sistema
+
+**Retorno:** Array de `SystemUser`
+
+**Exemplo:**
+```typescript
+import { fetchUsers } from "@/services/systemUserService";
+
+const users = await fetchUsers();
+console.log("Total de usuários:", users.length);
+```
+
+---
+
+##### 2. createUser
+
+```typescript
+async function createUser(userData: {
+  name: string;
+  email: string;
+  username?: string;
+  phone?: string | null;
+  role: "admin" | "broker" | "financial";
+  password: string;
+  active?: boolean;
+  requires_password_change?: boolean;
+  temporary_password?: boolean;
+}): Promise<SystemUser>
+```
+
+**Descrição:** Cria novo usuário com senha temporária
+
+**Parâmetros:**
+- `name` (string, obrigatório) - Nome completo
+- `email` (string, obrigatório) - Email (único)
+- `username` (string, opcional) - Username (único)
+- `phone` (string, opcional) - Telefone
+- `role` (string, obrigatório) - Perfil
+- `password` (string, obrigatório) - Senha temporária
+- `active` (boolean, opcional) - Status (padrão: true)
+- `requires_password_change` (boolean, opcional) - Forçar troca
+- `temporary_password` (boolean, opcional) - Senha é temporária
+
+**Validações:**
+- Email deve conter @
+- Email deve ser único
+- Telefone deve ter 10 ou 11 dígitos (se informado)
+
+**Retorno:** Objeto `SystemUser` criado
+
+**Exemplo:**
+```typescript
+import { createUser } from "@/services/systemUserService";
+
+const newUser = await createUser({
+  name: "João Silva",
+  email: "joao@exemplo.com",
+  phone: "(11) 98765-4321",
+  role: "broker",
+  password: "TempPass123", // Gerada automaticamente
+  requires_password_change: true,
+  temporary_password: true
+});
+```
+
+---
+
+##### 3. updateUser
+
+```typescript
+async function updateUser(
+  id: string,
+  updates: Partial<SystemUser>
+): Promise<SystemUser>
+```
+
+**Descrição:** Atualiza dados de um usuário
+
+**Parâmetros:**
+- `id` (string) - ID do usuário
+- `updates` (Partial<SystemUser>) - Campos a atualizar
+
+**Campos editáveis:**
+- `name` - Nome completo
+- `email` - Email
+- `phone` - Telefone
+- `role` - Perfil
+- `active` - Status
+- `theme` - Tema (light/dark)
+
+**Não editáveis diretamente:**
+- `password` - Use `resetPassword` ou `changePassword`
+
+**Exemplo:**
+```typescript
+const updated = await updateUser("user-123", {
+  name: "João Silva Santos",
+  phone: "(11) 99999-8888",
+  active: true,
+  theme: "dark"
+});
+```
+
+---
+
+##### 4. deleteUser
+
+```typescript
+async function deleteUser(id: string): Promise<void>
+```
+
+**Descrição:** Deleta um usuário
+
+**Parâmetros:**
+- `id` (string) - ID do usuário
+
+**Validações:**
+- Apenas Admin pode deletar
+- Não pode deletar usuário ativo com permissões
+
+**Exemplo:**
+```typescript
+await deleteUser("user-123");
+```
+
+---
+
+##### 5. resetUserPassword
+
+```typescript
+async function resetUserPassword(userId: string): Promise<{
+  success: boolean;
+  temporaryPassword?: string;
+  error?: string;
+}>
+```
+
+**Descrição:** Reseta senha do usuário e envia email
+
+**Parâmetros:**
+- `userId` (string) - ID do usuário
+
+**Processo:**
+
+1. Busca dados do usuário (nome, email)
+2. Gera senha temporária (12 caracteres)
+3. Atualiza banco de dados:
+   - `password_hash` = nova senha
+   - `requires_password_change = true`
+   - `temporary_password = true`
+   - `login_attempts = 0`
+   - `blocked_until = null`
+4. Envia email informando sobre reset
+5. Retorna senha temporária
+
+**Retorno:**
+```typescript
+{
+  success: true,
+  temporaryPassword: "Ab3kT9mN2pQ1"
+}
+```
+
+**Exemplo:**
+```typescript
+const result = await resetUserPassword("user-123");
+
+if (result.success) {
+  toast({
+    title: "Senha resetada!",
+    description: `Nova senha: ${result.temporaryPassword}`
+  });
+}
+```
+
+---
+
+##### 6. updateUserTheme
+
+```typescript
+async function updateUserTheme(
+  userId: string,
+  theme: "light" | "dark"
+): Promise<void>
+```
+
+**Descrição:** Atualiza tema do usuário
+
+**Parâmetros:**
+- `userId` (string) - ID do usuário
+- `theme` (string) - "light" ou "dark"
+
+**Exemplo:**
+```typescript
+await updateUserTheme("user-123", "dark");
+
+// Aplicar tema na interface
+document.documentElement.classList.toggle("dark", theme === "dark");
+```
+
+---
+
+### Tipo SystemUser
+
+```typescript
+interface SystemUser {
+  id: string;
+  name: string;
+  email: string;
+  username?: string;
+  phone?: string | null;
+  cpf?: string | null;
+  rg?: string | null;
+  photo?: string | null;
+  role: "admin" | "financial" | "broker";
+  active: boolean;
+  theme?: string | null;
+  requires_password_change?: boolean;
+  temporary_password?: boolean;
+  login_attempts?: number;
+  blocked_until?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+```
+
+---
+
 ## 🏠 Serviços de Propriedades
 
 ### propertyService.ts

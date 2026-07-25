@@ -101,19 +101,24 @@ src/components/
 ├── financial/             # Componentes financeiros
 ├── settings/              # Componentes de configurações
 ├── public/                # Componentes públicos (site de divulgação)
+│   ├── PublicHeader.tsx  # Header com dropdown de login
+│   ├── PropertyPublicCard.tsx
+│   └── ...
 ├── animations/            # Componentes de animação
 ├── Layout.tsx             # Layout principal
 ├── SEO.tsx                # Componente de SEO
-└── ThemeSwitch.tsx        # Alternador de tema
+├── ThemeSwitch.tsx        # Alternador de tema
+├── PasswordChangeDialog.tsx  # Dialog de troca de senha obrigatória
+├── EditProfileDialog.tsx     # Dialog de edição de perfil
+└── ConnectionStatusToast.tsx # Toast de status de conexão
 ```
 
 ### Páginas (Rotas)
 
 ```
 src/pages/
-├── index.tsx              # Página inicial (pública)
-├── login.tsx              # Página de login
-├── dashboard.tsx          # Dashboard principal
+├── index.tsx              # Página inicial/anúncios (pública com dropdown de login)
+├── dashboard.tsx          # Painel de Gestão (renomeado de Dashboard)
 ├── properties/
 │   ├── index.tsx         # Lista de propriedades
 │   └── [id].tsx          # Detalhes da propriedade
@@ -129,6 +134,8 @@ src/pages/
 │   └── manage/[id].tsx   # Gerenciar pagamento
 ├── financial.tsx          # Página financeira
 ├── settings.tsx           # Configurações
+├── imovel/
+│   └── [id].tsx          # Página pública de imóvel
 └── api/                   # API Routes
     ├── upload.ts         # Upload de arquivos
     └── properties/       # APIs de propriedades
@@ -427,29 +434,239 @@ WITH CHECK (
 
 ## 🔐 Autenticação e Autorização
 
-### Fluxo de Autenticação
+### Sistema de Autenticação Atualizado
+
+#### Fluxo de Autenticação com Dropdown
 
 ```
-┌─────────┐       ┌──────────┐       ┌──────────┐       ┌──────────┐
-│  User   │──────▶│  Login   │──────▶│ Supabase │──────▶│   JWT    │
-│ Browser │       │   Page   │       │   Auth   │       │  Token   │
-└─────────┘       └──────────┘       └──────────┘       └──────────┘
-     │                                                          │
-     │                                                          │
-     └──────────────────────────────────────────────────────────┘
-                    Armazena JWT no localStorage
+┌─────────┐       ┌──────────────┐       ┌──────────┐       ┌──────────┐
+│  User   │──────▶│ Dropdown de  │──────▶│ Supabase │──────▶│   JWT    │
+│ Browser │       │ Login (Header│       │   Auth   │       │  Token   │
+└─────────┘       │   Público)   │       └──────────┘       └──────────┘
+     │            └──────────────┘              │                  │
+     │                                          │                  │
+     └──────────────────────────────────────────┴──────────────────┘
+                Armazena JWT + Tema no localStorage
 ```
 
-### Perfis de Usuário
+#### Sistema de 3 Tentativas e Bloqueio
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   TENTATIVA DE LOGIN                         │
+└────────────────────┬─────────────────────────────────────────┘
+                     │
+        ┌────────────▼────────────┐
+        │  Senha correta?         │
+        └─────┬──────────────┬────┘
+              │              │
+           SIM│              │NÃO
+              │              │
+    ┌─────────▼────┐  ┌─────▼──────────────┐
+    │ Login OK     │  │ Incrementa tentativa│
+    │ Reset tries  │  │ login_attempts++    │
+    │ Load theme   │  └─────┬──────────────┘
+    └──────────────┘        │
+                    ┌───────▼────────┐
+                    │ Tentativas >= 3?│
+                    └───┬────────┬───┘
+                        │        │
+                     SIM│        │NÃO
+                        │        │
+            ┌───────────▼──┐  ┌─▼──────────────┐
+            │ BLOQUEAR     │  │ Mostrar mensagem│
+            │ 30 minutos   │  │ "X tentativas"  │
+            │blocked_until │  └────────────────┘
+            └──────────────┘
+```
+
+#### Fluxo de Senha Temporária
+
+```
+┌────────────────────────────────────────────────────────┐
+│              PRIMEIRO LOGIN (Senha Temporária)         │
+└────────────────────┬───────────────────────────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ requires_password_change? │
+        └─────┬──────────────┬──────┘
+              │              │
+           SIM│              │NÃO
+              │              │
+    ┌─────────▼─────────┐   │
+    │ Mostrar Dialog de │   │
+    │ Troca de Senha    │   │
+    │ (no dropdown)     │   │
+    └─────────┬─────────┘   │
+              │              │
+    ┌─────────▼─────────┐   │
+    │ Validação Visual  │   │
+    │ em Tempo Real:    │   │
+    │ ✓ Maiúscula       │   │
+    │ ✓ Minúscula       │   │
+    │ ✓ Número          │   │
+    │ ✓ 6-12 chars      │   │
+    │ ✓ Senhas iguais   │   │
+    └─────────┬─────────┘   │
+              │              │
+    ┌─────────▼─────────┐   │
+    │ Salvar Nova Senha │   │
+    │ requires_password │   │
+    │ _change = false   │   │
+    └─────────┬─────────┘   │
+              │              │
+              └──────┬───────┘
+                     │
+          ┌──────────▼──────────┐
+          │ Redirecionar para   │
+          │ Painel de Gestão    │
+          └─────────────────────┘
+```
+
+#### Fluxo de Recuperação de Senha
+
+```
+┌────────────────────────────────────────────────────────┐
+│         "Esqueci minha senha" (no dropdown)            │
+└────────────────────┬───────────────────────────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ Digitar email             │
+        └────────────┬───────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ Email existe?             │
+        └─────┬──────────────┬──────┘
+              │              │
+           SIM│              │NÃO
+              │              │
+    ┌─────────▼─────────┐   │
+    │ Gerar senha temp  │   │
+    │ (12 caracteres)   │   │
+    └─────────┬─────────┘   │
+              │              │
+    ┌─────────▼─────────┐   │
+    │ Atualizar banco:  │   │
+    │ - Nova senha      │   │
+    │ - requires_pass=T │   │
+    │ - login_tries=0   │   │
+    │ - blocked=null    │   │
+    └─────────┬─────────┘   │
+              │              │
+    ┌─────────▼─────────┐   │
+    │ Enviar email com  │   │
+    │ senha temporária  │   │
+    └─────────┬─────────┘   │
+              │              │
+              │          ┌───▼────────┐
+              │          │ Erro: email│
+              │          │ não existe │
+              │          └────────────┘
+              │
+    ┌─────────▼─────────┐
+    │ Mostrar sucesso   │
+    │ Voltar para login │
+    └───────────────────┘
+```
+
+### Sistema de Tema por Usuário
+
+#### Arquitetura
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   GESTÃO DE TEMA                        │
+└────────────────────┬────────────────────────────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ Banco de Dados            │
+        │ system_users.theme        │
+        │ ('light' | 'dark')        │
+        └────────────┬───────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ AuthContext               │
+        │ (carrega tema no login)   │
+        └────────────┬───────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ ThemeProvider             │
+        │ (aplica classe no <html>) │
+        └────────────┬───────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ localStorage              │
+        │ (cache para evitar flash) │
+        └───────────────────────────┘
+```
+
+#### Persistência Multi-Dispositivo
+
+1. **Login:** Tema carregado do banco de dados
+2. **Troca:** Atualizado no banco + localStorage + aplicado
+3. **Logout:** Tema removido do localStorage
+4. **Próximo login:** Mesmo tema em qualquer dispositivo
+
+### Gestão de Usuários
+
+#### Criação de Usuário (Fluxo Completo)
+
+```
+┌────────────────────────────────────────────────────────┐
+│               CRIAR NOVO USUÁRIO (Admin)               │
+└────────────────────┬───────────────────────────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ Preencher formulário:     │
+        │ - Nome (obrigatório)      │
+        │ - Email/User (único, @)   │
+        │ - Telefone (máscara)      │
+        │ - Perfil (obrigatório)    │
+        │ - Status (padrão: ativo)  │
+        └────────────┬───────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ Validações                │
+        │ ✓ Email contém @          │
+        │ ✓ Email único no sistema  │
+        │ ✓ Telefone 10 ou 11 dígitos│
+        └────────────┬───────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ Gerar senha temporária    │
+        │ (automático, 12 chars)    │
+        └────────────┬───────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ Criar registro no banco:  │
+        │ - password_hash = temp    │
+        │ - requires_change = true  │
+        │ - temporary_pass = true   │
+        │ - active = status         │
+        └────────────┬───────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ Enviar email boas-vindas  │
+        │ (senha temporária + link) │
+        └────────────┬───────────────┘
+                     │
+        ┌────────────▼──────────────┐
+        │ Toast: "Usuário criado!"  │
+        │ Email enviado com sucesso │
+        └───────────────────────────┘
+```
+
+### Perfis de Usuário (Atualizado)
 
 ```typescript
 enum UserRole {
-  ADMIN = "admin",           // Acesso total
-  MANAGER = "manager",       // Gestão completa (exceto usuários)
-  OPERATOR = "operator",     // CRUD de propriedades, inquilinos, locações
-  VIEWER = "viewer"          // Apenas visualização
+  ADMIN = "admin",           // Acesso total + gestão de usuários
+  BROKER = "broker",         // Gestão de imóveis e locações
+  FINANCIAL = "financial"    // Gestão financeira e pagamentos
 }
 ```
+
+**Nota:** Perfis `manager`, `operator` e `viewer` foram substituídos por permissões granulares por localização.
 
 ### Matriz de Permissões
 
