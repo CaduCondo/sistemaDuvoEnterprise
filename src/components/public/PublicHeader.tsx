@@ -40,6 +40,7 @@ export function PublicHeader() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
   const [userId, setUserId] = useState<string>("");
@@ -49,6 +50,10 @@ export function PublicHeader() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevenir múltiplos cliques
+    if (loading || loginSuccess) return;
+    
     setError("");
     setLoading(true);
 
@@ -76,13 +81,17 @@ export function PublicHeader() {
           return;
         }
 
-        // Login normal - resetar tentativas
+        // Login normal - resetar tentativas e marcar sucesso
         setAttempts(0);
+        setLoginSuccess(true); // Marca sucesso para manter botão desabilitado
+        
         toast({
           title: "Login realizado",
           description: "Redirecionando para o painel...",
         });
-        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Aguardar um pouco e redirecionar (mantém loading ativo)
+        await new Promise(resolve => setTimeout(resolve, 800));
         window.location.href = "/dashboard";
         return;
       }
@@ -113,7 +122,10 @@ export function PublicHeader() {
       console.error("Erro durante login:", error);
       setError("Erro ao processar login. Tente novamente.");
     } finally {
-      setLoading(false);
+      // Só desabilita o loading se não foi sucesso
+      if (!loginSuccess) {
+        setLoading(false);
+      }
     }
   };
 
@@ -387,12 +399,12 @@ export function PublicHeader() {
                     <Button 
                       type="submit" 
                       className="w-full h-9 bg-blue-600 hover:bg-blue-700 text-sm"
-                      disabled={loading}
+                      disabled={loading || loginSuccess}
                     >
-                      {loading ? (
+                      {loading || loginSuccess ? (
                         <>
                           <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                          Entrando...
+                          {loginSuccess ? "Redirecionando..." : "Entrando..."}
                         </>
                       ) : (
                         "Entrar"

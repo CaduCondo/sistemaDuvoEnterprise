@@ -342,8 +342,12 @@ export function Layout({ children }: LayoutProps) {
             <div className="hidden md:flex items-center gap-3 flex-shrink-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button id="layout-user-menu-trigger" variant="ghost" className="relative h-12 w-12 rounded-full p-0 hover:bg-slate-100 dark:hover:bg-slate-800">
-                    <Avatar className="h-12 w-12 border-2 border-blue-600/20 cursor-pointer hover:border-blue-600/40 transition-colors">
+                  <Button 
+                    id="layout-user-menu-trigger" 
+                    variant="ghost" 
+                    className="relative h-10 w-10 rounded-full p-0 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <Avatar className="h-10 w-10 border-2 border-blue-600/20 cursor-pointer hover:border-blue-600/40 transition-colors">
                       <AvatarImage src={authUser?.photo} alt={authUser?.name} className="object-cover" />
                       <AvatarFallback className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 font-medium text-sm">
                         {authUser?.name?.substring(0, 2).toUpperCase() || "US"}
