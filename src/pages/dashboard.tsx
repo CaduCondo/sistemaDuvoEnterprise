@@ -42,19 +42,17 @@ function DashboardSkeleton() {
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
-  
-  const {
-    metrics,
-    topProperties,
-    upcomingPayments,
-    recentActivities,
-    chartData,
-    isLoading
-  } = useDashboardData();
 
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+
+  const { loading, counts } = useDashboardData(
+    selectedMonth,
+    selectedYear,
+    user?.id,
+    user?.role
+  );
 
   const handlePeriodChange = useCallback((month: number, year: number) => {
     setSelectedMonth(month);
@@ -66,62 +64,58 @@ export default function DashboardPage() {
     [user]
   );
 
-  // Calcular dados para os cards (agora muito mais rápido - apenas cálculos simples)
+  // Calcular dados para os cards
   const overviewData = useMemo(() => {
-    const totalProperties = metrics.totalProperties;
-    const occupiedProperties = metrics.occupiedProperties;
+    const totalProperties = counts.totalProperties;
+    const occupiedProperties = counts.occupiedProperties;
     const occupancyRate = totalProperties > 0 ? (occupiedProperties / totalProperties) * 100 : 0;
 
     // Receita Bruta Recebida = soma dos valores pagos
-    const grossRevenue = metrics.grossRevenue;
+    const grossRevenue = counts.grossRevenue;
     
     // Total Taxas e Contas = Taxa Admin + Taxa Gerenciamento + Contas do Local
-    const totalFeesAndExpenses = metrics.adminFees + metrics.managementFees + metrics.locationExpenses;
+    const totalFeesAndExpenses = counts.adminFees + counts.managementFees + counts.locationExpenses;
     
     // Receita Líquida = Receita Bruta - (Taxas + Contas)
     const netRevenue = grossRevenue - totalFeesAndExpenses;
 
     return {
-      totalProperties: metrics.totalProperties,
-      availableProperties: metrics.availableProperties,
-      unavailableProperties: metrics.unavailableProperties,
+      totalProperties: counts.totalProperties,
+      availableProperties: counts.availableProperties,
+      unavailableProperties: counts.unavailableProperties,
       occupancyRate,
-      totalTenants: metrics.totalTenants,
-      activeContracts: metrics.activeContracts,
-      expiringContracts: metrics.expiringContracts,
-      overduePayments: metrics.overduePayments,
-      overdueAmount: metrics.overdueAmount,
-      dueTodayPayments: metrics.dueTodayPayments,
-      completedPayments: metrics.completedPayments,
-      expectedAmount: metrics.expectedAmount,
+      totalTenants: counts.totalTenants,
+      activeContracts: counts.activeContracts,
+      expiringContracts: counts.expiringContracts,
+      overduePayments: counts.overduePayments,
+      overdueAmount: counts.overdueAmount,
+      dueTodayPayments: counts.dueTodayPayments,
+      completedPayments: counts.completedPayments,
+      expectedAmount: counts.expectedAmount,
       totalRevenue: grossRevenue,
       grossRevenue: grossRevenue,
       totalFeesAndExpenses,
       netRevenue,
-      pendingPayments: metrics.pendingPayments,
+      pendingPayments: counts.pendingPayments,
     };
-  }, [metrics]);
+  }, [counts]);
 
   return (
     <Layout>
       <Head>
         <title>Painel de Gestão - D&apos;Uvo Enterprise</title>
       </Head>
-      <div id="dashboard-page" className="space-y-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-1">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Visão geral do seu portfólio de locações
-          </p>
-        </div>
+
+      <div className="space-y-6">
+        {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <WelcomeCard userName={user?.name || "Usuário"} />
+          <WelcomeCard userName={userName} />
         </motion.div>
 
-        {isLoading ? (
+        {loading ? (
           <DashboardSkeleton />
         ) : (
           <>
