@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manual do Sistema de Gestão de Imóveis</title>
+    <title>Manual do Sistema de Gestão de Imóveis - D'Uvo Enterprise</title>
     <style>
         * {
             margin: 0;
@@ -95,6 +95,7 @@
             margin: 20px 0;
             color: #6b7280;
             font-style: italic;
+            font-weight: bold;
         }
         
         .field-list {
@@ -142,6 +143,19 @@
             padding: 15px;
             margin: 20px 0;
             border-radius: 5px;
+        }
+
+        .warning-box {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .warning-box h4 {
+            color: #991b1b;
+            margin-top: 0;
         }
         
         table {
@@ -192,6 +206,14 @@
         .toc a:hover {
             text-decoration: underline;
         }
+
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
         
         @media print {
             body {
@@ -220,25 +242,39 @@
 </head>
 <body>
     <div class="container">
-        <h1>📘 Manual do Sistema de Gestão de Imóveis</h1>
+        <h1>📘 Manual do Sistema D'Uvo Enterprise</h1>
         
         <div class="intro">
-            <p><strong>Bem-vindo ao Sistema de Gestão de Imóveis!</strong></p>
+            <p><strong>Bem-vindo ao Sistema D'Uvo Enterprise!</strong></p>
             <p>Este manual foi criado para ajudá-lo a utilizar todas as funcionalidades do sistema de forma eficiente. Aqui você encontrará explicações detalhadas sobre cada módulo, regras de negócio e exemplos práticos de uso.</p>
+            <p><strong>Versão:</strong> 2.0 | <strong>Última atualização:</strong> Janeiro 2026</p>
         </div>
 
         <div class="toc">
             <h2>📑 Índice</h2>
             <ul>
                 <li><a href="#intro">1. Introdução ao Sistema</a></li>
-                <li><a href="#login">2. Login e Acesso</a></li>
-                <li><a href="#dashboard">3. Dashboard (Painel Inicial)</a></li>
+                <li><a href="#login">2. Acesso ao Sistema</a>
+                    <ul style="margin-left: 20px;">
+                        <li><a href="#login-dropdown">2.1 Login via Dropdown</a></li>
+                        <li><a href="#tentativas">2.2 Sistema de 3 Tentativas</a></li>
+                        <li><a href="#senha-temp">2.3 Senha Temporária</a></li>
+                        <li><a href="#recuperacao">2.4 Recuperação de Senha</a></li>
+                        <li><a href="#tema">2.5 Sistema de Tema</a></li>
+                    </ul>
+                </li>
+                <li><a href="#dashboard">3. Painel de Gestão (Dashboard)</a></li>
                 <li><a href="#properties">4. Módulo Imóveis</a></li>
                 <li><a href="#tenants">5. Módulo Inquilinos</a></li>
                 <li><a href="#rentals">6. Módulo Locações</a></li>
                 <li><a href="#payments">7. Módulo Recebimentos</a></li>
                 <li><a href="#financial">8. Módulo Financeiro</a></li>
-                <li><a href="#settings">9. Módulo Configurações</a></li>
+                <li><a href="#settings">9. Módulo Configurações</a>
+                    <ul style="margin-left: 20px;">
+                        <li><a href="#users">9.1 Gestão de Usuários</a></li>
+                        <li><a href="#permissions">9.2 Permissões</a></li>
+                    </ul>
+                </li>
                 <li><a href="#rules">10. Regras de Negócio Importantes</a></li>
             </ul>
         </div>
@@ -247,80 +283,284 @@
         <div id="intro" class="section">
             <h2>1. Introdução ao Sistema</h2>
             
-            <h3>O que é o Sistema de Gestão de Imóveis?</h3>
-            <p>O Sistema de Gestão de Imóveis é uma plataforma completa para gerenciar imóveis para locação. Com ele, você pode:</p>
+            <h3>O que é o Sistema D'Uvo Enterprise?</h3>
+            <p>O Sistema D'Uvo Enterprise é uma plataforma completa para gerenciar imóveis para locação. Com ele, você pode:</p>
             <ul>
-                <li>Cadastrar e gerenciar imóveis disponíveis para locação</li>
-                <li>Cadastrar inquilinos (pessoas físicas ou jurídicas)</li>
-                <li>Criar e gerenciar contratos de locação</li>
-                <li>Registrar recebimentos mensais de aluguel</li>
-                <li>Controlar cauções (depósito garantia)</li>
-                <li>Acompanhar a saúde financeira do seu negócio</li>
-                <li>Gerenciar usuários e permissões</li>
+                <li>✅ Cadastrar e gerenciar imóveis disponíveis para locação</li>
+                <li>✅ Cadastrar inquilinos (pessoas físicas ou jurídicas)</li>
+                <li>✅ Criar e gerenciar contratos de locação</li>
+                <li>✅ Registrar recebimentos mensais de aluguel</li>
+                <li>✅ Controlar cauções (depósito garantia) em até 3 parcelas</li>
+                <li>✅ Acompanhar a saúde financeira do seu negócio</li>
+                <li>✅ Gerenciar usuários, permissões e acessos</li>
+                <li>✅ Personalizar tema (claro/escuro) por usuário</li>
             </ul>
 
             <h3>Perfis de Usuário</h3>
             <div class="field-list">
                 <div class="field-item">
-                    <span class="field-name">👤 Admin:</span> Acesso total ao sistema. Pode visualizar, criar, editar e excluir em todos os módulos.
+                    <span class="field-name">👤 Admin (Administrador):</span> Acesso total ao sistema. Pode visualizar, criar, editar e excluir em todos os módulos. Único perfil que acessa Configurações.
                 </div>
                 <div class="field-item">
                     <span class="field-name">💰 Financeiro:</span> Foco em recebimentos e relatórios financeiros. Acesso completo a Recebimentos e Financeiro, visualização de Locações, Imóveis e Inquilinos.
                 </div>
                 <div class="field-item">
-                    <span class="field-name">🏢 Gestão:</span> Foco em gestão de imóveis e contratos. Acesso completo a Imóveis, Inquilinos e Locações, visualização de Recebimentos.
+                    <span class="field-name">🏢 Corretor (Broker):</span> Foco em gestão de imóveis e contratos. Acesso completo a Imóveis, Inquilinos e Locações, visualização de Recebimentos e Financeiro.
                 </div>
             </div>
         </div>
 
-        <!-- SEÇÃO 2: LOGIN -->
+        <!-- SEÇÃO 2: ACESSO -->
         <div id="login" class="section">
-            <h2>2. Login e Acesso</h2>
+            <h2>2. Acesso ao Sistema</h2>
+
+            <h3 id="login-dropdown">2.1 Login via Dropdown</h3>
             
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Tela de Login]
+                [IMAGEM: Página inicial com botão "Gerenciador" no header]
+            </div>
+
+            <div class="note">
+                <strong>📌 Mudança Importante:</strong> Não existe mais uma página de login separada. O acesso ao sistema é feito através de um dropdown no header da página pública de anúncios.
             </div>
             
-            <h3>Como fazer login</h3>
+            <h4>Como fazer login</h4>
             <ol>
-                <li>Acesse a URL do sistema</li>
-                <li>Insira seu e-mail cadastrado</li>
-                <li>Insira sua senha</li>
-                <li>Clique em "Entrar"</li>
+                <li>Acesse a página inicial do sistema (página de anúncios públicos)</li>
+                <li>No canto superior direito, clique no botão <strong>"Gerenciador"</strong></li>
+                <li>Um dropdown abrirá exibindo o formulário de login</li>
+                <li>Digite seu <strong>Usuário ou E-mail</strong></li>
+                <li>Digite sua <strong>Senha</strong></li>
+                <li>Use o ícone de olho para mostrar/ocultar a senha (opcional)</li>
+                <li>Clique em <strong>"Entrar"</strong></li>
+                <li>Se as credenciais estiverem corretas, você será redirecionado para o Painel de Gestão</li>
             </ol>
-            
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Dropdown de login aberto mostrando campos de usuário e senha]
+            </div>
+
+            <h3 id="tentativas">2.2 Sistema de 3 Tentativas</h3>
+
+            <div class="warning-box">
+                <h4>🔒 Segurança: Bloqueio Automático</h4>
+                <p>O sistema protege sua conta contra tentativas de acesso não autorizado. Após <strong>3 tentativas de login com senha incorreta</strong>, sua conta será bloqueada por <strong>30 minutos</strong>.</p>
+            </div>
+
+            <h4>Mensagens por Tentativa</h4>
+            <div class="field-list">
+                <div class="field-item">
+                    <span class="field-name">1ª tentativa falha:</span> "Senha incorreta. Você tem mais 2 tentativas."
+                </div>
+                <div class="field-item">
+                    <span class="field-name">2ª tentativa falha:</span> "Senha incorreta. Você tem mais 1 tentativa."
+                </div>
+                <div class="field-item">
+                    <span class="field-name">3ª tentativa falha:</span> "Conta bloqueada temporariamente por muitas tentativas falhas. Tente novamente em 30 minutos."
+                </div>
+            </div>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Mensagem de erro mostrando "Você tem mais 1 tentativa"]
+            </div>
+
+            <h4>Reset Automático</h4>
+            <ul>
+                <li>✅ Contador de tentativas volta a 0 após login bem-sucedido</li>
+                <li>✅ Bloqueio expira automaticamente após 30 minutos</li>
+                <li>✅ Ao recuperar senha (ver seção 2.4), tentativas e bloqueio são zerados</li>
+            </ul>
+
+            <h3 id="senha-temp">2.3 Senha Temporária e Troca Obrigatória</h3>
+
+            <h4>Quando você recebe senha temporária?</h4>
+            <ul>
+                <li>🆕 Quando um admin cria sua conta</li>
+                <li>🔄 Quando um admin reseta sua senha</li>
+                <li>🔑 Quando você usa "Esqueci minha senha"</li>
+            </ul>
+
+            <h4>Características da Senha Temporária</h4>
+            <div class="field-list">
+                <div class="field-item">
+                    <span class="field-name">Tamanho:</span> 12 caracteres
+                </div>
+                <div class="field-item">
+                    <span class="field-name">Composição:</span> Pelo menos 1 maiúscula + 1 minúscula + 1 número
+                </div>
+                <div class="field-item">
+                    <span class="field-name">Exemplo:</span> <code>Ab3kT9mN2pQ1</code>
+                </div>
+            </div>
+
+            <h4>Fluxo de Troca Obrigatória</h4>
+            <ol>
+                <li>Você faz login com a senha temporária</li>
+                <li>O sistema detecta que a senha precisa ser alterada</li>
+                <li><strong>Ao invés de redirecionar</strong>, o dropdown exibe a tela de troca de senha</li>
+                <li>Você cria uma nova senha seguindo os requisitos</li>
+                <li>O sistema valida em tempo real cada requisito</li>
+                <li>Após salvar a nova senha, você acessa o sistema normalmente</li>
+            </ol>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Tela de troca de senha obrigatória com validações em tempo real]
+            </div>
+
+            <h4>Validação Visual em Tempo Real</h4>
+            <p>Enquanto você digita sua nova senha, o sistema mostra visualmente quais requisitos já foram atendidos:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Requisito</th>
+                        <th>Não Atendido</th>
+                        <th>Atendido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Pelo menos 1 letra maiúscula</td>
+                        <td>❌ Vermelho</td>
+                        <td>✅ Verde</td>
+                    </tr>
+                    <tr>
+                        <td>Pelo menos 1 letra minúscula</td>
+                        <td>❌ Vermelho</td>
+                        <td>✅ Verde</td>
+                    </tr>
+                    <tr>
+                        <td>Pelo menos 1 número</td>
+                        <td>❌ Vermelho</td>
+                        <td>✅ Verde</td>
+                    </tr>
+                    <tr>
+                        <td>Mínimo de 6 caracteres</td>
+                        <td>❌ Vermelho</td>
+                        <td>✅ Verde</td>
+                    </tr>
+                    <tr>
+                        <td>Máximo de 12 caracteres</td>
+                        <td>❌ Vermelho</td>
+                        <td>✅ Verde</td>
+                    </tr>
+                    <tr>
+                        <td>Senhas são idênticas</td>
+                        <td>❌ Vermelho</td>
+                        <td>✅ Verde</td>
+                    </tr>
+                </tbody>
+            </table>
+
             <div class="note">
-                <strong>📌 Nota:</strong> Se você esqueceu sua senha, entre em contato com o administrador do sistema para redefinição.
+                <strong>📌 Dica:</strong> O requisito "Senhas são idênticas" fica verde quando você sai do segundo campo (onBlur) ou ao clicar em "Salvar Senha".
+            </div>
+
+            <h3 id="recuperacao">2.4 Recuperação de Senha</h3>
+
+            <h4>Quando usar?</h4>
+            <p>Se você esqueceu sua senha, use o link <strong>"Esqueci minha senha"</strong> no dropdown de login.</p>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Link "Esqueci minha senha" no dropdown de login]
+            </div>
+
+            <h4>Passo a Passo</h4>
+            <ol>
+                <li>No dropdown de login, clique em <strong>"Esqueci minha senha"</strong></li>
+                <li>O dropdown mostrará a tela de recuperação</li>
+                <li>Digite seu <strong>e-mail cadastrado</strong></li>
+                <li>Clique em <strong>"Enviar Email"</strong></li>
+                <li>O sistema validará se o email existe</li>
+                <li>Se existir, você receberá um email com:
+                    <ul>
+                        <li>Link de acesso: www.duvoenterprise.com.br</li>
+                        <li>Senha temporária (12 caracteres)</li>
+                        <li>Aviso sobre troca obrigatória</li>
+                        <li>Requisitos da nova senha</li>
+                    </ul>
+                </li>
+                <li>Use a senha temporária para fazer login</li>
+                <li>Você será direcionado para criar uma nova senha</li>
+            </ol>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Tela de recuperação de senha mostrando campo de email]
+            </div>
+
+            <div class="success-box">
+                <strong>✅ Benefícios da Recuperação:</strong>
+                <ul>
+                    <li>Sua senha anterior é invalidada imediatamente</li>
+                    <li>Contador de tentativas é resetado para 0</li>
+                    <li>Bloqueio de 30 minutos é removido (se existir)</li>
+                </ul>
+            </div>
+
+            <h3 id="tema">2.5 Sistema de Tema (Claro/Escuro)</h3>
+
+            <h4>Personalização Individual</h4>
+            <p>Cada usuário pode escolher seu tema preferido (claro ou escuro). O tema é salvo no banco de dados e:</p>
+            <ul>
+                <li>✅ Carregado automaticamente no login</li>
+                <li>✅ Aplicado instantaneamente ao trocar</li>
+                <li>✅ Mantido entre diferentes dispositivos</li>
+                <li>✅ Persistido mesmo após logout</li>
+            </ul>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Menu do perfil mostrando opção "Trocar Tema"]
+            </div>
+
+            <h4>Como Trocar de Tema</h4>
+            <ol>
+                <li>Clique no seu <strong>nome</strong> no canto superior direito</li>
+                <li>No menu dropdown, clique em <strong>"Trocar Tema (Light/Dark)"</strong>
+                    <ul>
+                        <li>Se você está no tema escuro, verá "Trocar Tema (Light)"</li>
+                        <li>Se você está no tema claro, verá "Trocar Tema (Dark)"</li>
+                    </ul>
+                </li>
+                <li>O tema mudará imediatamente</li>
+                <li>A mudança é salva automaticamente</li>
+            </ol>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Comparação lado a lado do sistema em tema claro vs escuro]
             </div>
         </div>
 
-        <!-- SEÇÃO 3: DASHBOARD -->
+        <!-- SEÇÃO 3: PAINEL DE GESTÃO -->
         <div id="dashboard" class="section">
-            <h2>3. Dashboard (Painel Inicial)</h2>
+            <h2>3. Painel de Gestão (Dashboard)</h2>
             
+            <div class="note">
+                <strong>📌 Nomenclatura:</strong> O que antes era chamado de "Dashboard" agora é oficialmente <strong>"Painel de Gestão"</strong> no sistema.
+            </div>
+
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Tela do Dashboard]
+                [IMAGEM: Visão geral do Painel de Gestão com todos os cards e gráficos]
             </div>
             
-            <h3>O que é exibido no Dashboard?</h3>
-            <p>O Dashboard é a tela inicial após o login. Ele apresenta uma visão geral do negócio:</p>
+            <h3>O que é exibido no Painel de Gestão?</h3>
+            <p>O Painel de Gestão é a tela inicial após o login. Ele apresenta uma visão geral do negócio com métricas em tempo real:</p>
             
             <div class="field-list">
                 <h4>Cards de Resumo</h4>
                 <div class="field-item">
-                    <span class="field-name">📊 Total de Imóveis:</span> Quantidade total de imóveis cadastrados
+                    <span class="field-name">📊 Total de Imóveis:</span> Quantidade total de imóveis cadastrados no sistema
                 </div>
                 <div class="field-item">
-                    <span class="field-name">🏠 Imóveis Disponíveis:</span> Imóveis prontos para locação
+                    <span class="field-name">🏠 Imóveis Disponíveis:</span> Imóveis prontos para locação (status: Disponível)
                 </div>
                 <div class="field-item">
-                    <span class="field-name">🔑 Imóveis Ocupados:</span> Imóveis com locação ativa
+                    <span class="field-name">🔑 Imóveis Ocupados:</span> Imóveis com locação ativa (status: Ocupado)
                 </div>
                 <div class="field-item">
-                    <span class="field-name">👥 Total de Inquilinos:</span> Inquilinos cadastrados
+                    <span class="field-name">👥 Total de Inquilinos:</span> Inquilinos cadastrados no sistema
                 </div>
                 <div class="field-item">
-                    <span class="field-name">📝 Locações Ativas:</span> Contratos em vigência
+                    <span class="field-name">📝 Locações Ativas:</span> Contratos de locação em vigência
                 </div>
                 <div class="field-item">
                     <span class="field-name">💰 Receita do Mês:</span> Total recebido no mês atual
@@ -328,12 +568,16 @@
             </div>
             
             <h3>Gráficos e Análises</h3>
-            <p>O Dashboard também exibe gráficos com:</p>
+            <p>O Painel de Gestão também exibe gráficos interativos com:</p>
             <ul>
-                <li>Evolução da receita mensal</li>
-                <li>Status dos pagamentos (pago, pendente, atrasado)</li>
-                <li>Distribuição de comissões</li>
+                <li>📈 <strong>Evolução da receita mensal:</strong> Gráfico de linha mostrando tendência</li>
+                <li>🎯 <strong>Status dos pagamentos:</strong> Distribuição de pago/pendente/atrasado</li>
+                <li>💼 <strong>Distribuição de comissões:</strong> Comissões pagas vs. a pagar</li>
             </ul>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Gráficos do Painel de Gestão (evolução de receita e distribuição)]
+            </div>
         </div>
 
         <!-- SEÇÃO 4: IMÓVEIS -->
@@ -342,16 +586,16 @@
             
             <h3>4.1 Lista de Imóveis</h3>
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Página de Imóveis - Lista]
+                [IMAGEM: Página de Imóveis - Lista completa]
             </div>
             
             <p>A lista de imóveis exibe todos os imóveis cadastrados no sistema. Você pode:</p>
             <ul>
-                <li>Visualizar detalhes de cada imóvel</li>
-                <li>Filtrar por status (Disponível, Ocupado, Indisponível)</li>
-                <li>Pesquisar por nome, endereço ou características</li>
-                <li>Editar informações do imóvel</li>
-                <li>Excluir imóveis (apenas se não houver locações ativas)</li>
+                <li>✅ Visualizar detalhes de cada imóvel</li>
+                <li>✅ Filtrar por status (Disponível, Ocupado, Indisponível)</li>
+                <li>✅ Pesquisar por nome, endereço ou características</li>
+                <li>✅ Editar informações do imóvel</li>
+                <li>✅ Excluir imóveis (apenas se não houver locações ativas)</li>
             </ul>
             
             <h4>Colunas da Lista</h4>
@@ -373,7 +617,7 @@
                     </tr>
                     <tr>
                         <td><strong>Tipo</strong></td>
-                        <td>Casa, Apartamento, Sala Comercial, etc.</td>
+                        <td>Casa, Apartamento, Sala Comercial, Galpão, Terreno ou Outro</td>
                     </tr>
                     <tr>
                         <td><strong>Quartos</strong></td>
@@ -385,41 +629,45 @@
                     </tr>
                     <tr>
                         <td><strong>Status</strong></td>
-                        <td>Disponível (verde), Ocupado (azul), Indisponível (cinza)</td>
+                        <td>🟢 Disponível | 🔵 Ocupado | ⚪ Indisponível</td>
                     </tr>
                     <tr>
                         <td><strong>Ações</strong></td>
-                        <td>Botões para Visualizar, Editar ou Excluir</td>
+                        <td>Ícones para Visualizar, Editar ou Excluir</td>
                     </tr>
                 </tbody>
             </table>
             
             <h3>4.2 Cadastrar Novo Imóvel</h3>
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Tela de Cadastro de Imóvel]
+                [IMAGEM: Formulário de cadastro de novo imóvel]
             </div>
             
             <h4>Passo a Passo</h4>
             <ol>
-                <li>Clique no botão "+ Novo Imóvel" no topo da página</li>
-                <li>Preencha os campos obrigatórios (*)</li>
-                <li>Adicione fotos do imóvel (opcional, mas recomendado)</li>
-                <li>Clique em "Salvar"</li>
+                <li>Clique no botão <strong>"+ Novo Imóvel"</strong> no topo da página</li>
+                <li>Preencha os campos obrigatórios (marcados com *)</li>
+                <li>Adicione fotos do imóvel (recomendado)</li>
+                <li>Anexe documentos (IPTU, matrícula) se desejar</li>
+                <li>Clique em <strong>"Salvar"</strong></li>
             </ol>
             
             <h4>Campos do Formulário</h4>
             <div class="field-list">
+                <h4>Dados Básicos</h4>
                 <div class="field-item">
-                    <span class="field-name">Nome/Identificação *:</span> Nome para identificar o imóvel (ex: "Apto 20 - Signore")
+                    <span class="field-name">Nome/Identificação *:</span> Nome para identificar o imóvel (ex: "Apto 201 - Residencial Primavera")
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Tipo *:</span> Selecione Casa, Apartamento, Sala Comercial, Galpão, Terreno ou Outro
+                    <span class="field-name">Tipo *:</span> Casa, Apartamento, Sala Comercial, Galpão, Terreno ou Outro
                 </div>
+                
+                <h4>Endereço</h4>
                 <div class="field-item">
                     <span class="field-name">CEP *:</span> Digite o CEP - o sistema busca automaticamente o endereço
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Rua/Logradouro *:</span> Preenchido automaticamente pelo CEP
+                    <span class="field-name">Rua/Logradouro *:</span> Preenchido automaticamente pelo CEP (editável)
                 </div>
                 <div class="field-item">
                     <span class="field-name">Número *:</span> Número do imóvel
@@ -428,14 +676,16 @@
                     <span class="field-name">Complemento:</span> Apartamento, bloco, andar, etc.
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Bairro *:</span> Preenchido automaticamente pelo CEP
+                    <span class="field-name">Bairro *:</span> Preenchido automaticamente pelo CEP (editável)
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Cidade *:</span> Preenchida automaticamente pelo CEP
+                    <span class="field-name">Cidade *:</span> Preenchida automaticamente pelo CEP (editável)
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Estado *:</span> Preenchido automaticamente pelo CEP
+                    <span class="field-name">Estado *:</span> Preenchido automaticamente pelo CEP (editável)
                 </div>
+                
+                <h4>Características</h4>
                 <div class="field-item">
                     <span class="field-name">Quartos *:</span> Quantidade de quartos
                 </div>
@@ -446,25 +696,29 @@
                     <span class="field-name">Área (m²) *:</span> Área total do imóvel
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Valor:</span> Valor mensal sugerido (pode ser definido depois)
+                    <span class="field-name">Valor Sugerido:</span> Valor mensal de aluguel (pode ser ajustado na locação)
                 </div>
                 <div class="field-item">
                     <span class="field-name">Status *:</span> Disponível, Ocupado ou Indisponível
                 </div>
+                
+                <h4>Diferenciais</h4>
                 <div class="field-item">
-                    <span class="field-name">☑ Móveis Planejados:</span> Marque se o imóvel possui móveis planejados
+                    <span class="field-name">☑ Móveis Planejados:</span> Marque se possui
                 </div>
                 <div class="field-item">
-                    <span class="field-name">☑ Aceita Pets:</span> Marque se permite animais de estimação
+                    <span class="field-name">☑ Aceita Pets:</span> Marque se permite
                 </div>
                 <div class="field-item">
-                    <span class="field-name">☑ Vaga Garagem:</span> Marque se possui vaga de garagem
+                    <span class="field-name">☑ Vaga Garagem:</span> Marque se possui
+                </div>
+                
+                <h4>Informações Adicionais</h4>
+                <div class="field-item">
+                    <span class="field-name">Descrição:</span> Texto livre com detalhes do imóvel
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Descrição:</span> Informações adicionais sobre o imóvel
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Fotos do Imóvel:</span> Adicione fotos clicando em "Escolher Arquivo" ou "Tirar Foto" (mobile)
+                    <span class="field-name">Fotos:</span> Clique em "Escolher Arquivo" ou "Tirar Foto" (mobile)
                 </div>
             </div>
             
@@ -472,9 +726,9 @@
                 <h4>⚠️ Regras Importantes</h4>
                 <ul>
                     <li>O <strong>CEP</strong> deve ser preenchido primeiro para buscar automaticamente o endereço</li>
-                    <li>Imóveis com status <strong>Ocupado</strong> não aparecem como opção ao criar novas locações</li>
-                    <li>Fotos ajudam na divulgação e visualização do imóvel</li>
-                    <li>Você pode adicionar múltiplas fotos - recomendamos pelo menos 3 fotos</li>
+                    <li>Imóveis com status <strong>Ocupado</strong> não aparecem na seleção ao criar novas locações</li>
+                    <li>Recomenda-se adicionar <strong>pelo menos 3 fotos</strong> para melhor divulgação</li>
+                    <li>Não é possível <strong>excluir</strong> um imóvel com locações ativas</li>
                 </ul>
             </div>
         </div>
@@ -485,7 +739,7 @@
             
             <h3>5.1 Lista de Inquilinos</h3>
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Página de Inquilinos - Lista]
+                [IMAGEM: Página de Inquilinos - Lista completa]
             </div>
             
             <p>A lista de inquilinos exibe todos os inquilinos (locatários) cadastrados. Cada registro mostra:</p>
@@ -508,7 +762,7 @@
                     </tr>
                     <tr>
                         <td><strong>Telefone</strong></td>
-                        <td>Telefone de contato</td>
+                        <td>Telefone de contato formatado</td>
                     </tr>
                     <tr>
                         <td><strong>E-mail</strong></td>
@@ -516,7 +770,7 @@
                     </tr>
                     <tr>
                         <td><strong>Status</strong></td>
-                        <td>Novo (verde), Locatário (azul), Inativo (cinza)</td>
+                        <td>🟢 Novo | 🔵 Locatário | ⚪ Inativo</td>
                     </tr>
                     <tr>
                         <td><strong>Ações</strong></td>
@@ -527,98 +781,90 @@
             
             <h3>5.2 Cadastrar Novo Inquilino</h3>
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Tela de Cadastro de Inquilino]
+                [IMAGEM: Formulário de cadastro de inquilino mostrando toggle CPF/CNPJ]
             </div>
             
             <h4>Passo a Passo</h4>
             <ol>
-                <li>Clique no botão "+ Novo Inquilino"</li>
-                <li>Escolha o tipo de documento: CPF (pessoa física) ou CNPJ (empresa)</li>
+                <li>Clique no botão <strong>"+ Novo Inquilino"</strong></li>
+                <li>Escolha o tipo de documento: <strong>CPF</strong> (pessoa física) ou <strong>CNPJ</strong> (empresa)</li>
                 <li>Preencha os dados pessoais</li>
-                <li>Preencha o endereço (o CEP busca automaticamente)</li>
-                <li>Clique em "Salvar"</li>
+                <li>Preencha o endereço (CEP busca automaticamente)</li>
+                <li>Clique em <strong>"Salvar"</strong></li>
             </ol>
             
             <h4>Campos do Formulário</h4>
             <div class="field-list">
                 <h4>Dados Pessoais</h4>
                 <div class="field-item">
-                    <span class="field-name">Botão CPF/CNPJ:</span> Escolha o tipo de documento antes de preencher
+                    <span class="field-name">Toggle CPF/CNPJ:</span> Escolha antes de preencher (altera campos visíveis)
                 </div>
                 <div class="field-item">
                     <span class="field-name">Nome Completo * (CPF):</span> Nome completo da pessoa física
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Nome Fantasia * (CNPJ):</span> Nome da empresa (exibido quando seleciona CNPJ)
+                    <span class="field-name">Nome Fantasia * (CNPJ):</span> Nome da empresa
                 </div>
                 <div class="field-item">
-                    <span class="field-name">CPF *:</span> Formato: 000.000.000-00 (11 dígitos + formatação)
+                    <span class="field-name">CPF *:</span> Formato: <code>000.000.000-00</code> (11 dígitos)
                 </div>
                 <div class="field-item">
-                    <span class="field-name">CNPJ *:</span> Formato: 00.000.000/0000-00 (14 dígitos + formatação)
+                    <span class="field-name">CNPJ *:</span> Formato: <code>00.000.000/0000-00</code> (14 dígitos)
                 </div>
                 <div class="field-item">
-                    <span class="field-name">RG:</span> Aparece apenas quando CPF está selecionado - Formato: 00.000.000-0
+                    <span class="field-name">RG:</span> Aparece apenas com CPF - Formato: <code>00.000.000-0</code>
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Telefone *:</span> Formato: (00) 00000-0000
+                    <span class="field-name">Telefone *:</span> Formato: <code>(00) 00000-0000</code> ou <code>(00) 0000-0000</code>
                 </div>
                 <div class="field-item">
-                    <span class="field-name">E-mail *:</span> E-mail válido para contato
+                    <span class="field-name">E-mail *:</span> E-mail válido (deve conter @)
                 </div>
                 <div class="field-item">
                     <span class="field-name">Profissão:</span> Profissão ou ocupação
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Estado Civil:</span> Solteiro(a), Casado(a), Divorciado(a), Viúvo(a) ou União Estável
+                    <span class="field-name">Estado Civil:</span> Solteiro(a), Casado(a), Divorciado(a), Viúvo(a), União Estável
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Renda Mensal:</span> Renda mensal comprovada - Formato: R$ 0,00
+                    <span class="field-name">Renda Mensal:</span> Formato: R$ 0,00
                 </div>
                 
                 <h4>Endereço</h4>
                 <div class="field-item">
-                    <span class="field-name">CEP:</span> Digite o CEP para buscar automaticamente o endereço
+                    <span class="field-name">CEP:</span> Digite para buscar automaticamente
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Rua/Logradouro:</span> Preenchido automaticamente
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Número:</span> Número da residência/estabelecimento
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Complemento:</span> Apartamento, casa, sala, etc.
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Bairro:</span> Preenchido automaticamente
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Cidade:</span> Preenchida automaticamente
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Estado:</span> Preenchido automaticamente (UF)
+                    <em>Demais campos: Rua, Número, Complemento, Bairro, Cidade, Estado</em>
                 </div>
             </div>
             
             <div class="rule-box">
-                <h4>⚠️ Regras Importantes</h4>
+                <h4>⚠️ Validações Automáticas</h4>
                 <ul>
-                    <li>O sistema <strong>valida o formato</strong> de CPF (11 dígitos), CNPJ (14 dígitos) e RG (9 dígitos)</li>
-                    <li>Quando você seleciona <strong>CNPJ</strong>, o campo "Nome Completo" muda para "Nome Fantasia"</li>
-                    <li>O campo <strong>RG</strong> só aparece quando <strong>CPF</strong> está selecionado</li>
-                    <li>O <strong>Status</strong> é atualizado automaticamente pelo sistema:
-                        <ul>
-                            <li><strong>Novo:</strong> Inquilino cadastrado, sem locação</li>
-                            <li><strong>Locatário:</strong> Possui locação ativa</li>
-                            <li><strong>Inativo:</strong> Não possui locação ativa</li>
-                        </ul>
-                    </li>
-                    <li>Não é possível <strong>excluir</strong> um inquilino com locações ativas</li>
+                    <li>✅ <strong>E-mail:</strong> Deve conter @ - validação em tempo real</li>
+                    <li>✅ <strong>Telefone:</strong> Aceita 10 dígitos (fixo) ou 11 dígitos (celular)</li>
+                    <li>✅ <strong>CPF:</strong> 11 dígitos obrigatórios</li>
+                    <li>✅ <strong>CNPJ:</strong> 14 dígitos obrigatórios</li>
+                    <li>✅ <strong>RG:</strong> 9 dígitos (campo opcional, aparece só com CPF)</li>
                 </ul>
             </div>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Validação em tempo real mostrando erro de email ou telefone]
+            </div>
             
-            <div class="success-box">
-                <strong>✅ Dica:</strong> Preencha o máximo de informações possível - isso facilita o contato e análise de crédito do inquilino.
+            <h4>Status do Inquilino (Automático)</h4>
+            <div class="field-list">
+                <div class="field-item">
+                    <span class="field-name">🟢 Novo:</span> Cadastrado, sem locação ativa
+                </div>
+                <div class="field-item">
+                    <span class="field-name">🔵 Locatário:</span> Possui locação ativa
+                </div>
+                <div class="field-item">
+                    <span class="field-name">⚪ Inativo:</span> Sem locação ativa (ex-locatário)
+                </div>
             </div>
         </div>
 
@@ -628,10 +874,10 @@
             
             <h3>6.1 Lista de Locações</h3>
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Página de Locações - Lista]
+                [IMAGEM: Página de Locações - Lista com filtros]
             </div>
             
-            <p>A lista de locações exibe todos os contratos de locação. Você pode visualizar:</p>
+            <p>A lista de locações exibe todos os contratos de locação cadastrados:</p>
             
             <table>
                 <thead>
@@ -643,7 +889,7 @@
                 <tbody>
                     <tr>
                         <td><strong>Imóvel</strong></td>
-                        <td>Nome/identificação do imóvel locado</td>
+                        <td>Nome/identificação do imóvel</td>
                     </tr>
                     <tr>
                         <td><strong>Inquilino</strong></td>
@@ -663,7 +909,7 @@
                     </tr>
                     <tr>
                         <td><strong>Status</strong></td>
-                        <td>Ativa (verde), Encerrada (cinza), Expirada (amarelo)</td>
+                        <td>🟢 Ativa | ⚪ Encerrada | 🟡 Expirada</td>
                     </tr>
                     <tr>
                         <td><strong>Ações</strong></td>
@@ -674,126 +920,109 @@
             
             <h3>6.2 Criar Nova Locação</h3>
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Tela de Cadastro de Locação]
+                [IMAGEM: Formulário completo de nova locação com todas as seções]
             </div>
             
             <h4>Passo a Passo</h4>
             <ol>
-                <li>Clique no botão "+ Nova Locação"</li>
-                <li>Selecione o imóvel (apenas imóveis <strong>Disponíveis</strong> aparecem)</li>
-                <li>Selecione o inquilino</li>
-                <li>Defina as datas do contrato</li>
-                <li>Configure o valor do aluguel e taxas</li>
-                <li>Configure o caução (depósito garantia)</li>
-                <li>Anexe documentos (opcional)</li>
-                <li>Clique em "Salvar"</li>
+                <li>Clique em <strong>"+ Nova Locação"</strong></li>
+                <li>Selecione o <strong>Imóvel</strong> (apenas disponíveis)</li>
+                <li>Selecione o <strong>Inquilino</strong></li>
+                <li>Defina as <strong>datas do contrato</strong></li>
+                <li>Configure <strong>valores</strong> (aluguel, garagem, taxa administração)</li>
+                <li>Configure o <strong>caução</strong> (à vista, 2x ou 3x)</li>
+                <li>Anexe <strong>documentos</strong> (opcional)</li>
+                <li>Clique em <strong>"Salvar"</strong></li>
             </ol>
             
-            <h4>Campos do Formulário</h4>
+            <h4>Seções do Formulário</h4>
             <div class="field-list">
-                <h4>Dados do Contrato</h4>
+                <h4>1. Dados do Contrato</h4>
                 <div class="field-item">
-                    <span class="field-name">Imóvel *:</span> Selecione o imóvel a ser locado
+                    <span class="field-name">Imóvel *:</span> Lista apenas imóveis com status "Disponível"
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Inquilino *:</span> Selecione o inquilino
+                    <span class="field-name">Inquilino *:</span> Todos os inquilinos cadastrados
                 </div>
                 <div class="field-item">
                     <span class="field-name">Data Início *:</span> Data de início do contrato
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Data Fim *:</span> Data de término do contrato
+                    <span class="field-name">Data Fim *:</span> Data de término
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Dia Vencimento *:</span> Dia do mês para vencimento do aluguel (1 a 31)
+                    <span class="field-name">Dia Vencimento *:</span> Dia do mês (1-31) para vencimento
                 </div>
                 
-                <h4>Valores</h4>
+                <h4>2. Valores</h4>
                 <div class="field-item">
-                    <span class="field-name">☑ Vaga Garagem?:</span> Marque se a locação inclui vaga de garagem. Campo de valor aparece ao lado
+                    <span class="field-name">☑ Vaga Garagem?:</span> Marque se incluir garagem (campo de valor aparece)
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Valor Aluguel *:</span> Valor mensal do aluguel (sem caução e taxas)
+                    <span class="field-name">Valor Aluguel *:</span> Valor mensal base
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Taxa Administração:</span> Taxa cobrada pela administração (% ou valor fixo)
-                </div>
-                
-                <h4>Caução (Depósito Garantia)</h4>
-                <div class="field-item">
-                    <span class="field-name">Parcelas Caução *:</span> À Vista, 2 parcelas ou 3 parcelas
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Valor Caução (1ª Parcela) *:</span> Valor da primeira parcela (ou valor total se à vista)
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Data Pagamento *:</span> Data de pagamento da 1ª parcela
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Código PIX:</span> Código PIX para pagamento do caução
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Botão Recebimento:</span> Registra o recebimento da parcela do caução
+                    <span class="field-name">Taxa Administração:</span> % ou valor fixo
                 </div>
                 
-                <h4>Se 2 ou 3 Parcelas</h4>
+                <h4>3. Caução (Depósito Garantia)</h4>
                 <div class="field-item">
-                    <span class="field-name">Valor 2ª Parcela:</span> Valor da segunda parcela
+                    <span class="field-name">Parcelas *:</span> À Vista, 2 parcelas ou 3 parcelas
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Vencimento 2ª Parcela:</span> Data de vencimento
+                    <span class="field-name">Valor 1ª Parcela *:</span> Valor (ou total se à vista)
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Código PIX 2ª Parcela:</span> Código PIX específico
+                    <span class="field-name">Data Pagamento *:</span> Data da 1ª parcela
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Botão Recebimento 2ª:</span> Registra recebimento
+                    <span class="field-name">Código PIX:</span> Código PIX (opcional)
                 </div>
                 <div class="field-item">
-                    <em>(Mesma estrutura para 3ª parcela)</em>
+                    <span class="field-name">Botão "Recebimento":</span> Registra pagamento da parcela
+                </div>
+                <div class="field-item">
+                    <em>Se 2x ou 3x: campos adicionais para 2ª e 3ª parcelas</em>
                 </div>
                 
-                <h4>Observações e Anexos</h4>
+                <h4>4. Anexos</h4>
                 <div class="field-item">
-                    <span class="field-name">Observações:</span> Informações adicionais sobre o contrato
+                    <span class="field-name">Observações:</span> Texto livre
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Anexos:</span> Documentos do contrato (pode tirar foto ou escolher arquivo)
+                    <span class="field-name">Anexos:</span> Documentos do contrato (PDF, imagens)
                 </div>
+            </div>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Seção de caução mostrando opções de parcelamento]
+            </div>
+            
+            <h3>6.3 O que Acontece ao Criar uma Locação?</h3>
+            <div class="success-box">
+                <h4>✅ Automações do Sistema</h4>
+                <ol>
+                    <li>Status do <strong>imóvel</strong> muda para "Ocupado"</li>
+                    <li>Status do <strong>inquilino</strong> muda para "Locatário"</li>
+                    <li><strong>Recebimentos mensais</strong> são criados automaticamente para todo o período</li>
+                    <li><strong>Parcelas do caução</strong> são criadas na tabela de cauções</li>
+                    <li>Dia de vencimento é aplicado a todos os meses</li>
+                </ol>
             </div>
             
             <div class="rule-box">
-                <h4>⚠️ Regras Importantes</h4>
+                <h4>⚠️ Regras do Caução</h4>
                 <ul>
-                    <li>Ao criar a locação, o sistema <strong>automaticamente</strong>:
-                        <ul>
-                            <li>Muda o status do imóvel para <strong>Ocupado</strong></li>
-                            <li>Muda o status do inquilino para <strong>Locatário</strong></li>
-                            <li>Cria os <strong>recebimentos mensais</strong> de aluguel para todo o período do contrato</li>
-                            <li>Cria as <strong>parcelas do caução</strong> na tabela de cauções</li>
-                        </ul>
-                    </li>
-                    <li>O <strong>Dia Vencimento</strong> deve ser compatível com a <strong>Data Início</strong>
-                        <ul>
-                            <li>Exemplo: Se o contrato inicia no dia 10, o vencimento deve ser dia 10</li>
-                        </ul>
-                    </li>
-                    <li>O <strong>Caução</strong> pode ser pago em até 3 parcelas:
-                        <ul>
-                            <li><strong>À Vista:</strong> Uma única parcela</li>
-                            <li><strong>2 Parcelas:</strong> Primeira parcela + segunda parcela</li>
-                            <li><strong>3 Parcelas:</strong> Primeira + segunda + terceira</li>
-                            <li>A <strong>1ª parcela</strong> é sempre paga no início do contrato (à vista)</li>
-                        </ul>
-                    </li>
-                    <li><strong>Taxa de Administração</strong> é calculada sobre o valor do aluguel</li>
-                    <li>Não é possível <strong>editar</strong> uma locação após criação - apenas visualizar e registrar recebimentos</li>
-                    <li>Para <strong>encerrar</strong> o contrato, use o botão "Encerrar" na visualização da locação</li>
+                    <li>📋 <strong>À Vista:</strong> 1 parcela paga no início</li>
+                    <li>📋 <strong>2 Parcelas:</strong> 1ª parcela no início + 2ª parcela no mês seguinte</li>
+                    <li>📋 <strong>3 Parcelas:</strong> 1ª, 2ª e 3ª parcelas nos 3 primeiros meses</li>
+                    <li>💰 <strong>Cálculo:</strong> Divisão igualitária com ajuste de centavos na última parcela</li>
+                    <li>📧 <strong>Exemplo:</strong> Caução de R$ 1.000,00 em 3x = R$ 333,33 + R$ 333,33 + R$ 333,34</li>
                 </ul>
             </div>
-            
-            <div class="note">
-                <strong>📌 Importante:</strong> Ao clicar nos botões "Recebimento" das parcelas do caução, abre-se uma tela específica para registrar o pagamento daquela parcela. Você pode registrar data de pagamento, método, código PIX e anexar comprovantes.
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Exemplo de cálculo automático de parcelas do caução]
             </div>
         </div>
 
@@ -803,10 +1032,10 @@
             
             <h3>7.1 Lista de Recebimentos</h3>
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Página de Recebimentos - Lista]
+                [IMAGEM: Página de Recebimentos com filtros e status coloridos]
             </div>
             
-            <p>A página Recebimentos exibe todos os pagamentos mensais de aluguel de todas as locações ativas. É aqui que você registra os pagamentos recebidos.</p>
+            <p>Exibe todos os pagamentos mensais de aluguel de todas as locações ativas:</p>
             
             <table>
                 <thead>
@@ -818,390 +1047,7 @@
                 <tbody>
                     <tr>
                         <td><strong>Referência</strong></td>
-                        <td>Mês/Ano do pagamento (ex: Jan/2026)</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Imóvel</strong></td>
-                        <td>Nome do imóvel</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Inquilino</strong></td>
-                        <td>Nome do inquilino</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Vencimento</strong></td>
-                        <td>Data de vencimento do aluguel</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Valor</strong></td>
-                        <td>Valor total (aluguel + garagem + taxa adm - desconto + atraso)</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Status</strong></td>
-                        <td>Pago (verde), Pendente (amarelo), Atrasado (vermelho)</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Ações</strong></td>
-                        <td>Visualizar ou Registrar Pagamento</td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <h3>7.2 Registrar Recebimento</h3>
-            <div class="screenshot-placeholder">
-                [SCREENSHOT: Tela de Registrar Recebimento]
-            </div>
-            
-            <h4>Passo a Passo</h4>
-            <ol>
-                <li>Na lista de recebimentos, clique no botão "Registrar Pagamento" do registro desejado</li>
-                <li>Verifique as informações do contrato e a formação de valores</li>
-                <li>Preencha a data de pagamento</li>
-                <li>Selecione o método de pagamento</li>
-                <li>Adicione código PIX (se aplicável)</li>
-                <li>Adicione observações (opcional)</li>
-                <li>Anexe comprovantes (opcional)</li>
-                <li>Clique em "Salvar"</li>
-            </ol>
-            
-            <h4>Seções da Tela</h4>
-            <div class="field-list">
-                <h4>Informações do Contrato (Apenas Visualização)</h4>
-                <div class="field-item">
-                    <span class="field-name">Imóvel:</span> Nome do imóvel
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Inquilino:</span> Nome do inquilino
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Período:</span> Data início e fim do contrato
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Referência:</span> Mês/ano do pagamento
-                </div>
-                
-                <h4>Formação de Valores (Apenas Visualização)</h4>
-                <div class="field-item">
-                    <span class="field-name">Aluguel:</span> Valor base mensal
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Vaga Garagem:</span> Valor da garagem (se houver)
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Taxa Administração:</span> Taxa de administração
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Desconto:</span> Desconto aplicado (se houver)
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Atraso (se houver):</span> Multa (2%) + Juros (calculado por dia)
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Valor Total:</span> Soma de tudo
-                </div>
-                
-                <h4>Dados de Recebimento (Preenchimento)</h4>
-                <div class="field-item">
-                    <span class="field-name">Data Pagamento *:</span> Data em que o pagamento foi recebido
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Método Pagamento *:</span> PIX, Dinheiro, Transferência ou Boleto
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Código PIX:</span> Código PIX usado no pagamento (opcional)
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Observações:</span> Anotações sobre o pagamento (opcional)
-                </div>
-                
-                <h4>Anexos</h4>
-                <div class="field-item">
-                    <span class="field-name">Escolher Arquivo:</span> Selecione comprovantes do dispositivo
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Tirar Foto (mobile):</span> Tire foto do comprovante com a câmera
-                </div>
-            </div>
-            
-            <h3>7.3 Cálculo de Atraso</h3>
-            <p>Quando a <strong>Data Pagamento</strong> é posterior à <strong>Data Vencimento</strong>, o sistema calcula automaticamente:</p>
-            
-            <div class="field-list">
-                <h4>Componentes do Atraso</h4>
-                <div class="field-item">
-                    <span class="field-name">Multa:</span> 2% sobre o valor total (aluguel + garagem + taxa adm - desconto)
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Juros:</span> 1% ao mês calculado por dia (1% / 30 dias * dias de atraso)
-                </div>
-                <div class="field-item">
-                    <span class="field-name">Total Atraso:</span> Multa + Juros
-                </div>
-            </div>
-            
-            <h4>Exemplo de Cálculo</h4>
-            <div class="success-box">
-                <strong>Cenário:</strong> Aluguel de R$ 1.000,00 com 15 dias de atraso
-                <ul>
-                    <li><strong>Valor Base:</strong> R$ 1.000,00</li>
-                    <li><strong>Multa (2%):</strong> R$ 20,00</li>
-                    <li><strong>Juros (1% / 30 * 15):</strong> R$ 5,00</li>
-                    <li><strong>Total a Pagar:</strong> R$ 1.025,00</li>
-                </ul>
-            </div>
-            
-            <div class="rule-box">
-                <h4>⚠️ Regras Importantes</h4>
-                <ul>
-                    <li>Ao salvar o recebimento, o <strong>status</strong> muda automaticamente para <strong>Pago</strong></li>
-                    <li>O <strong>atraso</strong> é calculado automaticamente se Data Pagamento > Data Vencimento</li>
-                    <li>Você pode aplicar <strong>desconto</strong> sobre o valor total</li>
-                    <li>As <strong>observações</strong> aparecem no recibo e nos relatórios</li>
-                    <li>Os <strong>comprovantes anexados</strong> ficam salvos permanentemente no sistema</li>
-                    <li>Após salvar, você pode emitir o <strong>Recibo</strong> em PDF clicando no botão específico</li>
-                    <li>Uma vez <strong>pago</strong>, não é possível editar o recebimento - apenas visualizar</li>
-                </ul>
-            </div>
-        </div>
-
-        <!-- SEÇÃO: SISTEMA DE CAUÇÕES -->
-        <section id="caucoes" class="mb-12">
-            <h2 class="text-3xl font-bold mb-6 text-blue-600 border-b-2 border-blue-200 pb-2">
-                💰 Sistema de Cauções
-            </h2>
-
-            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-                <p class="font-semibold text-blue-900">
-                    O sistema de cauções permite gerenciar depósitos de segurança de forma parcelada (1x, 2x ou 3x).
-                </p>
-            </div>
-
-            <!-- Tipos de Caução -->
-            <div class="mb-8">
-                <h3 class="text-2xl font-semibold mb-4 text-gray-800">Tipos de Pagamento</h3>
-                
-                <table class="w-full border-collapse border border-gray-300 mb-4">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="border border-gray-300 px-4 py-2 text-left">Tipo</th>
-                            <th class="border border-gray-300 px-4 py-2 text-left">Descrição</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="border border-gray-300 px-4 py-2 font-semibold">À vista</td>
-                            <td class="border border-gray-300 px-4 py-2">Caução pago integralmente no primeiro mês</td>
-                        </tr>
-                        <tr>
-                            <td class="border border-gray-300 px-4 py-2 font-semibold">Parcelado em 2x</td>
-                            <td class="border border-gray-300 px-4 py-2">Caução dividido em 2 parcelas (1º e 2º mês)</td>
-                        </tr>
-                        <tr>
-                            <td class="border border-gray-300 px-4 py-2 font-semibold">Parcelado em 3x</td>
-                            <td class="border border-gray-300 px-4 py-2">Caução dividido em 3 parcelas (1º, 2º e 3º mês)</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Cálculo de Parcelas -->
-            <div class="mb-8">
-                <h3 class="text-2xl font-semibold mb-4 text-gray-800">Cálculo das Parcelas</h3>
-                
-                <div class="bg-white border border-gray-300 rounded p-4 mb-4">
-                    <p class="mb-2"><strong>Regra:</strong> Divisão igualitária com ajuste de centavos na última parcela</p>
-                    
-                    <div class="ml-4 mt-3">
-                        <p class="font-semibold text-green-700 mb-1">Exemplo 1 - Caução R$ 1.000,00 em 3x:</p>
-                        <ul class="list-disc list-inside ml-4 text-gray-700">
-                            <li>1ª parcela: R$ 333,33</li>
-                            <li>2ª parcela: R$ 333,33</li>
-                            <li>3ª parcela: R$ 333,34 (ajuste de R$ 0,01)</li>
-                        </ul>
-                    </div>
-
-                    <div class="ml-4 mt-3">
-                        <p class="font-semibold text-green-700 mb-1">Exemplo 2 - Caução R$ 1.234,56 em 2x:</p>
-                        <ul class="list-disc list-inside ml-4 text-gray-700">
-                            <li>1ª parcela: R$ 617,28</li>
-                            <li>2ª parcela: R$ 617,28</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Comissões de Caução -->
-            <div class="mb-8">
-                <h3 class="text-2xl font-semibold mb-4 text-gray-800">Comissões de Caução</h3>
-                
-                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4">
-                    <p class="font-semibold text-yellow-900">
-                        ⚠️ Importante: As comissões são registradas UMA ÚNICA VEZ no sistema, mesmo quando o caução é parcelado.
-                    </p>
-                </div>
-
-                <ul class="list-disc list-inside ml-4 text-gray-700 space-y-2">
-                    <li>Valores são definidos na criação da locação</li>
-                    <li>Comissões aplicam-se ao valor <strong>total</strong> do caução, não por parcela</li>
-                    <li>Exibidas no relatório financeiro de cauções</li>
-                    <li>Apenas parcelas da mesma locação compartilham os mesmos valores de comissão</li>
-                </ul>
-
-                <div class="mt-4 ml-4">
-                    <p class="font-semibold text-blue-700 mb-1">Exemplo:</p>
-                    <ul class="list-disc list-inside ml-4 text-gray-700">
-                        <li>Caução: R$ 1.200,00 (3x de R$ 400,00)</li>
-                        <li>Comissão Parceiro: R$ 360,00 (30% do total)</li>
-                        <li>Comissão Interno: R$ 240,00 (20% do total)</li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Controle de Recebimento -->
-            <div class="mb-8">
-                <h3 class="text-2xl font-semibold mb-4 text-gray-800">Controle de Recebimento</h3>
-                
-                <p class="mb-4 text-gray-700">Uma parcela é considerada <strong class="text-green-600">recebida</strong> quando o campo <code class="bg-gray-100 px-2 py-1 rounded">pix_code</code> está preenchido.</p>
-
-                <div class="bg-white border border-gray-300 rounded p-4">
-                    <p class="font-semibold mb-2">Status possíveis:</p>
-                    <ul class="list-disc list-inside ml-4 text-gray-700 space-y-1">
-                        <li><span class="inline-block w-20 font-mono text-sm">paid</span> - Parcela paga</li>
-                        <li><span class="inline-block w-20 font-mono text-sm">pending</span> - Parcela não paga</li>
-                        <li><span class="inline-block w-20 font-mono text-sm">overdue</span> - Parcela atrasada</li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Edição Inline -->
-            <div class="mb-8">
-                <h3 class="text-2xl font-semibold mb-4 text-gray-800">Edição Inline no Relatório Financeiro</h3>
-                
-                <p class="mb-4 text-gray-700"><strong>Admin e Broker</strong> podem editar diretamente na tabela:</p>
-
-                <ol class="list-decimal list-inside ml-4 text-gray-700 space-y-3">
-                    <li>
-                        <strong>Código PIX</strong> - Clique no ícone de lápis
-                        <ul class="list-disc list-inside ml-8 text-gray-600 mt-1">
-                            <li>Campo de texto livre</li>
-                            <li>Ao preencher, linha fica verde (recebido)</li>
-                        </ul>
-                    </li>
-                    
-                    <li>
-                        <strong>Comissões</strong> - Clique no valor para editar
-                        <ul class="list-disc list-inside ml-8 text-gray-600 mt-1">
-                            <li>Máscara de moeda automática</li>
-                            <li>Atualiza KPIs em tempo real</li>
-                        </ul>
-                    </li>
-                    
-                    <li>
-                        <strong>Valor da Parcela</strong> - Editável inline
-                        <ul class="list-disc list-inside ml-8 text-gray-600 mt-1">
-                            <li>Útil para ajustes ou correções</li>
-                            <li>Recalcula totais automaticamente</li>
-                        </ul>
-                    </li>
-                    
-                    <li>
-                        <strong>Valor Devolvido</strong> (apenas contratos cancelados)
-                        <ul class="list-disc list-inside ml-8 text-gray-600 mt-1">
-                            <li>Exibido apenas quando filtro ≠ "Ativas"</li>
-                            <li>Usado para registrar quanto foi devolvido ao inquilino</li>
-                            <li>Valor pode ser menor que o caução original (descontos por danos)</li>
-                        </ul>
-                    </li>
-                </ol>
-            </div>
-
-            <!-- Correção por IGPM -->
-            <div class="mb-8">
-                <h3 class="text-2xl font-semibold mb-4 text-gray-800">Correção por IGPM</h3>
-                
-                <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                    <p class="font-semibold text-red-900">
-                        ⚠️ IMPORTANTE: Na rescisão do contrato, o caução é corrigido pelo IGPM acumulado.
-                    </p>
-                </div>
-
-                <p class="mb-4 text-gray-700"><strong>Processo:</strong></p>
-                <ol class="list-decimal list-inside ml-4 text-gray-700 space-y-2">
-                    <li>Sistema busca o <strong>IGPM acumulado</strong> do período da locação</li>
-                    <li>Aplica correção sobre o valor total do caução pago</li>
-                    <li><strong>Devolução:</strong> Valor corrigido é abatido no recebimento do último mês</li>
-                </ol>
-
-                <div class="bg-white border border-gray-300 rounded p-4 mt-4">
-                    <p class="font-semibold mb-2">Fórmula:</p>
-                    <pre class="bg-gray-100 p-3 rounded"><code>Caução Corrigido = Caução Original × (1 + IGPM_Acumulado/100)</code></pre>
-
-                    <div class="mt-4">
-                        <p class="font-semibold text-blue-700 mb-1">Exemplo:</p>
-                        <ul class="list-disc list-inside ml-4 text-gray-700">
-                            <li>Caução original: R$ 1.200,00</li>
-                            <li>IGPM acumulado no período: 8,5%</li>
-                            <li><strong>Caução corrigido:</strong> R$ 1.200,00 × 1,085 = R$ 1.302,00</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Isenção de Taxa -->
-            <div class="mb-8">
-                <h3 class="text-2xl font-semibold mb-4 text-gray-800">Isenção de Taxa no Caução</h3>
-                
-                <div class="bg-green-50 border-l-4 border-green-500 p-4">
-                    <p class="font-semibold text-green-900">
-                        ✅ Regra: Taxa administrativa <strong>NÃO é aplicada</strong> sobre o valor do caução
-                    </p>
-                    <p class="text-green-800 mt-2">
-                        <strong>Motivo:</strong> Caução é uma garantia, não é receita da administradora
-                    </p>
-                </div>
-            </div>
-        </section>
-
-        <!-- SEÇÃO 8: FINANCEIRO -->
-        <div id="financial" class="section">
-            <h2>8. Módulo Financeiro</h2>
-            
-            <h3>8.1 Visão Geral</h3>
-            <div class="screenshot-placeholder">
-                [SCREENSHOT: Página Financeiro - Aba Aluguel]
-            </div>
-            
-            <p>O módulo Financeiro consolida todos os dados financeiros do sistema. É dividido em 3 abas principais:</p>
-            <ul>
-                <li><strong>Aluguel:</strong> Recebimentos mensais de aluguel</li>
-                <li><strong>Caução:</strong> Pagamentos de caução (depósito garantia)</li>
-                <li><strong>Resumo:</strong> Visão consolidada de receitas e comissões</li>
-            </ul>
-            
-            <h3>8.2 Aba Aluguel</h3>
-            <p>Exibe todos os recebimentos de aluguel com informações detalhadas de valores.</p>
-            
-            <h4>Filtros Disponíveis</h4>
-            <ul>
-                <li>Período: Mês, Trimestre, Semestre ou Ano</li>
-                <li>Imóvel: Filtre por imóvel específico</li>
-                <li>Inquilino: Filtre por inquilino específico</li>
-                <li>Status: Pago, Pendente ou Atrasado</li>
-                <li>Data: Filtre por data de vencimento ou pagamento</li>
-            </ul>
-            
-            <h4>Colunas da Tabela</h4>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Coluna</th>
-                        <th>Descrição</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>Mês/Ano</strong></td>
-                        <td>Referência do pagamento (ex: Jan/2026)</td>
+                        <td>Mês/Ano (ex: Jan/2026)</td>
                     </tr>
                     <tr>
                         <td><strong>Imóvel</strong></td>
@@ -1216,49 +1062,129 @@
                         <td>Data de vencimento</td>
                     </tr>
                     <tr>
-                        <td><strong>Pagamento</strong></td>
-                        <td>Data de pagamento efetivo</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Valor Base</strong></td>
-                        <td>Aluguel + garagem + taxa adm</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Desconto</strong></td>
-                        <td>Desconto aplicado (se houver)</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Atraso</strong></td>
-                        <td>Multa + juros (se houver)</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Total Pago</strong></td>
-                        <td>Valor efetivamente recebido</td>
+                        <td><strong>Valor</strong></td>
+                        <td>Valor total calculado</td>
                     </tr>
                     <tr>
                         <td><strong>Status</strong></td>
-                        <td>Pago (verde), Pendente (amarelo), Atrasado (vermelho)</td>
+                        <td>🟢 Pago | 🟡 Pendente | 🔴 Atrasado</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Ações</strong></td>
+                        <td>Visualizar ou Registrar Pagamento</td>
                     </tr>
                 </tbody>
             </table>
             
-            <h4>Totalizadores</h4>
-            <p>No rodapé da tabela, você verá:</p>
-            <ul>
-                <li><strong>Total Valor Base:</strong> Soma de todos os valores base do período filtrado</li>
-                <li><strong>Total Descontos:</strong> Soma de todos os descontos</li>
-                <li><strong>Total Atrasos:</strong> Soma de todas as multas e juros</li>
-                <li><strong>Total Recebido:</strong> Soma de todos os valores pagos</li>
-            </ul>
-            
-            <h3>8.3 Aba Caução</h3>
+            <h3>7.2 Registrar Recebimento</h3>
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Página Financeiro - Aba Caução]
+                [IMAGEM: Tela de registrar recebimento com breakdown de valores]
             </div>
             
-            <p>Exibe todas as parcelas de caução (depósito garantia) de todas as locações.</p>
+            <h4>Passo a Passo</h4>
+            <ol>
+                <li>Clique em <strong>"Registrar Pagamento"</strong> no registro desejado</li>
+                <li>Verifique a <strong>formação de valores</strong> (aluguel + garagem + taxa - desconto + atraso)</li>
+                <li>Preencha a <strong>Data Pagamento</strong></li>
+                <li>Selecione o <strong>Método de Pagamento</strong> (PIX, Dinheiro, Transferência, Boleto)</li>
+                <li>Adicione <strong>Código PIX</strong> (se aplicável)</li>
+                <li>Adicione <strong>Observações</strong> (opcional)</li>
+                <li>Anexe <strong>Comprovantes</strong> (opcional)</li>
+                <li>Clique em <strong>"Salvar"</strong></li>
+            </ol>
             
-            <h4>Colunas da Tabela</h4>
+            <h4>Formação de Valores (Exibida Automaticamente)</h4>
+            <div class="field-list">
+                <div class="field-item">
+                    <span class="field-name">Aluguel:</span> Valor base mensal
+                </div>
+                <div class="field-item">
+                    <span class="field-name">+ Vaga Garagem:</span> Se houver
+                </div>
+                <div class="field-item">
+                    <span class="field-name">+ Taxa Administração:</span> % sobre o aluguel
+                </div>
+                <div class="field-item">
+                    <span class="field-name">- Desconto:</span> Se aplicado
+                </div>
+                <div class="field-item">
+                    <span class="field-name">+ Atraso:</span> Se Data Pagamento > Data Vencimento
+                </div>
+                <div class="field-item">
+                    <span class="field-name">= Valor Total:</span> Valor a ser pago
+                </div>
+            </div>
+            
+            <h3>7.3 Cálculo Automático de Atraso</h3>
+            <p>Quando <strong>Data Pagamento > Data Vencimento</strong>, o sistema calcula:</p>
+            
+            <div class="field-list">
+                <h4>Componentes</h4>
+                <div class="field-item">
+                    <span class="field-name">Multa:</span> 2% do valor total
+                </div>
+                <div class="field-item">
+                    <span class="field-name">Juros:</span> 1% ao mês pro-rata (1% / 30 * dias de atraso)
+                </div>
+            </div>
+            
+            <h4>Exemplo de Cálculo</h4>
+            <div class="success-box">
+                <strong>Cenário:</strong> Aluguel de R$ 1.000,00 com 15 dias de atraso
+                <ul>
+                    <li><strong>Valor Base:</strong> R$ 1.000,00</li>
+                    <li><strong>Multa (2%):</strong> R$ 20,00</li>
+                    <li><strong>Juros (1% / 30 * 15):</strong> R$ 5,00</li>
+                    <li><strong>Total a Pagar:</strong> R$ 1.025,00</li>
+                </ul>
+            </div>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Breakdown de valor com atraso calculado]
+            </div>
+            
+            <div class="rule-box">
+                <h4>⚠️ Após Salvar o Recebimento</h4>
+                <ul>
+                    <li>✅ Status muda para <strong>"Pago"</strong> automaticamente</li>
+                    <li>✅ Você pode emitir <strong>Recibo em PDF</strong></li>
+                    <li>✅ Comprovantes ficam salvos permanentemente</li>
+                    <li>❌ Não é possível editar recebimento pago (apenas visualizar)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- SEÇÃO 8: FINANCEIRO -->
+        <div id="financial" class="section">
+            <h2>8. Módulo Financeiro</h2>
+            
+            <h3>8.1 Visão Geral</h3>
+            <div class="screenshot-placeholder">
+                [IMAGEM: Página Financeiro mostrando as 3 abas]
+            </div>
+            
+            <p>O módulo Financeiro consolida todos os dados financeiros em <strong>3 abas</strong>:</p>
+            <ul>
+                <li>📊 <strong>Aluguel:</strong> Recebimentos mensais de aluguel</li>
+                <li>💰 <strong>Caução:</strong> Depósitos de garantia (parcelas)</li>
+                <li>📈 <strong>Resumo:</strong> Visão consolidada de receitas e comissões</li>
+            </ul>
+            
+            <h3>8.2 Aba Aluguel</h3>
+            <div class="screenshot-placeholder">
+                [IMAGEM: Aba Aluguel com filtros e totalizadores]
+            </div>
+            
+            <h4>Filtros Disponíveis</h4>
+            <ul>
+                <li>📅 <strong>Período:</strong> Mês, Trimestre, Semestre, Ano</li>
+                <li>🏠 <strong>Imóvel:</strong> Filtrar por imóvel específico</li>
+                <li>👤 <strong>Inquilino:</strong> Filtrar por inquilino</li>
+                <li>🎯 <strong>Status:</strong> Pago, Pendente, Atrasado</li>
+                <li>📆 <strong>Data:</strong> Vencimento ou Pagamento</li>
+            </ul>
+            
+            <h4>Colunas</h4>
             <table>
                 <thead>
                     <tr>
@@ -1268,64 +1194,145 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td><strong>Locação</strong></td>
-                        <td>Referência da locação (Imóvel - Inquilino)</td>
+                        <td>Mês/Ano</td>
+                        <td>Referência (ex: Jan/2026)</td>
                     </tr>
                     <tr>
-                        <td><strong>Parcela</strong></td>
-                        <td>Número da parcela (1/1, 1/2, 2/2, 1/3, 2/3, 3/3)</td>
+                        <td>Imóvel</td>
+                        <td>Nome do imóvel</td>
                     </tr>
                     <tr>
-                        <td><strong>Valor</strong></td>
-                        <td>Valor da parcela</td>
+                        <td>Inquilino</td>
+                        <td>Nome do inquilino</td>
                     </tr>
                     <tr>
-                        <td><strong>Vencimento</strong></td>
-                        <td>Data prevista para pagamento</td>
+                        <td>Vencimento</td>
+                        <td>Data de vencimento</td>
                     </tr>
                     <tr>
-                        <td><strong>Pagamento</strong></td>
+                        <td>Pagamento</td>
                         <td>Data de pagamento efetivo</td>
                     </tr>
                     <tr>
-                        <td><strong>Código PIX</strong></td>
-                        <td>Código PIX usado no pagamento</td>
+                        <td>Valor Base</td>
+                        <td>Aluguel + garagem + taxa</td>
                     </tr>
                     <tr>
-                        <td><strong>Status</strong></td>
-                        <td>Pago (verde) ou Pendente (amarelo)</td>
+                        <td>Desconto</td>
+                        <td>Desconto aplicado</td>
+                    </tr>
+                    <tr>
+                        <td>Atraso</td>
+                        <td>Multa + juros</td>
+                    </tr>
+                    <tr>
+                        <td>Total Pago</td>
+                        <td>Valor efetivamente recebido</td>
+                    </tr>
+                    <tr>
+                        <td>Status</td>
+                        <td>🟢 Pago | 🟡 Pendente | 🔴 Atrasado</td>
                     </tr>
                 </tbody>
             </table>
             
-            <h4>Total de Cauções</h4>
-            <p>No rodapé, exibe o <strong>Total de Cauções</strong> (soma de todas as parcelas do período filtrado).</p>
+            <h4>Totalizadores (Rodapé)</h4>
+            <ul>
+                <li>💵 <strong>Total Valor Base</strong></li>
+                <li>➖ <strong>Total Descontos</strong></li>
+                <li>➕ <strong>Total Atrasos</strong></li>
+                <li>✅ <strong>Total Recebido</strong></li>
+            </ul>
+            
+            <h3>8.3 Aba Caução</h3>
+            <div class="screenshot-placeholder">
+                [IMAGEM: Aba Caução mostrando parcelas e edição inline]
+            </div>
+            
+            <h4>Colunas</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Coluna</th>
+                        <th>Descrição</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Locação</td>
+                        <td>Imóvel - Inquilino</td>
+                    </tr>
+                    <tr>
+                        <td>Parcela</td>
+                        <td>1/1, 1/2, 2/2, 1/3, 2/3, 3/3</td>
+                    </tr>
+                    <tr>
+                        <td>Valor</td>
+                        <td>Valor da parcela (editável inline)</td>
+                    </tr>
+                    <tr>
+                        <td>Vencimento</td>
+                        <td>Data prevista</td>
+                    </tr>
+                    <tr>
+                        <td>Pagamento</td>
+                        <td>Data de pagamento</td>
+                    </tr>
+                    <tr>
+                        <td>Código PIX</td>
+                        <td>Código PIX (editável inline)</td>
+                    </tr>
+                    <tr>
+                        <td>Comissões</td>
+                        <td>Comissões relacionadas (editável inline)</td>
+                    </tr>
+                    <tr>
+                        <td>Status</td>
+                        <td>🟢 Pago | 🟡 Pendente</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h4>Edição Inline (Admin e Broker)</h4>
+            <p>Clique nos valores para editar diretamente na tabela:</p>
+            <ul>
+                <li>✏️ <strong>Código PIX:</strong> Clique no ícone de lápis</li>
+                <li>✏️ <strong>Valor da Parcela:</strong> Clique no valor</li>
+                <li>✏️ <strong>Comissões:</strong> Clique no valor da comissão</li>
+                <li>✏️ <strong>Valor Devolvido:</strong> Para contratos cancelados</li>
+            </ul>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Edição inline de código PIX ou valor de parcela]
+            </div>
             
             <h3>8.4 Aba Resumo</h3>
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Página Financeiro - Aba Resumo]
+                [IMAGEM: Aba Resumo com gráficos e KPIs]
             </div>
-            
-            <p>Apresenta uma visão consolidada das receitas e comissões com gráficos e análises.</p>
             
             <h4>Cards de Resumo</h4>
-            <ul>
-                <li><strong>Receita Total:</strong> Soma de todos os aluguéis pagos no período</li>
-                <li><strong>Comissão Parceiro:</strong> Comissão devida aos parceiros externos</li>
-                <li><strong>Comissão Interna:</strong> Comissão devida à equipe interna</li>
-                <li><strong>Lucro Líquido:</strong> Receita - Comissões</li>
-            </ul>
-            
-            <h4>Gráficos</h4>
-            <ul>
-                <li><strong>Evolução da Receita:</strong> Gráfico de linha mostrando receita mensal</li>
-                <li><strong>Distribuição de Comissões:</strong> Gráfico de pizza com comissões</li>
-                <li><strong>Status dos Pagamentos:</strong> Gráfico de barras com pago/pendente/atrasado</li>
-            </ul>
-            
-            <div class="note">
-                <strong>📌 Importante:</strong> Os totalizadores somam <strong>apenas</strong> os registros visíveis após aplicar os filtros. Use os filtros para análises específicas por período, imóvel ou inquilino.
+            <div class="field-list">
+                <div class="field-item">
+                    <span class="field-name">💰 Receita Total:</span> Soma de todos os aluguéis pagos
+                </div>
+                <div class="field-item">
+                    <span class="field-name">🤝 Comissão Parceiro:</span> Comissões devidas a parceiros
+                </div>
+                <div class="field-item">
+                    <span class="field-name">👥 Comissão Interna:</span> Comissões devidas à equipe
+                </div>
+                <div class="field-item">
+                    <span class="field-name">📊 Lucro Líquido:</span> Receita - Comissões
+                </div>
             </div>
+            
+            <h4>Gráficos Interativos</h4>
+            <ul>
+                <li>📈 <strong>Evolução da Receita:</strong> Gráfico de linha mensal</li>
+                <li>🥧 <strong>Distribuição de Comissões:</strong> Gráfico de pizza</li>
+                <li>📊 <strong>Status dos Pagamentos:</strong> Gráfico de barras</li>
+            </ul>
         </div>
 
         <!-- SEÇÃO 9: CONFIGURAÇÕES -->
@@ -1334,17 +1341,15 @@
             
             <div class="rule-box">
                 <h4>🔐 Acesso Restrito</h4>
-                <p>Apenas usuários com perfil <strong>Admin</strong> podem acessar Configurações.</p>
+                <p>Apenas usuários com perfil <strong>Admin</strong> podem acessar este módulo.</p>
             </div>
-            
-            <h3>9.1 Aba Usuários</h3>
+
+            <h3 id="users">9.1 Gestão de Usuários</h3>
             <div class="screenshot-placeholder">
-                [SCREENSHOT: Página Configurações - Aba Usuários]
+                [IMAGEM: Aba Usuários mostrando tabela com ícones de ação]
             </div>
             
-            <p>Gerencie todos os usuários com acesso ao sistema.</p>
-            
-            <h4>Lista de Usuários</h4>
+            <h4>Tabela de Usuários</h4>
             <table>
                 <thead>
                     <tr>
@@ -1359,171 +1364,256 @@
                     </tr>
                     <tr>
                         <td><strong>E-mail</strong></td>
-                        <td>E-mail de acesso ao sistema</td>
+                        <td>E-mail de acesso</td>
                     </tr>
                     <tr>
                         <td><strong>Perfil</strong></td>
-                        <td>Admin, Financeiro ou Gestão</td>
+                        <td>Admin | Financeiro | Corretor</td>
                     </tr>
                     <tr>
                         <td><strong>Status</strong></td>
-                        <td>Ativo (pode acessar) ou Inativo (bloqueado)</td>
+                        <td>🟢 Ativo | 🔴 Inativo | 🔒 Bloqueado Temporariamente</td>
                     </tr>
                     <tr>
                         <td><strong>Ações</strong></td>
-                        <td>Editar ou Excluir</td>
+                        <td>🔑 Resetar Senha | 🗑️ Excluir</td>
                     </tr>
                 </tbody>
             </table>
+
+            <div class="note">
+                <strong>📌 Interação:</strong>
+                <ul>
+                    <li>Clique na <strong>linha da tabela</strong> para editar o usuário</li>
+                    <li>Clique no <strong>ícone 🔑 (chave)</strong> para resetar senha</li>
+                    <li>Clique no <strong>ícone 🗑️ (lixeira)</strong> para excluir</li>
+                </ul>
+            </div>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Tabela de usuários mostrando ícones diretos ao invés de dropdown]
+            </div>
             
-            <h4>Adicionar Novo Usuário</h4>
+            <h4>Criar Novo Usuário</h4>
+            <div class="screenshot-placeholder">
+                [IMAGEM: Formulário de novo usuário com todos os campos]
+            </div>
+            
             <ol>
-                <li>Clique no botão "+ Novo Usuário"</li>
-                <li>Preencha nome e e-mail</li>
-                <li>Selecione o perfil (Admin, Financeiro ou Gestão)</li>
-                <li>Defina uma senha temporária</li>
-                <li>Clique em "Salvar"</li>
+                <li>Clique em <strong>"+ Adicionar Usuário"</strong></li>
+                <li>Preencha os campos:</li>
             </ol>
-            
-            <h3>9.2 Perfis de Acesso</h3>
+
             <div class="field-list">
-                <h4>👤 Admin</h4>
                 <div class="field-item">
-                    <strong>Acesso Total:</strong> Pode visualizar, criar, editar e excluir em todos os módulos
+                    <span class="field-name">Nome Completo *:</span> Nome do usuário
                 </div>
-                <ul>
-                    <li>✅ Imóveis: Acesso completo</li>
-                    <li>✅ Inquilinos: Acesso completo</li>
-                    <li>✅ Locações: Acesso completo</li>
-                    <li>✅ Recebimentos: Acesso completo</li>
-                    <li>✅ Financeiro: Acesso completo</li>
-                    <li>✅ Configurações: Acesso completo</li>
-                </ul>
-                
-                <h4>💰 Financeiro</h4>
                 <div class="field-item">
-                    <strong>Foco em Receitas:</strong> Gerencia recebimentos e relatórios financeiros
+                    <span class="field-name">E-mail / Usuário *:</span> Email único (deve conter @)
                 </div>
-                <ul>
-                    <li>👁️ Imóveis: Apenas visualização</li>
-                    <li>👁️ Inquilinos: Apenas visualização</li>
-                    <li>👁️ Locações: Apenas visualização</li>
-                    <li>✅ Recebimentos: Acesso completo</li>
-                    <li>✅ Financeiro: Acesso completo</li>
-                    <li>❌ Configurações: Sem acesso</li>
-                </ul>
-                
-                <h4>🏢 Gestão</h4>
                 <div class="field-item">
-                    <strong>Foco em Contratos:</strong> Gerencia imóveis, inquilinos e contratos
+                    <span class="field-name">Telefone:</span> Formato: <code>(00) 00000-0000</code> ou <code>(00) 0000-0000</code>
                 </div>
+                <div class="field-item">
+                    <span class="field-name">Perfil *:</span> Admin, Corretor ou Financeiro
+                </div>
+                <div class="field-item">
+                    <span class="field-name">Status:</span> 🟢 Ativado (padrão) | 🔴 Desativado
+                </div>
+            </div>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Campo Status mostrando bolinha verde para Ativado]
+            </div>
+
+            <div class="success-box">
+                <h4>✅ O que Acontece ao Criar um Usuário</h4>
+                <ol>
+                    <li>Sistema gera <strong>senha temporária</strong> automaticamente (12 caracteres)</li>
+                    <li>Email de boas-vindas é enviado com:
+                        <ul>
+                            <li>Link de acesso</li>
+                            <li>Senha temporária</li>
+                            <li>Aviso sobre troca obrigatória no primeiro login</li>
+                        </ul>
+                    </li>
+                    <li>Usuário fará login e será obrigado a criar nova senha</li>
+                </ol>
+            </div>
+
+            <div class="rule-box">
+                <h4>⚠️ Validações</h4>
                 <ul>
-                    <li>✅ Imóveis: Acesso completo</li>
-                    <li>✅ Inquilinos: Acesso completo</li>
-                    <li>✅ Locações: Acesso completo</li>
-                    <li>👁️ Recebimentos: Apenas visualização</li>
-                    <li>👁️ Financeiro: Apenas visualização</li>
-                    <li>❌ Configurações: Sem acesso</li>
+                    <li>✅ <strong>E-mail:</strong> Deve conter @ e ser único no sistema</li>
+                    <li>✅ <strong>Telefone:</strong> 10 ou 11 dígitos com máscara automática</li>
+                    <li>❌ <strong>Email duplicado:</strong> "O E-mail/Usuário já existe no sistema"</li>
                 </ul>
             </div>
             
-            <h3>9.3 Aba Permissões</h3>
-            <p>Configure permissões específicas por perfil e funcionalidade.</p>
+            <h4>Resetar Senha de Usuário</h4>
+            <p>Quando você clica no <strong>ícone 🔑 (chave)</strong>:</p>
+            <ol>
+                <li>Sistema gera nova senha temporária automaticamente</li>
+                <li>Atualiza banco de dados (marca troca obrigatória)</li>
+                <li>Reseta tentativas de login e remove bloqueio</li>
+                <li>Envia email ao usuário informando sobre o reset</li>
+                <li>Mostra toast: "Senha resetada com sucesso! Email enviado para [email]"</li>
+            </ol>
+
+            <div class="screenshot-placeholder">
+                [IMAGEM: Toast de confirmação após resetar senha]
+            </div>
+
+            <h4>Status dos Usuários</h4>
+            <div class="field-list">
+                <div class="field-item">
+                    <span class="field-name">🟢 Ativo:</span> Usuário pode acessar o sistema normalmente
+                </div>
+                <div class="field-item">
+                    <span class="field-name">🔴 Inativo:</span> Usuário desativado pelo admin (não consegue fazer login)
+                </div>
+                <div class="field-item">
+                    <span class="field-name">🔒 Bloqueado Temporariamente:</span> Bloqueado por 3 tentativas falhas (mostra tempo restante em minutos)
+                </div>
+            </div>
+
+            <h3 id="permissions">9.2 Permissões por Perfil</h3>
             
-            <h4>Níveis de Permissão</h4>
-            <ul>
-                <li><strong>Visualizar:</strong> Apenas ver os dados</li>
-                <li><strong>Criar:</strong> Criar novos registros</li>
-                <li><strong>Editar:</strong> Modificar registros existentes</li>
-                <li><strong>Excluir:</strong> Remover registros</li>
-            </ul>
-            
-            <h3>9.4 Isenções de Taxa</h3>
-            <p>Configure imóveis ou inquilinos isentos da taxa de administração.</p>
-            
-            <h4>Tipos de Isenção</h4>
-            <ul>
-                <li><strong>Por Imóvel:</strong> Imóvel específico não paga taxa de administração</li>
-                <li><strong>Por Inquilino:</strong> Inquilino específico não paga taxa de administração</li>
-            </ul>
-            
-            <div class="note">
-                <strong>📌 Aplicação:</strong> As isenções são aplicadas automaticamente nos cálculos dos recebimentos. Afetam apenas recebimentos futuros - não alteram pagamentos já registrados.
+            <h4>Admin (Administrador)</h4>
+            <div class="field-list">
+                <div class="field-item">✅ <strong>Imóveis:</strong> Criar, Editar, Visualizar, Excluir</div>
+                <div class="field-item">✅ <strong>Inquilinos:</strong> Criar, Editar, Visualizar, Excluir</div>
+                <div class="field-item">✅ <strong>Locações:</strong> Criar, Editar, Visualizar, Encerrar</div>
+                <div class="field-item">✅ <strong>Recebimentos:</strong> Registrar, Visualizar, Emitir Recibos</div>
+                <div class="field-item">✅ <strong>Financeiro:</strong> Acesso total, edição inline</div>
+                <div class="field-item">✅ <strong>Configurações:</strong> Acesso total</div>
+            </div>
+
+            <h4>Financeiro</h4>
+            <div class="field-list">
+                <div class="field-item">👁️ <strong>Imóveis:</strong> Apenas visualização</div>
+                <div class="field-item">👁️ <strong>Inquilinos:</strong> Apenas visualização</div>
+                <div class="field-item">👁️ <strong>Locações:</strong> Apenas visualização</div>
+                <div class="field-item">✅ <strong>Recebimentos:</strong> Registrar, Visualizar, Emitir Recibos</div>
+                <div class="field-item">✅ <strong>Financeiro:</strong> Acesso total, edição inline</div>
+                <div class="field-item">❌ <strong>Configurações:</strong> Sem acesso</div>
+            </div>
+
+            <h4>Corretor (Broker)</h4>
+            <div class="field-list">
+                <div class="field-item">✅ <strong>Imóveis:</strong> Criar, Editar, Visualizar, Excluir</div>
+                <div class="field-item">✅ <strong>Inquilinos:</strong> Criar, Editar, Visualizar, Excluir</div>
+                <div class="field-item">✅ <strong>Locações:</strong> Criar, Editar, Visualizar, Encerrar</div>
+                <div class="field-item">👁️ <strong>Recebimentos:</strong> Apenas visualização</div>
+                <div class="field-item">👁️ <strong>Financeiro:</strong> Apenas visualização</div>
+                <div class="field-item">❌ <strong>Configurações:</strong> Sem acesso</div>
             </div>
         </div>
 
-        <!-- SEÇÃO 10: REGRAS DE NEGÓCIO -->
+        <!-- SEÇÃO 10: REGRAS -->
         <div id="rules" class="section">
             <h2>10. Regras de Negócio Importantes</h2>
             
             <h3>10.1 Fluxo de Cadastro Recomendado</h3>
             <div class="success-box">
-                <h4>Ordem Ideal para Iniciar</h4>
+                <h4>✅ Ordem Ideal</h4>
                 <ol>
-                    <li><strong>Cadastrar Imóveis</strong> - Adicione todos os imóveis disponíveis</li>
-                    <li><strong>Cadastrar Inquilinos</strong> - Adicione os inquilinos interessados</li>
-                    <li><strong>Criar Locações</strong> - Vincule imóveis a inquilinos</li>
-                    <li><strong>Registrar Recebimentos</strong> - Registre os pagamentos mensais</li>
-                    <li><strong>Acompanhar Financeiro</strong> - Monitore receitas e comissões</li>
+                    <li><strong>Cadastrar Imóveis</strong> disponíveis para locação</li>
+                    <li><strong>Cadastrar Inquilinos</strong> interessados</li>
+                    <li><strong>Criar Locações</strong> vinculando imóveis a inquilinos</li>
+                    <li><strong>Registrar Recebimentos</strong> mensalmente</li>
+                    <li><strong>Acompanhar Financeiro</strong> através dos relatórios</li>
                 </ol>
             </div>
             
             <h3>10.2 Mudanças Automáticas de Status</h3>
-            <div class="field-list">
-                <h4>Imóveis</h4>
-                <div class="field-item">
-                    <strong>Disponível → Ocupado:</strong> Quando você cria uma locação
-                </div>
-                <div class="field-item">
-                    <strong>Ocupado → (escolha):</strong> Quando você encerra a locação, escolhe o novo status
-                </div>
-                
-                <h4>Inquilinos</h4>
-                <div class="field-item">
-                    <strong>Novo → Locatário:</strong> Quando você cria uma locação para o inquilino
-                </div>
-                <div class="field-item">
-                    <strong>Locatário → Inativo:</strong> Quando todas as locações do inquilino são encerradas
-                </div>
-                
-                <h4>Recebimentos</h4>
-                <div class="field-item">
-                    <strong>Pendente → Pago:</strong> Quando você registra o pagamento
-                </div>
-                <div class="field-item">
-                    <strong>Pendente → Atrasado:</strong> Automaticamente após a data de vencimento
-                </div>
-            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Entidade</th>
+                        <th>Trigger</th>
+                        <th>Mudança de Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td rowspan="2"><strong>Imóveis</strong></td>
+                        <td>Criar locação</td>
+                        <td>Disponível → Ocupado</td>
+                    </tr>
+                    <tr>
+                        <td>Encerrar locação</td>
+                        <td>Ocupado → (você escolhe)</td>
+                    </tr>
+                    <tr>
+                        <td rowspan="2"><strong>Inquilinos</strong></td>
+                        <td>Criar locação</td>
+                        <td>Novo → Locatário</td>
+                    </tr>
+                    <tr>
+                        <td>Todas locações encerradas</td>
+                        <td>Locatário → Inativo</td>
+                    </tr>
+                    <tr>
+                        <td rowspan="2"><strong>Recebimentos</strong></td>
+                        <td>Registrar pagamento</td>
+                        <td>Pendente → Pago</td>
+                    </tr>
+                    <tr>
+                        <td>Após vencimento</td>
+                        <td>Pendente → Atrasado</td>
+                    </tr>
+                    <tr>
+                        <td rowspan="2"><strong>Usuários</strong></td>
+                        <td>3 tentativas de login</td>
+                        <td>Ativo → Bloqueado (30 min)</td>
+                    </tr>
+                    <tr>
+                        <td>Login bem-sucedido</td>
+                        <td>Tentativas = 0</td>
+                    </tr>
+                </tbody>
+            </table>
             
             <h3>10.3 Cálculos Automáticos</h3>
+            
             <h4>Valor Total do Recebimento</h4>
             <div class="field-list">
                 <div class="field-item">
-                    <strong>Fórmula:</strong><br>
-                    Valor Total = (Aluguel + Vaga Garagem + Taxa Adm) - Desconto + Atraso
+                    <code>Valor Total = (Aluguel + Garagem + Taxa Adm) - Desconto + Atraso</code>
                 </div>
             </div>
             
             <h4>Cálculo de Atraso</h4>
             <div class="field-list">
                 <div class="field-item">
-                    <strong>Multa:</strong> 2% do valor total
+                    <code>Multa = Valor Base × 2%</code>
                 </div>
                 <div class="field-item">
-                    <strong>Juros:</strong> 1% ao mês pro-rata (1% / 30 * dias de atraso)
+                    <code>Juros = Valor Base × (1% / 30) × Dias Atraso</code>
                 </div>
                 <div class="field-item">
-                    <strong>Total Atraso:</strong> Multa + Juros
+                    <code>Total Atraso = Multa + Juros</code>
+                </div>
+            </div>
+
+            <h4>Parcelas do Caução</h4>
+            <div class="field-list">
+                <div class="field-item">
+                    <code>Parcela = Valor Total / Número Parcelas</code>
+                </div>
+                <div class="field-item">
+                    Ajuste de centavos na última parcela
                 </div>
             </div>
             
             <h3>10.4 Restrições de Exclusão</h3>
             <ul>
-                <li>❌ Não é possível excluir <strong>imóveis</strong> com locações ativas</li>
-                <li>❌ Não é possível excluir <strong>inquilinos</strong> com locações ativas</li>
-                <li>❌ Não é possível excluir <strong>locações</strong> - use o botão "Encerrar"</li>
-                <li>❌ Não é possível excluir <strong>recebimentos pagos</strong></li>
-                <li>❌ Não é possível excluir o <strong>próprio usuário</strong> enquanto logado</li>
+                <li>❌ Imóveis com locações ativas</li>
+                <li>❌ Inquilinos com locações ativas</li>
+                <li>❌ Locações (use "Encerrar" ao invés de excluir)</li>
+                <li>❌ Recebimentos já pagos</li>
+                <li>❌ Usuário próprio enquanto logado</li>
             </ul>
             
             <h3>10.5 Validações de Formato</h3>
@@ -1531,33 +1621,45 @@
                 <thead>
                     <tr>
                         <th>Campo</th>
-                        <th>Formato Obrigatório</th>
+                        <th>Formato</th>
+                        <th>Validação</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td><strong>CPF</strong></td>
-                        <td>000.000.000-00 (11 dígitos + formatação)</td>
+                        <td><code>000.000.000-00</code></td>
+                        <td>11 dígitos</td>
                     </tr>
                     <tr>
                         <td><strong>CNPJ</strong></td>
-                        <td>00.000.000/0000-00 (14 dígitos + formatação)</td>
+                        <td><code>00.000.000/0000-00</code></td>
+                        <td>14 dígitos</td>
                     </tr>
                     <tr>
                         <td><strong>RG</strong></td>
-                        <td>00.000.000-0 (9 dígitos + formatação)</td>
+                        <td><code>00.000.000-0</code></td>
+                        <td>9 dígitos</td>
                     </tr>
                     <tr>
                         <td><strong>Telefone</strong></td>
-                        <td>(00) 00000-0000</td>
+                        <td><code>(00) 00000-0000</code></td>
+                        <td>10 ou 11 dígitos</td>
                     </tr>
                     <tr>
                         <td><strong>CEP</strong></td>
-                        <td>00000-000</td>
+                        <td><code>00000-000</code></td>
+                        <td>8 dígitos</td>
+                    </tr>
+                    <tr>
+                        <td><strong>E-mail</strong></td>
+                        <td><code>usuario@dominio.com</code></td>
+                        <td>Deve conter @</td>
                     </tr>
                     <tr>
                         <td><strong>Valores</strong></td>
-                        <td>R$ 0,00</td>
+                        <td><code>R$ 0,00</code></td>
+                        <td>Máscara automática</td>
                     </tr>
                 </tbody>
             </table>
@@ -1565,23 +1667,38 @@
             <h3>10.6 Dicas de Uso</h3>
             <div class="success-box">
                 <ul>
-                    <li>✅ <strong>Use os filtros</strong> para encontrar informações rapidamente</li>
-                    <li>✅ <strong>Adicione fotos</strong> aos imóveis para melhor divulgação</li>
-                    <li>✅ <strong>Anexe comprovantes</strong> aos recebimentos para documentação</li>
-                    <li>✅ <strong>Preencha o CEP</strong> antes de outros campos de endereço</li>
-                    <li>✅ <strong>Use as observações</strong> para registrar informações importantes</li>
-                    <li>✅ <strong>Acompanhe o Dashboard</strong> regularmente para ter visão geral do negócio</li>
-                    <li>✅ <strong>Emita recibos</strong> após registrar pagamentos</li>
-                    <li>✅ <strong>Exporte relatórios</strong> do Financeiro para análises externas</li>
+                    <li>✅ Use <strong>filtros</strong> para encontrar informações rapidamente</li>
+                    <li>✅ Adicione <strong>fotos</strong> aos imóveis (mínimo 3)</li>
+                    <li>✅ Anexe <strong>comprovantes</strong> aos recebimentos</li>
+                    <li>✅ Preencha o <strong>CEP</strong> antes de outros campos de endereço</li>
+                    <li>✅ Use <strong>observações</strong> para registrar informações importantes</li>
+                    <li>✅ Acompanhe o <strong>Painel de Gestão</strong> regularmente</li>
+                    <li>✅ Emita <strong>recibos</strong> após registrar pagamentos</li>
+                    <li>✅ Personalize seu <strong>tema</strong> (claro/escuro)</li>
+                    <li>✅ Mantenha seu <strong>email atualizado</strong> para receber notificações</li>
+                </ul>
+            </div>
+
+            <h3>10.7 Segurança e Boas Práticas</h3>
+            <div class="warning-box">
+                <h4>🔒 Importante</h4>
+                <ul>
+                    <li>🔐 <strong>Senha temporária:</strong> Troque imediatamente no primeiro acesso</li>
+                    <li>🔐 <strong>Senha forte:</strong> Use maiúsculas + minúsculas + números</li>
+                    <li>🔐 <strong>Não compartilhe:</strong> Cada usuário deve ter seu próprio login</li>
+                    <li>🔐 <strong>Logout:</strong> Sempre faça logout ao terminar</li>
+                    <li>🔐 <strong>Bloqueio:</strong> Após 3 tentativas, aguarde 30 minutos</li>
+                    <li>📧 <strong>Email válido:</strong> Mantenha atualizado para recuperação de senha</li>
                 </ul>
             </div>
         </div>
 
         <!-- RODAPÉ -->
         <div style="margin-top: 60px; padding-top: 20px; border-top: 2px solid #e5e7eb; text-align: center; color: #6b7280;">
-            <p><strong>Manual do Sistema de Gestão de Imóveis</strong></p>
-            <p>Versão 1.0 - 2026</p>
-            <p>Para suporte, entre em contato com o administrador do sistema.</p>
+            <p><strong>Manual do Sistema D'Uvo Enterprise</strong></p>
+            <p>Versão 2.0 - Janeiro 2026</p>
+            <p style="margin-top: 10px;">Para suporte técnico, entre em contato com o administrador do sistema.</p>
+            <p style="margin-top: 5px; font-size: 0.9em;">Este manual cobre todas as funcionalidades disponíveis no sistema.</p>
         </div>
     </div>
 </body>
