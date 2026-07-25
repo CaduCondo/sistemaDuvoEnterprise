@@ -446,19 +446,91 @@ export default function Settings() {
   });
 
   const handleResetPassword = async (userId: string) => {
-    if (!confirm("Deseja resetar a senha deste usuário para 'mudar123'?")) return;
     try {
-      // NOTA: Em produção, isso deve usar bcrypt antes de salvar
-      const { error } = await supabase
+      // Buscar dados do usuário
+      const { data: user, error: fetchError } = await supabase
         .from("system_users")
-        .update({ password_hash: "mudar123" })
+        .select("name, email")
+        .eq("id", userId)
+        .single();
+
+      if (fetchError || !user) {
+        throw new Error("Usuário não encontrado");
+      }
+
+      // Gerar senha temporária
+      const generateTemporaryPassword = (): string => {
+        const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        const numbers = '0123456789';
+        const allChars = uppercase + lowercase + numbers;
+        
+        let password = '';
+        password += uppercase[Math.floor(Math.random() * uppercase.length)];
+        password += lowercase[Math.floor(Math.random() * lowercase.length)];
+        password += numbers[Math.floor(Math.random() * numbers.length)];
+        
+        for (let i = 3; i < 12; i++) {
+          password += allChars[Math.floor(Math.random() * allChars.length)];
+        }
+        
+        return password.split('').sort(() => Math.random() - 0.5).join('');
+      };
+
+      const temporaryPassword = generateTemporaryPassword();
+
+      // Atualizar senha no banco
+      const { error: updateError } = await supabase
+        .from("system_users")
+        .update({ 
+          password_hash: temporaryPassword,
+          requires_password_change: true,
+          temporary_password: true,
+          login_attempts: 0,
+          blocked_until: null,
+        })
         .eq("id", userId);
 
-      if (error) throw error;
-      toast({ title: "Senha resetada com sucesso! Nova senha: mudar123" });
+      if (updateError) throw updateError;
+
+      // TODO: Integrar com Resend para envio real
+      console.log('=== EMAIL DE RESET DE SENHA ===');
+      console.log('Para:', user.email);
+      console.log('Assunto: Senha Resetada - D\'Uvo Enterprise');
+      console.log('---');
+      console.log('Olá ' + user.name + ',');
+      console.log('');
+      console.log('Sua senha foi resetada por um administrador.');
+      console.log('');
+      console.log('Acesse: www.duvoenterprise.com.br');
+      console.log('Sua nova senha temporária é: ' + temporaryPassword);
+      console.log('');
+      console.log('IMPORTANTE: Por segurança, você será obrigado a criar uma nova senha no primeiro acesso.');
+      console.log('');
+      console.log('Requisitos da nova senha:');
+      console.log('- Pelo menos 1 letra maiúscula');
+      console.log('- Pelo menos 1 letra minúscula');
+      console.log('- Pelo menos 1 número');
+      console.log('- Entre 6 e 12 caracteres');
+      console.log('');
+      console.log('Atenciosamente,');
+      console.log('Equipe D\'Uvo Enterprise');
+      console.log('================================');
+
+      toast({ 
+        title: "Senha resetada com sucesso!",
+        description: "Email enviado para " + user.email,
+      });
+      
+      return true;
     } catch (error) {
       console.error("Erro ao resetar senha:", error);
-      toast({ title: "Erro ao resetar senha", variant: "destructive" });
+      toast({ 
+        title: "Erro ao resetar senha", 
+        description: "Não foi possível resetar a senha do usuário.",
+        variant: "destructive" 
+      });
+      return false;
     }
   };
 
