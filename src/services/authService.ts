@@ -20,6 +20,7 @@ interface UserSession {
     phone?: string | null;
     cpf?: string | null;
     rg?: string | null;
+    theme?: string | null;
   };
   expiresAt: number;
 }
@@ -187,6 +188,7 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
         phone: user.phone,
         cpf: user.cpf,
         rg: user.rg,
+        theme: user.theme || 'light',
       },
       expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
     };
@@ -214,6 +216,7 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
       phone: session.user.phone,
       cpf: session.user.cpf,
       rg: session.user.rg,
+      theme: session.user.theme,
     };
 
     console.log("✅ Login successful!");

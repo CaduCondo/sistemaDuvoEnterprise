@@ -13,6 +13,7 @@ interface User {
   phone?: string | null;
   cpf?: string | null;
   rg?: string | null;
+  theme?: string | null;
 }
 
 interface AuthContextType {

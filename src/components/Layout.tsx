@@ -16,7 +16,9 @@ import {
   Lock,
   TrendingUp,
   FileText,
-  X
+  X,
+  Moon,
+  Sun
 } from "lucide-react";
 import { logout } from "@/lib/auth";
 import {
@@ -37,6 +39,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { roleMenuPermissionService } from "@/services/roleMenuPermissionService";
 import { ConnectionStatusToast } from "./ConnectionStatusToast";
+import { useTheme } from "next-themes";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LayoutProps {
   children: ReactNode;
@@ -46,10 +50,12 @@ export function Layout({ children }: LayoutProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { user: authUser, refreshUser } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [permissions, setPermissions] = useState<any[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   const scrollProgress = useScrollProgress();
   const scrollDirection = useScrollDirection();
@@ -57,6 +63,14 @@ export function Layout({ children }: LayoutProps) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Garantir que o tema seja aplicado após o mount
+  useEffect(() => {
+    setMounted(true);
+    if (authUser?.theme) {
+      setTheme(authUser.theme);
+    }
+  }, [authUser?.theme]);
 
   useEffect(() => {
     loadPermissions();
@@ -86,6 +100,49 @@ export function Layout({ children }: LayoutProps) {
   const handleLogout = () => {
     logout();
     router.push("/login");
+  };
+
+  const handleToggleTheme = async () => {
+    if (!authUser?.id) return;
+    
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    
+    try {
+      // Atualizar tema no banco de dados
+      const { error } = await supabase
+        .from('system_users')
+        .update({ theme: newTheme })
+        .eq('id', authUser.id);
+
+      if (error) throw error;
+
+      // Aplicar tema imediatamente
+      setTheme(newTheme);
+
+      // Atualizar sessão local
+      const sessionStr = localStorage.getItem("auth_session");
+      if (sessionStr) {
+        const session = JSON.parse(sessionStr);
+        session.user.theme = newTheme;
+        localStorage.setItem("auth_session", JSON.stringify(session));
+        localStorage.setItem("auth_user", JSON.stringify(session.user));
+      }
+
+      // Atualizar contexto
+      refreshUser();
+
+      toast({
+        title: "Tema alterado",
+        description: `Tema ${newTheme === 'dark' ? 'escuro' : 'claro'} aplicado com sucesso.`,
+      });
+    } catch (error) {
+      console.error("Error updating theme:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível alterar o tema.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleChangePassword = () => {
@@ -161,7 +218,7 @@ export function Layout({ children }: LayoutProps) {
 
   const menuItems = [
     { 
-      name: "Dashboard", 
+      name: "Painel", 
       path: "/dashboard", 
       icon: Home,
       permission: "canViewDashboard" 
@@ -205,6 +262,15 @@ export function Layout({ children }: LayoutProps) {
   ];
 
   const navigationItems = menuItems.filter(item => shouldShowMenu(item.path));
+
+  // Não renderizar até montar (evita flash de tema errado)
+  if (!mounted) {
+    return null;
+  }
+
+  const currentTheme = theme || 'light';
+  const oppositeTheme = currentTheme === 'dark' ? 'Light' : 'Dark';
+  const ThemeIcon = currentTheme === 'dark' ? Sun : Moon;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 overflow-x-hidden">
@@ -298,6 +364,10 @@ export function Layout({ children }: LayoutProps) {
                   <DropdownMenuItem id="layout-menu-change-password" onClick={() => setShowPasswordDialog(true)} className="cursor-pointer">
                     <Lock className="mr-2 h-4 w-4" />
                     Trocar Senha
+                  </DropdownMenuItem>
+                  <DropdownMenuItem id="layout-menu-toggle-theme" onClick={handleToggleTheme} className="cursor-pointer">
+                    <ThemeIcon className="mr-2 h-4 w-4" />
+                    Trocar Tema ({oppositeTheme})
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem id="layout-menu-logout" onClick={handleLogout} className="text-red-600 dark:text-red-400 cursor-pointer">
@@ -412,7 +482,7 @@ export function Layout({ children }: LayoutProps) {
                     }}
                   >
                     <User className="h-4 w-4" />
-                    Meu Perfil
+                    Editar Perfil
                   </Button>
                   <Button
                     id="layout-mobile-change-password"
@@ -425,6 +495,18 @@ export function Layout({ children }: LayoutProps) {
                   >
                     <Lock className="h-4 w-4" />
                     Trocar Senha
+                  </Button>
+                  <Button
+                    id="layout-mobile-toggle-theme"
+                    variant="outline"
+                    className="w-full justify-start gap-3 h-11 text-sm"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleToggleTheme();
+                    }}
+                  >
+                    <ThemeIcon className="h-4 w-4" />
+                    Trocar Tema ({oppositeTheme})
                   </Button>
                   <Button
                     id="layout-mobile-logout"
