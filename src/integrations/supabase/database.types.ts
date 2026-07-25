@@ -826,8 +826,10 @@ export type Database = {
           password_hash: string | null
           phone: string | null
           photo: string | null
+          requires_password_change: boolean | null
           rg: string | null
           role: string
+          temporary_password: boolean | null
           theme: string | null
           updated_at: string | null
           username: string | null
@@ -845,8 +847,10 @@ export type Database = {
           password_hash?: string | null
           phone?: string | null
           photo?: string | null
+          requires_password_change?: boolean | null
           rg?: string | null
           role?: string
+          temporary_password?: boolean | null
           theme?: string | null
           updated_at?: string | null
           username?: string | null
@@ -864,8 +868,10 @@ export type Database = {
           password_hash?: string | null
           phone?: string | null
           photo?: string | null
+          requires_password_change?: boolean | null
           rg?: string | null
           role?: string
+          temporary_password?: boolean | null
           theme?: string | null
           updated_at?: string | null
           username?: string | null

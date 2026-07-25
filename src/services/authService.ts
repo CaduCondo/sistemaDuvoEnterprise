@@ -141,14 +141,14 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
       
       console.log("📊 Login attempts:", newAttempts);
       
-      // SE ATINGIU 5 TENTATIVAS -> BLOQUEAR POR 30 MINUTOS
-      if (newAttempts >= 5) {
+      // SE ATINGIU 3 TENTATIVAS -> BLOQUEAR POR 30 MINUTOS
+      if (newAttempts >= 3) {
         const blockUntil = new Date(Date.now() + 30 * 60000);
         updates.blocked_until = blockUntil.toISOString();
         console.warn(`⛔ BLOCKING USER until ${blockUntil.toLocaleString()}`);
         errorMsg = "Muitas tentativas falhas. Conta bloqueada por 30 minutos.";
       } else {
-        const remaining = 5 - newAttempts;
+        const remaining = 3 - newAttempts;
         errorMsg = `Senha incorreta. Você tem mais ${remaining} tentativa(s) antes do bloqueio.`;
       }
       
