@@ -37,33 +37,19 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
 >(({ className, children, preventClose = false, onPointerDownOutside, onEscapeKeyDown, onInteractOutside, ...props }, ref) => {
-  // Force cleanup when component unmounts
+  // Cleanup only body styles when component unmounts
   React.useEffect(() => {
     return () => {
-      // Cleanup on unmount
+      // Only reset body styles - let Radix handle its own cleanup
       setTimeout(() => {
-        // Remove any lingering Radix overlays
-        const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
-        overlays.forEach(overlay => overlay.remove());
-        
-        // Remove focus guards
-        const focusGuards = document.querySelectorAll('[data-radix-focus-guard]');
-        focusGuards.forEach(guard => guard.remove());
-        
-        // Clean portals without open dialogs
-        const portals = document.querySelectorAll('[data-radix-portal]');
-        portals.forEach(portal => {
-          const hasOpenDialog = portal.querySelector('[data-state="open"]');
-          if (!hasOpenDialog) {
-            portal.remove();
-          }
-        });
-        
-        // Reset body
-        document.body.style.pointerEvents = '';
-        document.body.style.overflow = '';
-        document.body.removeAttribute('data-scroll-locked');
-      }, 0);
+        // Only reset if no other dialogs are open
+        const openDialogs = document.querySelectorAll('[data-radix-dialog-content][data-state="open"]');
+        if (openDialogs.length === 0) {
+          document.body.style.pointerEvents = '';
+          document.body.style.overflow = '';
+          document.body.removeAttribute('data-scroll-locked');
+        }
+      }, 100);
     };
   }, []);
 
