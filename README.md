@@ -40,6 +40,27 @@ Sistema desenvolvido em **Next.js 15** com **TypeScript** e **Supabase** para ge
 
 ## ✨ Funcionalidades
 
+### 🔐 Autenticação e Segurança
+- ✅ Login via dropdown no header público (sem página de login separada)
+- ✅ Sistema de 3 tentativas com bloqueio automático (30 minutos)
+- ✅ Senha temporária gerada automaticamente (12 caracteres)
+- ✅ Troca de senha obrigatória no primeiro acesso
+- ✅ Validação visual em tempo real das regras de senha
+- ✅ Recuperação de senha via email
+- ✅ Sistema de tema claro/escuro por usuário
+- ✅ Tema persistente entre dispositivos
+
+### 👥 Gestão de Usuários
+- ✅ Criação simplificada com geração automática de senha
+- ✅ Email de boas-vindas automático
+- ✅ Campo único "E-mail / Usuário"
+- ✅ Validação de email (deve conter @)
+- ✅ Validação de telefone com máscara brasileira
+- ✅ Status Ativo/Inativo com bolinha colorida
+- ✅ Reset de senha com envio de email
+- ✅ Edição inline (clicar na linha da tabela)
+- ✅ Ícones diretos de ação (sem dropdown)
+
 ### 🏠 Gestão de Propriedades
 - ✅ Cadastro completo com múltiplas fotos
 - ✅ Gestão de documentos (IPTU, matrícula, etc.)
@@ -278,12 +299,16 @@ npm run start        # Servidor de produção
 
 ## 🔐 Segurança
 
+- ✅ **Sistema de 3 tentativas** com bloqueio automático
+- ✅ **Senha temporária** com troca obrigatória
 - ✅ **Row Level Security (RLS)** habilitado em todas as tabelas
 - ✅ **Autenticação JWT** via Supabase Auth
 - ✅ **Permissões granulares** por perfil e localização
 - ✅ **Validação de dados** com Zod em todas as entradas
 - ✅ **HTTPS obrigatório** em produção
 - ✅ **Sanitização de uploads** de arquivos
+- ✅ **Bloqueio temporário** após múltiplas tentativas falhas
+- ✅ **Emails de notificação** para ações críticas
 
 ---
 

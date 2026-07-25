@@ -59,6 +59,293 @@ Sistema completo de gestão de locações de imóveis com controle de:
 
 ---
 
+## 🔐 Autenticação e Gestão de Usuários
+
+### Sistema de Autenticação
+
+#### Login via Dropdown no Header Público
+
+**Localização:** Header da página pública de anúncios (página inicial)
+
+**Características:**
+- ✅ Login através de dropdown no header (página `/login` foi removida)
+- ✅ Campos: Usuário/Email e Senha
+- ✅ Toggle para mostrar/ocultar senha
+- ✅ Link "Esqueci minha senha"
+- ✅ Sistema de 3 tentativas com bloqueio automático
+
+#### Sistema de 3 Tentativas
+
+**Regra de Bloqueio:**
+
+1. **1ª tentativa falha:** "Senha incorreta. Você tem mais 2 tentativas."
+2. **2ª tentativa falha:** "Senha incorreta. Você tem mais 1 tentativa."
+3. **3ª tentativa falha:** Conta bloqueada por 30 minutos
+
+**Mensagem de bloqueio:**
+```
+"Conta bloqueada temporariamente por muitas tentativas falhas. 
+Tente novamente em 30 minutos."
+```
+
+**Campos no banco (`system_users`):**
+- `login_attempts` (INTEGER) - Contador de tentativas
+- `blocked_until` (TIMESTAMP) - Data/hora do desbloqueio
+
+**Reset automático:**
+- Tentativas resetadas para 0 após login bem-sucedido
+- Bloqueio expira automaticamente após 30 minutos
+
+### Senha Temporária e Troca Obrigatória
+
+#### Geração de Senha Temporária
+
+**Quando é gerada:**
+1. Ao criar novo usuário
+2. Ao resetar senha de usuário existente
+3. Ao recuperar senha esquecida
+
+**Características da senha temporária:**
+- ✅ 12 caracteres
+- ✅ Pelo menos 1 letra maiúscula
+- ✅ Pelo menos 1 letra minúscula
+- ✅ Pelo menos 1 número
+- ✅ Caracteres embaralhados aleatoriamente
+
+**Exemplo:** `Ab3kT9mN2pQ1`
+
+#### Troca Obrigatória no Primeiro Login
+
+**Fluxo:**
+
+1. Usuário faz login com senha temporária
+2. Sistema detecta `requires_password_change = true`
+3. Dropdown exibe tela de troca de senha (ao invés de redirecionar)
+4. Usuário cria nova senha com validação em tempo real
+5. Após salvar, acessa o sistema normalmente
+
+**Validação Visual em Tempo Real:**
+
+Requisitos exibidos abaixo do campo de senha:
+
+| Requisito | Não Atendido | Atendido |
+|-----------|--------------|----------|
+| Pelo menos 1 maiúscula | ❌ Vermelho | ✅ Verde |
+| Pelo menos 1 minúscula | ❌ Vermelho | ✅ Verde |
+| Pelo menos 1 número | ❌ Vermelho | ✅ Verde |
+| No mínimo 6 caracteres | ❌ Vermelho | ✅ Verde |
+| No máximo 12 caracteres | ❌ Vermelho | ✅ Verde |
+| Senhas são idênticas | ❌ Vermelho | ✅ Verde |
+
+**Regra de validação "Senhas idênticas":**
+- Fica verde quando usuário sai do segundo campo (onBlur)
+- Ou quando clica no botão "Salvar Senha"
+
+**Campos no banco:**
+- `requires_password_change` (BOOLEAN) - Se precisa trocar
+- `temporary_password` (BOOLEAN) - Se senha atual é temporária
+
+### Recuperação de Senha
+
+**Acesso:** Link "Esqueci minha senha" no dropdown de login
+
+**Fluxo:**
+
+1. Usuário clica em "Esqueci minha senha"
+2. Dropdown exibe tela de recuperação
+3. Usuário digita seu email
+4. Sistema valida se email existe
+5. Gera senha temporária automaticamente
+6. Envia email com instruções
+7. Reseta tentativas de login e remove bloqueio
+8. Marca `requires_password_change = true`
+
+**Email de recuperação contém:**
+- Saudação com nome do usuário
+- Link: www.duvoenterprise.com.br
+- Senha temporária (12 caracteres)
+- Aviso sobre troca obrigatória
+- Requisitos da nova senha
+
+**Segurança:**
+- Senha anterior é invalidada imediatamente
+- Contador de tentativas resetado para 0
+- Bloqueio removido (se existir)
+
+### Gestão de Usuários
+
+#### Criação de Usuário
+
+**Campos Obrigatórios:**
+- ✅ Nome Completo (mínimo 3 caracteres)
+- ✅ E-mail / Usuário (único no sistema, deve conter @)
+- ✅ Perfil (Admin, Corretor, Financeiro)
+
+**Campos Opcionais:**
+- Telefone (com máscara: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX)
+
+**Campo Status:**
+- 🟢 Ativado (padrão)
+- 🔴 Desativado
+
+**Processo de criação:**
+
+1. Admin preenche formulário
+2. Sistema valida unicidade de email/usuário
+3. Gera senha temporária automaticamente
+4. Cria usuário com `requires_password_change = true`
+5. Envia email de boas-vindas com senha temporária
+6. Exibe toast de confirmação
+
+**Email de boas-vindas contém:**
+- Saudação com nome do usuário
+- Link: www.duvoenterprise.com.br
+- Senha temporária
+- Aviso sobre troca obrigatória no primeiro acesso
+
+**Validações:**
+
+1. **Email/Usuário:**
+   - Deve conter @
+   - Deve ser único
+   - Mensagem de erro: "O E-mail/Usuário já existe no sistema"
+
+2. **Telefone:**
+   - Máscara: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+   - Aceita apenas números
+   - 10 dígitos (fixo) ou 11 dígitos (celular)
+   - Mensagem de erro: "Telefone inválido. Use (XX) XXXXX-XXXX ou (XX) XXXX-XXXX"
+
+#### Edição de Usuário
+
+**Ação:** Clicar na linha da tabela de usuários
+
+**Campos editáveis:**
+- Nome Completo
+- E-mail / Usuário
+- Telefone
+- Perfil
+- Status (Ativado/Desativado)
+
+**Não é possível editar:**
+- Senha (use "Resetar Senha" para isso)
+
+#### Resetar Senha de Usuário
+
+**Ação:** Clicar no ícone 🔑 (chave) na tabela de usuários
+
+**Processo:**
+
+1. Admin clica no ícone de resetar senha
+2. Sistema gera senha temporária automaticamente
+3. Atualiza banco de dados:
+   - Nova senha
+   - `requires_password_change = true`
+   - `temporary_password = true`
+   - `login_attempts = 0`
+   - `blocked_until = null`
+4. Envia email informando sobre reset
+5. Exibe toast: "Senha resetada com sucesso! Email enviado para [email]"
+
+**Email de reset contém:**
+- Aviso que senha foi resetada por um administrador
+- Nova senha temporária
+- Obrigatoriedade de troca no próximo login
+- Requisitos da nova senha
+
+#### Exclusão de Usuário
+
+**Ação:** Clicar no ícone 🗑️ (lixeira) na tabela de usuários
+
+**Regras:**
+- Confirmação obrigatória
+- Apenas Admin pode excluir usuários
+- Não é possível excluir usuário ativo com permissões ativas
+
+### Sistema de Tema por Usuário
+
+**Campo no banco:** `theme` em `system_users`
+
+**Valores:**
+- `light` - Tema claro
+- `dark` - Tema escuro
+
+**Funcionalidade:**
+
+1. **No Login:**
+   - Sistema carrega tema salvo do usuário
+   - Aplica automaticamente na interface
+
+2. **Troca de Tema:**
+   - Acesso: Menu do perfil → "Trocar Tema (Light/Dark)"
+   - Menu mostra opção oposta ao tema atual:
+     * Se está em Dark → "Trocar Tema (Light)"
+     * Se está em Light → "Trocar Tema (Dark)"
+   - Ao clicar:
+     1. Atualiza tema no banco de dados
+     2. Aplica mudança imediatamente
+     3. Persiste na sessão local
+
+3. **Persistência:**
+   - Tema é salvo no banco de dados
+   - Carregado automaticamente no próximo login
+   - Compartilhado entre dispositivos
+
+**Implementação técnica:**
+- Context API para estado global
+- LocalStorage para cache (evita flash)
+- Classe CSS no `<html>` para aplicação global
+
+### Tabela de Usuários
+
+**Colunas:**
+- Nome
+- E-mail
+- Perfil (badge: Administrador, Corretor, Financeiro)
+- Status (badge com bolinha verde/vermelha)
+
+**Status exibidos:**
+
+| Status | Badge | Ícone | Descrição |
+|--------|-------|-------|-----------|
+| Bloqueado Temporariamente | 🔴 Vermelho | 🔒 | Bloqueado por tentativas (mostra tempo restante) |
+| Inativo | ⚪ Cinza | 🚫 | Desativado pelo admin |
+| Ativo | 🟢 Verde | ✅ | Usuário ativo |
+
+**Ações (ícones diretos):**
+- 🔑 Resetar Senha (azul)
+- 🗑️ Excluir (vermelho)
+
+**Interação:**
+- Clicar na linha: abre edição
+- Clicar nos ícones: executa ação específica
+
+### Emails do Sistema
+
+**Importante:** Atualmente os emails estão sendo simulados no console (desenvolvimento)
+
+**Produção:**
+- Serviço recomendado: **Resend**
+- Plano gratuito: 3.000 emails/mês
+- Após 3.000: $1 por 1.000 emails
+- Integração: variável `RESEND_API_KEY`
+
+**Tipos de email:**
+
+1. **Boas-vindas (novo usuário)**
+   - Trigger: Criação de usuário
+   - Conteúdo: senha temporária + link de acesso
+
+2. **Reset de senha (admin)**
+   - Trigger: Admin resetar senha
+   - Conteúdo: nova senha temporária + aviso de admin
+
+3. **Recuperação de senha (usuário)**
+   - Trigger: "Esqueci minha senha"
+   - Conteúdo: senha temporária + instruções
+
+---
+
 ## 🔐 Autenticação e Permissões
 
 ### Sistema de Autenticação
