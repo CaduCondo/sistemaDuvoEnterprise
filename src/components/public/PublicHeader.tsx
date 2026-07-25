@@ -41,6 +41,7 @@ export function PublicHeader() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(""); // Mensagem de sucesso no dropdown
   const [attempts, setAttempts] = useState(0);
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
   const [userId, setUserId] = useState<string>("");
@@ -55,6 +56,7 @@ export function PublicHeader() {
     if (loading || loginSuccess) return;
     
     setError("");
+    setSuccessMessage("");
     setLoading(true);
 
     try {
@@ -83,15 +85,11 @@ export function PublicHeader() {
 
         // Login normal - resetar tentativas e marcar sucesso
         setAttempts(0);
-        setLoginSuccess(true); // Marca sucesso para manter botão desabilitado
+        setLoginSuccess(true);
+        setSuccessMessage("Login realizado com sucesso! Redirecionando...");
         
-        toast({
-          title: "Login realizado",
-          description: "Redirecionando para o painel...",
-        });
-        
-        // Aguardar um pouco e redirecionar (mantém loading ativo)
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Aguardar e redirecionar
+        await new Promise(resolve => setTimeout(resolve, 1500));
         window.location.href = "/dashboard";
         return;
       }
@@ -244,6 +242,7 @@ export function PublicHeader() {
             if (!isOpen) {
               // Resetar ao fechar
               setError("");
+              setSuccessMessage("");
               setPassword("");
               setRequiresPasswordChange(false);
               setShowForgotPassword(false);
@@ -341,11 +340,11 @@ export function PublicHeader() {
 
                   <form onSubmit={handleSubmit} className="space-y-3">
                     <div className="space-y-1.5">
-                      <Label htmlFor="username" className="text-sm font-medium">Usuário ou Email</Label>
+                      <Label htmlFor="username" className="text-sm font-medium">E-mail:</Label>
                       <Input
                         id="username"
-                        type="text"
-                        placeholder="Digite seu usuário"
+                        type="email"
+                        placeholder="email@exemplo.com"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required
@@ -383,6 +382,15 @@ export function PublicHeader() {
                       <div className="flex items-center gap-2 text-red-600 bg-red-50 p-2 rounded text-xs border border-red-200">
                         <AlertCircle size={14} />
                         <span>{error}</span>
+                      </div>
+                    )}
+                    
+                    {successMessage && (
+                      <div className="flex items-center gap-2 text-green-700 bg-green-50 p-2 rounded text-xs border border-green-200">
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="font-medium">{successMessage}</span>
                       </div>
                     )}
                     
