@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SEO } from "@/components/SEO";
 import { useAuth } from "@/contexts/AuthContext";
 import { WelcomeCard } from "@/components/dashboard/WelcomeCard";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 // Lazy load dos gráficos (não bloqueiam o carregamento inicial)
 const FinancialCharts = dynamic(
@@ -36,18 +38,22 @@ function DashboardSkeleton() {
   );
 }
 
-export default function Dashboard() {
+export default function DashboardPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  
+  const {
+    metrics,
+    topProperties,
+    upcomingPayments,
+    recentActivities,
+    chartData,
+    isLoading
+  } = useDashboardData();
+
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-  const { user } = useAuth();
-
-  const { loading, counts, exemptLocationIds } = useDashboardData(
-    selectedMonth,
-    selectedYear,
-    user?.id,
-    user?.role
-  );
 
   const handlePeriodChange = useCallback((month: number, year: number) => {
     setSelectedMonth(month);
@@ -61,43 +67,45 @@ export default function Dashboard() {
 
   // Calcular dados para os cards (agora muito mais rápido - apenas cálculos simples)
   const overviewData = useMemo(() => {
-    const totalProperties = counts.totalProperties;
-    const occupiedProperties = counts.occupiedProperties;
+    const totalProperties = metrics.totalProperties;
+    const occupiedProperties = metrics.occupiedProperties;
     const occupancyRate = totalProperties > 0 ? (occupiedProperties / totalProperties) * 100 : 0;
 
     // Receita Bruta Recebida = soma dos valores pagos
-    const grossRevenue = counts.grossRevenue;
+    const grossRevenue = metrics.grossRevenue;
     
     // Total Taxas e Contas = Taxa Admin + Taxa Gerenciamento + Contas do Local
-    const totalFeesAndExpenses = counts.adminFees + counts.managementFees + counts.locationExpenses;
+    const totalFeesAndExpenses = metrics.adminFees + metrics.managementFees + metrics.locationExpenses;
     
     // Receita Líquida = Receita Bruta - (Taxas + Contas)
     const netRevenue = grossRevenue - totalFeesAndExpenses;
 
     return {
-      totalProperties: counts.totalProperties,
-      availableProperties: counts.availableProperties,
-      unavailableProperties: counts.unavailableProperties,
+      totalProperties: metrics.totalProperties,
+      availableProperties: metrics.availableProperties,
+      unavailableProperties: metrics.unavailableProperties,
       occupancyRate,
-      totalTenants: counts.totalTenants,
-      activeContracts: counts.activeContracts,
-      expiringContracts: counts.expiringContracts,
-      overduePayments: counts.overduePayments,
-      overdueAmount: counts.overdueAmount,
-      dueTodayPayments: counts.dueTodayPayments,
-      completedPayments: counts.completedPayments,
-      expectedAmount: counts.expectedAmount,
+      totalTenants: metrics.totalTenants,
+      activeContracts: metrics.activeContracts,
+      expiringContracts: metrics.expiringContracts,
+      overduePayments: metrics.overduePayments,
+      overdueAmount: metrics.overdueAmount,
+      dueTodayPayments: metrics.dueTodayPayments,
+      completedPayments: metrics.completedPayments,
+      expectedAmount: metrics.expectedAmount,
       totalRevenue: grossRevenue,
       grossRevenue: grossRevenue,
       totalFeesAndExpenses,
       netRevenue,
-      pendingPayments: counts.pendingPayments,
+      pendingPayments: metrics.pendingPayments,
     };
-  }, [counts, exemptLocationIds]);
+  }, [metrics]);
 
   return (
     <Layout>
-      <SEO title="Dashboard - Gerenciador de Locações" />
+      <Head>
+        <title>Painel de Gestão - D&apos;Uvo Enterprise</title>
+      </Head>
       <div id="dashboard-page" className="space-y-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-1">Dashboard</h1>
@@ -105,9 +113,14 @@ export default function Dashboard() {
             Visão geral do seu portfólio de locações
           </p>
         </div>
-        <WelcomeCard userName={userName} />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <WelcomeCard userName={user?.name || "Usuário"} />
+        </motion.div>
 
-        {loading ? (
+        {isLoading ? (
           <DashboardSkeleton />
         ) : (
           <>

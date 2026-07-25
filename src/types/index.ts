@@ -347,6 +347,7 @@ export interface LoginResult {
     phone?: string | null;
     cpf?: string | null;
     rg?: string | null;
+    theme?: string | null;
   };
   error?: string;
 }
