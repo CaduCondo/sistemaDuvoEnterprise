@@ -53,6 +53,14 @@ export function PublicHeader() {
     }
   };
 
+  const handleForgotPassword = () => {
+    toast({
+      title: "Recuperação de senha",
+      description: "Entre em contato com o administrador do sistema para redefinir sua senha.",
+    });
+    setOpen(false);
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
       <div className="container mx-auto px-4 py-4">
@@ -133,6 +141,16 @@ export function PublicHeader() {
                       <span>{error}</span>
                     </div>
                   )}
+                  
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                      Esqueci minha senha
+                    </button>
+                  </div>
                   
                   <Button 
                     type="submit" 
