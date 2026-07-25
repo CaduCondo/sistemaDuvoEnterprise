@@ -20,6 +20,33 @@ import {
 } from "@/components/ui/select";
 import { forceDialogCleanup } from "@/lib/forceCleanup";
 
+// Função para gerar senha temporária aleatória
+function generateTemporaryPassword(): string {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const numbers = '0123456789';
+  const allChars = uppercase + lowercase + numbers;
+  
+  let password = '';
+  
+  // Garantir pelo menos 1 maiúscula
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  
+  // Garantir pelo menos 1 minúscula
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  
+  // Garantir pelo menos 1 número
+  password += numbers[Math.floor(Math.random() * numbers.length)];
+  
+  // Completar até 12 caracteres
+  for (let i = 3; i < 12; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+  
+  // Embaralhar a senha
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+}
+
 interface UserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -78,10 +105,70 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
     
     setIsSubmitting(true);
     try {
-      const success = await onSave(formData);
-      if (success) {
-        onOpenChange(false);
+      if (user) {
+        // Editar usuário existente
+        await updateUser(user.id, {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || null,
+          username: formData.username,
+          role: formData.role,
+          password: formData.password || undefined,
+        });
+
+        toast({
+          title: "Sucesso",
+          description: "Usuário atualizado com sucesso!",
+        });
+      } else {
+        // Criar novo usuário
+        const temporaryPassword = generateTemporaryPassword();
+        
+        await createUser({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || null,
+          username: formData.username,
+          password: temporaryPassword,
+          role: formData.role,
+          requires_password_change: true,
+          temporary_password: true,
+        });
+
+        // Simular envio de email (log no console por enquanto)
+        console.log('=== EMAIL DE BOAS-VINDAS ===');
+        console.log('Para:', formData.email);
+        console.log('Assunto: Bem-vindo ao D\'Uvo Enterprise');
+        console.log('---');
+        console.log('Olá ' + formData.name + ',');
+        console.log('');
+        console.log('Bem-vindo ao sistema D\'Uvo Enterprise!');
+        console.log('');
+        console.log('Acesse: www.duvoenterprise.com.br');
+        console.log('Sua senha temporária é: ' + temporaryPassword);
+        console.log('');
+        console.log('Por segurança, você será solicitado a criar uma nova senha no primeiro acesso.');
+        console.log('');
+        console.log('Atenciosamente,');
+        console.log('Equipe D\'Uvo Enterprise');
+        console.log('===========================');
+
+        toast({
+          title: "Usuário criado!",
+          description: `Senha temporária: ${temporaryPassword} (verifique o console para detalhes do email)`,
+          duration: 10000,
+        });
       }
+
+      onSuccess();
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Erro ao salvar usuário:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar o usuário.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }

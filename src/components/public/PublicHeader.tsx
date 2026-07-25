@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { login } from "@/lib/auth";
+import { PasswordChangeDialog } from "@/components/PasswordChangeDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 export function PublicHeader() {
   const { toast } = useToast();
@@ -20,6 +22,8 @@ export function PublicHeader() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
+  const [userId, setUserId] = useState<string>("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +39,22 @@ export function PublicHeader() {
       const result = await login({ email: username, password });
       
       if (result.success && result.user) {
-        // Resetar tentativas em caso de sucesso
+        // Verificar se o usuário precisa trocar a senha
+        const { data: userData } = await supabase
+          .from("system_users")
+          .select("requires_password_change, id")
+          .eq("id", result.user.id)
+          .single();
+
+        if (userData?.requires_password_change) {
+          // Mostrar tela de troca de senha
+          setUserId(userData.id);
+          setRequiresPasswordChange(true);
+          setLoading(false);
+          return;
+        }
+
+        // Login normal - resetar tentativas
         setAttempts(0);
         toast({
           title: "Login realizado",
@@ -84,6 +103,16 @@ export function PublicHeader() {
     setOpen(false);
   };
 
+  const handlePasswordChangeSuccess = () => {
+    toast({
+      title: "Senha atualizada!",
+      description: "Redirecionando para o painel...",
+    });
+    setTimeout(() => {
+      window.location.href = "/dashboard";
+    }, 1500);
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
       <div className="container mx-auto px-4 py-4">
@@ -104,6 +133,7 @@ export function PublicHeader() {
               // Resetar ao fechar
               setError("");
               setPassword("");
+              setRequiresPasswordChange(false);
             }
           }}>
             <DropdownMenuTrigger asChild>
@@ -116,94 +146,98 @@ export function PublicHeader() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80 p-4">
-              <div className="space-y-3">
-                <div className="text-center pb-2 border-b">
-                  <div className="mx-auto bg-gradient-to-br from-blue-600 to-blue-800 w-12 h-12 rounded-xl flex items-center justify-center shadow-lg mb-2">
-                    <Building2 className="h-6 w-6 text-white" />
+              {requiresPasswordChange ? (
+                <PasswordChangeDialog userId={userId} onSuccess={handlePasswordChangeSuccess} />
+              ) : (
+                <div className="space-y-3">
+                  <div className="text-center pb-2 border-b">
+                    <div className="mx-auto bg-gradient-to-br from-blue-600 to-blue-800 w-12 h-12 rounded-xl flex items-center justify-center shadow-lg mb-2">
+                      <Building2 className="h-6 w-6 text-white" />
+                    </div>
+                    <h3 className="font-bold text-lg text-slate-900">D'Uvo Enterprise</h3>
+                    <p className="text-xs text-slate-600">Property Control System</p>
                   </div>
-                  <h3 className="font-bold text-lg text-slate-900">D'Uvo Enterprise</h3>
-                  <p className="text-xs text-slate-600">Property Control System</p>
-                </div>
 
-                <form onSubmit={handleSubmit} className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="username" className="text-sm font-medium">Usuário ou Email</Label>
-                    <Input
-                      id="username"
-                      type="text"
-                      placeholder="Digite seu usuário"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  
-                  <div className="space-y-1.5">
-                    <Label htmlFor="password" className="text-sm font-medium">Senha</Label>
-                    <div className="relative">
+                  <form onSubmit={handleSubmit} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="username" className="text-sm font-medium">Usuário ou Email</Label>
                       <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Digite sua senha"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        id="username"
+                        type="text"
+                        placeholder="Digite seu usuário"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
                         required
-                        className="h-9 text-sm pr-9"
+                        className="h-9 text-sm"
                       />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <Label htmlFor="password" className="text-sm font-medium">Senha</Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Digite sua senha"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          className="h-9 text-sm pr-9"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {error && (
+                      <div className="flex items-center gap-2 text-red-600 bg-red-50 p-2 rounded text-xs border border-red-200">
+                        <AlertCircle size={14} />
+                        <span>{error}</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-end">
                       <button
                         type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                        onClick={handleForgotPassword}
+                        className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                       >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
+                        Esqueci minha senha
                       </button>
                     </div>
-                  </div>
-                  
-                  {error && (
-                    <div className="flex items-center gap-2 text-red-600 bg-red-50 p-2 rounded text-xs border border-red-200">
-                      <AlertCircle size={14} />
-                      <span>{error}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full h-9 bg-blue-600 hover:bg-blue-700 text-sm"
+                      disabled={loading}
                     >
-                      Esqueci minha senha
-                    </button>
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full h-9 bg-blue-600 hover:bg-blue-700 text-sm"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                        Entrando...
-                      </>
-                    ) : (
-                      "Entrar"
-                    )}
-                  </Button>
-                </form>
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                          Entrando...
+                        </>
+                      ) : (
+                        "Entrar"
+                      )}
+                    </Button>
+                  </form>
 
-                <div className="text-center pt-2 border-t">
-                  <p className="text-xs text-slate-500">
-                    Desenvolvido por <span className="font-semibold">Carlos Uva</span>
-                  </p>
+                  <div className="text-center pt-2 border-t">
+                    <p className="text-xs text-slate-500">
+                      Desenvolvido por <span className="font-semibold">Carlos Uva</span>
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
