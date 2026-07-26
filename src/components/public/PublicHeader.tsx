@@ -13,25 +13,6 @@ import { login } from "@/lib/auth";
 import { PasswordChangeDialog } from "@/components/PasswordChangeDialog";
 import { supabase } from "@/integrations/supabase/client";
 
-// Função para gerar senha temporária
-function generateTemporaryPassword(): string {
-  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-  const numbers = '0123456789';
-  const allChars = uppercase + lowercase + numbers;
-  
-  let password = '';
-  password += uppercase[Math.floor(Math.random() * uppercase.length)];
-  password += lowercase[Math.floor(Math.random() * lowercase.length)];
-  password += numbers[Math.floor(Math.random() * numbers.length)];
-  
-  for (let i = 3; i < 12; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)];
-  }
-  
-  return password.split('').sort(() => Math.random() - 0.5).join('');
-}
-
 export function PublicHeader() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -41,7 +22,7 @@ export function PublicHeader() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState(""); // Mensagem de sucesso no dropdown
+  const [successMessage, setSuccessMessage] = useState("");
   const [attempts, setAttempts] = useState(0);
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
   const [userId, setUserId] = useState<string>("");
@@ -52,7 +33,6 @@ export function PublicHeader() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Prevenir múltiplos cliques
     if (loading || loginSuccess) return;
     
     setError("");
@@ -68,7 +48,6 @@ export function PublicHeader() {
       const result = await login({ email: username, password });
       
       if (result.success && result.user) {
-        // Verificar se o usuário precisa trocar a senha
         const { data: userData } = await supabase
           .from("system_users")
           .select("requires_password_change, id")
@@ -76,29 +55,24 @@ export function PublicHeader() {
           .single();
 
         if (userData?.requires_password_change) {
-          // Mostrar tela de troca de senha
           setUserId(userData.id);
           setRequiresPasswordChange(true);
           setLoading(false);
           return;
         }
 
-        // Login normal - resetar tentativas e marcar sucesso
         setAttempts(0);
         setLoginSuccess(true);
         setSuccessMessage("Login realizado com sucesso! Redirecionando...");
         
-        // Aguardar e redirecionar
         await new Promise(resolve => setTimeout(resolve, 1500));
         window.location.href = "/dashboard";
         return;
       }
 
-      // Incrementar tentativas
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
       
-      // Mensagens amigáveis baseadas no número de tentativas
       if (result.error?.includes("bloqueada")) {
         setError(result.error);
       } else {
@@ -120,7 +94,6 @@ export function PublicHeader() {
       console.error("Erro durante login:", error);
       setError("Erro ao processar login. Tente novamente.");
     } finally {
-      // Só desabilita o loading se não foi sucesso
       if (!loginSuccess) {
         setLoading(false);
       }
@@ -132,15 +105,14 @@ export function PublicHeader() {
     setRecoveryLoading(true);
     
     try {
-      // Buscar usuário pelo email
-      const { data: user, error } = await supabase
+      // Verificar se o usuário existe no sistema
+      const { data: user, error: userError } = await supabase
         .from("system_users")
-        .select("id, name, email")
+        .select("id, email, active")
         .eq("email", recoveryEmail)
-        .eq("active", true)
         .single();
 
-      if (error || !user) {
+      if (userError || !user) {
         toast({
           title: "Erro",
           description: "E-mail não encontrado no sistema.",
@@ -150,41 +122,26 @@ export function PublicHeader() {
         return;
       }
 
-      // Gerar senha temporária
-      const temporaryPassword = generateTemporaryPassword();
+      if (!user.active) {
+        toast({
+          title: "Erro",
+          description: "Usuário inativo. Entre em contato com o administrador.",
+          variant: "destructive",
+        });
+        setRecoveryLoading(false);
+        return;
+      }
 
-      // Atualizar usuário com senha temporária
-      await supabase
-        .from("system_users")
-        .update({
-          password_hash: temporaryPassword,
-          requires_password_change: true,
-          temporary_password: true,
-          login_attempts: 0,
-          blocked_until: null,
-        })
-        .eq("id", user.id);
-
-      // Enviar e-mail via API route
-      const emailResponse = await fetch("/api/send-password-recovery", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: user.email,
-          name: user.name,
-          temporaryPassword: temporaryPassword,
-        }),
+      // Usar Supabase Auth para enviar e-mail de recuperação
+      const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
+        redirectTo: `${window.location.origin}/dashboard`,
       });
 
-      const emailResult = await emailResponse.json();
-
-      if (!emailResult.success) {
-        console.error("Erro ao enviar e-mail:", emailResult.error);
+      if (error) {
+        console.error("Erro ao enviar e-mail de recuperação:", error);
         toast({
           title: "Erro ao enviar e-mail",
-          description: emailResult.error || "Não foi possível enviar o e-mail. Tente novamente.",
+          description: error.message || "Não foi possível enviar o e-mail. Tente novamente.",
           variant: "destructive",
         });
         setRecoveryLoading(false);
@@ -192,9 +149,9 @@ export function PublicHeader() {
       }
 
       toast({
-        title: "E-mail enviado!",
-        description: "Verifique sua caixa de entrada. A senha temporária foi enviada.",
-        duration: 5000,
+        title: "✅ E-mail enviado!",
+        description: "Verifique sua caixa de entrada. Um link para redefinir sua senha foi enviado.",
+        duration: 6000,
       });
 
       // Voltar para tela de login
@@ -240,7 +197,6 @@ export function PublicHeader() {
           <DropdownMenu open={open} onOpenChange={(isOpen) => {
             setOpen(isOpen);
             if (!isOpen) {
-              // Resetar ao fechar
               setError("");
               setSuccessMessage("");
               setPassword("");
@@ -268,7 +224,7 @@ export function PublicHeader() {
                       <Mail className="h-6 w-6 text-white" />
                     </div>
                     <h3 className="font-bold text-lg text-slate-900">Recuperar Senha</h3>
-                    <p className="text-xs text-slate-600">Digite seu e-mail para receber uma senha temporária</p>
+                    <p className="text-xs text-slate-600">Digite seu e-mail para receber o link de recuperação</p>
                   </div>
 
                   <form onSubmit={handleForgotPasswordSubmit} className="space-y-3">
@@ -286,11 +242,11 @@ export function PublicHeader() {
                     </div>
                     
                     <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-800">
-                      <p className="font-semibold mb-1">Você receberá:</p>
+                      <p className="font-semibold mb-1">📧 Você receberá:</p>
                       <ul className="list-disc list-inside space-y-0.5 text-xs">
-                        <li>Link: www.duvoenterprise.com.br</li>
-                        <li>Senha temporária de 12 caracteres</li>
-                        <li>Será obrigado a criar nova senha no login</li>
+                        <li>Link seguro para redefinir sua senha</li>
+                        <li>Válido por 1 hora</li>
+                        <li>Acesso direto ao sistema após redefinir</li>
                       </ul>
                     </div>
                     
