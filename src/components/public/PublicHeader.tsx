@@ -100,19 +100,32 @@ export function PublicHeader() {
     }
   };
 
+  const generateTemporaryPassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    let password = "";
+    password += chars.charAt(Math.floor(Math.random() * 26));
+    password += chars.charAt(Math.floor(Math.random() * 26) + 26);
+    password += "23456789".charAt(Math.floor(Math.random() * 8));
+    for (let i = 3; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
+
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRecoveryLoading(true);
     
     try {
-      // Verificar se o usuário existe no sistema
-      const { data: user, error: userError } = await supabase
+      // Buscar usuário pelo email
+      const { data: user, error } = await supabase
         .from("system_users")
-        .select("id, email, active")
+        .select("id, name, email")
         .eq("email", recoveryEmail)
+        .eq("active", true)
         .single();
 
-      if (userError || !user) {
+      if (error || !user) {
         toast({
           title: "Erro",
           description: "E-mail não encontrado no sistema.",
@@ -122,26 +135,41 @@ export function PublicHeader() {
         return;
       }
 
-      if (!user.active) {
-        toast({
-          title: "Erro",
-          description: "Usuário inativo. Entre em contato com o administrador.",
-          variant: "destructive",
-        });
-        setRecoveryLoading(false);
-        return;
-      }
+      // Gerar senha temporária
+      const temporaryPassword = generateTemporaryPassword();
 
-      // Usar Supabase Auth para enviar e-mail de recuperação
-      const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
-        redirectTo: `${window.location.origin}/dashboard`,
+      // Atualizar usuário com senha temporária
+      await supabase
+        .from("system_users")
+        .update({
+          password_hash: temporaryPassword,
+          requires_password_change: true,
+          temporary_password: true,
+          login_attempts: 0,
+          blocked_until: null,
+        })
+        .eq("id", user.id);
+
+      // Enviar e-mail via API route (Resend)
+      const emailResponse = await fetch("/api/send-password-recovery", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.name,
+          temporaryPassword: temporaryPassword,
+        }),
       });
 
-      if (error) {
-        console.error("Erro ao enviar e-mail de recuperação:", error);
+      const emailResult = await emailResponse.json();
+
+      if (!emailResult.success) {
+        console.error("Erro ao enviar e-mail:", emailResult.error);
         toast({
           title: "Erro ao enviar e-mail",
-          description: error.message || "Não foi possível enviar o e-mail. Tente novamente.",
+          description: emailResult.error || "Não foi possível enviar o e-mail. Tente novamente.",
           variant: "destructive",
         });
         setRecoveryLoading(false);
@@ -150,7 +178,7 @@ export function PublicHeader() {
 
       toast({
         title: "✅ E-mail enviado!",
-        description: "Verifique sua caixa de entrada. Um link para redefinir sua senha foi enviado.",
+        description: "Verifique sua caixa de entrada. A senha temporária foi enviada.",
         duration: 6000,
       });
 
