@@ -316,7 +316,7 @@ export function PublicHeader() {
                             Enviando...
                           </>
                         ) : (
-                          "Enviar Email"
+                          "Enviar E-mail"
                         )}
                       </Button>
                     </div>
