@@ -27,7 +27,6 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [touchedConfirm, setTouchedConfirm] = useState(false);
   const [showSuccessScreen, setShowSuccessScreen] = useState(false);
 
   const [validation, setValidation] = useState<PasswordValidation>({
@@ -45,7 +44,8 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
     const hasNumber = /[0-9]/.test(newPassword);
     const minLength = newPassword.length >= 6;
     const maxLength = newPassword.length <= 12;
-    const passwordsMatch = newPassword === confirmPassword && newPassword.length > 0;
+    // Validação em tempo real: fica verde assim que as senhas coincidirem
+    const passwordsMatch = newPassword === confirmPassword && newPassword.length > 0 && confirmPassword.length > 0;
 
     setValidation({
       hasUpperCase,
@@ -53,9 +53,9 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
       hasNumber,
       minLength,
       maxLength,
-      passwordsMatch: touchedConfirm ? passwordsMatch : false,
+      passwordsMatch,
     });
-  }, [newPassword, confirmPassword, touchedConfirm]);
+  }, [newPassword, confirmPassword]);
 
   const isValid = 
     validation.hasUpperCase &&
@@ -187,7 +187,7 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
           <ValidationItem isValid={validation.hasLowerCase} text="Pelo menos 1 letra minúscula" />
           <ValidationItem isValid={validation.hasNumber} text="Pelo menos 1 número" />
           <ValidationItem isValid={validation.minLength} text="No mínimo 6 caracteres" />
-          <ValidationItem isValid={validation.maxLength} text="No máximo 12 caracteres" />
+          <ValidationItem isValid={validation.passwordsMatch} text="As senhas precisam ser idênticas" />
         </div>
 
         <div className="space-y-1.5">
@@ -199,7 +199,6 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
               placeholder="Digite novamente sua nova senha"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              onBlur={() => setTouchedConfirm(true)}
               required
               className="h-9 text-sm pr-9"
               maxLength={12}
@@ -215,12 +214,6 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
             </button>
           </div>
         </div>
-
-        {touchedConfirm && (
-          <div className="bg-slate-50 p-2 rounded-lg border">
-            <ValidationItem isValid={validation.passwordsMatch} text="As senhas precisam ser idênticas" />
-          </div>
-        )}
 
         <Button 
           type="submit" 
