@@ -165,34 +165,34 @@ export function PublicHeader() {
         })
         .eq("id", user.id);
 
-      // TODO: Integrar com Resend para envio real
-      console.log('=== EMAIL DE RECUPERAÇÃO DE SENHA ===');
-      console.log('Para:', user.email);
-      console.log('Assunto: Recuperação de Senha - D\'Uvo Enterprise');
-      console.log('---');
-      console.log('Olá ' + user.name + ',');
-      console.log('');
-      console.log('Você solicitou a recuperação de senha do sistema D\'Uvo Enterprise.');
-      console.log('');
-      console.log('Acesse: www.duvoenterprise.com.br');
-      console.log('Sua nova senha temporária é: ' + temporaryPassword);
-      console.log('');
-      console.log('IMPORTANTE: Por segurança, você será obrigado a criar uma nova senha no primeiro acesso.');
-      console.log('');
-      console.log('Requisitos da nova senha:');
-      console.log('- Pelo menos 1 letra maiúscula');
-      console.log('- Pelo menos 1 letra minúscula');
-      console.log('- Pelo menos 1 número');
-      console.log('- Entre 6 e 12 caracteres');
-      console.log('');
-      console.log('Se você não solicitou esta recuperação, entre em contato com o administrador.');
-      console.log('');
-      console.log('Atenciosamente,');
-      console.log('Equipe D\'Uvo Enterprise');
-      console.log('=====================================');
+      // Enviar e-mail via API route
+      const emailResponse = await fetch("/api/send-password-recovery", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.name,
+          temporaryPassword: temporaryPassword,
+        }),
+      });
+
+      const emailResult = await emailResponse.json();
+
+      if (!emailResult.success) {
+        console.error("Erro ao enviar e-mail:", emailResult.error);
+        toast({
+          title: "Erro ao enviar e-mail",
+          description: emailResult.error || "Não foi possível enviar o e-mail. Tente novamente.",
+          variant: "destructive",
+        });
+        setRecoveryLoading(false);
+        return;
+      }
 
       toast({
-        title: "Email enviado!",
+        title: "E-mail enviado!",
         description: "Verifique sua caixa de entrada. A senha temporária foi enviada.",
         duration: 5000,
       });
@@ -205,7 +205,7 @@ export function PublicHeader() {
       console.error("Erro ao recuperar senha:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível enviar o email. Tente novamente.",
+        description: "Não foi possível processar sua solicitação. Tente novamente.",
         variant: "destructive",
       });
     } finally {
