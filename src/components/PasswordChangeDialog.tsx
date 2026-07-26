@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Check, Eye, EyeOff, Loader2 } from "lucide-react";
+import { X, Check, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,7 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [touchedConfirm, setTouchedConfirm] = useState(false);
+  const [showSuccessScreen, setShowSuccessScreen] = useState(false);
 
   const [validation, setValidation] = useState<PasswordValidation>({
     hasUpperCase: false,
@@ -91,15 +92,13 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
 
       if (error) throw error;
 
-      toast({
-        title: "Senha atualizada!",
-        description: "Sua senha foi alterada com sucesso.",
-      });
+      // Mostrar tela de sucesso
+      setShowSuccessScreen(true);
 
-      // Pequeno delay para mostrar a mensagem
+      // Aguardar 3 segundos antes de redirecionar para login
       setTimeout(() => {
         onSuccess();
-      }, 1500);
+      }, 3000);
 
     } catch (error) {
       console.error("Erro ao atualizar senha:", error);
@@ -108,7 +107,6 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
         description: "Não foi possível atualizar a senha.",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -120,6 +118,35 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
     </div>
   );
 
+  // Tela de sucesso
+  if (showSuccessScreen) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-6 bg-white">
+        <div className="mb-6 relative">
+          <div className="absolute inset-0 bg-green-500/20 blur-2xl rounded-full"></div>
+          <div className="relative bg-gradient-to-br from-green-500 to-green-600 w-20 h-20 rounded-full flex items-center justify-center shadow-lg">
+            <CheckCircle2 className="h-12 w-12 text-white" />
+          </div>
+        </div>
+        
+        <h2 className="text-2xl font-bold text-green-600 mb-3 text-center">
+          Senha Alterada com Sucesso!
+        </h2>
+        
+        <p className="text-slate-600 text-center mb-8 text-sm">
+          Sua nova senha foi configurada.<br />
+          Você será redirecionado para fazer login.
+        </p>
+        
+        <div className="flex items-center gap-2 text-slate-500 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Redirecionando...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Formulário de alteração de senha
   return (
     <div className="space-y-3">
       <div className="text-center pb-2 border-b">
@@ -140,11 +167,13 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
               required
               className="h-9 text-sm pr-9"
               maxLength={12}
+              disabled={loading}
             />
             <button
               type="button"
               onClick={() => setShowNewPassword(!showNewPassword)}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+              disabled={loading}
             >
               {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -174,11 +203,13 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
               required
               className="h-9 text-sm pr-9"
               maxLength={12}
+              disabled={loading}
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+              disabled={loading}
             >
               {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -209,7 +240,7 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
 
       <div className="text-center pt-2 border-t">
         <p className="text-xs text-slate-500">
-          Após salvar, você será redirecionado para o painel
+          Após salvar, você fará login com a nova senha
         </p>
       </div>
     </div>
