@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tenant } from "@/types";
-import { applyCpfMask, applyCnpjMask, applyPhoneMask, applyRgMask, applyCepMask, fetchAddressByCEP } from "@/lib/masks";
+import { applyCpfMask, applyCnpjMask, applyPhoneMask, applyRgMask, applyCepMask, fetchAddressByCEP, applyMoneyMask, parseCurrencyToFloat } from "@/lib/masks";
 import { Pencil, Loader2 } from "lucide-react";
 
 interface TenantFormDialogProps {
@@ -224,12 +224,13 @@ const PersonalDataSection = memo(function PersonalDataSection({
           <Label htmlFor="tenant-monthly-income" className="text-sm font-medium">Renda Mensal</Label>
           <Input
             id="tenant-monthly-income"
-            type="number"
-            step="0.01"
-            min="0"
+            type="text"
             value={formData.monthlyIncome}
-            onChange={(e) => onFieldChange("monthlyIncome", e.target.value)}
-            placeholder="0,00"
+            onChange={(e) => {
+              const masked = applyMoneyMask(e.target.value);
+              onFieldChange("monthlyIncome", masked);
+            }}
+            placeholder="R$ 0,00"
             disabled={!isEditing}
             className="h-11 sm:h-10 text-sm mobile-input"
           />
@@ -401,7 +402,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         rg: tenant.rg || "",
         occupation: tenant.occupation || "",
         maritalStatus: tenant.marital_status || tenant.maritalStatus || "",
-        monthlyIncome: tenant.monthly_income?.toString() || tenant.monthlyIncome?.toString() || "",
+        monthlyIncome: tenant.monthly_income ? applyMoneyMask(tenant.monthly_income.toString()) : (tenant.monthlyIncome ? applyMoneyMask(tenant.monthlyIncome.toString()) : ""),
         cep: tenant.cep || "",
         street: tenant.street || "",
         number: tenant.number || "",
@@ -531,7 +532,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
       rg: formData.rg,
       occupation: formData.occupation,
       marital_status: formData.maritalStatus,
-      monthly_income: formData.monthlyIncome ? parseFloat(formData.monthlyIncome) : null,
+      monthly_income: formData.monthlyIncome ? parseCurrencyToFloat(formData.monthlyIncome) : null,
       document_type: documentType,
       cep: formData.cep,
       street: formData.street,
