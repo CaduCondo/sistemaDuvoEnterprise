@@ -24,9 +24,6 @@ interface FormState {
   cpf: string;
   cnpj: string;
   rg: string;
-  occupation: string;
-  maritalStatus: string;
-  monthlyIncome: string;
   cep: string;
   street: string;
   number: string;
@@ -45,9 +42,6 @@ const INITIAL_FORM_STATE: FormState = {
   cpf: "",
   cnpj: "",
   rg: "",
-  occupation: "",
-  maritalStatus: "",
-  monthlyIncome: "",
   cep: "",
   street: "",
   number: "",
@@ -177,62 +171,6 @@ const PersonalDataSection = memo(function PersonalDataSection({
             onChange={(e) => onFieldChange("email", e.target.value)}
             placeholder="email@exemplo.com"
             required
-            disabled={!isEditing}
-            className="h-11 sm:h-10 text-sm mobile-input"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="tenant-occupation" className="text-sm font-medium">Profissão</Label>
-          <Input
-            id="tenant-occupation"
-            value={formData.occupation}
-            onChange={(e) => onFieldChange("occupation", e.target.value)}
-            placeholder="Profissão"
-            disabled={!isEditing}
-            className="h-11 sm:h-10 text-sm mobile-input"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="tenant-marital-status" className="text-sm font-medium">Estado Civil</Label>
-          <Select
-            value={formData.maritalStatus}
-            onValueChange={(value) => onFieldChange("maritalStatus", value)}
-            disabled={!isEditing}
-          >
-            <SelectTrigger id="tenant-marital-status" className="h-11 sm:h-10">
-              <SelectValue placeholder="Selecione" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="single">Solteiro(a)</SelectItem>
-              <SelectItem value="married">Casado(a)</SelectItem>
-              <SelectItem value="divorced">Divorciado(a)</SelectItem>
-              <SelectItem value="widowed">Viúvo(a)</SelectItem>
-              <SelectItem value="stable_union">União Estável</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="tenant-monthly-income" className="text-sm font-medium">Renda Mensal</Label>
-          <Input
-            id="tenant-monthly-income"
-            value={formData.monthlyIncome}
-            onChange={(e) => {
-              const value = e.target.value.replace(/\D/g, "");
-              if (value) {
-                const numValue = parseInt(value) / 100;
-                const formatted = numValue.toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                });
-                onFieldChange("monthlyIncome", formatted);
-              } else {
-                onFieldChange("monthlyIncome", "");
-              }
-            }}
-            placeholder="R$ 0,00"
             disabled={!isEditing}
             className="h-11 sm:h-10 text-sm mobile-input"
           />
@@ -402,9 +340,6 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         cpf: tenant.cpf || (docType === "cpf" ? tenant.document : "") || "",
         cnpj: tenant.cnpj || (docType === "cnpj" ? tenant.document : "") || "",
         rg: tenant.rg || "",
-        occupation: tenant.occupation || "",
-        maritalStatus: tenant.maritalStatus || tenant.marital_status || "",
-        monthlyIncome: tenant.monthlyIncome || tenant.monthly_income || "",
         cep: tenant.cep || "",
         street: tenant.street || "",
         number: tenant.number || "",
@@ -532,10 +467,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
       cpf: formData.cpf,
       cnpj: formData.cnpj,
       rg: formData.rg,
-      document_type: documentType, // ✅ CORRIGIDO: usar document_type ao invés de documentType
-      occupation: formData.occupation,
-      marital_status: formData.maritalStatus,
-      monthly_income: formData.monthlyIncome,
+      document_type: documentType,
       cep: formData.cep,
       street: formData.street,
       number: formData.number,
