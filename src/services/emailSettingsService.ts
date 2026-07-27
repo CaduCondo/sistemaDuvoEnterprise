@@ -32,7 +32,7 @@ export async function getEmailSettings(): Promise<EmailSetting[]> {
     throw error;
   }
 
-  return data || [];
+  return (data as EmailSetting[]) || [];
 }
 
 /**
