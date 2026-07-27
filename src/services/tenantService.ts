@@ -34,12 +34,7 @@ function toDatabase(data: Partial<Tenant>): any {
   
   if (data.rg !== undefined && data.rg !== "") dbData.rg = data.rg;
   
-  // Campos adicionais
-  if (data.occupation !== undefined && data.occupation !== "") dbData.occupation = data.occupation;
-  if (data.maritalStatus !== undefined && data.maritalStatus !== "") dbData.marital_status = data.maritalStatus;
-  if (data.marital_status !== undefined && data.marital_status !== "") dbData.marital_status = data.marital_status;
-  if (data.monthlyIncome !== undefined && data.monthlyIncome !== "") dbData.monthly_income = data.monthlyIncome;
-  if (data.monthly_income !== undefined && data.monthly_income !== "") dbData.monthly_income = data.monthly_income;
+  // ❌ REMOVIDO: occupation, marital_status, monthly_income - colunas NÃO existem no banco
   
   if (data.cep !== undefined && data.cep !== "") dbData.zip_code = data.cep;
   if (data.street !== undefined && data.street !== "") dbData.street = data.street;
@@ -98,11 +93,6 @@ function fromDatabase(data: any): Tenant {
     cpf: data.document_type === "cpf" ? data.document : (data.cpf || ""),
     cnpj: data.document_type === "cnpj" ? data.document : "",
     rg: data.rg,
-    occupation: data.occupation || "",
-    maritalStatus: data.marital_status || "",
-    marital_status: data.marital_status || "",
-    monthlyIncome: data.monthly_income || "",
-    monthly_income: data.monthly_income || "",
     cep: data.zip_code,
     street: data.street,
     number: data.number,
