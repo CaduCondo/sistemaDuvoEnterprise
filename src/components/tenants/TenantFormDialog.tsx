@@ -211,7 +211,6 @@ const PersonalDataSection = memo(function PersonalDataSection({
               <SelectValue placeholder="Selecione..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Não informado</SelectItem>
               <SelectItem value="solteiro">Solteiro(a)</SelectItem>
               <SelectItem value="casado">Casado(a)</SelectItem>
               <SelectItem value="divorciado">Divorciado(a)</SelectItem>
