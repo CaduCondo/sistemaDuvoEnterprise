@@ -50,6 +50,11 @@ export function EmailSettingsTab() {
     }
   };
 
+  // Verificar se o template está configurado (tem subject e body preenchidos)
+  const isTemplateConfigured = (setting: EmailSetting): boolean => {
+    return !!(setting.email_subject && setting.email_body);
+  };
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -208,9 +213,20 @@ export function EmailSettingsTab() {
                       {icon}
                     </div>
                     <div>
-                      <CardTitle className="text-base font-semibold text-slate-900">
-                        {label}
-                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base font-semibold text-slate-900">
+                          {label}
+                        </CardTitle>
+                        {isTemplateConfigured(setting) ? (
+                          <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs">
+                            ✓ Configurado
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">
+                            ⚠ Não Configurado
+                          </Badge>
+                        )}
+                      </div>
                       <CardDescription className="text-xs">
                         {setting.description}
                       </CardDescription>
