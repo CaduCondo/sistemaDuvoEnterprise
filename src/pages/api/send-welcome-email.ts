@@ -1,13 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Resend } from "resend";
-import jwt from "jsonwebtoken";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 type ResponseData = {
   success: boolean;
   error?: string;
-  resetLink?: string; // Para log em DEV
 };
 
 export default async function handler(
@@ -19,12 +17,12 @@ export default async function handler(
   }
 
   try {
-    const { email, userId, name } = req.body;
+    const { email, name, temporaryPassword } = req.body;
 
-    if (!email || !userId) {
+    if (!email || !name) {
       return res.status(400).json({
         success: false,
-        error: "E-mail e ID do usuário são obrigatórios",
+        error: "E-mail e nome são obrigatórios",
       });
     }
 
@@ -32,31 +30,21 @@ export default async function handler(
       console.error("RESEND_API_KEY não configurada");
       return res.status(500).json({
         success: false,
-        error: "Configuração de e-mail não encontrada. Entre em contato com o suporte.",
+        error: "Configuração de e-mail não encontrada.",
       });
     }
 
-    // Gerar token JWT válido por 1 hora
-    const secret = process.env.JWT_SECRET || "duvo-enterprise-secret-key-2024";
-    const token = jwt.sign(
-      { userId, email, type: "password_reset" },
-      secret,
-      { expiresIn: "1h" }
-    );
-
-    // Gerar link de recuperação
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://duvoenterprise.com.br";
-    const resetLink = `${baseUrl}/redefinir-senha?token=${token}`;
+    const loginUrl = `${baseUrl}/?action=login`;
 
     // Log em DEV
     if (process.env.NODE_ENV === "development") {
       console.log("📧 ========================================");
-      console.log("📧 LINK DE RECUPERAÇÃO GERADO (DEV)");
+      console.log("📧 E-MAIL DE BOAS-VINDAS (DEV)");
       console.log("📧 ========================================");
       console.log("📧 Para:", email);
-      console.log("📧 Nome:", name || "N/A");
-      console.log("📧 Link:", resetLink);
-      console.log("📧 ⏱️ Válido por: 1 hora");
+      console.log("📧 Nome:", name);
+      console.log("📧 Senha Temporária:", temporaryPassword || "N/A");
       console.log("📧 ========================================");
     }
 
@@ -64,7 +52,7 @@ export default async function handler(
     const { data, error } = await resend.emails.send({
       from: "D'Uvo Enterprise <noreply@duvoenterprise.com.br>",
       to: [email],
-      subject: "🔐 Recuperação de Senha - D'Uvo Enterprise",
+      subject: "👋 Bem-vindo(a) ao D'Uvo Enterprise!",
       html: `
         <!DOCTYPE html>
         <html lang="pt-BR">
@@ -89,32 +77,34 @@ export default async function handler(
 
             <!-- Content -->
             <div style="padding: 40px 30px;">
-              <h2 style="color: #1e293b; margin: 0 0 16px; font-size: 24px; font-weight: 600;">Recuperação de Senha</h2>
+              <h2 style="color: #1e293b; margin: 0 0 16px; font-size: 24px; font-weight: 600;">Bem-vindo(a), ${name}! 🎉</h2>
               
               <p style="color: #475569; margin: 0 0 24px; font-size: 16px; line-height: 1.6;">
-                Olá${name ? ` <strong>${name}</strong>` : ""},
+                É um prazer tê-lo(a) conosco! Sua conta foi criada com sucesso e você já pode começar a usar o sistema de gestão de imóveis.
               </p>
 
-              <p style="color: #475569; margin: 0 0 24px; font-size: 16px; line-height: 1.6;">
-                Você solicitou a recuperação de senha. Clique no botão abaixo para criar uma nova senha:
-              </p>
-
-              <!-- CTA Button -->
-              <div style="text-align: center; margin: 0 0 32px;">
-                <a href="${resetLink}" 
-                   style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);">
-                  🔐 Redefinir Minha Senha
-                </a>
-              </div>
-
-              <p style="color: #64748b; margin: 0 0 16px; font-size: 13px; text-align: center;">
-                Ou copie e cole este link no seu navegador:
-              </p>
-
-              <div style="background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin: 0 0 24px; word-break: break-all;">
-                <a href="${resetLink}" style="color: #2563eb; text-decoration: none; font-size: 12px;">
-                  ${resetLink}
-                </a>
+              ${temporaryPassword ? `
+              <!-- Credenciais -->
+              <div style="background-color: #f1f5f9; border: 2px solid #3b82f6; border-radius: 12px; padding: 20px; margin: 0 0 24px;">
+                <p style="color: #1e293b; margin: 0 0 12px; font-size: 14px; font-weight: 600;">
+                  🔑 Suas credenciais de acesso:
+                </p>
+                <div style="background-color: white; border-radius: 8px; padding: 12px; margin: 0 0 8px;">
+                  <p style="color: #64748b; margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    E-mail
+                  </p>
+                  <p style="color: #1e293b; margin: 0; font-size: 15px; font-weight: 600; font-family: monospace;">
+                    ${email}
+                  </p>
+                </div>
+                <div style="background-color: white; border-radius: 8px; padding: 12px;">
+                  <p style="color: #64748b; margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Senha Temporária
+                  </p>
+                  <p style="color: #1e293b; margin: 0; font-size: 15px; font-weight: 600; font-family: monospace;">
+                    ${temporaryPassword}
+                  </p>
+                </div>
               </div>
 
               <!-- Security Notice -->
@@ -123,19 +113,46 @@ export default async function handler(
                   ⚠️ Importante:
                 </p>
                 <ul style="color: #92400e; margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6;">
-                  <li>Este link é válido por <strong>1 hora</strong></li>
-                  <li>Use-o apenas uma vez para criar sua nova senha</li>
-                  <li>Não compartilhe este link com ninguém</li>
+                  <li>No primeiro acesso, você será solicitado a <strong>criar uma nova senha</strong></li>
+                  <li>Escolha uma senha <strong>forte e segura</strong></li>
+                  <li>Não compartilhe suas credenciais com ninguém</li>
+                </ul>
+              </div>
+              ` : `
+              <div style="background-color: #dcfce7; border: 1px solid #22c55e; border-radius: 8px; padding: 16px; margin: 0 0 24px;">
+                <p style="color: #166534; margin: 0; font-size: 13px; line-height: 1.6;">
+                  ✅ Sua conta está pronta! Use seu e-mail cadastrado para fazer login.
+                </p>
+              </div>
+              `}
+
+              <!-- CTA Button -->
+              <div style="text-align: center; margin: 0 0 32px;">
+                <a href="${loginUrl}" 
+                   style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);">
+                  🚀 Acessar o Sistema
+                </a>
+              </div>
+
+              <!-- Features -->
+              <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 0 0 24px;">
+                <p style="color: #1e293b; margin: 0 0 12px; font-size: 14px; font-weight: 600;">
+                  📋 O que você pode fazer:
+                </p>
+                <ul style="color: #475569; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;">
+                  <li>Gerenciar imóveis e inquilinos</li>
+                  <li>Controlar pagamentos e cauções</li>
+                  <li>Acompanhar contratos e vencimentos</li>
+                  <li>Gerar relatórios financeiros</li>
+                  <li>E muito mais!</li>
                 </ul>
               </div>
 
-              <div style="background-color: #f1f5f9; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 16px; margin: 0 0 24px;">
-                <p style="color: #475569; margin: 0; font-size: 13px; line-height: 1.6;">
-                  Se você <strong>não solicitou</strong> esta recuperação, ignore este e-mail. Sua senha permanecerá inalterada.
-                </p>
-              </div>
-
               <p style="color: #475569; margin: 0; font-size: 14px; line-height: 1.6;">
+                Caso tenha alguma dúvida ou precise de suporte, estamos à disposição!
+              </p>
+
+              <p style="color: #475569; margin: 16px 0 0; font-size: 14px; line-height: 1.6;">
                 Atenciosamente,<br>
                 <strong>Equipe D'Uvo Enterprise</strong>
               </p>
@@ -161,22 +178,15 @@ export default async function handler(
       console.error("Erro ao enviar e-mail via Resend:", error);
       return res.status(500).json({
         success: false,
-        error: "Erro ao enviar e-mail. Tente novamente em alguns instantes.",
+        error: "Erro ao enviar e-mail. Tente novamente.",
       });
     }
 
-    console.log("E-mail de recuperação enviado com sucesso:", data);
-    
-    // Retornar link apenas em DEV (para teste)
-    const response: ResponseData = { success: true };
-    if (process.env.NODE_ENV === "development") {
-      response.resetLink = resetLink;
-    }
-    
-    return res.status(200).json(response);
+    console.log("E-mail de boas-vindas enviado com sucesso:", data);
+    return res.status(200).json({ success: true });
 
   } catch (error) {
-    console.error("Erro na API de recuperação de senha:", error);
+    console.error("Erro na API de boas-vindas:", error);
     return res.status(500).json({
       success: false,
       error: "Erro interno ao processar solicitação.",

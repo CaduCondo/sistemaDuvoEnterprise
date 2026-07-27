@@ -124,26 +124,26 @@ export function PublicHeader() {
         return;
       }
 
-      // Enviar link mágico via Supabase Auth
-      const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
-        redirectTo: `${window.location.origin}/redefinir-senha`,
+      // Enviar link mágico via API route (Resend)
+      const response = await fetch("/api/send-password-recovery", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+          userId: user.id,
+          name: user.name,
+        }),
       });
 
-      if (error) {
-        console.error("Erro ao enviar e-mail de recuperação:", error);
-        
-        // Log detalhado em DEV
-        if (process.env.NODE_ENV === "development") {
-          console.log("🔍 DEBUG - Erro completo:", {
-            message: error.message,
-            status: error.status,
-            name: error.name,
-          });
-        }
-        
+      const result = await response.json();
+
+      if (!result.success) {
+        console.error("Erro ao enviar e-mail:", result.error);
         toast({
           title: "Erro ao enviar e-mail",
-          description: error.message || "Não foi possível enviar o e-mail. Tente novamente.",
+          description: result.error || "Não foi possível enviar o e-mail. Tente novamente.",
           variant: "destructive",
         });
         setRecoveryLoading(false);
@@ -151,18 +151,21 @@ export function PublicHeader() {
       }
 
       // Log do link em DEV (para teste local)
-      if (process.env.NODE_ENV === "development") {
+      if (process.env.NODE_ENV === "development" && result.resetLink) {
         console.log("📧 ========================================");
         console.log("📧 E-MAIL DE RECUPERAÇÃO ENVIADO (DEV)");
         console.log("📧 ========================================");
         console.log("📧 Para:", recoveryEmail);
         console.log("📧 Nome:", user.name);
         console.log("📧");
-        console.log("📧 ⚠️ EM PRODUÇÃO, o link será enviado por e-mail via Supabase SMTP");
+        console.log("📧 🔗 Link de recuperação:");
+        console.log("📧", result.resetLink);
         console.log("📧");
-        console.log("📧 🔗 Acesse seu e-mail para clicar no link de recuperação");
         console.log("📧 ⏱️ Link válido por 1 hora");
         console.log("📧 ========================================");
+        console.log("📧");
+        console.log("📧 💡 TESTE LOCAL: Copie o link acima e cole no navegador");
+        console.log("📧");
       }
 
       // Sucesso - mostrar na tela

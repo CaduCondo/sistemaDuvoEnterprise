@@ -281,6 +281,33 @@ export type Database = {
           },
         ]
       }
+      email_settings: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          email_type: string
+          enabled: boolean | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          email_type: string
+          enabled?: boolean | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          email_type?: string
+          enabled?: boolean | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       location_expenses: {
         Row: {
           amount: number

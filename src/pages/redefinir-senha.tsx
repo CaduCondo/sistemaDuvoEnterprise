@@ -1,14 +1,22 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { Eye, EyeOff, Loader2, CheckCircle2, Building2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, CheckCircle2, Building2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { SEO } from "@/components/SEO";
+import jwt from "jsonwebtoken";
+
+interface TokenPayload {
+  userId: string;
+  email: string;
+  type: string;
+}
 
 export default function RedefinirSenha() {
   const router = useRouter();
+  const { token } = router.query;
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -17,23 +25,42 @@ export default function RedefinirSenha() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [validatingToken, setValidatingToken] = useState(true);
+  const [tokenPayload, setTokenPayload] = useState<TokenPayload | null>(null);
 
   useEffect(() => {
     // Verificar se há um token válido
     const checkToken = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
+      if (!token || typeof token !== "string") {
         setError("Link inválido ou expirado. Solicite um novo link de recuperação.");
         setValidatingToken(false);
         return;
       }
 
-      setValidatingToken(false);
+      try {
+        // Verificar token JWT
+        const secret = process.env.NEXT_PUBLIC_JWT_SECRET || "duvo-enterprise-secret-key-2024";
+        const decoded = jwt.verify(token, secret) as TokenPayload;
+
+        if (decoded.type !== "password_reset") {
+          setError("Token inválido. Solicite um novo link de recuperação.");
+          setValidatingToken(false);
+          return;
+        }
+
+        setTokenPayload(decoded);
+        setValidatingToken(false);
+
+      } catch (err) {
+        console.error("Erro ao validar token:", err);
+        setError("Link expirado ou inválido. Solicite um novo link de recuperação.");
+        setValidatingToken(false);
+      }
     };
 
-    checkToken();
-  }, []);
+    if (router.isReady) {
+      checkToken();
+    }
+  }, [router.isReady, token]);
 
   const validatePassword = (pass: string): string | null => {
     if (pass.length < 8) {
@@ -55,6 +82,11 @@ export default function RedefinirSenha() {
     e.preventDefault();
     setError("");
     
+    if (!tokenPayload) {
+      setError("Sessão inválida. Por favor, solicite um novo link.");
+      return;
+    }
+
     const passwordError = validatePassword(password);
     if (passwordError) {
       setError(passwordError);
@@ -69,23 +101,27 @@ export default function RedefinirSenha() {
     setLoading(true);
 
     try {
-      // Atualizar senha via Supabase Auth
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
-      });
+      // Atualizar senha diretamente no banco
+      const { error: updateError } = await supabase
+        .from("system_users")
+        .update({
+          password_hash: password,
+          requires_password_change: false,
+          temporary_password: false,
+          login_attempts: 0,
+          blocked_until: null,
+        })
+        .eq("id", tokenPayload.userId);
 
       if (updateError) {
         console.error("Erro ao atualizar senha:", updateError);
-        setError(updateError.message || "Erro ao atualizar senha. Tente novamente.");
+        setError("Erro ao atualizar senha. Tente novamente.");
         setLoading(false);
         return;
       }
 
       // Sucesso
       setSuccess(true);
-
-      // Fazer logout após trocar senha
-      await supabase.auth.signOut();
 
       // Redirecionar para home/login após 3 segundos
       setTimeout(() => {
@@ -107,6 +143,31 @@ export default function RedefinirSenha() {
           <div className="text-center">
             <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
             <p className="text-slate-600">Validando link de recuperação...</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (error && !tokenPayload) {
+    return (
+      <>
+        <SEO title="Link Inválido" />
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 flex items-center justify-center p-4">
+          <div className="text-center max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
+            <div className="mx-auto bg-gradient-to-br from-red-600 to-red-800 w-16 h-16 rounded-full flex items-center justify-center shadow-lg mb-4">
+              <AlertCircle className="h-8 w-8 text-white" />
+            </div>
+            
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">Link Inválido</h1>
+            <p className="text-slate-600 mb-6">{error}</p>
+
+            <Button
+              onClick={() => router.push("/")}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              Voltar para Home
+            </Button>
           </div>
         </div>
       </>
