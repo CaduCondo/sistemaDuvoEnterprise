@@ -37,10 +37,32 @@ function toDatabase(data: Partial<Tenant>): any {
   // ✅ NOVOS CAMPOS: occupation, marital_status, monthly_income
   if (data.occupation !== undefined && data.occupation !== "") dbData.occupation = data.occupation;
   if (data.marital_status !== undefined && data.marital_status !== "") dbData.marital_status = data.marital_status;
-  if (data.monthly_income !== undefined && data.monthly_income !== null) {
-    dbData.monthly_income = typeof data.monthly_income === 'string' 
-      ? parseFloat(data.monthly_income) 
-      : data.monthly_income;
+  
+  // ✅ CORREÇÃO: Limpar formatação brasileira antes de converter para número
+  if (data.monthly_income !== undefined && data.monthly_income !== null && data.monthly_income !== "") {
+    let numericValue: number | null = null;
+    
+    if (typeof data.monthly_income === 'string') {
+      // Remover "R$", espaços, pontos e substituir vírgula por ponto
+      const cleaned = data.monthly_income
+        .replace(/R\$/g, "")
+        .replace(/\s/g, "")
+        .replace(/\./g, "")
+        .replace(/,/g, ".");
+      
+      numericValue = parseFloat(cleaned);
+      console.log(`💰 [tenantService.toDatabase] Renda mensal: "${data.monthly_income}" → ${numericValue}`);
+    } else {
+      numericValue = data.monthly_income;
+      console.log(`💰 [tenantService.toDatabase] Renda mensal (número): ${numericValue}`);
+    }
+    
+    // Só gravar se for um número válido
+    if (!isNaN(numericValue) && numericValue > 0) {
+      dbData.monthly_income = numericValue;
+    } else {
+      console.warn(`⚠️ [tenantService.toDatabase] Renda mensal inválida ignorada: "${data.monthly_income}"`);
+    }
   }
   
   if (data.cep !== undefined && data.cep !== "") dbData.zip_code = data.cep;
