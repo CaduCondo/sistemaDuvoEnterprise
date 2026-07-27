@@ -44,8 +44,17 @@ export default async function handler(
       { expiresIn: "1h" }
     );
 
-    // Gerar link de recuperação
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://duvoenterprise.com.br";
+    // Detectar URL automaticamente baseado no ambiente
+    const protocol = req.headers["x-forwarded-proto"] || "http";
+    const host = req.headers.host || "localhost:3000";
+    
+    // Se estiver em localhost ou desenvolvimento, usar localhost
+    const isDevelopment = host.includes("localhost") || host.includes("127.0.0.1");
+    
+    const baseUrl = isDevelopment 
+      ? `http://${host}`
+      : `https://${host}`;
+    
     const resetLink = `${baseUrl}/redefinir-senha?token=${token}`;
 
     // Log em DEV
