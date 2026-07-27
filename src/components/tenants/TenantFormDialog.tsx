@@ -24,6 +24,9 @@ interface FormState {
   cpf: string;
   cnpj: string;
   rg: string;
+  occupation: string;
+  maritalStatus: string;
+  monthlyIncome: string;
   cep: string;
   street: string;
   number: string;
@@ -42,6 +45,9 @@ const INITIAL_FORM_STATE: FormState = {
   cpf: "",
   cnpj: "",
   rg: "",
+  occupation: "",
+  maritalStatus: "",
+  monthlyIncome: "",
   cep: "",
   street: "",
   number: "",
@@ -64,6 +70,9 @@ const PersonalDataSection = memo(function PersonalDataSection({
   handleRgChange,
   onStatusChange,
   showStatus,
+  occupation,
+  maritalStatus,
+  monthlyIncome,
 }: {
   formData: FormState;
   documentType: "cpf" | "cnpj";
@@ -76,6 +85,9 @@ const PersonalDataSection = memo(function PersonalDataSection({
   handleRgChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onStatusChange: (value: string) => void;
   showStatus: boolean;
+  occupation?: string;
+  maritalStatus?: string;
+  monthlyIncome?: string;
 }) {
   return (
     <div className="space-y-3">
@@ -171,6 +183,54 @@ const PersonalDataSection = memo(function PersonalDataSection({
             onChange={(e) => onFieldChange("email", e.target.value)}
             placeholder="email@exemplo.com"
             required
+            disabled={!isEditing}
+            className="h-11 sm:h-10 text-sm mobile-input"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="tenant-occupation" className="text-sm font-medium">Profissão</Label>
+          <Input
+            id="tenant-occupation"
+            value={formData.occupation}
+            onChange={(e) => onFieldChange("occupation", e.target.value)}
+            placeholder="Ex: Engenheiro, Médico, etc."
+            disabled={!isEditing}
+            className="h-11 sm:h-10 text-sm mobile-input"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="tenant-marital-status" className="text-sm font-medium">Estado Civil</Label>
+          <Select
+            value={formData.maritalStatus}
+            onValueChange={(value) => onFieldChange("maritalStatus", value)}
+            disabled={!isEditing}
+          >
+            <SelectTrigger id="tenant-marital-status" className="h-11 sm:h-10">
+              <SelectValue placeholder="Selecione..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Não informado</SelectItem>
+              <SelectItem value="solteiro">Solteiro(a)</SelectItem>
+              <SelectItem value="casado">Casado(a)</SelectItem>
+              <SelectItem value="divorciado">Divorciado(a)</SelectItem>
+              <SelectItem value="viuvo">Viúvo(a)</SelectItem>
+              <SelectItem value="uniao_estavel">União Estável</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="tenant-monthly-income" className="text-sm font-medium">Renda Mensal</Label>
+          <Input
+            id="tenant-monthly-income"
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.monthlyIncome}
+            onChange={(e) => onFieldChange("monthlyIncome", e.target.value)}
+            placeholder="0,00"
             disabled={!isEditing}
             className="h-11 sm:h-10 text-sm mobile-input"
           />
@@ -340,6 +400,9 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         cpf: tenant.cpf || (docType === "cpf" ? tenant.document : "") || "",
         cnpj: tenant.cnpj || (docType === "cnpj" ? tenant.document : "") || "",
         rg: tenant.rg || "",
+        occupation: tenant.occupation || "",
+        maritalStatus: tenant.marital_status || tenant.maritalStatus || "",
+        monthlyIncome: tenant.monthly_income?.toString() || tenant.monthlyIncome?.toString() || "",
         cep: tenant.cep || "",
         street: tenant.street || "",
         number: tenant.number || "",
@@ -467,6 +530,9 @@ export const TenantFormDialog = memo(function TenantFormDialog({
       cpf: formData.cpf,
       cnpj: formData.cnpj,
       rg: formData.rg,
+      occupation: formData.occupation,
+      marital_status: formData.maritalStatus,
+      monthly_income: formData.monthlyIncome ? parseFloat(formData.monthlyIncome) : null,
       document_type: documentType,
       cep: formData.cep,
       street: formData.street,
@@ -519,6 +585,9 @@ export const TenantFormDialog = memo(function TenantFormDialog({
             handleRgChange={handleRgChange}
             onStatusChange={handleStatusChange}
             showStatus={!!tenant}
+            occupation={formData.occupation}
+            maritalStatus={formData.maritalStatus}
+            monthlyIncome={formData.monthlyIncome}
           />
 
           <AddressSection
