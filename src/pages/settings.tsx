@@ -51,6 +51,7 @@ import {
   FileText,
   Calculator,
   CreditCard,
+  Mail,
 } from "lucide-react";
 
 // Services
@@ -79,6 +80,7 @@ import { UsersTab } from "@/components/settings/UsersTab";
 import { PermissionsTab } from "@/components/settings/PermissionsTab";
 import { FeeExemptionDialog } from "@/components/settings/FeeExemptionDialog";
 import { UserDialog } from "@/components/settings/UserDialog";
+import { EmailSettingsTab } from "@/components/settings/EmailSettingsTab";
 
 // Custom hooks
 import { useUsers } from "@/hooks/useUsers";
@@ -635,6 +637,14 @@ export default function Settings() {
               <MapPin className="h-4 w-4" />
               Locais
             </TabsTrigger>
+            <TabsTrigger 
+              id="settings-tab-emails" 
+              value="emails" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              E-mails
+            </TabsTrigger>
           </TabsList>
 
           {/* DADOS DA EMPRESA */}
@@ -1089,6 +1099,11 @@ export default function Settings() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* E-MAILS */}
+          <TabsContent value="emails">
+            <EmailSettingsTab />
           </TabsContent>
         </Tabs>
 

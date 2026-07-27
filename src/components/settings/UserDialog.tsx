@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { createUser, updateUser } from "@/services/systemUserService";
 import { supabase } from "@/integrations/supabase/client";
 import { applyPhoneMask } from "@/lib/masks";
+import { isEmailEnabled } from "@/services/emailSettingsService";
 
 // Função para gerar senha temporária aleatória
 function generateTemporaryPassword(): string {
@@ -208,23 +209,66 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           temporary_password: true,
         });
 
-        // TODO: Integrar com Resend para envio real de email
-        console.log('=== EMAIL DE BOAS-VINDAS ===');
-        console.log('Para:', formData.email);
-        console.log('Assunto: Bem-vindo ao D\'Uvo Enterprise');
-        console.log('---');
-        console.log('Olá ' + formData.name + ',');
-        console.log('');
-        console.log('Bem-vindo ao sistema D\'Uvo Enterprise!');
-        console.log('');
-        console.log('Acesse: www.duvoenterprise.com.br');
-        console.log('Sua senha temporária é: ' + temporaryPassword);
-        console.log('');
-        console.log('Por segurança, você será solicitado a criar uma nova senha no primeiro acesso.');
-        console.log('');
-        console.log('Atenciosamente,');
-        console.log('Equipe D\'Uvo Enterprise');
-        console.log('===========================');
+        // Enviar email de boas-vindas via Resend (se habilitado)
+        const emailEnabled = await isEmailEnabled("welcome_user");
+        
+        if (emailEnabled) {
+          try {
+            const response = await fetch("/api/send-welcome-email", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                email: formData.email,
+                name: formData.name,
+                temporaryPassword: temporaryPassword,
+              }),
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+              console.error("Erro ao enviar email de boas-vindas:", result.error);
+              // Não bloquear criação do usuário se email falhar
+              toast({
+                title: "Aviso",
+                description: "Usuário criado, mas houve erro ao enviar o e-mail de boas-vindas.",
+                variant: "default",
+              });
+            } else {
+              toast({
+                title: "Usuário criado!",
+                description: "E-mail de boas-vindas enviado com sucesso.",
+                duration: 5000,
+              });
+            }
+          } catch (error) {
+            console.error("Erro ao enviar email de boas-vindas:", error);
+            toast({
+              title: "Aviso",
+              description: "Usuário criado, mas houve erro ao enviar o e-mail de boas-vindas.",
+              variant: "default",
+            });
+          }
+        } else {
+          // Email desabilitado - apenas logar no console para DEV
+          if (process.env.NODE_ENV === "development") {
+            console.log("📧 ========================================");
+            console.log("📧 E-MAIL DE BOAS-VINDAS (DESABILITADO)");
+            console.log("📧 ========================================");
+            console.log("📧 Para:", formData.email);
+            console.log("📧 Nome:", formData.name);
+            console.log("📧 Senha Temporária:", temporaryPassword);
+            console.log("📧 ========================================");
+          }
+          
+          toast({
+            title: "Usuário criado!",
+            description: "Envio de e-mail está desabilitado nas configurações.",
+            duration: 5000,
+          });
+        }
 
         toast({
           title: "Usuário criado!",
@@ -289,7 +333,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           <DialogDescription>
             {user
               ? "Atualize as informações do usuário abaixo."
-              : "Preencha os dados do novo usuário. E-mail/Usuário deve ser únicos."}
+              : "Preencha os dados do novo usuário. O e-mail deve ser único e será usado para login."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -309,7 +353,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">E-mail / Usuário <span className="text-red-500">*</span></Label>
+                <Label htmlFor="email">E-mail <span className="text-red-500">*</span></Label>
                 <Input
                   id="email"
                   type="email"
@@ -323,6 +367,9 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                 {emailError && (
                   <p className="text-xs text-red-600">{emailError}</p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  Usado para login no sistema
+                </p>
               </div>
             </div>
 
