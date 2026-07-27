@@ -34,7 +34,14 @@ function toDatabase(data: Partial<Tenant>): any {
   
   if (data.rg !== undefined && data.rg !== "") dbData.rg = data.rg;
   
-  // ❌ REMOVIDO: occupation, marital_status, monthly_income - colunas NÃO existem no banco
+  // ✅ NOVOS CAMPOS: occupation, marital_status, monthly_income
+  if (data.occupation !== undefined && data.occupation !== "") dbData.occupation = data.occupation;
+  if (data.marital_status !== undefined && data.marital_status !== "") dbData.marital_status = data.marital_status;
+  if (data.monthly_income !== undefined && data.monthly_income !== null) {
+    dbData.monthly_income = typeof data.monthly_income === 'string' 
+      ? parseFloat(data.monthly_income) 
+      : data.monthly_income;
+  }
   
   if (data.cep !== undefined && data.cep !== "") dbData.zip_code = data.cep;
   if (data.street !== undefined && data.street !== "") dbData.street = data.street;
@@ -93,6 +100,9 @@ function fromDatabase(data: any): Tenant {
     cpf: data.document_type === "cpf" ? data.document : (data.cpf || ""),
     cnpj: data.document_type === "cnpj" ? data.document : "",
     rg: data.rg,
+    occupation: data.occupation,
+    marital_status: data.marital_status,
+    monthly_income: data.monthly_income,
     cep: data.zip_code,
     street: data.street,
     number: data.number,
