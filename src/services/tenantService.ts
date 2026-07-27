@@ -43,11 +43,11 @@ function toDatabase(data: Partial<Tenant>): any {
   } else if (data.maritalStatus !== undefined && data.maritalStatus !== "") {
     dbData.marital_status = data.maritalStatus;
   }
-  if (data.monthly_income !== undefined && data.monthly_income !== null && data.monthly_income !== "") {
+  if (data.monthly_income !== undefined && data.monthly_income !== null) {
     dbData.monthly_income = typeof data.monthly_income === 'string' 
       ? parseFloat(data.monthly_income) 
       : data.monthly_income;
-  } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null && data.monthlyIncome !== "") {
+  } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
     dbData.monthly_income = typeof data.monthlyIncome === 'string' 
       ? parseFloat(data.monthlyIncome) 
       : data.monthlyIncome;
