@@ -29,6 +29,7 @@ export function PublicHeader() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoverySuccess, setRecoverySuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,32 +101,20 @@ export function PublicHeader() {
     }
   };
 
-  const generateTemporaryPassword = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-    let password = "";
-    password += chars.charAt(Math.floor(Math.random() * 26));
-    password += chars.charAt(Math.floor(Math.random() * 26) + 26);
-    password += "23456789".charAt(Math.floor(Math.random() * 8));
-    for (let i = 3; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password.split('').sort(() => Math.random() - 0.5).join('');
-  };
-
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRecoveryLoading(true);
     
     try {
-      // Buscar usuário pelo email
-      const { data: user, error } = await supabase
+      // Verificar se o e-mail existe no sistema
+      const { data: user, error: userError } = await supabase
         .from("system_users")
         .select("id, name, email")
         .eq("email", recoveryEmail)
         .eq("active", true)
         .single();
 
-      if (error || !user) {
+      if (userError || !user) {
         toast({
           title: "Erro",
           description: "E-mail não encontrado no sistema.",
@@ -135,56 +124,49 @@ export function PublicHeader() {
         return;
       }
 
-      // Gerar senha temporária
-      const temporaryPassword = generateTemporaryPassword();
-
-      // Atualizar usuário com senha temporária
-      await supabase
-        .from("system_users")
-        .update({
-          password_hash: temporaryPassword,
-          requires_password_change: true,
-          temporary_password: true,
-          login_attempts: 0,
-          blocked_until: null,
-        })
-        .eq("id", user.id);
-
-      // Enviar e-mail via API route (Resend)
-      const emailResponse = await fetch("/api/send-password-recovery", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: user.email,
-          name: user.name,
-          temporaryPassword: temporaryPassword,
-        }),
+      // Enviar link mágico via Supabase Auth
+      const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
       });
 
-      const emailResult = await emailResponse.json();
-
-      if (!emailResult.success) {
-        console.error("Erro ao enviar e-mail:", emailResult.error);
+      if (error) {
+        console.error("Erro ao enviar e-mail de recuperação:", error);
+        
+        // Log detalhado em DEV
+        if (process.env.NODE_ENV === "development") {
+          console.log("🔍 DEBUG - Erro completo:", {
+            message: error.message,
+            status: error.status,
+            name: error.name,
+          });
+        }
+        
         toast({
           title: "Erro ao enviar e-mail",
-          description: emailResult.error || "Não foi possível enviar o e-mail. Tente novamente.",
+          description: error.message || "Não foi possível enviar o e-mail. Tente novamente.",
           variant: "destructive",
         });
         setRecoveryLoading(false);
         return;
       }
 
-      toast({
-        title: "✅ E-mail enviado!",
-        description: "Verifique sua caixa de entrada. A senha temporária foi enviada.",
-        duration: 6000,
-      });
+      // Log do link em DEV (para teste local)
+      if (process.env.NODE_ENV === "development") {
+        console.log("📧 ========================================");
+        console.log("📧 E-MAIL DE RECUPERAÇÃO ENVIADO (DEV)");
+        console.log("📧 ========================================");
+        console.log("📧 Para:", recoveryEmail);
+        console.log("📧 Nome:", user.name);
+        console.log("📧");
+        console.log("📧 ⚠️ EM PRODUÇÃO, o link será enviado por e-mail via Supabase SMTP");
+        console.log("📧");
+        console.log("📧 🔗 Acesse seu e-mail para clicar no link de recuperação");
+        console.log("📧 ⏱️ Link válido por 1 hora");
+        console.log("📧 ========================================");
+      }
 
-      // Voltar para tela de login
-      setShowForgotPassword(false);
-      setRecoveryEmail("");
+      // Sucesso - mostrar na tela
+      setRecoverySuccess(true);
       
     } catch (error) {
       console.error("Erro ao recuperar senha:", error);
@@ -193,7 +175,6 @@ export function PublicHeader() {
         description: "Não foi possível processar sua solicitação. Tente novamente.",
         variant: "destructive",
       });
-    } finally {
       setRecoveryLoading(false);
     }
   };
@@ -247,70 +228,124 @@ export function PublicHeader() {
                 <PasswordChangeDialog userId={userId} onSuccess={handlePasswordChangeSuccess} />
               ) : showForgotPassword ? (
                 <div className="space-y-3">
-                  <div className="text-center pb-2 border-b">
-                    <div className="mx-auto bg-gradient-to-br from-blue-600 to-blue-800 w-12 h-12 rounded-xl flex items-center justify-center shadow-lg mb-2">
-                      <Mail className="h-6 w-6 text-white" />
-                    </div>
-                    <h3 className="font-bold text-lg text-slate-900">Recuperar Senha</h3>
-                    <p className="text-xs text-slate-600">Digite seu e-mail para receber o link de recuperação</p>
-                  </div>
+                  {recoverySuccess ? (
+                    // Tela de sucesso
+                    <div className="text-center py-4">
+                      <div className="mx-auto bg-gradient-to-br from-green-600 to-green-800 w-16 h-16 rounded-full flex items-center justify-center shadow-lg mb-4 animate-bounce">
+                        <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      
+                      <h3 className="font-bold text-xl text-green-700 mb-2">E-mail Enviado com Sucesso!</h3>
+                      <p className="text-sm text-slate-600 mb-4">
+                        Enviamos um link de recuperação para:<br/>
+                        <strong className="text-slate-900">{recoveryEmail}</strong>
+                      </p>
 
-                  <form onSubmit={handleForgotPasswordSubmit} className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="recovery-email" className="text-sm font-medium">E-mail</Label>
-                      <Input
-                        id="recovery-email"
-                        type="email"
-                        placeholder="seu@email.com"
-                        value={recoveryEmail}
-                        onChange={(e) => setRecoveryEmail(e.target.value)}
-                        required
-                        className="h-9 text-sm"
-                      />
-                    </div>
-                    
-                    <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-800">
-                      <p className="font-semibold mb-1">📧 Você receberá:</p>
-                      <ul className="list-disc list-inside space-y-0.5 text-xs">
-                        <li>Link seguro para redefinir sua senha</li>
-                        <li>Válido por 1 hora</li>
-                        <li>Acesso direto ao sistema após redefinir</li>
-                      </ul>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button 
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowForgotPassword(false)}
-                        className="flex-1 h-9 text-sm"
-                        disabled={recoveryLoading}
-                      >
-                        <ArrowLeft className="mr-1 h-3.5 w-3.5" />
-                        Voltar
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-sm"
-                        disabled={recoveryLoading}
-                      >
-                        {recoveryLoading ? (
-                          <>
-                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                            Enviando...
-                          </>
-                        ) : (
-                          "Enviar E-mail"
-                        )}
-                      </Button>
-                    </div>
-                  </form>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-left mb-4">
+                        <p className="font-semibold text-blue-900 mb-2 text-sm">📧 Próximos passos:</p>
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-blue-800">
+                          <li>Verifique sua caixa de entrada</li>
+                          <li>Clique no link recebido (válido por 1 hora)</li>
+                          <li>Defina sua nova senha</li>
+                          <li>Faça login com a nova senha</li>
+                        </ol>
+                      </div>
 
-                  <div className="text-center pt-2 border-t">
-                    <p className="text-xs text-slate-500">
-                      Desenvolvido por <span className="font-semibold">Carlos Uva</span>
-                    </p>
-                  </div>
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                        <p className="text-xs text-amber-800">
+                          <strong>💡 Dica:</strong> Não encontrou o e-mail? Verifique sua caixa de spam ou lixeira.
+                        </p>
+                      </div>
+
+                      <Button 
+                        onClick={() => {
+                          setShowForgotPassword(false);
+                          setRecoverySuccess(false);
+                          setRecoveryEmail("");
+                        }}
+                        className="w-full h-9 bg-blue-600 hover:bg-blue-700 text-sm"
+                      >
+                        <ArrowLeft className="mr-2 h-3.5 w-3.5" />
+                        Voltar para Login
+                      </Button>
+
+                      <div className="text-center pt-3 border-t mt-4">
+                        <p className="text-xs text-slate-500">
+                          Desenvolvido por <span className="font-semibold">Carlos Uva</span>
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    // Formulário de recuperação
+                    <>
+                      <div className="text-center pb-2 border-b">
+                        <div className="mx-auto bg-gradient-to-br from-blue-600 to-blue-800 w-12 h-12 rounded-xl flex items-center justify-center shadow-lg mb-2">
+                          <Mail className="h-6 w-6 text-white" />
+                        </div>
+                        <h3 className="font-bold text-lg text-slate-900">Recuperar Senha</h3>
+                        <p className="text-xs text-slate-600">Digite seu e-mail para receber o link de recuperação</p>
+                      </div>
+
+                      <form onSubmit={handleForgotPasswordSubmit} className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="recovery-email" className="text-sm font-medium">E-mail</Label>
+                          <Input
+                            id="recovery-email"
+                            type="email"
+                            placeholder="seu@email.com"
+                            value={recoveryEmail}
+                            onChange={(e) => setRecoveryEmail(e.target.value)}
+                            required
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        
+                        <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-800">
+                          <p className="font-semibold mb-1">📧 Você receberá:</p>
+                          <ul className="list-disc list-inside space-y-0.5 text-xs">
+                            <li>Link seguro para redefinir sua senha</li>
+                            <li>Válido por 1 hora</li>
+                            <li>Acesso direto ao sistema após redefinir</li>
+                          </ul>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button 
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowForgotPassword(false)}
+                            className="flex-1 h-9 text-sm"
+                            disabled={recoveryLoading}
+                          >
+                            <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+                            Voltar
+                          </Button>
+                          <Button 
+                            type="submit" 
+                            className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-sm"
+                            disabled={recoveryLoading}
+                          >
+                            {recoveryLoading ? (
+                              <>
+                                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                Enviando...
+                              </>
+                            ) : (
+                              "Enviar E-mail"
+                            )}
+                          </Button>
+                        </div>
+                      </form>
+
+                      <div className="text-center pt-2 border-t">
+                        <p className="text-xs text-slate-500">
+                          Desenvolvido por <span className="font-semibold">Carlos Uva</span>
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3">
