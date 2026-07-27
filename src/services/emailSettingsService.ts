@@ -14,6 +14,9 @@ export interface EmailSetting {
   email_type: EmailType;
   enabled: boolean;
   description: string | null;
+  email_subject: string | null;
+  email_body: string | null;
+  available_variables: string[] | null;
   created_at: string;
   updated_at: string;
 }
