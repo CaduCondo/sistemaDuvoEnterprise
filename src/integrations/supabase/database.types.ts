@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -283,24 +283,33 @@ export type Database = {
       }
       email_settings: {
         Row: {
+          available_variables: string[] | null
           created_at: string | null
           description: string | null
+          email_body: string | null
+          email_subject: string | null
           email_type: string
           enabled: boolean | null
           id: string
           updated_at: string | null
         }
         Insert: {
+          available_variables?: string[] | null
           created_at?: string | null
           description?: string | null
+          email_body?: string | null
+          email_subject?: string | null
           email_type: string
           enabled?: boolean | null
           id?: string
           updated_at?: string | null
         }
         Update: {
+          available_variables?: string[] | null
           created_at?: string | null
           description?: string | null
+          email_body?: string | null
+          email_subject?: string | null
           email_type?: string
           enabled?: boolean | null
           id?: string

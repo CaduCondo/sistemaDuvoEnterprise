@@ -58,18 +58,45 @@ export async function isEmailEnabled(emailType: EmailType): Promise<boolean> {
  * Atualizar status de um tipo de e-mail
  */
 export async function updateEmailSetting(
-  emailType: EmailType,
-  enabled: boolean
+  id: string,
+  updates: {
+    enabled?: boolean;
+    email_subject?: string;
+    email_body?: string;
+  }
 ): Promise<void> {
   const { error } = await supabase
     .from("email_settings")
-    .update({ enabled })
-    .eq("email_type", emailType);
+    .update(updates)
+    .eq("id", id);
 
   if (error) {
-    console.error(`Erro ao atualizar configuração de e-mail ${emailType}:`, error);
+    console.error("Erro ao atualizar configuração de e-mail:", error);
     throw error;
   }
+}
+
+export async function getEmailTemplate(emailType: EmailType): Promise<{
+  subject: string;
+  body: string;
+  variables: string[];
+} | null> {
+  const { data, error } = await supabase
+    .from("email_settings")
+    .select("email_subject, email_body, available_variables")
+    .eq("email_type", emailType)
+    .single();
+
+  if (error || !data) {
+    console.error("Erro ao buscar template de e-mail:", error);
+    return null;
+  }
+
+  return {
+    subject: data.email_subject || "",
+    body: data.email_body || "",
+    variables: data.available_variables || [],
+  };
 }
 
 /**
