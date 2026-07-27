@@ -129,6 +129,9 @@ export function EmailSettingsTab() {
         description: "As alterações foram salvas com sucesso.",
       });
 
+      // Recarregar lista para atualizar badge de configurado/não configurado
+      await loadSettings();
+      
       setEditingTemplate(null);
     } catch (error) {
       console.error("Erro ao salvar template:", error);

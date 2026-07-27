@@ -157,10 +157,10 @@ export function Layout({ children }: LayoutProps) {
       return;
     }
 
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       toast({
         title: "Erro!",
-        description: "A nova senha deve ter no mínimo 6 caracteres!",
+        description: "A nova senha deve ter no mínimo 8 caracteres!",
         variant: "destructive",
       });
       return;

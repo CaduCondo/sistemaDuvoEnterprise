@@ -42,7 +42,7 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
     const hasUpperCase = /[A-Z]/.test(newPassword);
     const hasLowerCase = /[a-z]/.test(newPassword);
     const hasNumber = /[0-9]/.test(newPassword);
-    const minLength = newPassword.length >= 6;
+    const minLength = newPassword.length >= 8;
     const maxLength = newPassword.length <= 12;
     // Validação em tempo real: fica verde assim que as senhas coincidirem
     const passwordsMatch = newPassword === confirmPassword && newPassword.length > 0 && confirmPassword.length > 0;
@@ -186,7 +186,7 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
           <ValidationItem isValid={validation.hasUpperCase} text="Pelo menos 1 letra maiúscula" />
           <ValidationItem isValid={validation.hasLowerCase} text="Pelo menos 1 letra minúscula" />
           <ValidationItem isValid={validation.hasNumber} text="Pelo menos 1 número" />
-          <ValidationItem isValid={validation.minLength} text="No mínimo 6 caracteres" />
+          <ValidationItem isValid={validation.minLength} text="No mínimo 8 caracteres" />
           <ValidationItem isValid={validation.passwordsMatch} text="As senhas precisam ser idênticas" />
         </div>
 
