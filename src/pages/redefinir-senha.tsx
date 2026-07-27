@@ -37,8 +37,8 @@ export default function RedefinirSenha() {
       }
 
       try {
-        // Verificar token JWT
-        const secret = process.env.NEXT_PUBLIC_JWT_SECRET || "duvo-enterprise-secret-key-2024";
+        // Verificar token JWT - usar mesma secret da API
+        const secret = process.env.JWT_SECRET || process.env.NEXT_PUBLIC_JWT_SECRET || "duvo-enterprise-secret-key-2024";
         const decoded = jwt.verify(token, secret) as TokenPayload;
 
         if (decoded.type !== "password_reset") {
