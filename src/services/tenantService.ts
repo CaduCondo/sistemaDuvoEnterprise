@@ -34,36 +34,7 @@ function toDatabase(data: Partial<Tenant>): any {
   
   if (data.rg !== undefined && data.rg !== "") dbData.rg = data.rg;
   
-  // ✅ NOVOS CAMPOS: occupation, marital_status, monthly_income
-  if (data.occupation !== undefined && data.occupation !== "") dbData.occupation = data.occupation;
-  if (data.marital_status !== undefined && data.marital_status !== "") dbData.marital_status = data.marital_status;
-  
-  // ✅ CORREÇÃO: Limpar formatação brasileira antes de converter para número
-  if (data.monthly_income !== undefined && data.monthly_income !== null && data.monthly_income !== "") {
-    let numericValue: number | null = null;
-    
-    if (typeof data.monthly_income === 'string') {
-      // Remover "R$", espaços, pontos e substituir vírgula por ponto
-      const cleaned = data.monthly_income
-        .replace(/R\$/g, "")
-        .replace(/\s/g, "")
-        .replace(/\./g, "")
-        .replace(/,/g, ".");
-      
-      numericValue = parseFloat(cleaned);
-      console.log(`💰 [tenantService.toDatabase] Renda mensal: "${data.monthly_income}" → ${numericValue}`);
-    } else {
-      numericValue = data.monthly_income;
-      console.log(`💰 [tenantService.toDatabase] Renda mensal (número): ${numericValue}`);
-    }
-    
-    // Só gravar se for um número válido
-    if (!isNaN(numericValue) && numericValue > 0) {
-      dbData.monthly_income = numericValue;
-    } else {
-      console.warn(`⚠️ [tenantService.toDatabase] Renda mensal inválida ignorada: "${data.monthly_income}"`);
-    }
-  }
+  // ❌ REMOVIDO: occupation, marital_status, monthly_income - colunas NÃO existem no banco
   
   if (data.cep !== undefined && data.cep !== "") dbData.zip_code = data.cep;
   if (data.street !== undefined && data.street !== "") dbData.street = data.street;
@@ -115,26 +86,6 @@ function toDatabase(data: Partial<Tenant>): any {
 }
 
 function fromDatabase(data: any): Tenant {
-  // ✅ Formatar renda mensal para exibição
-  let formattedIncome = "";
-  if (data.monthly_income !== null && data.monthly_income !== undefined) {
-    const value = typeof data.monthly_income === 'number' 
-      ? data.monthly_income 
-      : parseFloat(data.monthly_income);
-    
-    if (!isNaN(value) && value > 0) {
-      // Formatar como R$ X.XXX,XX
-      formattedIncome = `R$ ${value.toFixed(2).replace(".", ",")}`;
-      
-      // Adicionar separador de milhares
-      const parts = formattedIncome.split(",");
-      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-      formattedIncome = parts.join(",");
-      
-      console.log(`💰 [tenantService.fromDatabase] Renda mensal: ${data.monthly_income} → ${formattedIncome}`);
-    }
-  }
-  
   return {
     ...data,
     documentType: data.document_type || (data.cpf ? "cpf" : data.document ? "cnpj" : "cpf"),
@@ -142,9 +93,6 @@ function fromDatabase(data: any): Tenant {
     cpf: data.document_type === "cpf" ? data.document : (data.cpf || ""),
     cnpj: data.document_type === "cnpj" ? data.document : "",
     rg: data.rg,
-    occupation: data.occupation,
-    marital_status: data.marital_status,
-    monthly_income: formattedIncome, // ✅ Valor formatado
     cep: data.zip_code,
     street: data.street,
     number: data.number,
