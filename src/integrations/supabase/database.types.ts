@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -924,9 +924,12 @@ export type Database = {
           document_type: string | null
           email: string | null
           id: string
+          marital_status: string | null
+          monthly_income: number | null
           name: string
           neighborhood: string | null
           number: string | null
+          occupation: string | null
           phone: string | null
           rg: string | null
           state: string | null
@@ -944,9 +947,12 @@ export type Database = {
           document_type?: string | null
           email?: string | null
           id?: string
+          marital_status?: string | null
+          monthly_income?: number | null
           name: string
           neighborhood?: string | null
           number?: string | null
+          occupation?: string | null
           phone?: string | null
           rg?: string | null
           state?: string | null
@@ -964,9 +970,12 @@ export type Database = {
           document_type?: string | null
           email?: string | null
           id?: string
+          marital_status?: string | null
+          monthly_income?: number | null
           name?: string
           neighborhood?: string | null
           number?: string | null
+          occupation?: string | null
           phone?: string | null
           rg?: string | null
           state?: string | null
