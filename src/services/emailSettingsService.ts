@@ -25,17 +25,27 @@ export interface EmailSetting {
  * Buscar todas as configurações de e-mail
  */
 export async function getEmailSettings(): Promise<EmailSetting[]> {
+  console.log("🔍 getEmailSettings - Iniciando busca...");
+  
   const { data, error } = await supabase
     .from("email_settings")
     .select("*")
     .order("email_type", { ascending: true });
 
+  console.log("🔍 getEmailSettings - Resposta do Supabase:");
+  console.log("  - Error:", error);
+  console.log("  - Data:", data);
+  console.log("  - Data length:", data?.length);
+
   if (error) {
-    console.error("Erro ao buscar configurações de e-mail:", error);
+    console.error("❌ Erro ao buscar configurações de e-mail:", error);
     throw error;
   }
 
-  return (data as EmailSetting[]) || [];
+  const result = (data as EmailSetting[]) || [];
+  console.log("✅ getEmailSettings - Retornando:", result.length, "registros");
+  
+  return result;
 }
 
 /**
