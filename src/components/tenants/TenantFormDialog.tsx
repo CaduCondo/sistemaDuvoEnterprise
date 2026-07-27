@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tenant } from "@/types";
-import { applyCpfMask, applyCnpjMask, applyPhoneMask, applyRgMask, applyCepMask, fetchAddressByCEP, formatCurrencyInput } from "@/lib/masks";
+import { applyCpfMask, applyCnpjMask, applyPhoneMask, applyRgMask, applyCepMask, fetchAddressByCEP } from "@/lib/masks";
 import { Pencil, Loader2 } from "lucide-react";
 
 interface TenantFormDialogProps {
@@ -220,8 +220,17 @@ const PersonalDataSection = memo(function PersonalDataSection({
             id="tenant-monthly-income"
             value={formData.monthlyIncome}
             onChange={(e) => {
-              const formatted = formatCurrencyInput(e.target.value);
-              onFieldChange("monthlyIncome", formatted);
+              const value = e.target.value.replace(/\D/g, "");
+              if (value) {
+                const numValue = parseInt(value) / 100;
+                const formatted = numValue.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                });
+                onFieldChange("monthlyIncome", formatted);
+              } else {
+                onFieldChange("monthlyIncome", "");
+              }
             }}
             placeholder="R$ 0,00"
             disabled={!isEditing}
