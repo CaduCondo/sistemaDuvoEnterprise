@@ -115,6 +115,26 @@ function toDatabase(data: Partial<Tenant>): any {
 }
 
 function fromDatabase(data: any): Tenant {
+  // ✅ Formatar renda mensal para exibição
+  let formattedIncome = "";
+  if (data.monthly_income !== null && data.monthly_income !== undefined) {
+    const value = typeof data.monthly_income === 'number' 
+      ? data.monthly_income 
+      : parseFloat(data.monthly_income);
+    
+    if (!isNaN(value) && value > 0) {
+      // Formatar como R$ X.XXX,XX
+      formattedIncome = `R$ ${value.toFixed(2).replace(".", ",")}`;
+      
+      // Adicionar separador de milhares
+      const parts = formattedIncome.split(",");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      formattedIncome = parts.join(",");
+      
+      console.log(`💰 [tenantService.fromDatabase] Renda mensal: ${data.monthly_income} → ${formattedIncome}`);
+    }
+  }
+  
   return {
     ...data,
     documentType: data.document_type || (data.cpf ? "cpf" : data.document ? "cnpj" : "cpf"),
@@ -124,7 +144,7 @@ function fromDatabase(data: any): Tenant {
     rg: data.rg,
     occupation: data.occupation,
     marital_status: data.marital_status,
-    monthly_income: data.monthly_income,
+    monthly_income: formattedIncome, // ✅ Valor formatado
     cep: data.zip_code,
     street: data.street,
     number: data.number,
