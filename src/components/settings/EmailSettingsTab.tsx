@@ -1,5 +1,13 @@
 import { useState, useEffect } from "react";
-import { Loader2, Mail, RefreshCw, Edit3, Eye, RotateCcw } from "lucide-react";
+import { Loader2, Mail, RefreshCw, Edit3, Eye } from "lucide-react";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -37,6 +45,7 @@ export function EmailSettingsTab() {
     try {
       setLoading(true);
       const data = await getEmailSettings();
+      console.log("📧 Configurações de e-mail carregadas:", data);
       setSettings(data);
     } catch (error) {
       console.error("Erro ao carregar configurações:", error);
@@ -182,102 +191,136 @@ export function EmailSettingsTab() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Configurações de E-mail</h2>
-          <p className="text-sm text-slate-600 mt-1">
-            Controle quais e-mails automáticos o sistema deve enviar
-          </p>
-        </div>
-        <Button
-          onClick={loadSettings}
-          variant="outline"
-          size="sm"
-          className="gap-2"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Atualizar
-        </Button>
-      </div>
+    <div className="space-y-4">
+      {/* Tabela de Configurações de E-mail */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Mail className="h-5 w-5" />
+                Configurações de E-mail
+              </CardTitle>
+              <CardDescription className="text-sm mt-1">
+                Controle quais e-mails automáticos o sistema deve enviar
+              </CardDescription>
+            </div>
+            <Button
+              onClick={loadSettings}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Atualizar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pb-3">
+          {settings.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhuma configuração de e-mail encontrada
+            </div>
+          ) : (
+            <div className="rounded-md border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-[280px] font-semibold text-xs py-2">Tipo de E-mail</TableHead>
+                    <TableHead className="w-[180px] text-center font-semibold text-xs py-2">Status</TableHead>
+                    <TableHead className="w-[140px] text-center font-semibold text-xs py-2">Envio</TableHead>
+                    <TableHead className="text-right font-semibold text-xs py-2">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {settings.map((setting) => {
+                    const isUpdating = updating === setting.email_type;
+                    const icon = EMAIL_TYPE_ICONS[setting.email_type as EmailType];
+                    const label = EMAIL_TYPE_LABELS[setting.email_type as EmailType];
+                    const configured = isTemplateConfigured(setting);
 
-      <div className="grid gap-4">
-        {settings.map((setting) => {
-          const isUpdating = updating === setting.email_type;
-          const icon = EMAIL_TYPE_ICONS[setting.email_type as EmailType];
-          const label = EMAIL_TYPE_LABELS[setting.email_type as EmailType];
+                    return (
+                      <TableRow key={setting.id} className="hover:bg-muted/30">
+                        {/* Tipo de E-mail */}
+                        <TableCell className="py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-lg flex-shrink-0">
+                              {icon}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm">{label}</p>
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {setting.description}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
 
-          return (
-            <Card key={setting.id} className="border-slate-200">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-xl">
-                      {icon}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-base font-semibold text-slate-900">
-                          {label}
-                        </CardTitle>
-                        {isTemplateConfigured(setting) ? (
-                          <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs">
-                            ✓ Configurado
-                          </Badge>
-                        ) : (
-                          <Badge variant="destructive" className="text-xs">
-                            ⚠ Não Configurado
-                          </Badge>
-                        )}
-                      </div>
-                      <CardDescription className="text-xs">
-                        {setting.description}
-                      </CardDescription>
-                    </div>
-                  </div>
+                        {/* Status Configurado */}
+                        <TableCell className="text-center py-3">
+                          {configured ? (
+                            <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs">
+                              ✓ Configurado
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">
+                              ⚠ Não Configurado
+                            </Badge>
+                          )}
+                        </TableCell>
 
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditTemplate(setting.email_type as EmailType)}
-                      className="gap-2"
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                      Editar Template
-                    </Button>
+                        {/* Switch Ativo/Inativo */}
+                        <TableCell className="text-center py-3">
+                          <div className="flex items-center justify-center gap-2">
+                            {isUpdating && (
+                              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                            )}
+                            <Switch
+                              id={`email-${setting.email_type}`}
+                              checked={setting.enabled}
+                              onCheckedChange={() =>
+                                handleToggle(setting.id, setting.email_type as EmailType, setting.enabled)
+                              }
+                              disabled={isUpdating}
+                            />
+                            <Label
+                              htmlFor={`email-${setting.email_type}`}
+                              className="text-xs font-medium cursor-pointer"
+                            >
+                              {setting.enabled ? (
+                                <span className="text-green-700">Ativo</span>
+                              ) : (
+                                <span className="text-slate-500">Inativo</span>
+                              )}
+                            </Label>
+                          </div>
+                        </TableCell>
 
-                    {isUpdating && (
-                      <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                    )}
-                    <Switch
-                      id={`email-${setting.email_type}`}
-                      checked={setting.enabled}
-                      onCheckedChange={() =>
-                        handleToggle(setting.id, setting.email_type as EmailType, setting.enabled)
-                      }
-                      disabled={isUpdating}
-                    />
-                    <Label
-                      htmlFor={`email-${setting.email_type}`}
-                      className="text-sm font-medium cursor-pointer"
-                    >
-                      {setting.enabled ? (
-                        <span className="text-green-700">Ativo</span>
-                      ) : (
-                        <span className="text-slate-500">Inativo</span>
-                      )}
-                    </Label>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-          );
-        })}
-      </div>
+                        {/* Ações */}
+                        <TableCell className="text-right py-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditTemplate(setting.email_type as EmailType)}
+                            className="gap-2"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                            Editar Template
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
+      {/* Informações */}
       <Card className="border-amber-200 bg-amber-50">
-        <CardHeader>
+        <CardHeader className="pb-3">
           <div className="flex items-start gap-3">
             <Mail className="h-5 w-5 text-amber-700 mt-0.5" />
             <div>
@@ -287,8 +330,9 @@ export function EmailSettingsTab() {
               <CardDescription className="text-xs text-amber-800 mt-2 space-y-1">
                 <p>• Os e-mails são enviados via <strong>Resend</strong> (serviço profissional)</p>
                 <p>• Desativar um tipo de e-mail interrompe imediatamente seu envio</p>
+                <p>• Badge <strong className="text-green-700">verde</strong> = template configurado | Badge <strong className="text-red-700">vermelho</strong> = template não configurado</p>
+                <p>• Você pode editar templates mesmo quando o envio estiver desativado</p>
                 <p>• Em ambiente de desenvolvimento, os links aparecem no console do navegador</p>
-                <p>• Recomendamos manter todos os e-mails ativos para melhor experiência do usuário</p>
               </CardDescription>
             </div>
           </div>
