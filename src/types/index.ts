@@ -150,8 +150,8 @@ export interface Tenant {
   occupation?: string;
   maritalStatus?: string;
   marital_status?: string;
-  monthlyIncome?: string;
-  monthly_income?: string;
+  monthlyIncome?: number | null;
+  monthly_income?: number | null;
   cep?: string;
   street?: string;
   number?: string;
