@@ -803,6 +803,10 @@ Gerenciar cadastro de inquilinos (pessoas físicas ou jurídicas) que podem alug
 - Número do Documento (document_number) - Formatado com máscara
 
 **1.2 Campos Opcionais**
+- RG
+- **Profissão (occupation)** - Campo de texto livre (até 255 caracteres)
+- **Estado Civil (marital_status)** - Select com opções predefinidas
+- **Renda Mensal (monthly_income)** - Valor numérico com máscara R$ XX.XXX,XX
 - Observações (notes) - Texto longo
 - Status (status) - Padrão: `active`
 
@@ -812,11 +816,50 @@ Gerenciar cadastro de inquilinos (pessoas físicas ou jurídicas) que podem alug
 - **CPF**: 11 dígitos com validação de dígitos verificadores
 - **CNPJ**: 14 dígitos com validação de dígitos verificadores
 - **Documento**: Deve ser único no sistema
+- **Renda Mensal**: Aceita valores decimais, máscara aplicada automaticamente
 
 **Máscaras Aplicadas**:
 - CPF: 000.000.000-00
 - CNPJ: 00.000.000/0000-00
 - Telefone: (00) 00000-0000
+- **Renda Mensal: R$ XX.XXX,XX** (máscara incremental durante digitação)
+
+#### 1.4 Novos Campos - Detalhamento
+
+**Profissão (occupation):**
+- Campo de texto livre (VARCHAR 255)
+- Opcional - pode ficar vazio
+- Armazenamento: string sem formatação
+- Exemplos: "Engenheiro Civil", "Médico", "Professor", "Empresário"
+- Útil para: análise de perfil de inquilinos, relatórios
+
+**Estado Civil (marital_status):**
+- Campo select com opções predefinidas (VARCHAR 50)
+- Opcional - pode ficar vazio
+- Valores aceitos no banco de dados:
+  - `solteiro` - Solteiro(a)
+  - `casado` - Casado(a)
+  - `divorciado` - Divorciado(a)
+  - `viuvo` - Viúvo(a)
+  - `uniao_estavel` - União Estável
+- Útil para: documentação de contratos, análise demográfica
+
+**Renda Mensal (monthly_income):**
+- Campo numérico (DECIMAL 10,2)
+- Opcional - pode ficar NULL
+- Armazenamento: número decimal puro (ex: 5500.00)
+- Exibição: R$ 5.500,00 (com máscara monetária R$ XX.XXX,XX)
+- Entrada: Máscara incremental
+  - Digita "5000" → mostra "R$ 50,00"
+  - Continua digitando → "50000" → mostra "R$ 500,00"
+  - Continua digitando → "500000" → mostra "R$ 5.000,00"
+- Útil para: análise de capacidade de pagamento, relatórios financeiros
+
+**Regras de Negócio Importantes:**
+1. **Retroatividade**: Inquilinos cadastrados antes da implementação desses campos terão valores NULL
+2. **Obrigatoriedade**: Nenhum dos 3 campos é obrigatório - podem permanecer vazios
+3. **Edição**: Campos podem ser preenchidos/alterados a qualquer momento via edição do inquilino
+4. **Máscara Monetária**: Aplicada automaticamente em TODOS os campos de valor do sistema (não apenas renda mensal)
 
 #### 2. Status do Inquilino
 

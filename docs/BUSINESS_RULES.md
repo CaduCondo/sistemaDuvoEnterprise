@@ -77,6 +77,9 @@ Uma propriedade pode ter os seguintes status:
 ### Dados Opcionais
 
 - RG
+- **Profissão (Occupation)** - Campo de texto livre
+- **Estado Civil (Marital Status)** - Opções: Solteiro(a), Casado(a), Divorciado(a), Viúvo(a), União Estável
+- **Renda Mensal (Monthly Income)** - Valor em R$ com máscara R$ XX.XXX,XX
 - Data de nascimento
 - Endereço completo
 - Dados de emergência (contato)
@@ -88,6 +91,38 @@ Uma propriedade pode ter os seguintes status:
 2. **Formato de CPF:** XXX.XXX.XXX-XX (máscara automática)
 3. **Telefone:** (XX) XXXXX-XXXX (máscara automática)
 4. **Email válido:** Validação de formato
+5. **Renda Mensal:** Aceita valores decimais com máscara R$ XX.XXX,XX (formato: digita "5000" → exibe "R$ 50,00" → continua digitando até "R$ 5.000,00")
+
+### Campos Novos - Detalhamento
+
+**Profissão (Occupation):**
+- Campo de texto livre (até 255 caracteres)
+- Opcional - pode ficar vazio
+- Exemplos: "Engenheiro Civil", "Médico", "Professor", "Empresário"
+
+**Estado Civil (Marital Status):**
+- Campo select com opções predefinidas
+- Opcional - pode ficar vazio
+- Valores aceitos:
+  - `solteiro` - Solteiro(a)
+  - `casado` - Casado(a)
+  - `divorciado` - Divorciado(a)
+  - `viuvo` - Viúvo(a)
+  - `uniao_estavel` - União Estável
+
+**Renda Mensal (Monthly Income):**
+- Campo numérico (DECIMAL 10,2 no banco)
+- Opcional - pode ficar NULL
+- Formato de exibição: R$ XX.XXX,XX (com máscara monetária)
+- Formato de entrada: Incremental (digita números e máscara aplica automaticamente)
+- Armazenamento: Número decimal puro (ex: 5500.00)
+- Exemplo de uso: R$ 5.500,00 armazenado como 5500.00
+
+**Observações Importantes:**
+- Todos os 3 campos são **OPCIONAIS** (podem ser NULL no banco)
+- Inquilinos existentes terão esses campos vazios até serem editados
+- A máscara monetária é aplicada automaticamente durante a digitação
+- Valores são salvos sem formatação e recarregados com formatação
 
 ### Histórico de Locações
 
