@@ -227,10 +227,21 @@ const PersonalDataSection = memo(function PersonalDataSection({
             type="text"
             value={formData.monthlyIncome}
             onChange={(e) => {
-              const masked = applyMoneyMask(e.target.value);
-              onFieldChange("monthlyIncome", masked);
+              let value = e.target.value;
+              // Remove tudo exceto números e vírgula
+              value = value.replace(/[^\d,]/g, "");
+              // Limitar a uma vírgula
+              const parts = value.split(",");
+              if (parts.length > 2) {
+                value = parts[0] + "," + parts.slice(1).join("");
+              }
+              // Limitar casas decimais a 2
+              if (parts.length === 2 && parts[1].length > 2) {
+                value = parts[0] + "," + parts[1].substring(0, 2);
+              }
+              onFieldChange("monthlyIncome", value);
             }}
-            placeholder="R$ 0,00"
+            placeholder="0,00"
             disabled={!isEditing}
             className="h-11 sm:h-10 text-sm mobile-input"
           />
@@ -402,7 +413,11 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         rg: tenant.rg || "",
         occupation: tenant.occupation || "",
         maritalStatus: tenant.marital_status || tenant.maritalStatus || "",
-        monthlyIncome: tenant.monthly_income ? applyMoneyMask(tenant.monthly_income.toString()) : (tenant.monthlyIncome ? applyMoneyMask(tenant.monthlyIncome.toString()) : ""),
+        monthlyIncome: tenant.monthly_income 
+          ? (tenant.monthly_income.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+          : (tenant.monthlyIncome 
+              ? (tenant.monthlyIncome.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+              : ""),
         cep: tenant.cep || "",
         street: tenant.street || "",
         number: tenant.number || "",
@@ -532,7 +547,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
       rg: formData.rg,
       occupation: formData.occupation,
       marital_status: formData.maritalStatus,
-      monthly_income: formData.monthlyIncome ? parseCurrencyToFloat(formData.monthlyIncome) : null,
+      monthly_income: formData.monthlyIncome ? parseFloat(formData.monthlyIncome.replace(/\./g, "").replace(",", ".")) : null,
       document_type: documentType,
       cep: formData.cep,
       street: formData.street,
