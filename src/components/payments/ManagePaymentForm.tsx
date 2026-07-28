@@ -20,6 +20,7 @@ import { usePaymentBreakdown } from "@/hooks/usePaymentBreakdown";
 import { invalidateCache } from "@/services/cacheService";
 import { getAllPaymentMethods } from "@/services/paymentMethodService";
 import { LateFeeInterestBlock } from "@/components/payments/LateFeeInterestBlock";
+import { applyMoneyMask, formatMoneyForDisplay, parseMoneyMaskToNumber } from "@/lib/masks";
 
 interface BreakdownItem {
   description?: string;
@@ -132,17 +133,19 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   const formatCurrency = useCallback((value: string | number): string => {
     const numericValue = typeof value === "string" ? value.replace(/\D/g, "") : String(value).replace(/\D/g, "");
     const number = parseFloat(numericValue) / 100;
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(number);
+    
+    if (isNaN(number)) return "R$ 0,00";
+    
+    return `R$ ${number.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   }, []);
 
   const parseCurrency = useCallback((value: string): number => {
     // 🔥 CORREÇÃO CRÍTICA: Preservar sinal negativo
     const isNegative = value.trim().startsWith('-');
-    const numericValue = value.replace(/[^\d,]/g, "").replace(",", ".");
-    const parsedValue = parseFloat(numericValue) || 0;
+    const parsedValue = parseMoneyMaskToNumber(value);
     return isNegative ? -parsedValue : parsedValue;
   }, []);
 
@@ -627,14 +630,16 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   }, [loadPaymentData, toast]);
 
   const handleRepairExpensesChange = useCallback((value: string) => {
-    setRepairExpensesInput(formatCurrency(value));
-    setRepairExpenses(parseCurrency(formatCurrency(value)));
-  }, [formatCurrency, parseCurrency]);
+    const masked = applyMoneyMask(value);
+    setRepairExpensesInput(masked);
+    setRepairExpenses(parseMoneyMaskToNumber(masked));
+  }, []);
 
   const handleDiscountAmountChange = useCallback((value: string) => {
-    setDiscountAmountInput(formatCurrency(value));
-    setDiscountAmount(parseCurrency(formatCurrency(value)));
-  }, [formatCurrency, parseCurrency]);
+    const masked = applyMoneyMask(value);
+    setDiscountAmountInput(masked);
+    setDiscountAmount(parseMoneyMaskToNumber(masked));
+  }, []);
 
   const [isSavingExpenses, setIsSavingExpenses] = useState(false);
 

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, Paperclip } from "lucide-react";
-import { formatCurrency, parseCurrencyToNumber, formatCurrencyInput } from "@/lib/masks";
+import { formatCurrency, parseCurrencyToNumber, applyMoneyMask, formatMoneyForDisplay, parseMoneyMaskToNumber } from "@/lib/masks";
 import { create as createRental, update as updateRentalService } from "@/services/rentalService";
 import { update as updateProperty } from "@/services/propertyService";
 import { update as updateTenant } from "@/services/tenantService";
@@ -244,7 +244,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     }
 
     const baseRent = selectedProperty.value || selectedProperty.monthlyRent || 0;
-    const garageAmount = hasGarage && garageValue ? parseCurrencyToNumber(garageValue) : 0;
+    const garageAmount = hasGarage && garageValue ? parseMoneyMaskToNumber(garageValue) : 0;
     let totalValue = baseRent + garageAmount;
     totalValue = parseFloat(totalValue.toFixed(2));
 
@@ -283,7 +283,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         paymentDay: parseInt(paymentDay),
         value: totalValue,
         monthlyRent: baseRent,
-        depositAmount: parseCurrencyToNumber(depositAmount) || 0,
+        depositAmount: parseMoneyMaskToNumber(depositAmount) || 0,
         status: "active" as const,
         isActive: true,
         attachments: attachments.length > 0 ? attachments : [],
@@ -295,7 +295,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
 
       const depositData: any = {
         depositInstallments: 1,
-        depositInstallment1: parseCurrencyToNumber(depositAmount),
+        depositInstallment1: parseMoneyMaskToNumber(depositAmount),
         depositInstallment1DueDate: depositPaymentDate || null,
         depositInstallment1PaymentDate: depositPaymentDate || null, // ✅ Mesma data em payment_date
         depositInstallment1PixCode: depositPixCode || null,
@@ -305,14 +305,14 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         depositData.depositInstallments = parseInt(depositInstallmentCount);
         
         if (parseInt(depositInstallmentCount) >= 2) {
-          depositData.depositInstallment2 = parseCurrencyToNumber(depositInstallment2);
+          depositData.depositInstallment2 = parseMoneyMaskToNumber(depositInstallment2);
           depositData.depositInstallment2DueDate = depositInstallment2PaymentDate || null;
           depositData.depositInstallment2PaymentDate = null; // Será preenchido quando for pago
           depositData.depositInstallment2PixCode = depositInstallment2PixCode || null;
         }
 
         if (parseInt(depositInstallmentCount) === 3) {
-          depositData.depositInstallment3 = parseCurrencyToNumber(depositInstallment3);
+          depositData.depositInstallment3 = parseMoneyMaskToNumber(depositInstallment3);
           depositData.depositInstallment3DueDate = depositInstallment3PaymentDate || null;
           depositData.depositInstallment3PaymentDate = null; // Será preenchido quando for pago
           depositData.depositInstallment3PixCode = depositInstallment3PixCode || null;
@@ -401,12 +401,12 @@ export const RentalFormDialog = memo(function RentalFormDialog({
             installmentsData.push({
               installment_number: 1,
               total_installments: totalInstallments,
-              amount: parseCurrencyToNumber(depositAmount),
+              amount: parseMoneyMaskToNumber(depositAmount),
               due_date: depositPaymentDate,
               payment_date: hasPix ? depositPaymentDate : null, // ✅ Preencher payment_date se tiver PIX
               pix_code: depositPixCode || null,
               status: hasPix ? "paid" : "pending", // ✅ Se tiver PIX → marcar como pago
-              paid_amount: hasPix ? parseCurrencyToNumber(depositAmount) : 0, // ✅ Se pago → paid_amount = amount
+              paid_amount: hasPix ? parseMoneyMaskToNumber(depositAmount) : 0, // ✅ Se pago → paid_amount = amount
               payment_method: hasPix ? "pix" : null, // ✅ Método de pagamento
             });
             
@@ -420,7 +420,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
             installmentsData.push({
               installment_number: 2,
               total_installments: totalInstallments,
-              amount: parseCurrencyToNumber(depositInstallment2),
+              amount: parseMoneyMaskToNumber(depositInstallment2),
               due_date: depositInstallment2PaymentDate,
               payment_date: null, // ✅ NULL: será preenchido quando for pago
               status: "pending",
@@ -433,7 +433,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
             installmentsData.push({
               installment_number: 3,
               total_installments: totalInstallments,
-              amount: parseCurrencyToNumber(depositInstallment3),
+              amount: parseMoneyMaskToNumber(depositInstallment3),
               due_date: depositInstallment3PaymentDate,
               payment_date: null, // ✅ NULL: será preenchido quando for pago
               status: "pending",
@@ -483,10 +483,10 @@ export const RentalFormDialog = memo(function RentalFormDialog({
 
   const calculateTotalDeposit = useCallback(() => {
     let total = 0;
-    if (depositAmount) total += parseCurrencyToNumber(depositAmount);
+    if (depositAmount) total += parseMoneyMaskToNumber(depositAmount);
     if (isDepositInstallment && depositInstallmentCount) {
-      if (parseInt(depositInstallmentCount) >= 2 && depositInstallment2) total += parseCurrencyToNumber(depositInstallment2);
-      if (parseInt(depositInstallmentCount) === 3 && depositInstallment3) total += parseCurrencyToNumber(depositInstallment3);
+      if (parseInt(depositInstallmentCount) >= 2 && depositInstallment2) total += parseMoneyMaskToNumber(depositInstallment2);
+      if (parseInt(depositInstallmentCount) === 3 && depositInstallment3) total += parseMoneyMaskToNumber(depositInstallment3);
     }
     return total;
   }, [depositAmount, isDepositInstallment, depositInstallmentCount, depositInstallment2, depositInstallment3]);
@@ -682,7 +682,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
                 <Input
                   id="rental-garage-value"
                   value={garageValue}
-                  onChange={(e) => setGarageValue(formatCurrencyInput(e.target.value))}
+                  onChange={(e) => setGarageValue(applyMoneyMask(e.target.value))}
                   placeholder="R$ 0,00"
                   disabled={isFieldDisabled}
                 />
@@ -716,7 +716,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
                 <Input
                   id="rental-deposit-amount"
                   value={depositAmount}
-                  onChange={(e) => setDepositAmount(formatCurrencyInput(e.target.value))}
+                  onChange={(e) => setDepositAmount(applyMoneyMask(e.target.value))}
                   placeholder="R$ 0,00"
                   disabled={isFieldDisabled}
                 />
@@ -824,7 +824,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
                       <Input
                         id="depositInstallment2"
                         value={depositInstallment2}
-                        onChange={(e) => setDepositInstallment2(formatCurrencyInput(e.target.value))}
+                        onChange={(e) => setDepositInstallment2(applyMoneyMask(e.target.value))}
                         placeholder="R$ 0,00"
                         required={depositInstallmentCount && parseInt(depositInstallmentCount) >= 2}
                         disabled={isFieldDisabled}
@@ -884,7 +884,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
                       <Input
                         id="depositInstallment3"
                         value={depositInstallment3}
-                        onChange={(e) => setDepositInstallment3(formatCurrencyInput(e.target.value))}
+                        onChange={(e) => setDepositInstallment3(applyMoneyMask(e.target.value))}
                         placeholder="R$ 0,00"
                         required={depositInstallmentCount && parseInt(depositInstallmentCount) === 3}
                         disabled={isFieldDisabled}
