@@ -1451,6 +1451,112 @@ GET /api/properties/available?location=sao-paulo&minRent=1000&maxRent=2000
 
 ---
 
+#### 3. POST /api/tenants
+
+**Descrição**: Cria um novo inquilino
+
+**Autenticação**: Bearer Token (JWT)
+
+**Permissões**: Admin, Manager, Operator
+
+**Request Body**:
+```json
+{
+  "name": "João Silva",
+  "email": "joao@email.com",
+  "phone": "(11) 98765-4321",
+  "document_type": "cpf",
+  "document": "123.456.789-00",
+  "rg": "12.345.678-9",
+  "occupation": "Engenheiro Civil",
+  "marital_status": "casado",
+  "monthly_income": 5500.00,
+  "cep": "01310-100",
+  "street": "Av. Paulista",
+  "number": "1000",
+  "complement": "Apto 101",
+  "neighborhood": "Bela Vista",
+  "city": "São Paulo",
+  "state": "SP",
+  "status": "active"
+}
+```
+
+**Campos obrigatórios**:
+- `name` (string): Nome completo
+- `email` (string): E-mail válido e único
+- `phone` (string): Telefone no formato (XX) XXXXX-XXXX
+- `document_type` (string): "cpf" ou "cnpj"
+- `document` (string): CPF ou CNPJ formatado
+
+**Campos opcionais**:
+- `rg` (string): RG do inquilino
+- `occupation` (string): Profissão do inquilino (máx 255 caracteres)
+- `marital_status` (string): Estado civil - valores: "solteiro", "casado", "divorciado", "viuvo", "uniao_estavel"
+- `monthly_income` (number): Renda mensal em R$ (formato decimal: 5500.00)
+- `cep` (string): CEP no formato 00000-000
+- `street` (string): Logradouro
+- `number` (string): Número
+- `complement` (string): Complemento
+- `neighborhood` (string): Bairro
+- `city` (string): Cidade
+- `state` (string): Estado (sigla UF)
+- `status` (string): "active", "rented", "inactive" (padrão: "active")
+
+**Response (201 Created)**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "João Silva",
+    "email": "joao@email.com",
+    "phone": "(11) 98765-4321",
+    "document_type": "cpf",
+    "document": "123.456.789-00",
+    "rg": "12.345.678-9",
+    "occupation": "Engenheiro Civil",
+    "marital_status": "casado",
+    "monthly_income": 5500.00,
+    "cep": "01310-100",
+    "street": "Av. Paulista",
+    "number": "1000",
+    "complement": "Apto 101",
+    "neighborhood": "Bela Vista",
+    "city": "São Paulo",
+    "state": "SP",
+    "status": "active",
+    "created_at": "2026-01-15T10:30:00Z"
+  }
+}
+```
+
+**Validações**:
+- Email deve ser único no sistema
+- CPF/CNPJ deve ser válido e único
+- Telefone deve estar no formato brasileiro
+- `occupation`: máximo 255 caracteres
+- `marital_status`: deve ser um dos valores aceitos
+- `monthly_income`: deve ser >= 0
+
+**Response de Erro (400 Bad Request)**:
+```json
+{
+  "success": false,
+  "error": "E-mail já cadastrado no sistema"
+}
+```
+
+**Response de Erro (422 Unprocessable Entity)**:
+```json
+{
+  "success": false,
+  "error": "Estado civil inválido. Valores aceitos: solteiro, casado, divorciado, viuvo, uniao_estavel"
+}
+```
+
+---
+
 ## 🌐 Integrações Externas
 
 ### IGPM (Índice Geral de Preços do Mercado)

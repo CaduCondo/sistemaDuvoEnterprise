@@ -54,11 +54,78 @@ Funcionalidade: CRUD de Inquilinos
     E preencho o CEP com "01310100"
     Então o campo deve exibir "01310-100"
 
+  Cenário: Validar máscara de Renda Mensal
+    Quando clico no botão "Novo Inquilino"
+    E preencho a renda mensal digitando "5000"
+    Então o campo deve exibir "R$ 50,00"
+    Quando continuo digitando até "500000"
+    Então o campo deve exibir "R$ 5.000,00"
+
   Cenário: Buscar CEP automaticamente
     Quando clico no botão "Novo Inquilino"
     E preencho o CEP com "01310-100"
     E clico em "Buscar CEP"
     Então os campos de endereço devem ser preenchidos automaticamente
+
+  Cenário: Criar inquilino Pessoa Física com campos opcionais
+    Quando clico no botão "Novo Inquilino"
+    E seleciono "Pessoa Física"
+    E preencho todos os campos obrigatórios:
+      | campo     | valor                |
+      | Nome      | João Silva           |
+      | CPF       | 123.456.789-00       |
+      | Telefone  | (11) 98765-4321      |
+      | E-mail    | joao@email.com       |
+    E preencho os campos opcionais:
+      | campo         | valor                |
+      | Profissão     | Engenheiro Civil     |
+      | Estado Civil  | Casado(a)            |
+      | Renda Mensal  | 5500,00              |
+    E clico em "Salvar"
+    Então devo ver a mensagem de sucesso
+    E o inquilino deve aparecer na lista
+
+  Cenário: Editar inquilino e adicionar dados opcionais
+    Dado que existe um inquilino "Maria Santos" sem dados opcionais
+    Quando abro o inquilino "Maria Santos" para edição
+    E preencho os campos opcionais:
+      | campo         | valor                |
+      | Profissão     | Médica               |
+      | Estado Civil  | Solteiro(a)          |
+      | Renda Mensal  | 8500,50              |
+    E clico em "Atualizar"
+    Então devo ver a mensagem de sucesso
+    E quando abro o inquilino novamente
+    Então devo ver os dados salvos corretamente
+
+  Cenário: Validar opções de Estado Civil
+    Quando clico no botão "Novo Inquilino"
+    E clico no campo "Estado Civil"
+    Então devo ver as seguintes opções:
+      | opção            |
+      | Solteiro(a)      |
+      | Casado(a)        |
+      | Divorciado(a)    |
+      | Viúvo(a)         |
+      | União Estável    |
+
+  Cenário: Criar inquilino sem preencher campos opcionais
+    Quando clico no botão "Novo Inquilino"
+    E seleciono "Pessoa Física"
+    E preencho todos os campos obrigatórios:
+      | campo     | valor                |
+      | Nome      | Pedro Costa          |
+      | CPF       | 987.654.321-00       |
+      | Telefone  | (11) 91234-5678      |
+      | E-mail    | pedro@email.com      |
+    E deixo os campos opcionais vazios:
+      | campo         |
+      | Profissão     |
+      | Estado Civil  |
+      | Renda Mensal  |
+    E clico em "Salvar"
+    Então devo ver a mensagem de sucesso
+    E o inquilino deve aparecer na lista sem erros
 
   Cenário: Criar inquilino Pessoa Física
     Quando clico no botão "Novo Inquilino"

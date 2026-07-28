@@ -267,24 +267,170 @@ When('preencho todos os campos obrigatórios', async function() {
   await this.page.waitForTimeout(500);
 });
 
+When('preencho os campos obrigatórios:', async function(dataTable: any) {
+  const fields = dataTable.hashes();
+  
+  for (const field of fields) {
+    const fieldName = field.campo.toLowerCase();
+    const value = field.valor;
+    
+    let locator;
+    
+    if (fieldName.includes('nome')) {
+      locator = this.page.locator('input[name="name"], input#tenant-name');
+    } else if (fieldName.includes('cpf')) {
+      locator = this.page.locator('input[name="cpf"], input#tenant-cpf');
+    } else if (fieldName.includes('cnpj')) {
+      locator = this.page.locator('input[name="cnpj"], input#tenant-cnpj');
+    } else if (fieldName.includes('telefone')) {
+      locator = this.page.locator('input[name="phone"], input#tenant-phone');
+    } else if (fieldName.includes('e-mail') || fieldName.includes('email')) {
+      locator = this.page.locator('input[name="email"], input#tenant-email');
+    }
+    
+    if (locator) {
+      await locator.fill(value);
+    }
+  }
+});
+
+When('preencho os campos opcionais:', async function(dataTable: any) {
+  const fields = dataTable.hashes();
+  
+  for (const field of fields) {
+    const fieldName = field.campo.toLowerCase();
+    const value = field.valor;
+    
+    let locator;
+    
+    if (fieldName.includes('profissão') || fieldName.includes('profissao')) {
+      locator = this.page.locator('input[name="occupation"], input#tenant-occupation');
+      await locator.fill(value);
+    } else if (fieldName.includes('estado civil')) {
+      locator = this.page.locator('select[name="maritalStatus"], select#tenant-marital-status');
+      await locator.selectOption({ label: value });
+    } else if (fieldName.includes('renda mensal')) {
+      locator = this.page.locator('input[name="monthlyIncome"], input#tenant-monthly-income');
+      // Simular digitação para testar máscara
+      await locator.click();
+      const cleanValue = value.replace(/[^\d]/g, '');
+      await locator.pressSequentially(cleanValue);
+    }
+  }
+});
+
+When('deixo os campos opcionais vazios:', async function(dataTable: any) {
+  // Apenas validar que os campos existem mas não preenchê-los
+  const fields = dataTable.hashes();
+  
+  for (const field of fields) {
+    const fieldName = field.campo.toLowerCase();
+    
+    let locator;
+    
+    if (fieldName.includes('profissão') || fieldName.includes('profissao')) {
+      locator = this.page.locator('input[name="occupation"], input#tenant-occupation');
+    } else if (fieldName.includes('estado civil')) {
+      locator = this.page.locator('select[name="maritalStatus"], select#tenant-marital-status');
+    } else if (fieldName.includes('renda mensal')) {
+      locator = this.page.locator('input[name="monthlyIncome"], input#tenant-monthly-income');
+    }
+    
+    if (locator) {
+      await expect(locator).toBeVisible();
+    }
+  }
+});
+
+When('preencho a renda mensal digitando {string}', async function(value: string) {
+  const locator = this.page.locator('input[name="monthlyIncome"], input#tenant-monthly-income');
+  await locator.click();
+  await locator.pressSequentially(value);
+});
+
+When('continuo digitando até {string}', async function(value: string) {
+  const locator = this.page.locator('input[name="monthlyIncome"], input#tenant-monthly-income');
+  await locator.pressSequentially(value.replace(/^\d+/, '').replace(/[^\d]/g, ''));
+});
+
+Then('o campo deve exibir {string}', async function(expectedValue: string) {
+  await this.page.waitForTimeout(500); // Aguardar máscara aplicar
+  
+  // Tentar encontrar o campo preenchido
+  const field = this.page.locator(`input[value="${expectedValue}"]`);
+  await expect(field).toBeVisible({ timeout: 5000 });
+});
+
+When('clico no campo {string}', async function(fieldName: string) {
+  let locator;
+  
+  if (fieldName.toLowerCase().includes('estado civil')) {
+    locator = this.page.locator('select[name="maritalStatus"], select#tenant-marital-status');
+  }
+  
+  if (locator) {
+    await locator.click();
+  }
+});
+
+Then('devo ver as seguintes opções:', async function(dataTable: any) {
+  const options = dataTable.hashes();
+  
+  for (const opt of options) {
+    const option = this.page.getByRole('option', { name: new RegExp(opt.opção, 'i') });
+    await expect(option).toBeVisible({ timeout: 5000 });
+  }
+});
+
+Given('que existe um inquilino {string} sem dados opcionais', async function(name: string) {
+  // Criar inquilino via API ou banco de dados
+  // Para simplificar, assumir que já existe
+  this.tenantName = name;
+});
+
+When('abro o inquilino {string} para edição', async function(name: string) {
+  // Buscar inquilino na lista e clicar para editar
+  const row = this.page.getByText(name).first();
+  await row.click();
+  
+  // Aguardar dialog/formulário abrir
+  await this.page.waitForTimeout(1000);
+});
+
+When('abro o inquilino novamente', async function() {
+  const name = this.tenantName;
+  const row = this.page.getByText(name).first();
+  await row.click();
+  
+  await this.page.waitForTimeout(1000);
+});
+
+Then('devo ver os dados salvos corretamente', async function() {
+  // Verificar que os campos opcionais foram salvos
+  const occupation = this.page.locator('input[name="occupation"], input#tenant-occupation');
+  const maritalStatus = this.page.locator('select[name="maritalStatus"], select#tenant-marital-status');
+  const monthlyIncome = this.page.locator('input[name="monthlyIncome"], input#tenant-monthly-income');
+  
+  await expect(occupation).not.toHaveValue('');
+  await expect(maritalStatus).not.toHaveValue('');
+  await expect(monthlyIncome).not.toHaveValue('');
+});
+
+Then('o inquilino deve aparecer na lista sem erros', async function() {
+  // Verificar que não há erros visíveis
+  const errorMessage = this.page.locator('[role="alert"]').or(
+    this.page.getByText(/erro|falhou/i)
+  );
+  await expect(errorMessage).not.toBeVisible();
+  
+  // Verificar que voltou para a lista
+  await this.page.waitForSelector('table, [role="grid"]', { timeout: 5000 });
+});
+
 When('tento salvar sem preencher o {string}', async function(fieldName: string) {
   // Tentar salvar direto
   const saveButton = this.page.getByRole('button', { name: /salvar/i });
   await saveButton.click();
-});
-
-Then('o campo {string} deve estar {string}', async function(fieldName: string, state: string) {
-  let locator;
-  
-  if (fieldName.toLowerCase().includes('senha')) {
-    locator = this.page.locator('#password');
-  }
-  
-  if (state === 'oculto') {
-    await expect(locator).toHaveAttribute('type', 'password');
-  } else if (state === 'visível') {
-    await expect(locator).toHaveAttribute('type', 'text');
-  }
 });
 
 export { page, loginPage, dashboardPage };
