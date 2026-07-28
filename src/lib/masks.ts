@@ -246,14 +246,14 @@ export const unformatCep = (value: string): string => {
   return value.replace(/\D/g, "").slice(0, 8);
 };
 
-// Money mask for input fields
+// Money mask for input fields - INCREMENTAL (para digitação)
 export const applyMoneyMask = (value: string): string => {
   if (!value) return "";
   
   // Remove tudo exceto números
   const numbers = value.replace(/\D/g, "");
   
-  // Converte para número e formata
+  // Converte para número e formata (divide por 100 pois está em centavos)
   const amount = parseFloat(numbers) / 100;
   
   if (isNaN(amount)) return "";
@@ -262,6 +262,30 @@ export const applyMoneyMask = (value: string): string => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+};
+
+// Format money value for DISPLAY (não divide por 100 - valor já está correto)
+export const formatMoneyForDisplay = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || isNaN(value)) return "R$ 0,00";
+  
+  return `R$ ${value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
+// Parse money mask to number (para salvar no banco)
+export const parseMoneyMaskToNumber = (value: string): number => {
+  if (!value) return 0;
+  
+  // Remove R$, espaços, pontos (separador de milhar) e substitui vírgula por ponto
+  const cleanValue = value
+    .replace(/R\$/g, "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  
+  return parseFloat(cleanValue) || 0;
 };
 
 // Remove all masks from string (keep only numbers)

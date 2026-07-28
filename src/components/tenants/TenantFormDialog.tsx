@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tenant } from "@/types";
-import { applyCpfMask, applyCnpjMask, applyPhoneMask, applyRgMask, applyCepMask, fetchAddressByCEP, applyMoneyMask, parseCurrencyToFloat } from "@/lib/masks";
+import { applyCpfMask, applyCnpjMask, applyPhoneMask, applyRgMask, applyCepMask, fetchAddressByCEP, applyMoneyMask, formatMoneyForDisplay, parseMoneyMaskToNumber } from "@/lib/masks";
 import { Pencil, Loader2 } from "lucide-react";
 
 interface TenantFormDialogProps {
@@ -227,21 +227,10 @@ const PersonalDataSection = memo(function PersonalDataSection({
             type="text"
             value={formData.monthlyIncome}
             onChange={(e) => {
-              let value = e.target.value;
-              // Remove tudo exceto números e vírgula
-              value = value.replace(/[^\d,]/g, "");
-              // Limitar a uma vírgula
-              const parts = value.split(",");
-              if (parts.length > 2) {
-                value = parts[0] + "," + parts.slice(1).join("");
-              }
-              // Limitar casas decimais a 2
-              if (parts.length === 2 && parts[1].length > 2) {
-                value = parts[0] + "," + parts[1].substring(0, 2);
-              }
-              onFieldChange("monthlyIncome", value);
+              const masked = applyMoneyMask(e.target.value);
+              onFieldChange("monthlyIncome", masked);
             }}
-            placeholder="0,00"
+            placeholder="R$ 0,00"
             disabled={!isEditing}
             className="h-11 sm:h-10 text-sm mobile-input"
           />
@@ -414,9 +403,9 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         occupation: tenant.occupation || "",
         maritalStatus: tenant.marital_status || tenant.maritalStatus || "",
         monthlyIncome: tenant.monthly_income 
-          ? (tenant.monthly_income.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+          ? formatMoneyForDisplay(tenant.monthly_income)
           : (tenant.monthlyIncome 
-              ? (tenant.monthlyIncome.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+              ? formatMoneyForDisplay(tenant.monthlyIncome)
               : ""),
         cep: tenant.cep || "",
         street: tenant.street || "",
@@ -547,7 +536,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
       rg: formData.rg,
       occupation: formData.occupation,
       marital_status: formData.maritalStatus,
-      monthly_income: formData.monthlyIncome ? parseFloat(formData.monthlyIncome.replace(/\./g, "").replace(",", ".")) : null,
+      monthly_income: formData.monthlyIncome ? parseMoneyMaskToNumber(formData.monthlyIncome) : null,
       document_type: documentType,
       cep: formData.cep,
       street: formData.street,
