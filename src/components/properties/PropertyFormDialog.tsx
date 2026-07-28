@@ -20,7 +20,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { X, Pencil, ImageIcon, Camera } from "lucide-react";
 import { PropertyFormData } from "@/hooks/useProperties";
-import { formatCurrencyInput } from "@/lib/masks";
+import { formatCurrencyInput, applyMoneyMask, formatMoneyForDisplay, parseMoneyMaskToNumber } from "@/lib/masks";
 
 interface Location {
   id: string;
@@ -124,8 +124,8 @@ export const PropertyFormDialog = memo(function PropertyFormDialog({
   }, [formData, setFormData]);
 
   const handleMonthlyRentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCurrencyInput(e.target.value);
-    handleFieldChange("monthly_rent", formatted);
+    const masked = applyMoneyMask(e.target.value);
+    handleFieldChange("monthly_rent", masked);
   }, [handleFieldChange]);
 
   const triggerFileInput = useCallback((inputId: string) => {
@@ -251,7 +251,10 @@ export const PropertyFormDialog = memo(function PropertyFormDialog({
               <Input
                 id="property-value"
                 value={formData.monthly_rent}
-                onChange={handleMonthlyRentChange}
+                onChange={(e) => {
+                  const formatted = formatCurrencyInput(e.target.value);
+                  handleFieldChange("monthly_rent", formatted);
+                }}
                 placeholder="R$ 0,00"
                 className="h-11 sm:h-10 text-base font-semibold text-green-600 mobile-input"
                 disabled={isReadOnly}
