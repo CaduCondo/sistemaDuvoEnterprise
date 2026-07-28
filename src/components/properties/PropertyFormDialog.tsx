@@ -251,10 +251,7 @@ export const PropertyFormDialog = memo(function PropertyFormDialog({
               <Input
                 id="property-value"
                 value={formData.monthly_rent}
-                onChange={(e) => {
-                  const formatted = formatCurrencyInput(e.target.value);
-                  handleFieldChange("monthly_rent", formatted);
-                }}
+                onChange={handleMonthlyRentChange}
                 placeholder="R$ 0,00"
                 className="h-11 sm:h-10 text-base font-semibold text-green-600 mobile-input"
                 disabled={isReadOnly}
