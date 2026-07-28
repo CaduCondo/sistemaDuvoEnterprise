@@ -185,19 +185,32 @@ CREATE INDEX idx_properties_rent ON properties(monthly_rent);
 CREATE TABLE tenants (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
-  cpf TEXT UNIQUE NOT NULL,
+  cpf TEXT,
+  document TEXT,
+  document_type TEXT DEFAULT 'cpf' CHECK (document_type IN ('cpf', 'cnpj')),
   rg TEXT,
-  birth_date DATE,
+  occupation VARCHAR(255),
+  marital_status VARCHAR(50),
+  monthly_income DECIMAL(10,2),
   phone TEXT,
   email TEXT,
-  address TEXT,
+  zip_code TEXT,
+  street TEXT,
+  number TEXT,
+  complement TEXT,
+  neighborhood TEXT,
+  city TEXT,
+  state TEXT,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'rented')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Índices
-CREATE UNIQUE INDEX idx_tenants_cpf ON tenants(cpf);
+CREATE UNIQUE INDEX idx_tenants_cpf ON tenants(cpf) WHERE cpf IS NOT NULL;
 CREATE INDEX idx_tenants_name ON tenants(name);
+CREATE INDEX idx_tenants_document ON tenants(document) WHERE document IS NOT NULL;
+CREATE INDEX idx_tenants_status ON tenants(status);
 ```
 
 **Colunas:**
@@ -206,14 +219,40 @@ CREATE INDEX idx_tenants_name ON tenants(name);
 |--------|------|-----------|-------------|
 | `id` | UUID | Identificador único | PRIMARY KEY |
 | `name` | TEXT | Nome completo | NOT NULL |
-| `cpf` | TEXT | CPF | UNIQUE, NOT NULL |
+| `cpf` | TEXT | CPF (apenas quando document_type='cpf') | - |
+| `document` | TEXT | Documento (CPF ou CNPJ) | - |
+| `document_type` | TEXT | Tipo do documento | 'cpf' ou 'cnpj', DEFAULT 'cpf' |
 | `rg` | TEXT | RG | - |
-| `birth_date` | DATE | Data de nascimento | - |
+| `occupation` | VARCHAR(255) | Profissão do inquilino | - |
+| `marital_status` | VARCHAR(50) | Estado civil | - |
+| `monthly_income` | DECIMAL(10,2) | Renda mensal em R$ | - |
 | `phone` | TEXT | Telefone | - |
 | `email` | TEXT | Email | - |
-| `address` | TEXT | Endereço | - |
+| `zip_code` | TEXT | CEP | - |
+| `street` | TEXT | Rua/Avenida | - |
+| `number` | TEXT | Número | - |
+| `complement` | TEXT | Complemento | - |
+| `neighborhood` | TEXT | Bairro | - |
+| `city` | TEXT | Cidade | - |
+| `state` | TEXT | Estado (UF) | - |
+| `status` | TEXT | Status | 'active', 'inactive', 'rented' |
 | `created_at` | TIMESTAMP | Data de criação | DEFAULT NOW() |
 | `updated_at` | TIMESTAMP | Data de atualização | DEFAULT NOW() |
+
+**Valores possíveis para marital_status:**
+- `solteiro` - Solteiro(a)
+- `casado` - Casado(a)
+- `divorciado` - Divorciado(a)
+- `viuvo` - Viúvo(a)
+- `uniao_estavel` - União Estável
+
+**Observações:**
+- Os campos `occupation`, `marital_status` e `monthly_income` são **OPCIONAIS** (podem ser NULL)
+- Para inquilinos existentes, esses campos ficam vazios até serem preenchidos manualmente
+- `monthly_income` é armazenado sem formatação (número decimal puro, ex: 5500.00)
+- Na interface, `monthly_income` é exibido com máscara R$ XX.XXX,XX (ex: R$ 5.500,00)
+- `document_type` define se o inquilino é Pessoa Física (CPF) ou Jurídica (CNPJ)
+- Campo `cpf` é mantido por compatibilidade, mas `document` é o campo principal
 
 ---
 
