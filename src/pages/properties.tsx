@@ -307,18 +307,7 @@ export default function PropertiesPage() {
     if (property?.status === "occupied") {
       showAlert({
         title: "Imóvel Ocupado",
-        description: (
-          <div className="space-y-2">
-            <p>Este imóvel não pode ser deletado porque está ocupado com uma locação ativa.</p>
-            <p className="font-semibold">Para deletar este imóvel:</p>
-            <ol className="list-decimal list-inside space-y-1 text-sm">
-              <li>Vá para a página <strong>Locações</strong></li>
-              <li>Encontre a locação ativa deste imóvel</li>
-              <li>Encerre ou rescinda o contrato</li>
-              <li>Depois volte aqui para deletar o imóvel</li>
-            </ol>
-          </div>
-        ),
+        description: "Este imóvel não pode ser deletado porque está ocupado com uma locação ativa. Vá para a página Locações, encontre a locação ativa deste imóvel, encerre ou rescinda o contrato, depois volte aqui para deletar o imóvel.",
         type: "error",
         duration: 10000,
       });

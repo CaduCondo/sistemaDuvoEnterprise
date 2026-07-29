@@ -202,7 +202,7 @@ export default function RentalsPage() {
       showAlert({
         title: "Erro",
         description: "Não foi possível carregar as locações. Tente recarregar a página.",
-        type: "destructive",
+        type: "error",
       });
       // Define arrays vazios em caso de erro
       setRentals([]);
@@ -253,7 +253,7 @@ export default function RentalsPage() {
       showAlert({
         title: "Aviso",
         description: "Alguns dados não puderam ser carregados. A funcionalidade pode estar limitada.",
-        type: "default",
+        type: "info",
       });
     } finally {
       setLoadingAdditionalData(false);
@@ -389,7 +389,7 @@ export default function RentalsPage() {
       showAlert({
         title: "Erro",
         description: "Não foi possível processar a rescisão.",
-        type: "destructive",
+        type: "error",
       });
     }
   }, [handleTerminateRental, showAlert]);
@@ -420,7 +420,7 @@ export default function RentalsPage() {
       showAlert({
         title: "Erro",
         description: "Não foi possível renovar o contrato.",
-        type: "destructive",
+        type: "error",
       });
     }
   }, [rentalToRenew, showAlert, formatDate, loadRentalsData]);
@@ -475,7 +475,7 @@ export default function RentalsPage() {
       showAlert({
         title: "Erro",
         description: "Não foi possível remover a locação.",
-        type: "destructive",
+        type: "error",
       });
     }
   }, [rentalToDelete, deleteChoices, showAlert, loadRentalsData, loadAvailableData]);
@@ -496,7 +496,7 @@ export default function RentalsPage() {
         showAlert({
           title: "Erro",
           description: "Não foi possível verificar os recebimentos da locação.",
-          type: "destructive",
+          type: "error",
         });
         return;
       }
@@ -513,7 +513,7 @@ export default function RentalsPage() {
       showAlert({
         title: "Erro",
         description: "Não foi possível validar a locação.",
-        type: "destructive",
+        type: "error",
       });
     }
   }, [showAlert]);
@@ -738,7 +738,7 @@ export default function RentalsPage() {
     } catch (error) {
       console.error("Erro ao abrir histórico:", error);
       showAlert({
-        type: "destructive",
+        type: "error",
         title: "Erro ao abrir histórico",
         description: "Ocorreu um erro ao carregar os dados.",
       });
@@ -763,7 +763,7 @@ export default function RentalsPage() {
       showAlert({
         title: "Erro",
         description: "Não foi possível abrir os detalhes da locação.",
-        type: "destructive",
+        type: "error",
       });
     }
   }, [showAlert]);

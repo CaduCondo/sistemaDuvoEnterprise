@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
 import { PaymentCard } from "@/components/payments/PaymentCard";
@@ -267,7 +267,7 @@ export default function Payments() {
       showAlert({
         title: "Acesso negado",
         description: "Você não tem permissão para cancelar recebimentos",
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
@@ -481,7 +481,7 @@ export default function Payments() {
         showAlert({
           title: "Aviso",
           description: "Recebimento registrado, mas não foi possível carregar os dados completos. Recarregue a página.",
-          variant: "destructive",
+          type: "error",
         });
         
       } catch (error) {
@@ -489,7 +489,7 @@ export default function Payments() {
         showAlert({
           title: "Erro",
           description: "Erro ao buscar dados do recebimento.",
-          variant: "destructive",
+          type: "error",
         });
       }
     }

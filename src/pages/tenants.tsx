@@ -161,18 +161,7 @@ export default function TenantsPage() {
     if (tenant.status === "rented") {
       showAlert({
         title: "Inquilino é Locatário",
-        description: (
-          <div className="space-y-2">
-            <p>Este inquilino não pode ser deletado porque está como locatário em uma locação ativa.</p>
-            <p className="font-semibold">Para deletar este inquilino:</p>
-            <ol className="list-decimal list-inside space-y-1 text-sm">
-              <li>Vá para a página <strong>Locações</strong></li>
-              <li>Encontre a locação ativa deste inquilino</li>
-              <li>Encerre ou rescinda o contrato</li>
-              <li>Depois volte aqui para deletar o inquilino</li>
-            </ol>
-          </div>
-        ),
+        description: "Este inquilino não pode ser deletado porque está como locatário em uma locação ativa. Para deletar este inquilino: 1) Vá para a página Locações, 2) Encontre a locação ativa deste inquilino, 3) Encerre ou rescinda o contrato, 4) Depois volte aqui para deletar o inquilino.",
         type: "error",
       });
       return;
