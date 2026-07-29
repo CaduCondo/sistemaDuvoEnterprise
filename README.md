@@ -13,7 +13,24 @@ Sistema completo para gestão de locações de imóveis com controle financeiro,
 
 **IMPORTANTE:** Este projeto é desenvolvido no Softgen, mas precisa de sincronização manual com o GitHub.
 
-### ⚡ Sincronização Rápida (30 segundos):
+### 🤖 Sincronização AUTOMÁTICA (GitHub Actions) - RECOMENDADO:
+
+**Configure uma vez, funciona para sempre:**
+
+```bash
+# 1. Ative GitHub Actions no repositório
+# 2. Configure permissões de escrita (Settings → Actions → Read and write)
+# 3. Pronto! Sincronização automática 1x por dia às 20h (BRT)
+
+# Ou sincronize manualmente com 1 clique:
+Actions → Sync from Vercel (Auto) → Run workflow
+```
+
+📚 **[Guia de Configuração GitHub Actions](./docs/SETUP_GITHUB_AUTO_SYNC.md)** (5 minutos)
+
+---
+
+### ⚡ Sincronização Manual (Alternativa):
 
 ```bash
 # 1. Baixe o ZIP do Softgen (Settings → GitHub → Download as ZIP)
@@ -24,7 +41,7 @@ scripts\sync-softgen-to-github.bat
 # Pronto! GitHub atualizado ✅
 ```
 
-📚 **[Guia Completo de Sincronização](./SYNC_SOFTGEN_GITHUB.md)** - Leia para entender o processo completo
+📚 **[Guia Completo de Sincronização Manual](./SYNC_SOFTGEN_GITHUB.md)**
 
 ---
 

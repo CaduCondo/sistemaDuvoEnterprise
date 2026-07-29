@@ -1,5 +1,31 @@
 # 🔄 Guia de Sincronização: Softgen → GitHub
 
+## ⚡ NOVO: Sincronização Automática via GitHub Actions
+
+**Agora você tem 2 opções:**
+
+### 🤖 **Opção 1: AUTOMÁTICA (GitHub Actions) - RECOMENDADO**
+
+✅ **Zero trabalho manual** - sincroniza 1x por dia automaticamente  
+✅ **Ou sincronize com 1 clique** quando precisar  
+✅ **Configuração inicial:** 5 minutos  
+
+**[📚 Ver Guia de Configuração](./docs/SETUP_GITHUB_AUTO_SYNC.md)**
+
+```
+Você desenvolve → GitHub sincroniza sozinho 🚀
+```
+
+---
+
+### 💻 **Opção 2: Manual (Script Local) - BACKUP**
+
+⚡ 30 segundos por dia  
+📦 Download ZIP + executar script  
+🔧 Sem configuração necessária  
+
+---
+
 ## 📋 Entendendo o Fluxo
 
 ### Como Funciona:
