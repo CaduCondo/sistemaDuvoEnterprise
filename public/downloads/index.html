@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arquivos de Sincronização - Sistema Duvo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .alert {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+        
+        .alert h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .alert p {
+            color: #856404;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .file-list {
+            list-style: none;
+        }
+        
+        .file-item {
+            background: #f8f9fa;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .file-info {
+            flex: 1;
+        }
+        
+        .file-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+        
+        .file-desc {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102,126,234,0.4);
+        }
+        
+        .steps {
+            counter-reset: step-counter;
+            list-style: none;
+        }
+        
+        .step {
+            counter-increment: step-counter;
+            padding: 20px;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            position: relative;
+            padding-left: 70px;
+        }
+        
+        .step::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 35px;
+            height: 35px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .step h3 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .step p {
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        code {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 Arquivos de Sincronização</h1>
+            <p>Sistema de Gerenciamento de Locações - Duvo Enterprise</p>
+        </div>
+        
+        <div class="content">
+            <div class="alert">
+                <h3>⚠️ Por que esta página?</h3>
+                <p>O ZIP do Softgen não contém os arquivos criados nesta sessão. Esta página permite baixá-los diretamente!</p>
+            </div>
+            
+            <div class="section">
+                <h2>📥 Arquivos para Download</h2>
+                <ul class="file-list">
+                    <li class="file-item">
+                        <div class="file-info">
+                            <div class="file-name">sync-softgen-to-github.bat</div>
+                            <div class="file-desc">Script de sincronização para Windows</div>
+                        </div>
+                        <a href="/downloads/sync-softgen-to-github.bat" class="btn" download>Baixar</a>
+                    </li>
+                    
+                    <li class="file-item">
+                        <div class="file-info">
+                            <div class="file-name">sync-softgen-to-github.sh</div>
+                            <div class="file-desc">Script de sincronização para Linux/Mac</div>
+                        </div>
+                        <a href="/downloads/sync-softgen-to-github.sh" class="btn" download>Baixar</a>
+                    </li>
+                    
+                    <li class="file-item">
+                        <div class="file-info">
+                            <div class="file-name">sync-from-vercel.yml</div>
+                            <div class="file-desc">GitHub Action para sincronização automática</div>
+                        </div>
+                        <a href="/downloads/sync-from-vercel.yml" class="btn" download>Baixar</a>
+                    </li>
+                    
+                    <li class="file-item">
+                        <div class="file-info">
+                            <div class="file-name">INSTRUCOES_INSTALACAO.txt</div>
+                            <div class="file-desc">Instruções completas de instalação</div>
+                        </div>
+                        <a href="/downloads/INSTRUCOES_INSTALACAO.txt" class="btn" download>Baixar</a>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="section">
+                <h2>🚀 Instalação Rápida</h2>
+                <ol class="steps">
+                    <li class="step">
+                        <h3>Baixar Arquivos</h3>
+                        <p>Clique nos botões acima para baixar todos os 4 arquivos</p>
+                    </li>
+                    
+                    <li class="step">
+                        <h3>Criar Pastas</h3>
+                        <p>No seu repositório local, crie:</p>
+                        <p><code>scripts\</code> e <code>.github\workflows\</code></p>
+                    </li>
+                    
+                    <li class="step">
+                        <h3>Copiar Arquivos</h3>
+                        <p><code>sync-softgen-to-github.bat</code> → <code>scripts\</code></p>
+                        <p><code>sync-softgen-to-github.sh</code> → <code>scripts\</code></p>
+                        <p><code>sync-from-vercel.yml</code> → <code>.github\workflows\</code></p>
+                    </li>
+                    
+                    <li class="step">
+                        <h3>Commit e Push</h3>
+                        <p><code>git add .</code></p>
+                        <p><code>git commit -m "feat: add sync automation"</code></p>
+                        <p><code>git push origin main</code></p>
+                    </li>
+                    
+                    <li class="step">
+                        <h3>Configurar GitHub</h3>
+                        <p>Settings → Actions → General</p>
+                        <p>Workflow permissions → ✅ Read and write</p>
+                    </li>
+                    
+                    <li class="step">
+                        <h3>Testar</h3>
+                        <p>Actions → "Sync from Vercel (Auto)" → Run workflow</p>
+                    </li>
+                </ol>
+            </div>
+            
+            <div class="section">
+                <h2>✅ Resultado Final</h2>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="padding: 10px 0;">✅ Sincronização automática 1x/dia às 20h</li>
+                    <li style="padding: 10px 0;">✅ Ou sincronize manualmente com 1 clique</li>
+                    <li style="padding: 10px 0;">✅ Testes E2E automatizados</li>
+                    <li style="padding: 10px 0;">✅ GitHub sempre atualizado</li>
+                    <li style="padding: 10px 0;">✅ Zero trabalho manual!</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>📚 Consulte <code>INSTRUCOES_INSTALACAO.txt</code> para mais detalhes</p>
+            <p style="margin-top: 10px;">Sistema Duvo Enterprise © 2026</p>
+        </div>
+    </div>
+</body>
+</html>

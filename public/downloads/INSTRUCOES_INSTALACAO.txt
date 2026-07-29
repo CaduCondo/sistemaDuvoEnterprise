@@ -1,0 +1,98 @@
+========================================
+  INSTRUÇÕES DE INSTALAÇÃO
+========================================
+
+PROBLEMA:
+O ZIP do Softgen não contém os arquivos de sincronização criados nesta sessão.
+
+SOLUÇÃO:
+Baixe os arquivos diretamente desta pasta e copie manualmente para seu repositório.
+
+========================================
+  PASSO A PASSO
+========================================
+
+1. BAIXAR ARQUIVOS:
+   
+   Abra seu navegador nas seguintes URLs:
+   
+   - http://localhost:3000/downloads/sync-softgen-to-github.bat
+   - http://localhost:3000/downloads/sync-softgen-to-github.sh
+   - http://localhost:3000/downloads/sync-from-vercel.yml
+   
+   (Substitua localhost:3000 pela URL do seu preview do Softgen se diferente)
+   
+   Clique com botão direito → "Salvar como..." em cada arquivo.
+
+2. CRIAR ESTRUTURA DE PASTAS:
+   
+   No seu repositório local (C:\Users\...\sistemaDuvoEnterprise\):
+   
+   Crie as pastas se não existirem:
+   - scripts\
+   - .github\workflows\
+
+3. COPIAR ARQUIVOS:
+   
+   Copie os arquivos baixados para:
+   
+   sync-softgen-to-github.bat  →  scripts\sync-softgen-to-github.bat
+   sync-softgen-to-github.sh   →  scripts\sync-softgen-to-github.sh
+   sync-from-vercel.yml        →  .github\workflows\sync-from-vercel.yml
+
+4. DAR PERMISSÃO (Linux/Mac):
+   
+   chmod +x scripts/sync-softgen-to-github.sh
+
+5. FAZER COMMIT MANUAL (PRIMEIRA VEZ):
+   
+   cd C:\Users\...\sistemaDuvoEnterprise
+   git add .
+   git commit -m "feat: add GitHub sync automation"
+   git push origin main
+
+6. CONFIGURAR GITHUB ACTIONS:
+   
+   GitHub → Settings → Actions → General
+   Workflow permissions → ✅ Read and write permissions
+   Save
+
+7. TESTAR:
+   
+   GitHub → Actions → "Sync from Vercel (Auto)" → Run workflow
+
+========================================
+  ARQUIVOS QUE TAMBÉM ESTÃO FALTANDO
+========================================
+
+Estes arquivos também foram criados mas não estão no ZIP.
+Você pode acessá-los diretamente no Softgen:
+
+📄 docs/SETUP_GITHUB_AUTO_SYNC.md
+📄 docs/GITHUB_ACTIONS_TESTES.md
+📄 SYNC_SOFTGEN_GITHUB.md
+📄 README.md (atualizado)
+📄 .github/workflows/e2e-tests.yml (atualizado)
+
+Vou criar versões para download também!
+
+========================================
+  RESULTADO FINAL
+========================================
+
+Após seguir todos os passos:
+
+✅ GitHub Actions configurado
+✅ Sincronização automática 1x/dia
+✅ Ou sincronize manualmente com 1 clique
+✅ Testes E2E automatizados
+
+Seu workflow final:
+1. Desenvolva no Softgen
+2. GitHub sincroniza automaticamente
+3. Você nunca mais precisa baixar ZIP!
+
+========================================
+
+Qualquer dúvida, consulte a documentação completa:
+docs/SETUP_GITHUB_AUTO_SYNC.md (quando estiver no repositório)
