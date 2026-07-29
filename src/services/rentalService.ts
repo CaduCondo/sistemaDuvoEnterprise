@@ -2,31 +2,25 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Rental, Attachment } from "@/types";
 import { deleteDepositInstallmentsByRental, createDepositInstallments } from "./depositInstallmentService";
 import { getAllLocations } from "./locationService";
-import { updatePendingPaymentsOnRentalEdit, createPaymentsForRental } from "./paymentService";
+import { updatePendingPaymentsOnRentalEdit, createPaymentsForRental, generateExpectedPayments } from "./paymentService";
 
-// ✅ CACHE: Cache simples em memória
 let rentalsCache: { data: Rental[] | null; timestamp: number } = {
   data: null,
   timestamp: 0,
 };
 
-const CACHE_DURATION = 2 * 60 * 1000; // 2 minutos
+const CACHE_DURATION = 2 * 60 * 1000;
 
-// Helper function to invalidate payments cache
 function invalidatePaymentsCache() {
-  // Payments cache invalidation is handled by paymentService
   console.log("🗑️ [rentalService] Invalidating payments cache");
 }
 
-// Helper para mapear dados do banco para o tipo Rental
 const mapRentalData = (data: any): Rental => {
-  // Extrair parcelas do caução da resposta
   const installments = data.deposit_installments || [];
   const installment1 = installments.find((i: any) => i.installment_number === 1);
   const installment2 = installments.find((i: any) => i.installment_number === 2);
   const installment3 = installments.find((i: any) => i.installment_number === 3);
 
-  // Tratamento seguro para tenants e properties
   const tenantData = Array.isArray(data.tenants) ? data.tenants[0] : data.tenants;
   const propertyData = Array.isArray(data.properties) ? data.properties[0] : data.properties;
 
@@ -83,24 +77,20 @@ const mapRentalData = (data: any): Rental => {
       status: "rented",
     } : undefined,
 
-    // 1ª Parcela (ou À Vista)
     depositInstallment1: Number(installment1?.amount || 0),
     depositInstallment1DueDate: installment1?.due_date || null,
     depositInstallment1PaymentDate: installment1?.payment_date || null,
     depositInstallment1PixCode: installment1?.pix_code || "",
     
-    // Aliases para compatibilidade
     depositPaymentDate: installment1?.payment_date || null,
     depositPixCode: installment1?.pix_code || "",
     depositDueDate: installment1?.due_date || null,
     
-    // 2ª Parcela
     depositInstallment2: Number(installment2?.amount || 0),
     depositInstallment2DueDate: installment2?.due_date || null,
     depositInstallment2PaymentDate: installment2?.payment_date || null,
     depositInstallment2PixCode: installment2?.pix_code || "",
     
-    // 3ª Parcela
     depositInstallment3: Number(installment3?.amount || 0),
     depositInstallment3DueDate: installment3?.due_date || null,
     depositInstallment3PaymentDate: installment3?.payment_date || null,
@@ -111,20 +101,12 @@ const mapRentalData = (data: any): Rental => {
 };
 
 export const rentalService = {
-  /**
-   * Verifica e atualiza automaticamente locações cujo contrato expirou (end_date passou)
-   * Atualiza:
-   * - rental.status = 'ended'
-   * - property.status = 'available'
-   * - tenant.status = 'active'
-   */
   async checkAndUpdateExpiredRentals(): Promise<void> {
     try {
       const today = new Date().toISOString().split('T')[0];
       
       console.log("🔍 [rentalService.checkAndUpdateExpiredRentals] Verificando contratos expirados...");
       
-      // Buscar locações ativas cuja end_date já passou
       const { data: expiredRentals, error } = await supabase
         .from("rentals")
         .select("id, tenant_id, property_id, end_date")
@@ -144,11 +126,9 @@ export const rentalService = {
 
       console.log(`📋 [rentalService.checkAndUpdateExpiredRentals] ${expiredRentals.length} contrato(s) expirado(s) encontrado(s)`);
 
-      // Atualizar cada locação expirada
       for (const rental of expiredRentals) {
         console.log(`🔄 [rentalService.checkAndUpdateExpiredRentals] Encerrando contrato ${rental.id}...`);
         
-        // 1. Atualizar status da locação para 'ended'
         const { error: rentalError } = await supabase
           .from("rentals")
           .update({ status: "ended" })
@@ -159,7 +139,6 @@ export const rentalService = {
           continue;
         }
 
-        // 2. Atualizar status do imóvel para 'available'
         if (rental.property_id) {
           const { error: propertyError } = await supabase
             .from("properties")
@@ -171,7 +150,6 @@ export const rentalService = {
           }
         }
 
-        // 3. Atualizar status do inquilino para 'active'
         if (rental.tenant_id) {
           const { error: tenantError } = await supabase
             .from("tenants")
@@ -186,7 +164,6 @@ export const rentalService = {
         console.log(`✅ [rentalService.checkAndUpdateExpiredRentals] Contrato ${rental.id} encerrado com sucesso`);
       }
 
-      // Invalidar cache após atualização
       rentalService.invalidateCache();
       
       console.log("✅ [rentalService.checkAndUpdateExpiredRentals] Verificação concluída");
@@ -198,10 +175,8 @@ export const rentalService = {
   async getAll(forceRefresh = false): Promise<Rental[]> {
     const now = Date.now();
     
-    // ✅ Verificar e atualizar contratos expirados antes de buscar dados
     await rentalService.checkAndUpdateExpiredRentals();
     
-    // ✅ OTIMIZAÇÃO: Usar cache se disponível e não expirado
     if (!forceRefresh && rentalsCache.data && (now - rentalsCache.timestamp) < CACHE_DURATION) {
       console.log("✅ [rentalService.getAll] Usando cache");
       return rentalsCache.data;
@@ -253,7 +228,6 @@ export const rentalService = {
     
     const mappedRentals = data?.map((rental: any) => mapRentalData(rental)) || [];
     
-    // ✅ OTIMIZAÇÃO: Atualizar cache
     rentalsCache = {
       data: mappedRentals,
       timestamp: now,
@@ -262,7 +236,6 @@ export const rentalService = {
     return mappedRentals;
   },
 
-  // ✅ OTIMIZAÇÃO: Função para invalidar cache
   invalidateCache() {
     console.log("🗑️ [rentalService] Cache invalidado");
     rentalsCache = { data: null, timestamp: 0 };
@@ -271,7 +244,6 @@ export const rentalService = {
   async getById(id: string): Promise<Rental> {
     console.log(`🔄 [rentalService.getById] Buscando locação ${id}...`);
     
-    // ✅ Verificar e atualizar contratos expirados antes de buscar dados
     await rentalService.checkAndUpdateExpiredRentals();
     
     const { data, error } = await supabase
@@ -331,7 +303,6 @@ export const rentalService = {
 
     if (error) throw error;
     
-    // 🔍 LOG: Confirmar que a locação foi criada com todos os dados
     console.log("✅ [rentalService.create] Locação criada no banco:", {
       id: data.id,
       property_id: data.property_id,
@@ -342,18 +313,8 @@ export const rentalService = {
       rent_due_day: data.rent_due_day,
     });
 
-    // ✅ CRÍTICO: Gerar recebimentos automáticos da locação
     if (rental.startDate && rental.endDate && rental.paymentDay) {
       console.log("🔄 [rentalService.create] Gerando recebimentos automáticos...");
-      console.log("📋 [rentalService.create] Parâmetros:", {
-        rentalId: data.id,
-        startDate: rental.startDate,
-        endDate: rental.endDate,
-        monthlyRent: rental.monthlyRent || rental.value || 0,
-        paymentDay: rental.paymentDay,
-        hasGarage: rental.hasGarage,
-        garageValue: rental.garageValue
-      });
       
       try {
         await createPaymentsForRental({
@@ -368,23 +329,12 @@ export const rentalService = {
         console.log("✅ [rentalService.create] Recebimentos gerados com sucesso!");
       } catch (paymentError) {
         console.error("❌ [rentalService.create] ERRO CRÍTICO ao gerar recebimentos:", paymentError);
-        console.error("❌ Stack trace:", (paymentError as any).stack);
-        // Re-throw para que o erro seja visível
         throw new Error(`Falha ao criar recebimentos: ${(paymentError as any).message}`);
       }
       
-      // 🔥 CRÍTICO: Invalidar cache de payments para forçar reload
       invalidatePaymentsCache();
-      console.log("🗑️ [rentalService.create] Cache de payments invalidado");
-    } else {
-      console.warn("⚠️ [rentalService.create] Recebimentos NÃO foram gerados. Parâmetros faltando:", {
-        startDate: rental.startDate,
-        endDate: rental.endDate,
-        paymentDay: rental.paymentDay
-      });
     }
 
-    // ✅ CRÍTICO: Gerar parcelas de caução se houver
     if (rental.depositAmount && rental.depositAmount > 0) {
       console.log("🔄 [rentalService.create] Gerando parcelas de caução...");
       
@@ -392,7 +342,6 @@ export const rentalService = {
         const installmentsToCreate = [];
         const totalInstallments = rental.depositInstallments || 1;
         
-        // 1ª Parcela
         installmentsToCreate.push({
           installment_number: 1,
           total_installments: totalInstallments,
@@ -402,7 +351,6 @@ export const rentalService = {
           pix_code: rental.depositInstallment1PixCode || rental.depositPixCode || null,
         });
         
-        // 2ª Parcela (se houver)
         if (totalInstallments >= 2 && rental.depositInstallment2 && rental.depositInstallment2 > 0) {
           installmentsToCreate.push({
             installment_number: 2,
@@ -414,7 +362,6 @@ export const rentalService = {
           });
         }
         
-        // 3ª Parcela (se houver)
         if (totalInstallments === 3 && rental.depositInstallment3 && rental.depositInstallment3 > 0) {
           installmentsToCreate.push({
             installment_number: 3,
@@ -426,18 +373,14 @@ export const rentalService = {
           });
         }
         
-        console.log("📦 [rentalService.create] Criando parcelas:", installmentsToCreate);
-        
         await createDepositInstallments(data.id, installmentsToCreate);
         
         console.log("✅ [rentalService.create] Parcelas de caução criadas com sucesso!");
       } catch (depositError) {
         console.error("❌ [rentalService.create] ERRO ao criar parcelas de caução:", depositError);
-        // Não fazer throw aqui para não bloquear a criação da locação
       }
     }
 
-    // Atualizar status do inquilino
     if (rental.tenantId) {
       await supabase
         .from("tenants")
@@ -445,16 +388,13 @@ export const rentalService = {
         .eq("id", rental.tenantId);
     }
 
-    // ✅ OTIMIZAÇÃO: Invalidar cache
     rentalService.invalidateCache();
     invalidatePaymentsCache();
 
-    // Buscar dados completos para retornar
     return rentalService.getById(data.id);
   },
 
   async update(id: string, rental: Partial<Rental>): Promise<Rental> {
-    // 1️⃣ BUSCAR DADOS ANTIGOS PRIMEIRO (para comparação)
     const { data: oldRentalData, error: fetchError } = await supabase
       .from("rentals")
       .select(`
@@ -472,17 +412,33 @@ export const rentalService = {
     const oldRental = mapRentalData(oldRentalData);
     
     console.log("🔍 [rentalService.update] Dados antigos:", {
-      depositAmount: oldRental.depositAmount,
-      depositInstallments: oldRental.depositInstallments,
-      monthlyRent: oldRental.monthlyRent,
-      paymentDay: oldRental.paymentDay,
-      hasGarage: oldRental.hasGarage,
-      garageValue: oldRental.garageValue,
-      startDate: oldRental.startDate,
+      status: oldRental.status,
       endDate: oldRental.endDate,
+      startDate: oldRental.startDate,
+      paymentDay: oldRental.paymentDay,
     });
 
-    // 2️⃣ PREPARAR DADOS PARA ATUALIZAÇÃO NO BANCO
+    const today = new Date().toISOString().split('T')[0];
+    const isReactivating = 
+      oldRental.status === "ended" && 
+      rental.endDate && 
+      rental.endDate > today;
+
+    if (isReactivating) {
+      console.log("🔄 [rentalService.update] REATIVANDO LOCAÇÃO ENCERRADA!");
+      rental.status = "active";
+      
+      await supabase
+        .from("properties")
+        .update({ status: "occupied" })
+        .eq("id", oldRental.propertyId);
+      
+      await supabase
+        .from("tenants")
+        .update({ status: "rented" })
+        .eq("id", oldRental.tenantId);
+    }
+
     const dbData: any = {};
     if (rental.propertyId !== undefined) dbData.property_id = rental.propertyId;
     if (rental.tenantId !== undefined) dbData.tenant_id = rental.tenantId;
@@ -501,7 +457,6 @@ export const rentalService = {
     if (rental.hasPartnerBroker !== undefined) dbData.has_partner_broker = rental.hasPartnerBroker;
     if (rental.depositInstallments !== undefined) dbData.deposit_installments = rental.depositInstallments;
 
-    // 3️⃣ ATUALIZAR RENTAL NO BANCO
     const { data, error } = await supabase
       .from("rentals")
       .update(dbData)
@@ -511,50 +466,57 @@ export const rentalService = {
 
     if (error) throw error;
 
-    // 4️⃣ ATUALIZAÇÃO INTELIGENTE DE PARCELAS DE CAUÇÃO
-    // Buscar parcelas existentes
-    console.log("🔍 [rentalService.update] Buscando parcelas existentes para rental_id:", id);
-    
-    const { data: existingInstallments, error: installmentsError } = await supabase
+    if (isReactivating) {
+      console.log("🔄 [rentalService.update] Deletando recebimentos PENDING antigos...");
+      
+      const { error: deleteError } = await supabase
+        .from("payments")
+        .delete()
+        .eq("rental_id", id)
+        .eq("status", "pending");
+      
+      if (deleteError) {
+        console.error("❌ Erro ao deletar recebimentos pending:", deleteError);
+      }
+
+      console.log("🔄 [rentalService.update] Gerando novos recebimentos até nova data fim...");
+      
+      const newStartDate = rental.startDate || oldRental.startDate;
+      const newEndDate = rental.endDate!;
+      const monthlyRent = rental.monthlyRent || rental.value || oldRental.monthlyRent;
+      const paymentDay = rental.paymentDay || oldRental.paymentDay;
+      const hasGarage = rental.hasGarage !== undefined ? rental.hasGarage : oldRental.hasGarage;
+      const garageValue = rental.garageValue !== undefined ? rental.garageValue : oldRental.garageValue;
+
+      await createPaymentsForRental({
+        rental: { id } as Rental,
+        startDate: new Date(newStartDate),
+        endDate: new Date(newEndDate),
+        monthlyRent,
+        paymentDay,
+        hasGarage,
+        garageValue,
+      });
+      
+      console.log("✅ [rentalService.update] Recebimentos recriados com sucesso!");
+    }
+
+    const { data: existingInstallments } = await supabase
       .from("deposit_installments")
       .select("*")
       .eq("rental_id", id)
       .order("installment_number", { ascending: true });
 
-    if (installmentsError) {
-      console.error("❌ [rentalService.update] Erro ao buscar parcelas:", installmentsError);
-    }
-
-    console.log("📦 [rentalService.update] Parcelas encontradas no banco:", existingInstallments);
-
     const hasExistingInstallments = existingInstallments && existingInstallments.length > 0;
     const depositAmount = rental.depositAmount ?? oldRental.depositAmount ?? 0;
 
-    console.log("🔍 [rentalService.update] Status das parcelas:", {
-      hasExistingInstallments,
-      existingCount: existingInstallments?.length || 0,
-      depositAmount,
-      oldDepositAmount: oldRental.depositAmount,
-    });
-
-    // REGRA SIMPLIFICADA: Se NÃO tem parcelas E tem depositAmount > 0, CRIAR
     if (!hasExistingInstallments && depositAmount > 0) {
-      console.log("🔄 [rentalService.update] NÃO há parcelas e HÁ valor de caução - CRIANDO...");
+      console.log("🔄 [rentalService.update] Criando parcelas de caução...");
       
       try {
         const installmentsToCreate = [];
         const totalInstallments = rental.depositInstallments ?? oldRental.depositInstallments ?? 1;
         
-        console.log("📦 [rentalService.update] Parâmetros para criação:", {
-          totalInstallments,
-          depositAmount,
-          depositInstallment1: rental.depositInstallment1 ?? oldRental.depositInstallment1,
-          depositInstallment1DueDate: rental.depositInstallment1DueDate ?? oldRental.depositInstallment1DueDate,
-          depositInstallment1PaymentDate: rental.depositInstallment1PaymentDate ?? oldRental.depositInstallment1PaymentDate,
-          depositInstallment1PixCode: rental.depositInstallment1PixCode ?? oldRental.depositInstallment1PixCode,
-        });
-        
-        // 1ª Parcela
         installmentsToCreate.push({
           installment_number: 1,
           total_installments: totalInstallments,
@@ -564,7 +526,6 @@ export const rentalService = {
           pix_code: rental.depositInstallment1PixCode ?? oldRental.depositInstallment1PixCode ?? null,
         });
         
-        // 2ª Parcela (se houver)
         if (totalInstallments >= 2) {
           const installment2Amount = rental.depositInstallment2 ?? oldRental.depositInstallment2 ?? 0;
           if (installment2Amount > 0) {
@@ -579,7 +540,6 @@ export const rentalService = {
           }
         }
         
-        // 3ª Parcela (se houver)
         if (totalInstallments === 3) {
           const installment3Amount = rental.depositInstallment3 ?? oldRental.depositInstallment3 ?? 0;
           if (installment3Amount > 0) {
@@ -594,19 +554,13 @@ export const rentalService = {
           }
         }
         
-        console.log("📦 [rentalService.update] Criando parcelas:", installmentsToCreate);
-        
         await createDepositInstallments(id, installmentsToCreate);
         
         console.log("✅ [rentalService.update] Parcelas de caução criadas com sucesso!");
       } catch (depositError) {
         console.error("❌ [rentalService.update] ERRO ao criar parcelas de caução:", depositError);
-        console.error("Stack:", (depositError as any).stack);
       }
-    } 
-    // Se JÁ tem parcelas, verificar se precisa atualizar valores/datas
-    else if (hasExistingInstallments) {
-      // 🔥 SIMPLIFICADO: Se qualquer campo relacionado a caução foi enviado, atualizar
+    } else if (hasExistingInstallments) {
       const hasDepositChanges = 
         rental.depositInstallment1 !== undefined ||
         rental.depositInstallment2 !== undefined ||
@@ -624,42 +578,31 @@ export const rentalService = {
         rental.depositPixCode !== undefined;
 
       if (hasDepositChanges) {
-        console.log("🔄 [rentalService.update] Dados de caução presentes - ATUALIZANDO parcelas...");
+        console.log("🔄 [rentalService.update] Atualizando parcelas de caução...");
         
         try {
-          // ATUALIZAR cada parcela baseado no que foi enviado
           for (const existingInstallment of existingInstallments) {
             const installmentNum = existingInstallment.installment_number;
             const updateData: any = {};
             
-            // Determinar novos valores baseado no número da parcela
             if (installmentNum === 1) {
-              // Valores e datas
               if (rental.depositInstallment1 !== undefined) {
                 updateData.amount = rental.depositInstallment1;
               }
               if (rental.depositInstallment1DueDate !== undefined) {
                 updateData.due_date = rental.depositInstallment1DueDate;
               }
-              
-              // 🔥 CRÍTICO: payment_date e pix_code - SEMPRE atualizar se foram enviados
               if (rental.depositInstallment1PaymentDate !== undefined) {
                 updateData.payment_date = rental.depositInstallment1PaymentDate;
-                console.log(`📝 [rentalService.update] Atualizando payment_date da parcela 1:`, rental.depositInstallment1PaymentDate);
               }
               if (rental.depositInstallment1PixCode !== undefined) {
                 updateData.pix_code = rental.depositInstallment1PixCode;
-                console.log(`📝 [rentalService.update] Atualizando pix_code da parcela 1:`, rental.depositInstallment1PixCode);
               }
-              
-              // Fallback para aliases (depositPaymentDate, depositPixCode)
               if (rental.depositPaymentDate !== undefined) {
                 updateData.payment_date = rental.depositPaymentDate;
-                console.log(`📝 [rentalService.update] Atualizando payment_date (alias) da parcela 1:`, rental.depositPaymentDate);
               }
               if (rental.depositPixCode !== undefined) {
                 updateData.pix_code = rental.depositPixCode;
-                console.log(`📝 [rentalService.update] Atualizando pix_code (alias) da parcela 1:`, rental.depositPixCode);
               }
             } else if (installmentNum === 2) {
               if (rental.depositInstallment2 !== undefined) {
@@ -668,8 +611,6 @@ export const rentalService = {
               if (rental.depositInstallment2DueDate !== undefined) {
                 updateData.due_date = rental.depositInstallment2DueDate;
               }
-              
-              // 🔥 CRÍTICO: payment_date e pix_code
               if (rental.depositInstallment2PaymentDate !== undefined) {
                 updateData.payment_date = rental.depositInstallment2PaymentDate;
               }
@@ -683,8 +624,6 @@ export const rentalService = {
               if (rental.depositInstallment3DueDate !== undefined) {
                 updateData.due_date = rental.depositInstallment3DueDate;
               }
-              
-              // 🔥 CRÍTICO: payment_date e pix_code
               if (rental.depositInstallment3PaymentDate !== undefined) {
                 updateData.payment_date = rental.depositInstallment3PaymentDate;
               }
@@ -693,11 +632,8 @@ export const rentalService = {
               }
             }
             
-            // Se houver mudanças, atualizar
             if (Object.keys(updateData).length > 0) {
               updateData.updated_at = new Date().toISOString();
-              
-              console.log(`📝 [rentalService.update] Atualizando parcela ${installmentNum} com:`, updateData);
               
               const { error: updateError } = await supabase
                 .from("deposit_installments")
@@ -705,11 +641,9 @@ export const rentalService = {
                 .eq("id", existingInstallment.id);
               
               if (updateError) {
-                console.error(`❌ [rentalService.update] Erro ao atualizar parcela ${installmentNum}:`, updateError);
+                console.error(`❌ Erro ao atualizar parcela ${installmentNum}:`, updateError);
                 throw updateError;
               }
-              
-              console.log(`✅ [rentalService.update] Parcela ${installmentNum} atualizada com sucesso!`);
             }
           }
           
@@ -717,48 +651,43 @@ export const rentalService = {
         } catch (depositError) {
           console.error("❌ [rentalService.update] ERRO ao atualizar parcelas de caução:", depositError);
         }
-      } else {
-        console.log("✅ [rentalService.update] Parcelas de caução existem mas nenhum dado de caução foi enviado na atualização");
       }
-    } else {
-      console.log("ℹ️ [rentalService.update] Sem caução ou sem mudanças necessárias");
     }
 
-    // 5️⃣ DETECTAR MUDANÇAS E ATUALIZAR RECEBIMENTOS DE ALUGUEL (se necessário)
-    const rentPaymentsChanged = 
-      (rental.startDate !== undefined && rental.startDate !== oldRental.startDate) ||
-      (rental.endDate !== undefined && rental.endDate !== oldRental.endDate) ||
-      (rental.paymentDay !== undefined && rental.paymentDay !== oldRental.paymentDay) ||
-      (rental.hasGarage !== undefined && rental.hasGarage !== oldRental.hasGarage) ||
-      (rental.garageValue !== undefined && rental.garageValue !== oldRental.garageValue) ||
-      (rental.monthlyRent !== undefined && rental.monthlyRent !== oldRental.monthlyRent) ||
-      (rental.value !== undefined && rental.value !== oldRental.monthlyRent);
+    if (!isReactivating) {
+      const rentPaymentsChanged = 
+        (rental.startDate !== undefined && rental.startDate !== oldRental.startDate) ||
+        (rental.endDate !== undefined && rental.endDate !== oldRental.endDate) ||
+        (rental.paymentDay !== undefined && rental.paymentDay !== oldRental.paymentDay) ||
+        (rental.hasGarage !== undefined && rental.hasGarage !== oldRental.hasGarage) ||
+        (rental.garageValue !== undefined && rental.garageValue !== oldRental.garageValue) ||
+        (rental.monthlyRent !== undefined && rental.monthlyRent !== oldRental.monthlyRent) ||
+        (rental.value !== undefined && rental.value !== oldRental.monthlyRent);
 
-    if (rentPaymentsChanged) {
-      console.log("🔄 [rentalService.update] RECEBIMENTOS MUDARAM - Sincronizando...");
-      
-      try {
-        const fullRental = await rentalService.getById(id);
-        await updatePendingPaymentsOnRentalEdit(
-          id, 
-          {
-            monthlyRent: rental.monthlyRent ?? rental.value,
-            paymentDay: rental.paymentDay,
-            hasGarage: rental.hasGarage,
-            garageValue: rental.garageValue,
-          }, 
-          fullRental
-        );
+      if (rentPaymentsChanged) {
+        console.log("🔄 [rentalService.update] Sincronizando recebimentos...");
         
-        console.log("✅ [rentalService.update] Recebimentos de aluguel atualizados com sucesso!");
-      } catch (paymentError) {
-        console.error("❌ [rentalService.update] ERRO ao atualizar recebimentos:", paymentError);
-        // Não fazer throw para não bloquear a atualização da locação
+        try {
+          const fullRental = await rentalService.getById(id);
+          await updatePendingPaymentsOnRentalEdit(
+            id, 
+            {
+              monthlyRent: rental.monthlyRent ?? rental.value,
+              paymentDay: rental.paymentDay,
+              hasGarage: rental.hasGarage,
+              garageValue: rental.garageValue,
+            }, 
+            fullRental
+          );
+          
+          console.log("✅ [rentalService.update] Recebimentos de aluguel atualizados com sucesso!");
+        } catch (paymentError) {
+          console.error("❌ [rentalService.update] ERRO ao atualizar recebimentos:", paymentError);
+        }
       }
     }
 
-    // 6️⃣ SINCRONIZAR STATUS DO INQUILINO
-    if (rental.status !== undefined) {
+    if (rental.status !== undefined && !isReactivating) {
       const tenantId = rental.tenantId || data.tenant_id;
       if (tenantId) {
         const newTenantStatus = rental.status === "active" ? "rented" : "active";
@@ -769,16 +698,13 @@ export const rentalService = {
       }
     }
 
-    // ✅ OTIMIZAÇÃO: Invalidar cache
     rentalService.invalidateCache();
     invalidatePaymentsCache();
 
-    // Buscar dados completos para retornar
     return rentalService.getById(id);
   },
 
   async remove(id: string): Promise<void> {
-    // 🔒 GATILHO DE SEGURANÇA: Verificar se existem recebimentos pagos/parciais
     const { data: paidPayments, error: paidError } = await supabase
       .from("payments")
       .select("id")
@@ -787,16 +713,13 @@ export const rentalService = {
 
     if (paidError) throw paidError;
 
-    // Se houver algum pagamento que NÃO seja pending, não permitir deletar
     if (paidPayments && paidPayments.length > 0) {
       throw new Error(
-        `❌ Não é possível deletar esta locação porque ela possui ${paidPayments.length} recebimento(s) pago(s) ou parcialmente pago(s). ` +
+        `Não é possível deletar esta locação porque ela possui ${paidPayments.length} recebimento(s) pago(s) ou parcialmente pago(s). ` +
         "Apenas locações sem nenhum recebimento efetivado podem ser deletadas."
       );
     }
 
-    // Se chegou aqui, todos os pagamentos são pending (ou não há pagamentos)
-    // Deletar todos os pagamentos pendentes primeiro
     const { error: deletePaymentsError } = await supabase
       .from("payments")
       .delete()
@@ -808,11 +731,9 @@ export const rentalService = {
       throw deletePaymentsError;
     }
 
-    // Agora deletar a locação
     const { error } = await supabase.from("rentals").delete().eq("id", id);
     if (error) throw error;
     
-    // ✅ OTIMIZAÇÃO: Invalidar cache
     rentalService.invalidateCache();
     invalidatePaymentsCache();
   },
@@ -836,7 +757,6 @@ export const rentalService = {
 
     if (error) throw error;
 
-    // Atualizar status do inquilino
     if (rentalData?.tenant_id) {
       await supabase
         .from("tenants")
@@ -844,12 +764,10 @@ export const rentalService = {
         .eq("id", rentalData.tenant_id);
     }
     
-    // ✅ OTIMIZAÇÃO: Invalidar cache
     rentalService.invalidateCache();
   }
 };
 
-// Aliases para compatibilidade
 export const getAll = rentalService.getAll;
 export const getById = rentalService.getById;
 export const remove = rentalService.remove;
