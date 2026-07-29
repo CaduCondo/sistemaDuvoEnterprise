@@ -469,15 +469,17 @@ export default function PropertiesPage() {
           <ScrollReveal>
             <div className="w-full overflow-x-auto -mx-3 sm:mx-0">
               <div className="inline-block min-w-full align-middle px-3 sm:px-0">
-                <SortableTable
-                  data={sortedAndFilteredProperties}
-                  columns={propertyColumns}
-                  sortKey={sortKey}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                  onRowClick={handleCardClick}
-                  emptyMessage="Nenhum imóvel encontrado com os filtros aplicados."
-                />
+                <div className="overflow-hidden">
+                  <SortableTable
+                    data={sortedAndFilteredProperties}
+                    columns={propertyColumns}
+                    sortKey={sortKey}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                    onRowClick={handleCardClick}
+                    emptyMessage="Nenhum imóvel encontrado com os filtros aplicados."
+                  />
+                </div>
               </div>
             </div>
           </ScrollReveal>

@@ -1200,25 +1200,29 @@ export default function RentalsPage() {
                 })}
               </div>
             ) : (
-              <SortableTable
-                data={filteredRentals}
-                columns={rentalColumns}
-                sortKey={sortKey}
-                sortDirection={sortDirection}
-                onSort={handleSort}
-                onRowClick={handleViewRental}
-                getRowClassName={(r) => {
-                  const alert = calculateContractAlert(r.endDate);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const isExpired = r.endDate && new Date(r.endDate) < today;
-                  const isVisuallyActive = r.isActive && !isExpired;
-                  const shouldShowAlert = r.isActive && !isExpired && (alert.level === "warning" || alert.level === "critical");
-                  const alertClasses = shouldShowAlert ? getAlertClasses(alert.level) : "";
-                  return `${alertClasses} ${!isVisuallyActive ? "opacity-75" : ""}`;
-                }}
-                emptyMessage="Nenhuma locação encontrada."
-              />
+              <div className="w-full overflow-x-auto">
+                <div className="inline-block min-w-full align-middle">
+                  <SortableTable
+                    data={filteredRentals}
+                    columns={rentalColumns}
+                    sortKey={sortKey}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                    onRowClick={handleViewRental}
+                    getRowClassName={(r) => {
+                      const alert = calculateContractAlert(r.endDate);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const isExpired = r.endDate && new Date(r.endDate) < today;
+                      const isVisuallyActive = r.isActive && !isExpired;
+                      const shouldShowAlert = r.isActive && !isExpired && (alert.level === "warning" || alert.level === "critical");
+                      const alertClasses = shouldShowAlert ? getAlertClasses(alert.level) : "";
+                      return `${alertClasses} ${!isVisuallyActive ? "opacity-75" : ""}`;
+                    }}
+                    emptyMessage="Nenhuma locação encontrada."
+                  />
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>

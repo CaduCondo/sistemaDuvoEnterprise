@@ -1952,357 +1952,359 @@ export default function Financial() {
                     Nenhum recebimento encontrado para {format(new Date(filterYear, filterMonth - 1), "MMMM yyyy", { locale: ptBR })}.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-center w-[100px]">
-                            <div className="flex items-center justify-center gap-1">
-                              Local
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0"
-                                onClick={() => handleSort("local")}
-                              >
-                                {sortField === "local" ? (
-                                  sortDirection === "asc" ? (
-                                    <ArrowUp className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-center w-[80px]">
-                            <div className="flex items-center justify-center gap-1">
-                              Compl
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0"
-                                onClick={() => handleSort("complement")}
-                              >
-                                {sortField === "complement" ? (
-                                  sortDirection === "asc" ? (
-                                    <ArrowUp className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-center min-w-[150px]">
-                            <div className="flex items-center justify-center gap-1">
-                              Inquilino
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0"
-                                onClick={() => handleSort("tenant")}
-                              >
-                                {sortField === "tenant" ? (
-                                  sortDirection === "asc" ? (
-                                    <ArrowUp className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-center w-[60px]">
-                            <div className="flex items-center justify-center gap-1">
-                              Parc
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0"
-                                onClick={() => handleSort("parc")}
-                              >
-                                {sortField === "parc" ? (
-                                  sortDirection === "asc" ? (
-                                    <ArrowUp className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-center w-[90px]">
-                            <div className="flex items-center justify-center gap-1">
-                              Período
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0"
-                                onClick={() => handleSort("period")}
-                              >
-                                {sortField === "period" ? (
-                                  sortDirection === "asc" ? (
-                                    <ArrowUp className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-center w-[90px]">
-                            <div className="flex items-center justify-center gap-1">
-                              Status
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0"
-                                onClick={() => handleSort("status")}
-                              >
-                                {sortField === "status" ? (
-                                  sortDirection === "asc" ? (
-                                    <ArrowUp className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-center w-[90px]">
-                            <div className="flex items-center justify-center gap-1">
-                              Venc
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0"
-                                onClick={() => handleSort("dueDate")}
-                              >
-                                {sortField === "dueDate" ? (
-                                  sortDirection === "asc" ? (
-                                    <ArrowUp className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-center w-[90px]">
-                            <div className="flex items-center justify-center gap-1">
-                              Rec
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0"
-                                onClick={() => handleSort("paymentDate")}
-                              >
-                                {sortField === "paymentDate" ? (
-                                  sortDirection === "asc" ? (
-                                    <ArrowUp className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-center w-[80px]">Hora</TableHead>
-                          <TableHead className="text-right w-[100px]">
-                            <div className="flex items-center justify-end gap-1">
-                              Val.Esp
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0"
-                                onClick={() => handleSort("expectedAmount")}
-                              >
-                                {sortField === "expectedAmount" ? (
-                                  sortDirection === "asc" ? (
-                                    <ArrowUp className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-right w-[100px]">
-                            <div className="flex items-center justify-end gap-1">
-                              Val.Pg
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 w-5 p-0"
-                                onClick={() => handleSort("paidAmount")}
-                              >
-                                {sortField === "paidAmount" ? (
-                                  sortDirection === "asc" ? (
-                                    <ArrowUp className="h-3 w-3" />
-                                  ) : (
-                                    <ArrowDown className="h-3 w-3" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-center w-[100px]">Código PIX</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {getSortedPayments.map((payment) => {
-                          return (
-                            <TableRow key={payment.id} className="hover:bg-gray-50">
-                              {/* Local */}
-                              <TableCell className="text-center text-xs">
-                                {payment.property?.location || "N/A"}
-                              </TableCell>
-                              
-                              {/* Compl (Complemento) */}
-                              <TableCell className="text-center text-xs">
-                                {payment.property?.complement || "-"}
-                              </TableCell>
-                              
-                              {/* Inquilino */}
-                              <TableCell className="text-left text-sm">
-                                {payment.tenant?.name || "N/A"}
-                              </TableCell>
-                              
-                              {/* Parc (Parcela) - MOVIDA PARA CÁ */}
-                              <TableCell className="text-center text-xs">
-                                {payment.installment || 1}/{payment.totalInstallments || 24}
-                              </TableCell>
-                              
-                              {/* Período */}
-                              <TableCell className="text-center text-xs">
-                                {months[payment.referenceMonth - 1]}/{payment.referenceYear}
-                              </TableCell>
-                              
-                              {/* Status */}
-                              <TableCell className="text-center">
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    payment.status === "paid"
-                                      ? "bg-green-100 text-green-700 border-green-300 text-xs"
-                                      : payment.status === "overdue"
-                                      ? "bg-red-100 text-red-700 border-red-300 text-xs"
-                                      : payment.status === "partial"
-                                      ? "bg-yellow-100 text-yellow-700 border-yellow-300 text-xs"
-                                      : "bg-gray-100 text-gray-700 border-gray-300 text-xs"
-                                  }
+                  <div className="w-full overflow-x-auto">
+                    <div className="inline-block min-w-full align-middle">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-center w-[100px]">
+                              <div className="flex items-center justify-center gap-1">
+                                Local
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => handleSort("local")}
                                 >
-                                  {payment.status === "paid"
-                                    ? "Pago"
-                                    : payment.status === "overdue"
-                                    ? "Atrasado"
-                                    : payment.status === "partial"
-                                    ? "Parcial"
-                                    : "Pendente"}
-                                </Badge>
-                              </TableCell>
-                              
-                              {/* Venc (Vencimento) */}
-                              <TableCell className="text-center text-xs">
-                                {payment.dueDate
-                                  ? new Date(payment.dueDate + "T00:00:00").toLocaleDateString("pt-BR")
-                                  : "-"}
-                              </TableCell>
-                              
-                              {/* Rec (Data Recebimento) */}
-                              <TableCell className="text-center text-xs">
-                                {payment.paymentDate
-                                  ? new Date(payment.paymentDate + "T00:00:00").toLocaleDateString("pt-BR")
-                                  : "-"}
-                              </TableCell>
-                              
-                              {/* Hora (Hora do Pagamento) */}
-                              <TableCell className="text-center text-xs">
-                                {payment.paymentTime || "-"}
-                              </TableCell>
-                              
-                              {/* Val.Esp (Valor Esperado) */}
-                              <TableCell className="text-right text-xs">
-                                {formatCurrency(payment.expectedAmount)}
-                              </TableCell>
-                              
-                              {/* Val.Pg (Valor Pago) */}
-                              <TableCell className={`text-right text-xs font-semibold ${
-                                (payment.paidAmount || 0) < 0 ? 'text-red-600' : 'text-green-600'
-                              }`}>
-                                {formatCurrency(payment.paidAmount || 0)}
-                              </TableCell>
-                              
-                              {/* Código PIX */}
-                              <TableCell className="text-center text-xs">
-                                {editingPixCell?.id === payment.id ? (
-                                  <Input
-                                    type="text"
-                                    className="w-full h-8 text-center text-xs border-blue-500"
-                                    value={editingPixValue}
-                                    onChange={(e) => setEditingPixValue(e.target.value)}
-                                    onBlur={handleSavePixEdit}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") handleSavePixEdit();
-                                      if (e.key === "Escape") handleCancelPixEdit();
-                                    }}
-                                    autoFocus
-                                  />
-                                ) : (
-                                  <span
-                                    className="cursor-pointer hover:bg-blue-50 px-2 py-1 rounded block text-center"
-                                    onClick={() => handleStartPixEdit(payment)}
+                                  {sortField === "local" ? (
+                                    sortDirection === "asc" ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-center w-[80px]">
+                              <div className="flex items-center justify-center gap-1">
+                                Compl
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => handleSort("complement")}
+                                >
+                                  {sortField === "complement" ? (
+                                    sortDirection === "asc" ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-center min-w-[150px]">
+                              <div className="flex items-center justify-center gap-1">
+                                Inquilino
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => handleSort("tenant")}
+                                >
+                                  {sortField === "tenant" ? (
+                                    sortDirection === "asc" ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-center w-[60px]">
+                              <div className="flex items-center justify-center gap-1">
+                                Parc
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => handleSort("parc")}
+                                >
+                                  {sortField === "parc" ? (
+                                    sortDirection === "asc" ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-center w-[90px]">
+                              <div className="flex items-center justify-center gap-1">
+                                Período
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => handleSort("period")}
+                                >
+                                  {sortField === "period" ? (
+                                    sortDirection === "asc" ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-center w-[90px]">
+                              <div className="flex items-center justify-center gap-1">
+                                Status
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => handleSort("status")}
+                                >
+                                  {sortField === "status" ? (
+                                    sortDirection === "asc" ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-center w-[90px]">
+                              <div className="flex items-center justify-center gap-1">
+                                Venc
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => handleSort("dueDate")}
+                                >
+                                  {sortField === "dueDate" ? (
+                                    sortDirection === "asc" ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-center w-[90px]">
+                              <div className="flex items-center justify-center gap-1">
+                                Rec
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => handleSort("paymentDate")}
+                                >
+                                  {sortField === "paymentDate" ? (
+                                    sortDirection === "asc" ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-center w-[80px]">Hora</TableHead>
+                            <TableHead className="text-right w-[100px]">
+                              <div className="flex items-center justify-end gap-1">
+                                Val.Esp
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => handleSort("expectedAmount")}
+                                >
+                                  {sortField === "expectedAmount" ? (
+                                    sortDirection === "asc" ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-right w-[100px]">
+                              <div className="flex items-center justify-end gap-1">
+                                Val.Pg
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => handleSort("paidAmount")}
+                                >
+                                  {sortField === "paidAmount" ? (
+                                    sortDirection === "asc" ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-center w-[100px]">Código PIX</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {getSortedPayments.map((payment) => {
+                            return (
+                              <TableRow key={payment.id} className="hover:bg-gray-50">
+                                {/* Local */}
+                                <TableCell className="text-center text-xs">
+                                  {payment.property?.location || "N/A"}
+                                </TableCell>
+                                
+                                {/* Compl (Complemento) */}
+                                <TableCell className="text-center text-xs">
+                                  {payment.property?.complement || "-"}
+                                </TableCell>
+                                
+                                {/* Inquilino */}
+                                <TableCell className="text-left text-sm">
+                                  {payment.tenant?.name || "N/A"}
+                                </TableCell>
+                                
+                                {/* Parc (Parcela) - MOVIDA PARA CÁ */}
+                                <TableCell className="text-center text-xs">
+                                  {payment.installment || 1}/{payment.totalInstallments || 24}
+                                </TableCell>
+                                
+                                {/* Período */}
+                                <TableCell className="text-center text-xs">
+                                  {months[payment.referenceMonth - 1]}/{payment.referenceYear}
+                                </TableCell>
+                                
+                                {/* Status */}
+                                <TableCell className="text-center">
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      payment.status === "paid"
+                                        ? "bg-green-100 text-green-700 border-green-300 text-xs"
+                                        : payment.status === "overdue"
+                                        ? "bg-red-100 text-red-700 border-red-300 text-xs"
+                                        : payment.status === "partial"
+                                        ? "bg-yellow-100 text-yellow-700 border-yellow-300 text-xs"
+                                        : "bg-gray-100 text-gray-700 border-gray-300 text-xs"
+                                    }
                                   >
-                                    {payment.pixCode || "-"}
-                                  </span>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                        
-                        {/* Linha de Totais */}
-                        <TableRow className="bg-muted font-bold border-t-2 border-primary">
-                          <TableCell colSpan={9} className="text-right text-sm print:text-[9px]">
-                            TOTAIS:
-                          </TableCell>
-                          <TableCell className="text-right text-sm print:text-[9px] text-blue-600">
-                            {new Intl.NumberFormat("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            }).format(getSortedPayments.reduce((sum, p) => sum + getExpectedAmount(p), 0))}
-                          </TableCell>
-                          <TableCell className="text-right text-sm print:text-[9px] text-green-600 font-semibold">
-                            {new Intl.NumberFormat("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            }).format(getSortedPayments.reduce((sum, p) => sum + (p.paidAmount || 0), 0))}
-                          </TableCell>
-                          <TableCell className="text-sm print:text-[9px]"></TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                                    {payment.status === "paid"
+                                      ? "Pago"
+                                      : payment.status === "overdue"
+                                      ? "Atrasado"
+                                      : payment.status === "partial"
+                                      ? "Parcial"
+                                      : "Pendente"}
+                                  </Badge>
+                                </TableCell>
+                                
+                                {/* Venc (Vencimento) */}
+                                <TableCell className="text-center text-xs">
+                                  {payment.dueDate
+                                    ? new Date(payment.dueDate + "T00:00:00").toLocaleDateString("pt-BR")
+                                    : "-"}
+                                </TableCell>
+                                
+                                {/* Rec (Data Recebimento) */}
+                                <TableCell className="text-center text-xs">
+                                  {payment.paymentDate
+                                    ? new Date(payment.paymentDate + "T00:00:00").toLocaleDateString("pt-BR")
+                                    : "-"}
+                                </TableCell>
+                                
+                                {/* Hora (Hora do Pagamento) */}
+                                <TableCell className="text-center text-xs">
+                                  {payment.paymentTime || "-"}
+                                </TableCell>
+                                
+                                {/* Val.Esp (Valor Esperado) */}
+                                <TableCell className="text-right text-xs">
+                                  {formatCurrency(payment.expectedAmount)}
+                                </TableCell>
+                                
+                                {/* Val.Pg (Valor Pago) */}
+                                <TableCell className={`text-right text-xs font-semibold ${
+                                  (payment.paidAmount || 0) < 0 ? 'text-red-600' : 'text-green-600'
+                                }`}>
+                                  {formatCurrency(payment.paidAmount || 0)}
+                                </TableCell>
+                                
+                                {/* Código PIX */}
+                                <TableCell className="text-center text-xs">
+                                  {editingPixCell?.id === payment.id ? (
+                                    <Input
+                                      type="text"
+                                      className="w-full h-8 text-center text-xs border-blue-500"
+                                      value={editingPixValue}
+                                      onChange={(e) => setEditingPixValue(e.target.value)}
+                                      onBlur={handleSavePixEdit}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleSavePixEdit();
+                                        if (e.key === "Escape") handleCancelPixEdit();
+                                      }}
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <span
+                                      className="cursor-pointer hover:bg-blue-50 px-2 py-1 rounded block text-center"
+                                      onClick={() => handleStartPixEdit(payment)}
+                                    >
+                                      {payment.pixCode || "-"}
+                                    </span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                          
+                          {/* Linha de Totais */}
+                          <TableRow className="bg-muted font-bold border-t-2 border-primary">
+                            <TableCell colSpan={9} className="text-right text-sm print:text-[9px]">
+                              TOTAIS:
+                            </TableCell>
+                            <TableCell className="text-right text-sm print:text-[9px] text-blue-600">
+                              {new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              }).format(getSortedPayments.reduce((sum, p) => sum + getExpectedAmount(p), 0))}
+                            </TableCell>
+                            <TableCell className="text-right text-sm print:text-[9px] text-green-600 font-semibold">
+                              {new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              }).format(getSortedPayments.reduce((sum, p) => sum + (p.paidAmount || 0), 0))}
+                            </TableCell>
+                            <TableCell className="text-sm print:text-[9px]"></TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
                 )}
               </CardContent>

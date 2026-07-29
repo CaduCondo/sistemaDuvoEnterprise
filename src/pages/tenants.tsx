@@ -367,15 +367,19 @@ export default function TenantsPage() {
               ))}
             </div>
           ) : (
-            <SortableTable
-              data={filteredTenants}
-              columns={tenantColumns}
-              sortKey={sortKey}
-              sortDirection={sortDirection}
-              onSort={handleSort}
-              onRowClick={handleViewTenant}
-              emptyMessage={searchTerm || statusFilter.length > 0 ? "Nenhum inquilino encontrado com os filtros aplicados." : "Nenhum inquilino encontrado."}
-            />
+            <div className="w-full overflow-x-auto">
+              <div className="inline-block min-w-full align-middle">
+                <SortableTable
+                  data={filteredTenants}
+                  columns={tenantColumns}
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                  onRowClick={handleViewTenant}
+                  emptyMessage={searchTerm || statusFilter.length > 0 ? "Nenhum inquilino encontrado com os filtros aplicados." : "Nenhum inquilino encontrado."}
+                />
+              </div>
+            </div>
           )}
         </div>
 

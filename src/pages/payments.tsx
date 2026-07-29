@@ -849,16 +849,20 @@ export default function Payments() {
                     ))}
                   </div>
                 ) : (
-                  <SortableTable
-                    data={pendingPayments}
-                    columns={pendingColumns}
-                    sortKey={sortKeyPending}
-                    sortDirection={sortDirectionPending}
-                    onSort={handleSortPending}
-                    onRowClick={(p) => setUiState(prev => ({ ...prev, selectedPaymentId: p.id }))}
-                    getRowClassName={(p) => getDueDateColor(p.dueDate, false)}
-                    emptyMessage="Nenhum recebimento pendente encontrado."
-                  />
+                  <div className="w-full overflow-x-auto">
+                    <div className="inline-block min-w-full align-middle">
+                      <SortableTable
+                        data={pendingPayments}
+                        columns={pendingColumns}
+                        sortKey={sortKeyPending}
+                        sortDirection={sortDirectionPending}
+                        onSort={handleSortPending}
+                        onRowClick={(p) => setUiState(prev => ({ ...prev, selectedPaymentId: p.id }))}
+                        getRowClassName={(p) => getDueDateColor(p.dueDate, false)}
+                        emptyMessage="Nenhum recebimento pendente encontrado."
+                      />
+                    </div>
+                  </div>
                 )
               ) : (
                 <div className="text-center py-12">
@@ -894,16 +898,20 @@ export default function Payments() {
                     ))}
                   </div>
                 ) : (
-                  <SortableTable
-                    data={paidPayments}
-                    columns={paidColumns}
-                    sortKey={sortKeyPaid}
-                    sortDirection={sortDirectionPaid}
-                    onSort={handleSortPaid}
-                    onRowClick={(p) => setUiState(prev => ({ ...prev, selectedPaymentId: p.id }))}
-                    getRowClassName={(p) => getDueDateColor(p.dueDate, true)}
-                    emptyMessage="Nenhum recebimento pago encontrado."
-                  />
+                  <div className="w-full overflow-x-auto">
+                    <div className="inline-block min-w-full align-middle">
+                      <SortableTable
+                        data={paidPayments}
+                        columns={paidColumns}
+                        sortKey={sortKeyPaid}
+                        sortDirection={sortDirectionPaid}
+                        onSort={handleSortPaid}
+                        onRowClick={(p) => setUiState(prev => ({ ...prev, selectedPaymentId: p.id }))}
+                        getRowClassName={(p) => getDueDateColor(p.dueDate, true)}
+                        emptyMessage="Nenhum recebimento pago encontrado."
+                      />
+                    </div>
+                  </div>
                 )
               ) : (
                 <div className="text-center py-12">
