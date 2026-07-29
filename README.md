@@ -6,6 +6,7 @@ Sistema completo para gestão de locações de imóveis com controle financeiro,
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Latest-green?style=flat-square&logo=supabase)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8?style=flat-square&logo=tailwind-css)
+![E2E Tests](https://github.com/CaduCondo/sistemaDuvoEnterprise/workflows/E2E%20Tests/badge.svg)
 
 ---
 
@@ -42,6 +43,27 @@ scripts\sync-softgen-to-github.bat
 ```
 
 📚 **[Guia Completo de Sincronização Manual](./SYNC_SOFTGEN_GITHUB.md)**
+
+---
+
+## 🧪 Testes Automatizados (GitHub Actions)
+
+**Testes E2E rodam AUTOMATICAMENTE em cada push/PR:**
+
+```bash
+git push origin main  →  Testes rodam automaticamente ✅
+```
+
+**Ou rode manualmente:**
+```
+Actions → E2E Tests → Run workflow
+```
+
+📚 **[Guia Completo de Testes no GitHub Actions](./docs/GITHUB_ACTIONS_TESTES.md)**
+
+**Configuração necessária:**
+- 3 secrets do Supabase (Settings → Secrets)
+- Instruções completas no guia
 
 ---
 

@@ -1,18 +1,28 @@
 name: E2E Tests
 
+# Este workflow roda AUTOMATICAMENTE em:
+# - Push para main/develop
+# - Pull Requests
+# - Manualmente (workflow_dispatch)
+#
+# NÃO CONFLITA com o workflow de sync (sync-from-vercel.yml)
+# Ambos podem rodar em paralelo sem problemas!
+
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
-  workflow_dispatch:
+  workflow_dispatch:  # Permite rodar manualmente
 
 jobs:
+  # Job principal: roda testes no Chromium (mais rápido)
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     
     env:
+      # Secrets necessários (configure em Settings → Secrets and variables → Actions):
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -38,11 +48,11 @@ jobs:
     
     - name: Rodar testes E2E
       run: npm run test:e2e
-      continue-on-error: false
+      continue-on-error: false  # Falha se testes falharem
     
     - name: Upload relatório de testes
       uses: actions/upload-artifact@v4
-      if: always()
+      if: always()  # Sempre faz upload, mesmo se testes falharem
       with:
         name: playwright-report
         path: playwright-report/
@@ -50,7 +60,7 @@ jobs:
     
     - name: Upload screenshots de falhas
       uses: actions/upload-artifact@v4
-      if: failure()
+      if: failure()  # Só se os testes falharem
       with:
         name: test-screenshots
         path: test-results/
@@ -81,6 +91,7 @@ jobs:
             body: comment
           });
 
+  # Job secundário: testa em todos os browsers (só no main)
   test-all-browsers:
     timeout-minutes: 90
     runs-on: ubuntu-latest
