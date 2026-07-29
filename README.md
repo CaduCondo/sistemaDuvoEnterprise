@@ -9,6 +9,25 @@ Sistema completo para gestão de locações de imóveis com controle financeiro,
 
 ---
 
+## 🔄 Sincronização Softgen → GitHub
+
+**IMPORTANTE:** Este projeto é desenvolvido no Softgen, mas precisa de sincronização manual com o GitHub.
+
+### ⚡ Sincronização Rápida (30 segundos):
+
+```bash
+# 1. Baixe o ZIP do Softgen (Settings → GitHub → Download as ZIP)
+# 2. Extraia sobre a pasta do projeto
+# 3. Execute o script:
+scripts\sync-softgen-to-github.bat
+
+# Pronto! GitHub atualizado ✅
+```
+
+📚 **[Guia Completo de Sincronização](./SYNC_SOFTGEN_GITHUB.md)** - Leia para entender o processo completo
+
+---
+
 ## 📋 Índice
 
 - [Visão Geral](#-visão-geral)
