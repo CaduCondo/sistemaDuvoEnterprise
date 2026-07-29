@@ -154,3 +154,4 @@ Se tiver dúvidas, pergunte ao Softgen! Ele pode:
 - Ajustar configurações
 - Criar novos testes
 - Corrigir bugs encontrados nos testes
+- teste
