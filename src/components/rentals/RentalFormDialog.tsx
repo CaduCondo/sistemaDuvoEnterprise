@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import { Camera, Paperclip } from "lucide-react";
 import { formatCurrency, parseCurrencyToNumber, applyMoneyMask, formatMoneyForDisplay, parseMoneyMaskToNumber } from "@/lib/masks";
 import { create as createRental, update as updateRentalService } from "@/services/rentalService";
@@ -58,7 +58,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
   preselectedPropertyId = "",
   preselectedTenantId = "",
 }: RentalFormDialogProps) {
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
   const [locations, setLocations] = useState<Location[]>(locationsFromProps);
   const [showContract, setShowContract] = useState(false);
@@ -223,10 +223,10 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     e.preventDefault();
 
     if (!selectedPropertyId || !selectedTenantId || !startDate || !paymentDay) {
-      toast({
+      showAlert({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios.",
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
@@ -235,10 +235,10 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     const selectedTenant = tenantsToDisplay.find((t) => t.id === selectedTenantId);
 
     if (!selectedProperty || !selectedTenant) {
-      toast({
+      showAlert({
         title: "Erro",
         description: "Imóvel ou inquilino não encontrado.",
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
@@ -249,10 +249,10 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     totalValue = parseFloat(totalValue.toFixed(2));
 
     if (!totalValue || totalValue <= 0 || isNaN(totalValue)) {
-      toast({
+      showAlert({
         title: "Erro Crítico",
         description: `Valor do aluguel inválido: R$ ${totalValue}. Verifique o valor do imóvel.`,
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
@@ -260,11 +260,19 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     if (isDepositInstallment && depositInstallmentCount) {
       const count = parseInt(depositInstallmentCount);
       if (count === 2 && !depositInstallment2) {
-        toast({ title: "Erro", description: "Preencha o valor da 2ª parcela.", variant: "destructive" });
+        showAlert({ 
+          title: "Erro", 
+          description: "Preencha o valor da 2ª parcela.", 
+          type: "error" 
+        });
         return;
       }
       if (count === 3 && (!depositInstallment2 || !depositInstallment3)) {
-        toast({ title: "Erro", description: "Preencha os valores da 2ª e 3ª parcelas.", variant: "destructive" });
+        showAlert({ 
+          title: "Erro", 
+          description: "Preencha os valores da 2ª e 3ª parcelas.", 
+          type: "error" 
+        });
         return;
       }
     }
@@ -363,9 +371,10 @@ export const RentalFormDialog = memo(function RentalFormDialog({
           location: locations.find((loc) => loc.id === selectedProperty.locationId),
         });
 
-        toast({
+        showAlert({
           title: "Sucesso!",
           description: "Locação atualizada com sucesso.",
+          type: "success",
         });
 
         setShowContract(true);
@@ -455,19 +464,20 @@ export const RentalFormDialog = memo(function RentalFormDialog({
           location: selectedLocation,
         });
 
-        toast({
+        showAlert({
           title: "Sucesso!",
           description: "Locação criada com sucesso.",
+          type: "success",
         });
 
         setShowContract(true);
       }
     } catch (error: any) {
       console.error("❌ ERRO GERAL:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: error.message || "Erro ao processar locação. Verifique o console.",
-        variant: "destructive",
+        type: "error",
       });
     } finally {
       setLoading(false);
@@ -478,7 +488,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     depositInstallment2, depositInstallment3, depositAmount, endDate, 
     hasPartnerBroker, attachments, depositPaymentDate, depositPixCode, 
     depositInstallment2PaymentDate, depositInstallment3PaymentDate, 
-    rental, isViewMode, locations, toast
+    rental, isViewMode, locations, showAlert
   ]);
 
   const calculateTotalDeposit = useCallback(() => {
@@ -747,10 +757,10 @@ export const RentalFormDialog = memo(function RentalFormDialog({
                         setSelectedInstallmentNumber(1);
                         setPaymentDialogOpen(true);
                       } else {
-                        toast({
+                        showAlert({
                           title: "Erro",
                           description: "Parcela não encontrada no banco de dados.",
-                          variant: "destructive",
+                          type: "error",
                         });
                       }
                     }
@@ -855,10 +865,10 @@ export const RentalFormDialog = memo(function RentalFormDialog({
                               setSelectedInstallmentNumber(2);
                               setPaymentDialogOpen(true);
                             } else {
-                              toast({
+                              showAlert({
                                 title: "Erro",
                                 description: "Parcela não encontrada no banco de dados.",
-                                variant: "destructive",
+                                type: "error",
                               });
                             }
                           }
@@ -915,10 +925,10 @@ export const RentalFormDialog = memo(function RentalFormDialog({
                               setSelectedInstallmentNumber(3);
                               setPaymentDialogOpen(true);
                             } else {
-                              toast({
+                              showAlert({
                                 title: "Erro",
                                 description: "Parcela não encontrada no banco de dados.",
-                                variant: "destructive",
+                                type: "error",
                               });
                             }
                           }
