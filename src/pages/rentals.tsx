@@ -6,7 +6,7 @@ import { SEO } from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import { Home, Plus, User, ChevronDown, ChevronUp, Trash2, XCircle, Grid3x3, List, AlertTriangle, RefreshCw, Ban, MapPin, Eye, FileText, Calendar, Search, Wand2, RotateCw, Pencil, HelpCircle } from "lucide-react";
 import { getAll as getAllRentals, remove as deleteRental, terminateContract } from "@/services/rentalService";
 import { getAvailable as getAvailableProperties, update as updateProperty, getAll as getAllProperties } from "@/services/propertyService";
@@ -45,8 +45,8 @@ import type React from "react";
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
 export default function RentalsPage() {
-  const { toast } = useToast();
   const router = useRouter();
+  const { showAlert } = useAlert();
   useContractExpiration();
   
   const [rentals, setRentals] = useState<Rental[]>([]);
@@ -199,10 +199,10 @@ export default function RentalsPage() {
       }
     } catch (error) {
       console.error("Erro ao carregar locações:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível carregar as locações. Tente recarregar a página.",
-        variant: "destructive",
+        type: "destructive",
       });
       // Define arrays vazios em caso de erro
       setRentals([]);
@@ -210,7 +210,7 @@ export default function RentalsPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, loadTerminationInfo]);
+  }, [showAlert, loadTerminationInfo]);
 
   // Carregar dados disponíveis
   const loadAvailableData = useCallback(async () => {
@@ -250,15 +250,15 @@ export default function RentalsPage() {
       setDataCache({ loaded: true, timestamp: now });
     } catch (error) {
       console.error("❌ Erro ao carregar dados adicionais:", error);
-      toast({
+      showAlert({
         title: "Aviso",
         description: "Alguns dados não puderam ser carregados. A funcionalidade pode estar limitada.",
-        variant: "default",
+        type: "default",
       });
     } finally {
       setLoadingAdditionalData(false);
     }
-  }, [dataCache.loaded, dataCache.timestamp, toast]);
+  }, [dataCache.loaded, dataCache.timestamp, showAlert]);
 
   useEffect(() => {
     loadRentalsData();
@@ -361,10 +361,10 @@ export default function RentalsPage() {
         monthlyRent: rentalToEnd.value || 0,
       });
 
-      toast({
+      showAlert({
         title: "Sucesso",
         description: "Rescisão processada com sucesso! Aguardando pagamento final.",
-        className: "bg-green-500 text-white border-none",
+        type: "success",
       });
       
       await loadRentalsData();
@@ -372,7 +372,7 @@ export default function RentalsPage() {
       console.error("❌ Erro ao processar rescisão:", error);
       throw error;
     }
-  }, [rentalToEnd, toast, loadRentalsData]);
+  }, [rentalToEnd, showAlert, loadRentalsData]);
 
   // Handler para confirmar rescisão
   const handleConfirmTermination = useCallback(async (data: {
@@ -386,13 +386,13 @@ export default function RentalsPage() {
       setRentalToEnd(null);
     } catch (error) {
       console.error("❌ Error ending contract:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível processar a rescisão.",
-        variant: "destructive",
+        type: "destructive",
       });
     }
-  }, [handleTerminateRental, toast]);
+  }, [handleTerminateRental, showAlert]);
 
   // Handler para renovar locação
   const handleRenewRental = useCallback(async () => {
@@ -408,7 +408,7 @@ export default function RentalsPage() {
         endDate: newEndDate.toISOString().split("T")[0],
       });
 
-      toast({
+      showAlert({
         title: "Sucesso",
         description: `Contrato renovado com sucesso! Nova data final: ${formatDate(newEndDate.toISOString())}`,
       });
@@ -417,13 +417,13 @@ export default function RentalsPage() {
       await loadRentalsData();
     } catch (error) {
       console.error("Error renewing contract:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível renovar o contrato.",
-        variant: "destructive",
+        type: "destructive",
       });
     }
-  }, [rentalToRenew, toast, formatDate, loadRentalsData]);
+  }, [rentalToRenew, showAlert, formatDate, loadRentalsData]);
 
   // Handler para deletar locação
   const handleDeleteRental = useCallback(async () => {
@@ -457,7 +457,7 @@ export default function RentalsPage() {
         message = "Locação removida. Todo o histórico financeiro foi preservado.";
       }
 
-      toast({
+      showAlert({
         title: "Sucesso!",
         description: message,
       });
@@ -472,13 +472,13 @@ export default function RentalsPage() {
       await loadAvailableData();
     } catch (error) {
       console.error("Erro ao deletar locação:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível remover a locação.",
-        variant: "destructive",
+        type: "destructive",
       });
     }
-  }, [rentalToDelete, deleteChoices, toast, loadRentalsData, loadAvailableData]);
+  }, [rentalToDelete, deleteChoices, showAlert, loadRentalsData, loadAvailableData]);
 
   // Função para abrir o dialog de exclusão com validação prévia
   const handleOpenDeleteDialog = useCallback(async (rental: Rental, e: React.MouseEvent) => {
@@ -493,10 +493,10 @@ export default function RentalsPage() {
 
       if (error) {
         console.error("Erro ao verificar recebimentos:", error);
-        toast({
+        showAlert({
           title: "Erro",
           description: "Não foi possível verificar os recebimentos da locação.",
-          variant: "destructive",
+          type: "destructive",
         });
         return;
       }
@@ -510,13 +510,13 @@ export default function RentalsPage() {
       setDeleteChoices({ pending: false, paid: false });
     } catch (error) {
       console.error("Erro ao validar locação:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível validar a locação.",
-        variant: "destructive",
+        type: "destructive",
       });
     }
-  }, [toast]);
+  }, [showAlert]);
 
   const handleViewHistory = async () => {
     if (!rentalForPaymentHistory) return;
@@ -737,8 +737,8 @@ export default function RentalsPage() {
       setRentalForPaymentHistory(null);
     } catch (error) {
       console.error("Erro ao abrir histórico:", error);
-      toast({
-        variant: "destructive",
+      showAlert({
+        type: "destructive",
         title: "Erro ao abrir histórico",
         description: "Ocorreu um erro ao carregar os dados.",
       });
@@ -760,13 +760,13 @@ export default function RentalsPage() {
       setIsRentalDialogOpen(true);
     } catch (error) {
       console.error("❌ Erro ao abrir diálogo:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível abrir os detalhes da locação.",
-        variant: "destructive",
+        type: "destructive",
       });
     }
-  }, [toast]);
+  }, [showAlert]);
 
   // Handler para criar nova locação
   const handleCreateNew = useCallback(async () => {

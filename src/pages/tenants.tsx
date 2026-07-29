@@ -13,7 +13,7 @@ import { Tenant } from "@/types";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpDialog } from "@/components/HelpDialog";
 
@@ -25,7 +25,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 
 export default function TenantsPage() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const {
     tenants,
     isLoading,
@@ -159,7 +159,7 @@ export default function TenantsPage() {
     
     // Verificar se o inquilino está como locatário ANTES de abrir o dialog
     if (tenant.status === "rented") {
-      toast({
+      showAlert({
         title: "Inquilino é Locatário",
         description: (
           <div className="space-y-2">
@@ -173,14 +173,13 @@ export default function TenantsPage() {
             </ol>
           </div>
         ),
-        variant: "destructive",
-        duration: 10000,
+        type: "error",
       });
       return;
     }
     
     setTenantToDelete(tenant);
-  }, [tenants, toast]);
+  }, [tenants, showAlert]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (tenantToDelete) {
@@ -196,17 +195,19 @@ export default function TenantsPage() {
     if (selectedTenant) {
       success = await updateTenant(selectedTenant.id, data);
       if (success) {
-        toast({
+        showAlert({
           title: "Sucesso!",
           description: "Inquilino atualizado com sucesso.",
+          type: "success",
         });
       }
     } else {
       success = await createTenant(data);
       if (success) {
-        toast({
+        showAlert({
           title: "Sucesso!",
           description: "Inquilino criado com sucesso.",
+          type: "success",
         });
       }
     }
@@ -219,7 +220,7 @@ export default function TenantsPage() {
       });
     }
     return success;
-  }, [dialogState, createTenant, updateTenant, toast]);
+  }, [dialogState, createTenant, updateTenant, showAlert]);
 
   const handleDialogClose = useCallback((open: boolean) => {
     if (!open) {

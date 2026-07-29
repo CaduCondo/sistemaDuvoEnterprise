@@ -14,7 +14,7 @@ import { PropertyFilters } from "@/components/properties/PropertyFilters";
 import { PropertyFormDialog } from "@/components/properties/PropertyFormDialog";
 import { PropertyDeleteAlert } from "@/components/properties/PropertyDeleteAlert";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import { propertyService } from "@/services";
 import { HelpDialog } from "@/components/HelpDialog";
 import {
@@ -82,7 +82,7 @@ export default function PropertiesPage() {
     cancelRentAdjustment,
   } = useProperties();
 
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -210,10 +210,10 @@ export default function PropertiesPage() {
     e.preventDefault();
     
     if (!formData.location_id || !formData.rooms || !formData.bathrooms) {
-      toast({
+      showAlert({
         title: "Erro",
         description: "Por favor, preencha todos os campos obrigatórios.",
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
@@ -228,30 +228,32 @@ export default function PropertiesPage() {
           return;
         }
         
-        toast({
-          title: "Sucesso!",
+        showAlert({
+          title: "Sucesso",
           description: "Imóvel atualizado com sucesso.",
+          type: "success",
         });
       } else {
         await createPropertyService(formData);
-        toast({
-          title: "Sucesso!",
+        showAlert({
+          title: "Sucesso",
           description: "Imóvel criado com sucesso.",
+          type: "success",
         });
       }
 
       handleCloseDialog(false);
     } catch (error: any) {
       console.error("Erro ao salvar imóvel:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: error?.message || "Não foi possível salvar o imóvel.",
-        variant: "destructive",
+        type: "error",
       });
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, editingProperty, updatePropertyService, createPropertyService, toast, handleCloseDialog]);
+  }, [formData, editingProperty, updatePropertyService, createPropertyService, showAlert, handleCloseDialog]);
 
   const handleConfirmRentAdjustment = useCallback(async () => {
     try {
@@ -303,7 +305,7 @@ export default function PropertiesPage() {
     const property = sortedAndFilteredProperties.find(p => p.id === id);
     
     if (property?.status === "occupied") {
-      toast({
+      showAlert({
         title: "Imóvel Ocupado",
         description: (
           <div className="space-y-2">
@@ -317,7 +319,7 @@ export default function PropertiesPage() {
             </ol>
           </div>
         ),
-        variant: "destructive",
+        type: "error",
         duration: 10000,
       });
       return;
@@ -325,7 +327,7 @@ export default function PropertiesPage() {
     
     setPropertyToDelete(id);
     setIsDeleteDialogOpen(true);
-  }, [sortedAndFilteredProperties, toast]);
+  }, [sortedAndFilteredProperties, showAlert]);
 
   const handleDelete = useCallback(async () => {
     if (!propertyToDelete) return;

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import { Camera, Paperclip, CreditCard, Edit, X, Upload, FileText, Loader2, ImageIcon } from "lucide-react";
 import type { Payment, Rental, Property, Tenant } from "@/types";
 import { calculateCorrectedDeposit } from "@/services/igpmService";
@@ -73,7 +73,7 @@ interface ManagePaymentFormProps {
 
 export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = false }: ManagePaymentFormProps) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -357,15 +357,15 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       
     } catch (error) {
       console.error("❌ Error loading payment data:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Erro ao carregar dados do pagamento",
-        variant: "destructive",
+        type: "error",
       });
     } finally {
       setLoading(false);
     }
-  }, [paymentId, toast, formatCurrency]);
+  }, [paymentId, showAlert, formatCurrency]);
 
   // ✅ CORREÇÃO: Buscar formas de pagamento usando o service
   useEffect(() => {
@@ -522,10 +522,10 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
     const maxSize = 15 * 1024 * 1024;
     if (file.size > maxSize) {
-      toast({
+      showAlert({
         title: "Arquivo muito grande",
         description: `O arquivo tem ${(file.size / 1024 / 1024).toFixed(2)}MB. O tamanho máximo é 15MB`,
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
@@ -539,10 +539,10 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     ];
     
     if (!allowedTypes.includes(file.type)) {
-      toast({
+      showAlert({
         title: "Tipo de arquivo não suportado",
         description: "Apenas imagens (JPG, PNG, WEBP) e PDF são permitidos",
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
@@ -568,9 +568,10 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         return newAttachments;
       });
 
-      toast({
+      showAlert({
         title: "Arquivo enviado",
         description: "Comprovante anexado com sucesso",
+        type: "success",
       });
     } catch (error) {
       console.error("❌ Upload error:", error);
@@ -580,10 +581,10 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         errorMessage = error.message;
       }
       
-      toast({
+      showAlert({
         title: "Erro ao enviar arquivo",
         description: errorMessage,
-        variant: "destructive",
+        type: "error",
       });
 
       setAttachments(prev => {
@@ -614,20 +615,22 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       amount_to_pay: ""
     }));
     
-    toast({
+    showAlert({
       title: "Modo de Edição",
       description: "Campos desbloqueados para edição. Campo 'Valor a Pagar' zerado - preencha o valor manualmente.",
+      type: "info",
     });
-  }, [toast]);
+  }, [showAlert]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditMode(false);
     loadPaymentData();
-    toast({
+    showAlert({
       title: "Edição Cancelada",
       description: "Alterações descartadas.",
+      type: "info",
     });
-  }, [loadPaymentData, toast]);
+  }, [loadPaymentData, showAlert]);
 
   const handleRepairExpensesChange = useCallback((value: string) => {
     const masked = applyMoneyMask(value);
@@ -758,10 +761,10 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
   const handleSubmit = async () => {
     if (!formData.payment_date || !formData.payment_method) {
-      toast({
+      showAlert({
         title: "Atenção",
         description: "Preencha os campos obrigatórios: Data e Método de Pagamento",
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
@@ -910,13 +913,14 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
       const remainingAmount = Math.max(0, Math.abs(expectedTotal) - Math.abs(finalPaidAmount));
 
-      toast({
+      showAlert({
         title: "Sucesso",
         description: userInputAmount === 0
           ? "Pagamento atualizado com sucesso!"
           : paymentStatus === "partial" 
             ? `Pagamento parcial registrado! Total pago: ${formatCurrency(Math.abs(finalPaidAmount).toFixed(2))} de ${formatCurrency(Math.abs(expectedTotal).toFixed(2))}. Restante: ${formatCurrency(remainingAmount.toFixed(2))}`
             : isPaid ? "Pagamento atualizado com sucesso!" : "Pagamento registrado com sucesso!",
+        type: "success",
       });
 
       if (onSuccess) {
@@ -944,10 +948,10 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
     } catch (error) {
       console.error("Erro ao confirmar recebimento:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: error instanceof Error ? error.message : "Erro inesperado ao registrar pagamento.",
-        variant: "destructive",
+        type: "error",
       });
     } finally {
       setIsSubmitting(false);

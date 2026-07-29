@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
 import { PaymentCard } from "@/components/payments/PaymentCard";
@@ -12,7 +12,7 @@ import { usePayments } from "@/hooks/usePayments";
 import { Payment, Rental, Property, Tenant } from "@/types";
 import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import { hasPermission } from "@/lib/permissions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ManagePaymentForm } from "@/components/payments/ManagePaymentForm";
@@ -41,7 +41,7 @@ const MONTH_NAMES = [
 
 export default function Payments() {
   const router = useRouter();
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const { user } = useAuth();
   const mountedRef = useRef(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -248,14 +248,14 @@ export default function Payments() {
       
       await loadPayments("all", "all");
       
-      toast({
+      showAlert({
         title: "Recebimento cancelado",
         description: "O recebimento foi cancelado com sucesso.",
       });
     } catch (error) {
       setUiState(prev => ({ ...prev, paymentToCancel: null }));
     }
-  }, [uiState.paymentToCancel, cancelPayment, loadPayments, toast]);
+  }, [uiState.paymentToCancel, cancelPayment, loadPayments, showAlert]);
 
   const handleCancelPayment = useCallback((paymentId: string, e?: React.MouseEvent) => {
     if (e) {
@@ -264,7 +264,7 @@ export default function Payments() {
     }
 
     if (!permissions.canDeletePayment) {
-      toast({
+      showAlert({
         title: "Acesso negado",
         description: "Você não tem permissão para cancelar recebimentos",
         variant: "destructive",
@@ -273,7 +273,7 @@ export default function Payments() {
     }
 
     setUiState(prev => ({ ...prev, paymentToCancel: paymentId }));
-  }, [permissions.canDeletePayment, toast]);
+  }, [permissions.canDeletePayment, showAlert]);
 
   const handleViewReceipt = useCallback((payment: Payment) => {
     setUiState(prev => ({
@@ -467,7 +467,7 @@ export default function Payments() {
                 showReceiptDialog: true,
               }));
               
-              toast({
+              showAlert({
                 title: "Sucesso!",
                 description: "Recebimento registrado com sucesso.",
               });
@@ -478,7 +478,7 @@ export default function Payments() {
         }
         
         // Se chegou aqui, algo deu errado
-        toast({
+        showAlert({
           title: "Aviso",
           description: "Recebimento registrado, mas não foi possível carregar os dados completos. Recarregue a página.",
           variant: "destructive",
@@ -486,14 +486,14 @@ export default function Payments() {
         
       } catch (error) {
         console.error("❌ Erro ao buscar dados completos:", error);
-        toast({
+        showAlert({
           title: "Erro",
           description: "Erro ao buscar dados do recebimento.",
           variant: "destructive",
         });
       }
     }
-  }, [uiState.selectedPaymentId, loadPayments, selectedMonth, selectedYear, toast]);
+  }, [uiState.selectedPaymentId, loadPayments, selectedMonth, selectedYear, showAlert]);
 
   // Pagamentos filtrados por busca e separados por status
   const { pendingPayments, paidPayments } = useMemo(() => {
