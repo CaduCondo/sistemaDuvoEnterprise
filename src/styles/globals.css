@@ -195,6 +195,31 @@
     @apply border-slate-800;
   }
   
+  /* Dark mode table improvements - better visibility */
+  .dark table {
+    @apply border-slate-800;
+  }
+  
+  .dark thead {
+    @apply bg-slate-800/50;
+  }
+  
+  .dark th {
+    @apply text-slate-200 bg-slate-800 border-slate-700;
+  }
+  
+  .dark td {
+    @apply text-slate-100 border-slate-800;
+  }
+  
+  .dark tr {
+    @apply border-slate-800;
+  }
+  
+  .dark tr:hover {
+    @apply bg-slate-800/50;
+  }
+  
   /* Better mobile scrollbars */
   ::-webkit-scrollbar {
     width: 8px;
