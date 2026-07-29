@@ -309,7 +309,6 @@ export default function PropertiesPage() {
         title: "Imóvel Ocupado",
         description: "Este imóvel não pode ser deletado porque está ocupado com uma locação ativa. Vá para a página Locações, encontre a locação ativa deste imóvel, encerre ou rescinda o contrato, depois volte aqui para deletar o imóvel.",
         type: "error",
-        duration: 10000,
       });
       return;
     }
