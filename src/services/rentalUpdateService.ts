@@ -60,7 +60,7 @@ export async function syncPaymentsOnDateChange(
     .from("payments")
     .select("*")
     .eq("rental_id", rentalId)
-    .order("installment_number", { ascending: true });
+    .order("installment", { ascending: true });
 
   if (fetchError) throw fetchError;
 
@@ -74,8 +74,8 @@ export async function syncPaymentsOnDateChange(
 
   // 3. Gerar lista de competências (mes/ano) esperadas
   const expectedPayments: Array<{
-    refMonth: number;
-    refYear: number;
+    refMonth: string;
+    refYear: string;
     dueDate: string;
     isProportional: boolean;
     days?: number;
@@ -108,8 +108,8 @@ export async function syncPaymentsOnDateChange(
   // Adicionar primeiro recebimento
   if (firstDueDate <= newEnd) {
     expectedPayments.push({
-      refMonth: firstDueDate.getMonth() + 1,
-      refYear: firstDueDate.getFullYear(),
+      refMonth: String(firstDueDate.getMonth() + 1).padStart(2, '0'),
+      refYear: String(firstDueDate.getFullYear()),
       dueDate: firstDueDate.toISOString().split('T')[0],
       isProportional: firstIsProportional,
       days: firstIsProportional ? firstDays : undefined,
@@ -138,8 +138,8 @@ export async function syncPaymentsOnDateChange(
     }
 
     expectedPayments.push({
-      refMonth: nextDueDate.getMonth() + 1,
-      refYear: nextDueDate.getFullYear(),
+      refMonth: String(nextDueDate.getMonth() + 1).padStart(2, '0'),
+      refYear: String(nextDueDate.getFullYear()),
       dueDate: nextDueDate.toISOString().split('T')[0],
       isProportional,
       days: isProportional ? days : undefined,
@@ -170,7 +170,7 @@ export async function syncPaymentsOnDateChange(
 
     if (!shouldExist) {
       paymentsToDelete.push(payment.id);
-      console.log(`🗑️ Marcado para deletar: ${refKey} (parcela ${payment.installment_number})`);
+      console.log(`🗑️ Marcado para deletar: ${refKey} (parcela ${payment.installment})`);
     } else {
       paymentsToKeep.set(refKey, payment);
     }
@@ -189,18 +189,18 @@ export async function syncPaymentsOnDateChange(
 
   // 6. Identificar recebimentos a criar
   const paymentsToCreate: Array<{
-    refMonth: number;
-    refYear: number;
+    refMonth: string;
+    refYear: string;
     dueDate: string;
     amount: number;
     breakdown: any[];
     installmentNumber: number;
   }> = [];
 
-  // Calcular qual será o próximo installment_number
+  // Calcular qual será o próximo installment number
   const existingNumbers = (existingPayments || [])
     .filter(p => !paymentsToDelete.includes(p.id))
-    .map(p => p.installment_number)
+    .map(p => p.installment)
     .sort((a, b) => a - b);
   
   let nextInstallmentNumber = existingNumbers.length > 0 
@@ -270,7 +270,7 @@ export async function syncPaymentsOnDateChange(
       expected_amount: p.amount,
       status: "pending",
       breakdown: p.breakdown,
-      installment_number: p.installmentNumber,
+      installment: p.installmentNumber,
       total_installments: existingNumbers.length + paymentsToCreate.length,
     }));
 
@@ -287,8 +287,8 @@ export async function syncPaymentsOnDateChange(
     console.log("🔍 Verificando recebimento proporcional que precisa ser ajustado...");
     
     const oldEnd = new Date(oldEndDate + "T00:00:00");
-    const oldLastMonth = oldEnd.getMonth() + 1;
-    const oldLastYear = oldEnd.getFullYear();
+    const oldLastMonth = String(oldEnd.getMonth() + 1).padStart(2, '0');
+    const oldLastYear = String(oldEnd.getFullYear());
     const oldLastRefKey = `${oldLastYear}-${oldLastMonth}`;
     
     const oldLastPayment = paymentsToKeep.get(oldLastRefKey);
