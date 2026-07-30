@@ -32,7 +32,7 @@ export default async function handler(
     try {
       decoded = jwt.verify(token, secret);
     } catch (err) {
-      console.error("Erro ao validar token:", err);
+      console.error("❌ [reset-password] Erro ao validar token:", err);
       return res.status(401).json({
         success: false,
         error: "Link expirado ou inválido. Solicite um novo link de recuperação.",
@@ -47,18 +47,13 @@ export default async function handler(
       });
     }
 
-    // Validar senha
-    if (newPassword.length < 8) {
-      return res.status(400).json({
-        success: false,
-        error: "A senha deve ter no mínimo 8 caracteres",
-      });
-    }
+    console.log("✅ [reset-password] Token validado:", decoded.email);
 
-    if (newPassword.length > 12) {
+    // Validar senha
+    if (newPassword.length < 8 || newPassword.length > 12) {
       return res.status(400).json({
         success: false,
-        error: "A senha deve ter no máximo 12 caracteres",
+        error: "A senha deve ter entre 8 e 12 caracteres",
       });
     }
 
@@ -90,62 +85,79 @@ export default async function handler(
       });
     }
 
-    // Criar cliente Supabase com anon key (suficiente para chamar RPC)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    console.log("✅ [reset-password] Senha validada");
+
+    // Verificar se as variáveis de ambiente estão configuradas
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
-    console.log("🔍 [reset-password] Supabase URL configurada:", !!supabaseUrl);
-    console.log("🔍 [reset-password] User ID do token:", decoded.userId);
-    console.log("🔍 [reset-password] Email do token:", decoded.email);
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error("❌ Credenciais Supabase não configuradas");
+    if (!supabaseUrl) {
+      console.error("❌ [reset-password] NEXT_PUBLIC_SUPABASE_URL não configurada");
       return res.status(500).json({
         success: false,
-        error: "Configuração do servidor incorreta.",
+        error: "Configuração do servidor incorreta (URL).",
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    // Chamar função RPC SECURITY DEFINER para resetar senha
-    console.log("📝 [reset-password] Chamando função reset_user_password_by_token...");
-    const { data: rpcResult, error: rpcError } = await supabase
-      .rpc('reset_user_password_by_token', {
-        p_user_id: decoded.userId,
-        p_email: decoded.email,
-        p_new_password: newPassword
-      });
-
-    if (rpcError) {
-      console.error("❌ [reset-password] Erro ao chamar RPC:", rpcError);
+    if (!supabaseServiceKey) {
+      console.error("❌ [reset-password] SUPABASE_SERVICE_ROLE_KEY não configurada");
       return res.status(500).json({
         success: false,
-        error: "Erro ao processar redefinição de senha. Tente novamente.",
+        error: "Configuração do servidor incorreta (Service Key não configurada). Contate o administrador.",
       });
     }
 
-    console.log("📊 [reset-password] Resultado RPC:", rpcResult);
+    console.log("✅ [reset-password] Credenciais Supabase configuradas");
 
-    // A função retorna um JSON com success e error/message
-    if (!rpcResult || !rpcResult.success) {
-      console.error("❌ [reset-password] Função retornou falha:", rpcResult?.error);
-      return res.status(400).json({
+    // Criar cliente com service role (bypassa RLS)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+
+    console.log("📝 [reset-password] Atualizando senha para:", decoded.email);
+
+    // Atualizar senha diretamente (service role bypassa RLS)
+    const { data: updateData, error: updateError } = await supabaseAdmin
+      .from("system_users")
+      .update({
+        password_hash: newPassword,
+        requires_password_change: false,
+        temporary_password: false,
+        login_attempts: 0,
+        blocked_until: null,
+      })
+      .eq("id", decoded.userId)
+      .eq("email", decoded.email)
+      .select("id, email");
+
+    if (updateError) {
+      console.error("❌ [reset-password] Erro ao atualizar:", updateError);
+      return res.status(500).json({
         success: false,
-        error: rpcResult?.error || "Erro ao atualizar senha.",
+        error: "Erro ao atualizar senha. Tente novamente.",
       });
     }
 
-    console.log("✅ [reset-password] Senha atualizada com sucesso via RPC");
-    console.log("✅ [reset-password] Email:", decoded.email);
+    if (!updateData || updateData.length === 0) {
+      console.error("❌ [reset-password] Nenhum usuário atualizado");
+      return res.status(404).json({
+        success: false,
+        error: "Usuário não encontrado ou link expirado.",
+      });
+    }
+
+    console.log("✅ [reset-password] Senha atualizada com sucesso:", updateData[0].email);
     
     return res.status(200).json({ success: true });
 
-  } catch (error) {
-    console.error("❌ Erro na API de reset de senha:", error);
+  } catch (error: any) {
+    console.error("❌ [reset-password] Erro geral:", error);
     return res.status(500).json({
       success: false,
-      error: "Erro interno ao processar solicitação.",
+      error: error.message || "Erro interno ao processar solicitação.",
     });
   }
 }
