@@ -7,7 +7,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 type ResponseData = {
   success: boolean;
   error?: string;
-  resetLink?: string; // Para log em DEV
+  resetLink?: string;
 };
 
 export default async function handler(
@@ -36,7 +36,6 @@ export default async function handler(
       });
     }
 
-    // Gerar token JWT válido por 1 hora
     const secret = process.env.JWT_SECRET || "duvo-enterprise-secret-key-2024";
     const token = jwt.sign(
       { userId, email, type: "password_reset" },
@@ -44,11 +43,9 @@ export default async function handler(
       { expiresIn: "1h" }
     );
 
-    // Detectar URL automaticamente baseado no ambiente
     const protocol = req.headers["x-forwarded-proto"] || "http";
     const host = req.headers.host || "localhost:3000";
     
-    // Se estiver em localhost ou desenvolvimento, usar localhost
     const isDevelopment = host.includes("localhost") || host.includes("127.0.0.1");
     
     const baseUrl = isDevelopment 
@@ -57,10 +54,9 @@ export default async function handler(
     
     const resetLink = `${baseUrl}/redefinir-senha?token=${token}`;
 
-    // Log em DEV
     if (process.env.NODE_ENV === "development") {
       console.log("📧 ========================================");
-      console.log("📧 LINK DE RECUPERAÇÃO GERADO (DEV)");
+      console.log("📧 LINK DE REDEFINIÇÃO GERADO (DEV)");
       console.log("📧 ========================================");
       console.log("📧 Para:", email);
       console.log("📧 Nome:", name || "N/A");
@@ -69,11 +65,10 @@ export default async function handler(
       console.log("📧 ========================================");
     }
 
-    // Enviar e-mail via Resend
     const { data, error } = await resend.emails.send({
       from: "D'Uvo Enterprise <noreply@duvoenterprise.com.br>",
       to: [email],
-      subject: "🔐 Recuperação de Senha - D'Uvo Enterprise",
+      subject: "🔐 Redefinição de Senha - D'Uvo Enterprise",
       html: `
         <!DOCTYPE html>
         <html lang="pt-BR">
@@ -98,14 +93,14 @@ export default async function handler(
 
             <!-- Content -->
             <div style="padding: 40px 30px;">
-              <h2 style="color: #1e293b; margin: 0 0 16px; font-size: 24px; font-weight: 600;">Recuperação de Senha</h2>
+              <h2 style="color: #1e293b; margin: 0 0 16px; font-size: 24px; font-weight: 600;">Redefinição de Senha</h2>
               
               <p style="color: #475569; margin: 0 0 24px; font-size: 16px; line-height: 1.6;">
                 Olá${name ? ` <strong>${name}</strong>` : ""},
               </p>
 
               <p style="color: #475569; margin: 0 0 24px; font-size: 16px; line-height: 1.6;">
-                Você solicitou a recuperação de senha. Clique no botão abaixo para criar uma nova senha:
+                Recebemos uma solicitação para redefinir sua senha. Clique no botão abaixo para criar uma nova senha:
               </p>
 
               <!-- CTA Button -->
@@ -140,7 +135,7 @@ export default async function handler(
 
               <div style="background-color: #f1f5f9; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 16px; margin: 0 0 24px;">
                 <p style="color: #475569; margin: 0; font-size: 13px; line-height: 1.6;">
-                  Se você <strong>não solicitou</strong> esta recuperação, ignore este e-mail. Sua senha permanecerá inalterada.
+                  Se você <strong>não solicitou</strong> esta redefinição, ignore este e-mail. Sua senha permanecerá inalterada.
                 </p>
               </div>
 
@@ -174,9 +169,8 @@ export default async function handler(
       });
     }
 
-    console.log("E-mail de recuperação enviado com sucesso:", data);
+    console.log("E-mail de redefinição enviado com sucesso:", data);
     
-    // Retornar link apenas em DEV (para teste)
     const response: ResponseData = { success: true };
     if (process.env.NODE_ENV === "development") {
       response.resetLink = resetLink;
@@ -185,7 +179,7 @@ export default async function handler(
     return res.status(200).json(response);
 
   } catch (error) {
-    console.error("Erro na API de recuperação de senha:", error);
+    console.error("Erro na API de redefinição de senha:", error);
     return res.status(500).json({
       success: false,
       error: "Erro interno ao processar solicitação.",
