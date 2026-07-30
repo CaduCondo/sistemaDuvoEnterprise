@@ -286,17 +286,30 @@ export async function syncPaymentsOnDateChange(
   if (endDateChanged && newEndDate && oldEndDate && newEndDate > oldEndDate) {
     console.log("🔍 Verificando recebimento proporcional que precisa ser ajustado...");
     
-    const oldEnd = new Date(oldEndDate + "T00:00:00");
-    const oldLastMonth = String(oldEnd.getMonth() + 1).padStart(2, '0');
-    const oldLastYear = String(oldEnd.getFullYear());
-    const oldLastRefKey = `${oldLastYear}-${oldLastMonth}`;
+    // Buscar TODOS os recebimentos existentes pendentes ordenados por parcela
+    const { data: allExistingPayments, error: fetchAllError } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("rental_id", rentalId)
+      .eq("status", "pending")
+      .order("installment", { ascending: false });
     
-    const oldLastPayment = paymentsToKeep.get(oldLastRefKey);
+    if (fetchAllError) throw fetchAllError;
     
-    if (oldLastPayment && oldLastPayment.status === "pending") {
-      // Verificar se estava proporcional
-      if (oldLastPayment.expected_amount < totalRent) {
-        console.log(`🔄 Ajustando ${oldLastRefKey} de proporcional para valor cheio`);
+    if (allExistingPayments && allExistingPayments.length > 0) {
+      // Identificar qual era o último recebimento ANTES da mudança
+      // Pegar o maior installment number dentre os que NÃO foram criados agora
+      const oldLastPayment = allExistingPayments.find(payment => {
+        // Se o recebimento foi criado agora, não é o antigo último
+        const wasCreated = paymentsToCreate.some(created => 
+          created.refMonth === payment.reference_month && 
+          created.refYear === payment.reference_year
+        );
+        return !wasCreated;
+      });
+      
+      if (oldLastPayment && oldLastPayment.expected_amount < totalRent) {
+        console.log(`🔄 Ajustando parcela ${oldLastPayment.installment} (${oldLastPayment.reference_year}-${oldLastPayment.reference_month}) de proporcional (R$ ${oldLastPayment.expected_amount}) para valor cheio (R$ ${totalRent})`);
         
         const breakdown = [
           { description: "Aluguel", amount: monthlyRent, type: "addition" }
@@ -318,7 +331,9 @@ export async function syncPaymentsOnDateChange(
           .eq("id", oldLastPayment.id);
         
         if (updateError) throw updateError;
-        console.log("✅ Recebimento ajustado");
+        console.log("✅ Recebimento ajustado de proporcional para valor cheio");
+      } else if (oldLastPayment) {
+        console.log(`ℹ️ Parcela ${oldLastPayment.installment} já estava com valor cheio (R$ ${oldLastPayment.expected_amount})`);
       }
     }
   }
