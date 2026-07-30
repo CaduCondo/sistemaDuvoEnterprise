@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import jwt from "jsonwebtoken";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 
 type ResponseData = {
   success: boolean;
@@ -75,6 +75,20 @@ export default async function handler(
         error: "A senha deve conter pelo menos um número",
       });
     }
+
+    // Criar cliente Supabase para server-side com service role
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Credenciais Supabase não configuradas");
+      return res.status(500).json({
+        success: false,
+        error: "Configuração do servidor incorreta.",
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Atualizar senha no banco
     const { error: updateError } = await supabase
