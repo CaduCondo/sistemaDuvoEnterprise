@@ -21,17 +21,6 @@ interface RentalUpdateChanges {
 }
 
 /**
- * Calcula quantos dias tem entre duas datas
- */
-function getDaysBetween(startDate: Date, endDate: Date): number {
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setHours(0, 0, 0, 0);
-  return Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-/**
  * Calcula valor proporcional baseado em dias
  */
 function calculateProportionalAmount(monthlyRent: number, days: number): number {
@@ -39,21 +28,7 @@ function calculateProportionalAmount(monthlyRent: number, days: number): number 
 }
 
 /**
- * Gera a data de vencimento baseado em mês/ano de referência e dia do pagamento
- */
-function calculateDueDate(referenceMonth: number, referenceYear: number, paymentDay: number): string {
-  return new Date(referenceYear, referenceMonth - 1, paymentDay).toISOString().split('T')[0];
-}
-
-/**
  * FUNÇÃO PRINCIPAL: Sincroniza recebimentos quando datas da locação são alteradas
- * 
- * Esta função:
- * 1. Analisa mudanças em startDate e/ou endDate
- * 2. Deleta recebimentos que não fazem mais sentido (apenas pending/overdue)
- * 3. Cria recebimentos faltantes para o novo período
- * 4. Ajusta o último recebimento se ele era proporcional e agora não é mais
- * 5. Cria novo último recebimento proporcional se necessário
  */
 export async function syncPaymentsOnDateChange(
   rentalId: string,
@@ -66,7 +41,7 @@ export async function syncPaymentsOnDateChange(
   hasGarage: boolean = false,
   garageValue: number = 0
 ): Promise<void> {
-  console.log("🔄 [syncPaymentsOnDateChange] Iniciando sincronização de recebimentos...");
+  console.log("🔄 [syncPaymentsOnDateChange] Iniciando sincronização...");
   console.log("📅 Datas antigas:", { startDate: oldStartDate, endDate: oldEndDate });
   console.log("📅 Datas novas:", { startDate: newStartDate, endDate: newEndDate });
 
@@ -74,223 +49,242 @@ export async function syncPaymentsOnDateChange(
   const endDateChanged = oldEndDate !== newEndDate;
 
   if (!startDateChanged && !endDateChanged) {
-    console.log("ℹ️ Nenhuma mudança nas datas - nada a fazer");
+    console.log("ℹ️ Nenhuma mudança nas datas");
     return;
   }
+
+  const totalRent = monthlyRent + (hasGarage ? garageValue : 0);
 
   // 1. Buscar todos os recebimentos existentes
   const { data: existingPayments, error: fetchError } = await supabase
     .from("payments")
     .select("*")
     .eq("rental_id", rentalId)
-    .order("reference_year", { ascending: true })
-    .order("reference_month", { ascending: true });
+    .order("installment_number", { ascending: true });
 
   if (fetchError) throw fetchError;
 
-  console.log(`📊 ${existingPayments?.length || 0} recebimentos existentes encontrados`);
+  console.log(`📊 ${existingPayments?.length || 0} recebimentos existentes`);
 
   // 2. Calcular período esperado com as novas datas
   const newStart = new Date(newStartDate + "T00:00:00");
-  const newEnd = newEndDate ? new Date(newEndDate + "T00:00:00") : new Date(newStart.getFullYear() + 1, newStart.getMonth(), newStart.getDate());
+  const newEnd = newEndDate 
+    ? new Date(newEndDate + "T00:00:00") 
+    : new Date(newStart.getFullYear() + 1, newStart.getMonth(), newStart.getDate());
 
-  // 3. Gerar lista de meses esperados (reference_month/reference_year)
-  const expectedMonths = new Set<string>();
+  // 3. Gerar lista de competências (mes/ano) esperadas
+  const expectedPayments: Array<{
+    refMonth: number;
+    refYear: number;
+    dueDate: string;
+    isProportional: boolean;
+    days?: number;
+  }> = [];
+
   const startDay = newStart.getDate();
-  let currentMonth: number, currentYear: number, isProportional: boolean;
-
-  // Calcular primeiro recebimento
-  if (startDay === paymentDay) {
-    // Se iniciou exatamente no dia do pagamento, primeiro recebimento é mês seguinte (valor cheio)
-    const nextMonth = newStart.getMonth() === 11 ? 0 : newStart.getMonth() + 1;
-    const nextYear = newStart.getMonth() === 11 ? newStart.getFullYear() + 1 : newStart.getFullYear();
-    currentMonth = nextMonth + 1; // +1 porque getMonth() retorna 0-11
-    currentYear = nextYear;
-    isProportional = false;
-  } else if (startDay < paymentDay) {
-    // Se iniciou antes do dia de pagamento no mês, primeiro recebimento é no mesmo mês (proporcional)
-    currentMonth = newStart.getMonth() + 1;
-    currentYear = newStart.getFullYear();
-    isProportional = true;
-  } else {
-    // Se iniciou depois do dia de pagamento, primeiro recebimento é mês seguinte (proporcional)
-    const nextMonth = newStart.getMonth() === 11 ? 0 : newStart.getMonth() + 1;
-    const nextYear = newStart.getMonth() === 11 ? newStart.getFullYear() + 1 : newStart.getFullYear();
-    currentMonth = nextMonth + 1;
-    currentYear = nextYear;
-    isProportional = true;
-  }
-
-  // Adicionar todos os meses até a data fim
-  const maxIterations = 1000; // Proteção contra loops infinitos
-  let iterations = 0;
+  const currentDate = new Date(newStart);
   
-  while (iterations < maxIterations) {
-    const refKey = `${currentYear}-${currentMonth}`;
-    const dueDate = new Date(currentYear, currentMonth - 1, paymentDay);
-    
-    // Parar se passou da data fim
-    if (dueDate > newEnd) break;
-    
-    expectedMonths.add(refKey);
-    
-    // Próximo mês
-    if (currentMonth === 12) {
-      currentMonth = 1;
-      currentYear++;
-    } else {
-      currentMonth++;
-    }
-    
-    iterations++;
+  // Primeiro recebimento
+  let firstDueDate: Date;
+  let firstIsProportional = false;
+  let firstDays = 0;
+
+  if (startDay === paymentDay) {
+    // Se iniciou no dia de pagamento, primeiro recebimento é mês seguinte (cheio)
+    firstDueDate = new Date(newStart.getFullYear(), newStart.getMonth() + 1, paymentDay);
+  } else if (startDay < paymentDay) {
+    // Iniciou antes do dia de pagamento, primeiro recebimento é no mesmo mês (proporcional)
+    firstDueDate = new Date(newStart.getFullYear(), newStart.getMonth(), paymentDay);
+    firstIsProportional = true;
+    firstDays = paymentDay - startDay;
+  } else {
+    // Iniciou depois do dia de pagamento, primeiro recebimento é mês seguinte (proporcional)
+    firstDueDate = new Date(newStart.getFullYear(), newStart.getMonth() + 1, paymentDay);
+    firstIsProportional = true;
+    const daysInMonth = new Date(newStart.getFullYear(), newStart.getMonth() + 1, 0).getDate();
+    firstDays = (daysInMonth - startDay + 1) + (paymentDay - 1);
   }
 
-  console.log(`📋 ${expectedMonths.size} meses esperados no novo período`);
+  // Adicionar primeiro recebimento
+  if (firstDueDate <= newEnd) {
+    expectedPayments.push({
+      refMonth: firstDueDate.getMonth() + 1,
+      refYear: firstDueDate.getFullYear(),
+      dueDate: firstDueDate.toISOString().split('T')[0],
+      isProportional: firstIsProportional,
+      days: firstIsProportional ? firstDays : undefined,
+    });
+  }
 
-  // 4. Identificar recebimentos a deletar (existem mas não deveriam existir mais)
+  // Adicionar recebimentos seguintes (cheios)
+  const nextDueDate = new Date(firstDueDate);
+  nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+
+  while (nextDueDate <= newEnd) {
+    // Verificar se é o último recebimento (pode ser proporcional)
+    const isLast = nextDueDate.getMonth() === newEnd.getMonth() && 
+                   nextDueDate.getFullYear() === newEnd.getFullYear();
+    
+    let isProportional = false;
+    let days = 0;
+
+    if (isLast) {
+      const endDay = newEnd.getDate();
+      // Se termina antes do dia de pagamento, é proporcional
+      if (endDay < paymentDay - 1) {
+        isProportional = true;
+        days = endDay;
+      }
+    }
+
+    expectedPayments.push({
+      refMonth: nextDueDate.getMonth() + 1,
+      refYear: nextDueDate.getFullYear(),
+      dueDate: nextDueDate.toISOString().split('T')[0],
+      isProportional,
+      days: isProportional ? days : undefined,
+    });
+
+    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+  }
+
+  console.log(`📋 ${expectedPayments.length} recebimentos esperados no novo período`);
+
+  // 4. Identificar recebimentos a deletar (existem mas não deveriam)
   const paymentsToDelete: string[] = [];
   const paymentsToKeep = new Map<string, any>();
 
   for (const payment of existingPayments || []) {
-    const refKey = `${payment.reference_year}-${payment.reference_month}`;
-    
     // Só pode deletar se status = pending ou overdue
     if (payment.status === "paid" || payment.status === "partial") {
+      const refKey = `${payment.reference_year}-${payment.reference_month}`;
       paymentsToKeep.set(refKey, payment);
-      console.log(`🔒 Mantendo recebimento PAGO/PARCIAL: ${refKey}`);
+      console.log(`🔒 Mantendo recebimento PAGO: ${refKey}`);
       continue;
     }
 
-    if (!expectedMonths.has(refKey)) {
+    const refKey = `${payment.reference_year}-${payment.reference_month}`;
+    const shouldExist = expectedPayments.some(
+      exp => exp.refYear === payment.reference_year && exp.refMonth === payment.reference_month
+    );
+
+    if (!shouldExist) {
       paymentsToDelete.push(payment.id);
-      console.log(`🗑️ Marcado para deletar: ${refKey}`);
+      console.log(`🗑️ Marcado para deletar: ${refKey} (parcela ${payment.installment_number})`);
     } else {
       paymentsToKeep.set(refKey, payment);
     }
   }
 
-  // 5. Deletar recebimentos que não fazem mais sentido
+  // 5. Deletar recebimentos
   if (paymentsToDelete.length > 0) {
-    console.log(`🗑️ Deletando ${paymentsToDelete.length} recebimentos pending/overdue...`);
+    console.log(`🗑️ Deletando ${paymentsToDelete.length} recebimentos...`);
     const { error: deleteError } = await supabase
       .from("payments")
       .delete()
       .in("id", paymentsToDelete);
     
     if (deleteError) throw deleteError;
-    console.log("✅ Recebimentos deletados com sucesso");
   }
 
-  // 6. Identificar recebimentos a criar (deveriam existir mas não existem)
-  const monthsToCreate: string[] = [];
-  for (const refKey of expectedMonths) {
-    if (!paymentsToKeep.has(refKey)) {
-      monthsToCreate.push(refKey);
+  // 6. Identificar recebimentos a criar
+  const paymentsToCreate: Array<{
+    refMonth: number;
+    refYear: number;
+    dueDate: string;
+    amount: number;
+    breakdown: any[];
+    installmentNumber: number;
+  }> = [];
+
+  // Calcular qual será o próximo installment_number
+  const existingNumbers = (existingPayments || [])
+    .filter(p => !paymentsToDelete.includes(p.id))
+    .map(p => p.installment_number)
+    .sort((a, b) => a - b);
+  
+  let nextInstallmentNumber = existingNumbers.length > 0 
+    ? Math.max(...existingNumbers) + 1 
+    : 1;
+
+  for (const expected of expectedPayments) {
+    const refKey = `${expected.refYear}-${expected.refMonth}`;
+    
+    // Se já existe (e não foi deletado), pular
+    if (paymentsToKeep.has(refKey)) {
+      continue;
     }
-  }
 
-  console.log(`➕ ${monthsToCreate.length} recebimentos faltantes para criar`);
+    // Calcular valor e breakdown
+    let amount: number;
+    let breakdown: any[];
 
-  // 7. Criar recebimentos faltantes
-  if (monthsToCreate.length > 0) {
-    const totalRent = monthlyRent + (hasGarage ? garageValue : 0);
-    const newPayments: any[] = [];
-
-    for (const refKey of monthsToCreate) {
-      const [yearStr, monthStr] = refKey.split('-');
-      const year = parseInt(yearStr);
-      const month = parseInt(monthStr);
-      const dueDate = new Date(year, month - 1, paymentDay);
-
-      // Verificar se é o primeiro ou último recebimento (pode ser proporcional)
-      const isFirst = refKey === `${newStart.getFullYear()}-${newStart.getMonth() + 1}` ||
-                     (startDay > paymentDay && month === (newStart.getMonth() === 11 ? 1 : newStart.getMonth() + 2));
+    if (expected.isProportional && expected.days) {
+      const proportionalRent = calculateProportionalAmount(monthlyRent, expected.days);
+      const proportionalGarage = hasGarage ? calculateProportionalAmount(garageValue, expected.days) : 0;
+      amount = proportionalRent + proportionalGarage;
       
-      const isLast = dueDate.getFullYear() === newEnd.getFullYear() && 
-                     dueDate.getMonth() === newEnd.getMonth();
-
-      let expectedAmount = totalRent;
-      let breakdown = [
-        { description: "Aluguel", amount: parseFloat(monthlyRent.toFixed(2)), type: "addition" }
+      breakdown = [
+        { description: `Aluguel (${expected.days} dias)`, amount: proportionalRent, type: "addition" }
       ];
-
-      if (hasGarage && garageValue > 0) {
+      if (hasGarage && proportionalGarage > 0) {
         breakdown.push({ 
-          description: "Garagem", 
-          amount: parseFloat(garageValue.toFixed(2)), 
+          description: `Garagem (${expected.days} dias)`, 
+          amount: proportionalGarage, 
           type: "addition" 
         });
       }
-
-      // Calcular proporcional se necessário
-      if (isFirst && startDay !== paymentDay) {
-        let days: number;
-        if (startDay < paymentDay) {
-          days = paymentDay - startDay;
-        } else {
-          const daysInMonth = new Date(newStart.getFullYear(), newStart.getMonth() + 1, 0).getDate();
-          days = (daysInMonth - startDay + 1) + (paymentDay - 1);
-        }
-        
-        const proportionalRent = calculateProportionalAmount(monthlyRent, days);
-        const proportionalGarage = hasGarage ? calculateProportionalAmount(garageValue, days) : 0;
-        expectedAmount = proportionalRent + proportionalGarage;
-        
-        breakdown = [
-          { description: `Aluguel (${days} dias)`, amount: parseFloat(proportionalRent.toFixed(2)), type: "addition" }
-        ];
-        if (hasGarage && proportionalGarage > 0) {
-          breakdown.push({ 
-            description: `Garagem (${days} dias)`, 
-            amount: parseFloat(proportionalGarage.toFixed(2)), 
-            type: "addition" 
-          });
-        }
-      } else if (isLast && newEnd.getDate() !== paymentDay - 1) {
-        const endDay = newEnd.getDate();
-        const days = endDay < paymentDay ? endDay : paymentDay - 1;
-        
-        const proportionalRent = calculateProportionalAmount(monthlyRent, days);
-        const proportionalGarage = hasGarage ? calculateProportionalAmount(garageValue, days) : 0;
-        expectedAmount = proportionalRent + proportionalGarage;
-        
-        breakdown = [
-          { description: `Aluguel (${days} dias)`, amount: parseFloat(proportionalRent.toFixed(2)), type: "addition" }
-        ];
-        if (hasGarage && proportionalGarage > 0) {
-          breakdown.push({ 
-            description: `Garagem (${days} dias)`, 
-            amount: parseFloat(proportionalGarage.toFixed(2)), 
-            type: "addition" 
-          });
-        }
+    } else {
+      amount = totalRent;
+      breakdown = [
+        { description: "Aluguel", amount: monthlyRent, type: "addition" }
+      ];
+      if (hasGarage && garageValue > 0) {
+        breakdown.push({ 
+          description: "Garagem", 
+          amount: garageValue, 
+          type: "addition" 
+        });
       }
-
-      newPayments.push({
-        rental_id: rentalId,
-        reference_month: monthStr,
-        reference_year: yearStr,
-        due_date: dueDate.toISOString().split('T')[0],
-        expected_amount: parseFloat(expectedAmount.toFixed(2)),
-        status: "pending",
-        breakdown,
-      });
     }
 
-    if (newPayments.length > 0) {
-      const { error: insertError } = await supabase
-        .from("payments")
-        .insert(newPayments);
-      
-      if (insertError) throw insertError;
-      console.log(`✅ ${newPayments.length} novos recebimentos criados`);
-    }
+    paymentsToCreate.push({
+      refMonth: expected.refMonth,
+      refYear: expected.refYear,
+      dueDate: expected.dueDate,
+      amount: parseFloat(amount.toFixed(2)),
+      breakdown,
+      installmentNumber: nextInstallmentNumber++,
+    });
+
+    console.log(`➕ Criar: ${refKey} (parcela ${nextInstallmentNumber - 1})`);
+  }
+
+  // 7. Criar recebimentos
+  if (paymentsToCreate.length > 0) {
+    const insertData = paymentsToCreate.map(p => ({
+      rental_id: rentalId,
+      reference_month: p.refMonth,
+      reference_year: p.refYear,
+      due_date: p.dueDate,
+      expected_amount: p.amount,
+      status: "pending",
+      breakdown: p.breakdown,
+      installment_number: p.installmentNumber,
+      total_installments: existingNumbers.length + paymentsToCreate.length,
+    }));
+
+    const { error: insertError } = await supabase
+      .from("payments")
+      .insert(insertData);
+    
+    if (insertError) throw insertError;
+    console.log(`✅ ${paymentsToCreate.length} recebimentos criados`);
   }
 
   // 8. AJUSTAR RECEBIMENTO QUE ERA PROPORCIONAL MAS AGORA NÃO É MAIS
-  // Se a data fim foi estendida, o que era o último recebimento pode não ser mais
   if (endDateChanged && newEndDate && oldEndDate && newEndDate > oldEndDate) {
-    console.log("🔍 Verificando se há recebimento proporcional que precisa ser ajustado...");
+    console.log("🔍 Verificando recebimento proporcional que precisa ser ajustado...");
     
     const oldEnd = new Date(oldEndDate + "T00:00:00");
     const oldLastMonth = oldEnd.getMonth() + 1;
@@ -299,21 +293,18 @@ export async function syncPaymentsOnDateChange(
     
     const oldLastPayment = paymentsToKeep.get(oldLastRefKey);
     
-    if (oldLastPayment && (oldLastPayment.status === "pending" || oldLastPayment.status === "overdue")) {
-      const totalRent = monthlyRent + (hasGarage ? garageValue : 0);
-      
-      // Verificar se estava proporcional e agora não é mais
+    if (oldLastPayment && oldLastPayment.status === "pending") {
+      // Verificar se estava proporcional
       if (oldLastPayment.expected_amount < totalRent) {
-        console.log(`🔄 Ajustando recebimento ${oldLastRefKey} que era proporcional para valor cheio`);
+        console.log(`🔄 Ajustando ${oldLastRefKey} de proporcional para valor cheio`);
         
         const breakdown = [
-          { description: "Aluguel", amount: parseFloat(monthlyRent.toFixed(2)), type: "addition" }
+          { description: "Aluguel", amount: monthlyRent, type: "addition" }
         ];
-        
         if (hasGarage && garageValue > 0) {
           breakdown.push({ 
             description: "Garagem", 
-            amount: parseFloat(garageValue.toFixed(2)), 
+            amount: garageValue, 
             type: "addition" 
           });
         }
@@ -327,7 +318,7 @@ export async function syncPaymentsOnDateChange(
           .eq("id", oldLastPayment.id);
         
         if (updateError) throw updateError;
-        console.log("✅ Recebimento ajustado de proporcional para valor cheio");
+        console.log("✅ Recebimento ajustado");
       }
     }
   }
@@ -345,14 +336,11 @@ export async function syncPaymentsOnDateChange(
       .eq("rental_id", rentalId);
   }
 
-  console.log("✅ [syncPaymentsOnDateChange] Sincronização concluída com sucesso!");
+  console.log("✅ [syncPaymentsOnDateChange] Sincronização concluída!");
 }
 
 /**
  * Ajusta o valor do aluguel de uma locação ativa e recalcula os recebimentos futuros
- * 
- * REGRA CRÍTICA: Atualiza APENAS pagamentos FUTUROS (due_date >= hoje) e status = 'pending'
- * NUNCA toca em pagamentos PAGOS ou PASSADOS
  */
 export async function adjustRentalValue(
   rentalId: string,
@@ -360,8 +348,7 @@ export async function adjustRentalValue(
   newValue: number,
   effectiveDate: string
 ): Promise<void> {
-  console.log("💰 [adjustRentalValue] Iniciando ajuste de valor do aluguel...");
-  console.log("📋 Dados do ajuste:", { rentalId, oldValue, newValue, effectiveDate });
+  console.log("💰 [adjustRentalValue] Ajustando valor do aluguel...");
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -373,12 +360,8 @@ export async function adjustRentalValue(
     .eq("id", rentalId)
     .single();
 
-  if (rentalError || !rental) {
-    console.error("❌ Erro ao buscar locação:", rentalError);
-    throw new Error("Locação não encontrada");
-  }
+  if (rentalError || !rental) throw new Error("Locação não encontrada");
 
-  // ✅ CRÍTICO: Buscar APENAS pagamentos FUTUROS e PENDING
   const { data: futurePayments, error: paymentsError } = await supabase
     .from("payments")
     .select("*")
@@ -389,7 +372,7 @@ export async function adjustRentalValue(
 
   if (paymentsError) throw paymentsError;
   if (!futurePayments || futurePayments.length === 0) {
-    console.log("ℹ️ Nenhum pagamento futuro pendente para atualizar");
+    console.log("ℹ️ Nenhum pagamento futuro para atualizar");
     return;
   }
 
@@ -398,49 +381,47 @@ export async function adjustRentalValue(
   const garageAmount = (rental.has_garage && rental.garage_value) ? rental.garage_value : 0;
   const totalNewValue = newValue + garageAmount;
 
-  const updates: Array<{ id: string; changes: any }> = [];
-
   for (const payment of futurePayments) {
-    const breakdown = [{ type: "addition", amount: parseFloat(newValue.toFixed(2)), description: "Aluguel" }];
+    const breakdown = [
+      { type: "addition", amount: parseFloat(newValue.toFixed(2)), description: "Aluguel" }
+    ];
     if (garageAmount > 0) {
-      breakdown.push({ type: "addition", amount: parseFloat(garageAmount.toFixed(2)), description: "Garagem" });
+      breakdown.push({ 
+        type: "addition", 
+        amount: parseFloat(garageAmount.toFixed(2)), 
+        description: "Garagem" 
+      });
     }
-    updates.push({ 
-      id: payment.id, 
-      changes: { 
+
+    const { error: updateError } = await supabase
+      .from("payments")
+      .update({ 
         expected_amount: parseFloat(totalNewValue.toFixed(2)), 
         breakdown 
-      } 
-    });
-  }
+      })
+      .eq("id", payment.id);
 
-  for (const update of updates) {
-    const { error: updateError } = await supabase.from("payments").update(update.changes).eq("id", update.id);
     if (updateError) throw updateError;
   }
 
-  console.log(`✅ ${updates.length} pagamentos futuros atualizados com sucesso`);
+  console.log(`✅ ${futurePayments.length} pagamentos atualizados`);
 }
 
 export const rentalUpdateService = {
   syncPaymentsOnDateChange,
   adjustRentalValue,
 
-  /**
-   * WRAPPER: Detecta mudanças e chama a função apropriada
-   */
   async updatePaymentsOnRentalEdit(
     rentalId: string, 
     oldRental: Rental, 
     newChanges: RentalUpdateChanges
   ): Promise<void> {
     try {
-      console.log("🚀 [rentalUpdateService] Iniciando análise de mudanças...");
+      console.log("🚀 [rentalUpdateService] Analisando mudanças...");
 
       const startDateChanged = newChanges.startDate && newChanges.startDate !== oldRental.startDate;
       const endDateChanged = newChanges.endDate !== undefined && newChanges.endDate !== oldRental.endDate;
       
-      // Se alguma data mudou, sincronizar recebimentos
       if (startDateChanged || endDateChanged) {
         const monthlyRent = newChanges.monthlyRent ?? oldRental.monthlyRent;
         const paymentDay = newChanges.paymentDay ?? oldRental.paymentDay;
@@ -460,7 +441,6 @@ export const rentalUpdateService = {
         );
       }
 
-      // Se apenas o valor mudou (sem mudança de datas), ajustar valores futuros
       const valueChanged = (newChanges.monthlyRent !== undefined && newChanges.monthlyRent !== oldRental.monthlyRent) ||
                           (newChanges.hasGarage !== undefined && newChanges.hasGarage !== oldRental.hasGarage) ||
                           (newChanges.garageValue !== undefined && newChanges.garageValue !== oldRental.garageValue);
@@ -470,9 +450,9 @@ export const rentalUpdateService = {
         await adjustRentalValue(rentalId, oldRental.monthlyRent, newRent, new Date().toISOString().split('T')[0]);
       }
 
-      console.log("✅ [rentalUpdateService] Análise concluída com sucesso");
+      console.log("✅ [rentalUpdateService] Concluído");
     } catch (error) {
-      console.error("❌ [rentalUpdateService] ERRO CRÍTICO:", error);
+      console.error("❌ [rentalUpdateService] ERRO:", error);
       throw error;
     }
   }
