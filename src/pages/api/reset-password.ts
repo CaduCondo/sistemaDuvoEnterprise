@@ -90,16 +90,15 @@ export default async function handler(
       });
     }
 
-    // Criar cliente Supabase para server-side com service role
+    // Criar cliente Supabase com anon key (suficiente para chamar RPC)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     
     console.log("🔍 [reset-password] Supabase URL configurada:", !!supabaseUrl);
-    console.log("🔍 [reset-password] Service Role Key configurada:", !!supabaseServiceKey);
     console.log("🔍 [reset-password] User ID do token:", decoded.userId);
     console.log("🔍 [reset-password] Email do token:", decoded.email);
     
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseUrl || !supabaseAnonKey) {
       console.error("❌ Credenciais Supabase não configuradas");
       return res.status(500).json({
         success: false,
@@ -107,89 +106,43 @@ export default async function handler(
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Verificar se o usuário existe primeiro
-    console.log("🔍 [reset-password] Verificando se o usuário existe...");
-    const { data: existingUser, error: fetchError } = await supabase
-      .from("system_users")
-      .select("id, email, name")
-      .eq("id", decoded.userId)
-      .eq("email", decoded.email)
-      .single();
-
-    if (fetchError) {
-      console.error("❌ [reset-password] Erro ao buscar usuário:", fetchError);
-      console.error("❌ [reset-password] Código do erro:", fetchError.code);
-      console.error("❌ [reset-password] Mensagem:", fetchError.message);
-      return res.status(404).json({
-        success: false,
-        error: "Usuário não encontrado. O link pode estar inválido.",
+    // Chamar função RPC SECURITY DEFINER para resetar senha
+    console.log("📝 [reset-password] Chamando função reset_user_password_by_token...");
+    const { data: rpcResult, error: rpcError } = await supabase
+      .rpc('reset_user_password_by_token', {
+        p_user_id: decoded.userId,
+        p_email: decoded.email,
+        p_new_password: newPassword
       });
-    }
 
-    if (!existingUser) {
-      console.error("❌ [reset-password] Usuário não encontrado no banco");
-      return res.status(404).json({
-        success: false,
-        error: "Usuário não encontrado. O link pode estar inválido.",
-      });
-    }
-
-    console.log("✅ [reset-password] Usuário encontrado:", existingUser.email);
-
-    // Atualizar senha no banco
-    console.log("📝 [reset-password] Tentando atualizar senha no banco...");
-    const { data: updateData, error: updateError } = await supabase
-      .from("system_users")
-      .update({
-        password_hash: newPassword,
-        requires_password_change: false,
-        temporary_password: false,
-        login_attempts: 0,
-        blocked_until: null,
-      })
-      .eq("id", decoded.userId)
-      .eq("email", decoded.email)
-      .select();
-
-    if (updateError) {
-      console.error("❌ [reset-password] Erro ao atualizar senha:", updateError);
-      console.error("❌ [reset-password] Código do erro:", updateError.code);
-      console.error("❌ [reset-password] Mensagem:", updateError.message);
-      console.error("❌ [reset-password] Detalhes:", updateError.details);
-      console.error("❌ [reset-password] Hint:", updateError.hint);
-      
-      // Mensagens de erro mais específicas
-      if (updateError.code === "42501") {
-        return res.status(500).json({
-          success: false,
-          error: "Erro de permissão ao atualizar senha. Contate o suporte.",
-        });
-      }
-      
+    if (rpcError) {
+      console.error("❌ [reset-password] Erro ao chamar RPC:", rpcError);
       return res.status(500).json({
         success: false,
-        error: `Erro ao atualizar senha: ${updateError.message}`,
+        error: "Erro ao processar redefinição de senha. Tente novamente.",
       });
     }
 
-    if (!updateData || updateData.length === 0) {
-      console.error("❌ [reset-password] Nenhum registro foi atualizado");
-      return res.status(500).json({
+    console.log("📊 [reset-password] Resultado RPC:", rpcResult);
+
+    // A função retorna um JSON com success e error/message
+    if (!rpcResult || !rpcResult.success) {
+      console.error("❌ [reset-password] Função retornou falha:", rpcResult?.error);
+      return res.status(400).json({
         success: false,
-        error: "Não foi possível atualizar a senha. Tente novamente.",
+        error: rpcResult?.error || "Erro ao atualizar senha.",
       });
     }
 
-    console.log("✅ [reset-password] Senha atualizada com sucesso");
-    console.log("✅ [reset-password] Registros atualizados:", updateData.length);
+    console.log("✅ [reset-password] Senha atualizada com sucesso via RPC");
     console.log("✅ [reset-password] Email:", decoded.email);
     
     return res.status(200).json({ success: true });
 
   } catch (error) {
-    console.error("Erro na API de reset de senha:", error);
+    console.error("❌ Erro na API de reset de senha:", error);
     return res.status(500).json({
       success: false,
       error: "Erro interno ao processar solicitação.",
