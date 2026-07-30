@@ -7,10 +7,10 @@ import {
   remove as deleteTenant,
 } from "@/services/tenantService";
 import { getAll as getAllLocations } from "@/services/locationService";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 
 export function useTenants() {
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,64 +50,67 @@ export function useTenants() {
     async (data: Partial<Tenant>) => {
       try {
         await createTenant(data);
-        toast({
+        showAlert({
           title: "Sucesso!",
           description: "Inquilino criado com sucesso.",
+          type: "success",
         });
         await loadData();
         return true;
       } catch (error) {
-        toast({
+        showAlert({
           title: "Erro",
           description: "Não foi possível criar o inquilino.",
-          variant: "destructive",
+          type: "error",
         });
         return false;
       }
     },
-    [toast, loadData],
+    [showAlert, loadData],
   );
 
   const updateTenantHandler = useCallback(
     async (id: string, data: Partial<Tenant>) => {
       try {
         await updateTenant(id, data);
-        toast({
+        showAlert({
           title: "Sucesso!",
           description: "Inquilino atualizado com sucesso.",
+          type: "success",
         });
         await loadData();
         return true;
       } catch (error) {
-        toast({
+        showAlert({
           title: "Erro",
           description: "Não foi possível atualizar o inquilino.",
-          variant: "destructive",
+          type: "error",
         });
         return false;
       }
     },
-    [toast, loadData],
+    [showAlert, loadData],
   );
 
   const deleteTenantHandler = useCallback(
     async (id: string) => {
       try {
         await deleteTenant(id);
-        toast({
+        showAlert({
           title: "Sucesso!",
           description: "Inquilino removido com sucesso.",
+          type: "success",
         });
         await loadData();
       } catch (error) {
-        toast({
+        showAlert({
           title: "Erro",
           description: "Não foi possível remover o inquilino.",
-          variant: "destructive",
+          type: "error",
         });
       }
     },
-    [toast, loadData],
+    [showAlert, loadData],
   );
 
   const filteredTenants = useMemo(() => {

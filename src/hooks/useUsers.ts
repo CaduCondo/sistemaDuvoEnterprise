@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SystemUser } from "@/types";
 import { createUser, updateUser, deleteUser } from "@/services/systemUserService";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 
 export function useUsers() {
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
 
   const fetchUsers = async () => {
     try {
@@ -32,9 +32,10 @@ export function useUsers() {
       setUsers(typedUsers);
     } catch (error) {
       console.error("Erro ao carregar usuários:", error);
-      toast({
+      showAlert({
         title: "Erro ao carregar usuários",
-        variant: "destructive",
+        description: "Não foi possível carregar a lista de usuários.",
+        type: "error",
       });
     } finally {
       setIsLoading(false);
@@ -54,7 +55,6 @@ export function useUsers() {
     password: string;
   }) => {
     try {
-      // Verificar se já existe um usuário com este email
       const { data: existingUser } = await supabase
         .from("system_users")
         .select("email")
@@ -62,15 +62,14 @@ export function useUsers() {
         .maybeSingle();
 
       if (existingUser) {
-        toast({
+        showAlert({
           title: "Email já cadastrado",
           description: "Já existe um usuário com este email. Por favor, use um email diferente.",
-          variant: "destructive",
+          type: "error",
         });
         return false;
       }
 
-      // Verificar se já existe um usuário com este username
       const { data: existingUsername } = await supabase
         .from("system_users")
         .select("username")
@@ -78,10 +77,10 @@ export function useUsers() {
         .maybeSingle();
 
       if (existingUsername) {
-        toast({
+        showAlert({
           title: "Usuário já cadastrado",
           description: "Já existe um usuário com este nome de usuário. Por favor, escolha outro.",
-          variant: "destructive",
+          type: "error",
         });
         return false;
       }
@@ -91,38 +90,41 @@ export function useUsers() {
         active: true,
       });
       
-      toast({ title: "Usuário criado com sucesso!" });
+      showAlert({
+        title: "Sucesso",
+        description: "Usuário criado com sucesso!",
+        type: "success",
+      });
       await fetchUsers();
       return true;
     } catch (error: any) {
       console.error("Erro ao criar usuário:", error);
       
-      // Tratamento específico para erros de constraint
       if (error.message?.includes("duplicate key") || error.message?.includes("unique constraint")) {
         if (error.message?.includes("email")) {
-          toast({
+          showAlert({
             title: "Email já cadastrado",
             description: "Já existe um usuário com este email no sistema.",
-            variant: "destructive",
+            type: "error",
           });
         } else if (error.message?.includes("username")) {
-          toast({
+          showAlert({
             title: "Usuário já cadastrado",
             description: "Já existe um usuário com este nome de usuário no sistema.",
-            variant: "destructive",
+            type: "error",
           });
         } else {
-          toast({
+          showAlert({
             title: "Dados duplicados",
             description: "Os dados informados já estão em uso. Verifique email e nome de usuário.",
-            variant: "destructive",
+            type: "error",
           });
         }
       } else {
-        toast({
+        showAlert({
           title: "Erro ao criar usuário",
           description: error.message || "Ocorreu um erro ao criar o usuário.",
-          variant: "destructive",
+          type: "error",
         });
       }
       
@@ -138,7 +140,6 @@ export function useUsers() {
       console.log("🔑 password field:", (userData as any).password);
       console.log("🔑 password_hash field:", userData.password_hash);
       
-      // Se estiver atualizando o email, verificar se já existe outro usuário com este email
       if (userData.email) {
         const { data: existingUser } = await supabase
           .from("system_users")
@@ -148,16 +149,15 @@ export function useUsers() {
           .maybeSingle();
 
         if (existingUser) {
-          toast({
+          showAlert({
             title: "Email já cadastrado",
             description: "Já existe outro usuário com este email. Por favor, use um email diferente.",
-            variant: "destructive",
+            type: "error",
           });
           return false;
         }
       }
 
-      // Se estiver atualizando o username, verificar se já existe outro usuário com este username
       if (userData.username) {
         const { data: existingUsername } = await supabase
           .from("system_users")
@@ -167,10 +167,10 @@ export function useUsers() {
           .maybeSingle();
 
         if (existingUsername) {
-          toast({
+          showAlert({
             title: "Usuário já cadastrado",
             description: "Já existe outro usuário com este nome de usuário. Por favor, escolha outro.",
-            variant: "destructive",
+            type: "error",
           });
           return false;
         }
@@ -184,7 +184,6 @@ export function useUsers() {
         role: userData.role,
       };
 
-      // CRÍTICO: Aceitar o campo 'password' do formulário
       const passwordField = (userData as any).password;
       console.log("🔑 Password field value:", passwordField);
       console.log("🔑 Password field type:", typeof passwordField);
@@ -203,7 +202,11 @@ export function useUsers() {
       await updateUser(id, updateData);
       
       console.log("✅ updateUser concluído com sucesso");
-      toast({ title: "Usuário atualizado com sucesso!" });
+      showAlert({
+        title: "Sucesso",
+        description: "Usuário atualizado com sucesso!",
+        type: "success",
+      });
       await fetchUsers();
       return true;
     } catch (error: any) {
@@ -213,29 +216,29 @@ export function useUsers() {
       
       if (error.message?.includes("duplicate key") || error.message?.includes("unique constraint")) {
         if (error.message?.includes("email")) {
-          toast({
+          showAlert({
             title: "Email já cadastrado",
             description: "Já existe outro usuário com este email no sistema.",
-            variant: "destructive",
+            type: "error",
           });
         } else if (error.message?.includes("username")) {
-          toast({
+          showAlert({
             title: "Usuário já cadastrado",
             description: "Já existe outro usuário com este nome de usuário no sistema.",
-            variant: "destructive",
+            type: "error",
           });
         } else {
-          toast({
+          showAlert({
             title: "Dados duplicados",
             description: "Os dados informados já estão em uso por outro usuário.",
-            variant: "destructive",
+            type: "error",
           });
         }
       } else {
-        toast({
+        showAlert({
           title: "Erro ao atualizar usuário",
           description: error.message || "Ocorreu um erro ao atualizar o usuário.",
-          variant: "destructive",
+          type: "error",
         });
       }
       
@@ -246,12 +249,20 @@ export function useUsers() {
   const handleDeleteUser = async (id: string) => {
     try {
       await deleteUser(id);
-      toast({ title: "Usuário excluído com sucesso!" });
+      showAlert({
+        title: "Sucesso",
+        description: "Usuário excluído com sucesso!",
+        type: "success",
+      });
       await fetchUsers();
       return true;
     } catch (error) {
       console.error("Erro ao excluir usuário:", error);
-      toast({ title: "Erro ao excluir usuário", variant: "destructive" });
+      showAlert({
+        title: "Erro ao excluir usuário",
+        description: "Não foi possível excluir o usuário.",
+        type: "error",
+      });
       return false;
     }
   };
@@ -259,16 +270,19 @@ export function useUsers() {
   const handleToggleUserStatus = async (user: SystemUser) => {
     try {
       await updateUser(user.id, { active: !user.active });
-      toast({
-        title: `Usuário ${user.active ? "desativado" : "ativado"} com sucesso!`,
+      showAlert({
+        title: "Sucesso",
+        description: `Usuário ${user.active ? "desativado" : "ativado"} com sucesso!`,
+        type: "success",
       });
       await fetchUsers();
       return true;
     } catch (error) {
       console.error("Erro ao alterar status do usuário:", error);
-      toast({
+      showAlert({
         title: "Erro ao alterar status do usuário",
-        variant: "destructive",
+        description: "Não foi possível alterar o status do usuário.",
+        type: "error",
       });
       return false;
     }
@@ -276,7 +290,6 @@ export function useUsers() {
 
   const handleUnblockUser = async (userId: string) => {
     try {
-      // Resetar bloqueio temporário (blocked_until e login_attempts)
       const { error } = await supabase
         .from("system_users")
         .update({
@@ -287,18 +300,19 @@ export function useUsers() {
 
       if (error) throw error;
 
-      toast({
-        title: "Usuário desbloqueado com sucesso!",
-        description: "O usuário pode acessar o sistema novamente.",
+      showAlert({
+        title: "Sucesso",
+        description: "Usuário desbloqueado com sucesso! O usuário pode acessar o sistema novamente.",
+        type: "success",
       });
       await fetchUsers();
       return true;
     } catch (error) {
       console.error("Erro ao desbloquear usuário:", error);
-      toast({
+      showAlert({
         title: "Erro ao desbloquear usuário",
         description: "Não foi possível remover o bloqueio temporário.",
-        variant: "destructive",
+        type: "error",
       });
       return false;
     }

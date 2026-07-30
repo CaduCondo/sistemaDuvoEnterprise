@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import { SystemUser } from "@/types";
 import { updateUser } from "@/services/systemUserService";
 import { User, Mail, Phone, Shield, Save, Camera } from "lucide-react";
@@ -19,7 +19,7 @@ interface EditProfileDialogProps {
 }
 
 export function EditProfileDialog({ open, onOpenChange, user, onSuccess }: EditProfileDialogProps) {
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const [selectedUser, setSelectedUser] = useState<SystemUser | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -43,10 +43,10 @@ export function EditProfileDialog({ open, onOpenChange, user, onSuccess }: EditP
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      toast({
+      showAlert({
         title: "Arquivo muito grande",
         description: "A foto deve ter no máximo 5MB.",
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
@@ -95,9 +95,10 @@ export function EditProfileDialog({ open, onOpenChange, user, onSuccess }: EditP
         console.error("Erro ao atualizar sessão local:", e);
       }
       
-      toast({
+      showAlert({
         title: "Sucesso",
         description: "Perfil atualizado com sucesso!",
+        type: "success",
       });
       
       // Chama onSuccess primeiro para atualizar o contexto
@@ -112,10 +113,10 @@ export function EditProfileDialog({ open, onOpenChange, user, onSuccess }: EditP
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
       setIsSubmitting(false);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível atualizar o perfil.",
-        variant: "destructive",
+        type: "error",
       });
     }
   };

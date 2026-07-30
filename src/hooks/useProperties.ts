@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { propertyService, locationService } from "@/services";
 import type { Property, Location } from "@/types";
 import { parseCurrencyToFloat } from "@/lib/masks";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import { supabase } from "@/integrations/supabase/client";
 import { rentalUpdateService } from "@/services/rentalUpdateService";
 
@@ -59,7 +59,7 @@ const SORT_FUNCTIONS = {
 };
 
 export function useProperties(): UsePropertiesReturn {
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const [properties, setProperties] = useState<Property[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -111,16 +111,16 @@ export function useProperties(): UsePropertiesReturn {
       console.log(`✅ [useProperties] ${propertiesData.length} imóveis carregados (com contador de imagens)`);
     } catch (error) {
       console.error("❌ Erro ao carregar dados:", error);
-      toast({
+      showAlert({
         title: "Erro ao carregar",
         description: "Não foi possível carregar os imóveis. Tente novamente.",
-        variant: "destructive",
+        type: "error",
       });
     } finally {
       loadingRef.current = false;
       setLoading(false);
     }
-  }, [toast]);
+  }, [showAlert]);
 
   // Memoizar filtro + sort para evitar recalcular a cada render
   const filteredProperties = useMemo(() => {
@@ -307,23 +307,24 @@ export function useProperties(): UsePropertiesReturn {
       // 4. Recarregar dados
       await loadData();
 
-      toast({
+      showAlert({
         title: "Sucesso!",
         description: "Valor do aluguel atualizado e recebimentos ajustados automaticamente.",
+        type: "success",
       });
 
       // Limpar estado pendente
       setPendingRentAdjustment(null);
     } catch (error: any) {
       console.error("❌ Erro ao confirmar ajuste:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: error?.message || "Não foi possível atualizar o valor do aluguel.",
-        variant: "destructive",
+        type: "error",
       });
       throw error;
     }
-  }, [pendingRentAdjustment, loadData, toast]);
+  }, [pendingRentAdjustment, loadData, showAlert]);
 
   const cancelRentAdjustment = useCallback(() => {
     console.log("❌ Usuário cancelou o ajuste de valor");
@@ -337,9 +338,10 @@ export function useProperties(): UsePropertiesReturn {
       
       await propertyService.remove(id);
       
-      toast({
+      showAlert({
         title: "Sucesso!",
         description: "Imóvel deletado com sucesso.",
+        type: "success",
       });
       
       console.log("✅ [useProperties] Imóvel deletado:", id);
@@ -347,15 +349,15 @@ export function useProperties(): UsePropertiesReturn {
       // Reverte se falhar
       await loadData();
       
-      toast({
+      showAlert({
         title: "Erro ao deletar",
         description: error?.message || "Não foi possível deletar o imóvel. Tente novamente.",
-        variant: "destructive",
+        type: "error",
       });
       
       throw error;
     }
-  }, [loadData, toast]);
+  }, [loadData, showAlert]);
 
   useEffect(() => {
     loadData();
