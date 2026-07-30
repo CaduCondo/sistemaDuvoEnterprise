@@ -55,6 +55,13 @@ export default async function handler(
       });
     }
 
+    if (newPassword.length > 12) {
+      return res.status(400).json({
+        success: false,
+        error: "A senha deve ter no máximo 12 caracteres",
+      });
+    }
+
     if (!/[A-Z]/.test(newPassword)) {
       return res.status(400).json({
         success: false,
@@ -76,12 +83,24 @@ export default async function handler(
       });
     }
 
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        error: "A senha deve conter pelo menos um caractere especial",
+      });
+    }
+
     // Criar cliente Supabase para server-side com service role
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     
+    console.log("🔍 [reset-password] Supabase URL configurada:", !!supabaseUrl);
+    console.log("🔍 [reset-password] Service Role Key configurada:", !!supabaseServiceKey);
+    console.log("🔍 [reset-password] User ID do token:", decoded.userId);
+    console.log("🔍 [reset-password] Email do token:", decoded.email);
+    
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("Credenciais Supabase não configuradas");
+      console.error("❌ Credenciais Supabase não configuradas");
       return res.status(500).json({
         success: false,
         error: "Configuração do servidor incorreta.",
@@ -91,7 +110,8 @@ export default async function handler(
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Atualizar senha no banco
-    const { error: updateError } = await supabase
+    console.log("📝 [reset-password] Tentando atualizar senha no banco...");
+    const { data: updateData, error: updateError } = await supabase
       .from("system_users")
       .update({
         password_hash: newPassword,
@@ -101,17 +121,21 @@ export default async function handler(
         blocked_until: null,
       })
       .eq("id", decoded.userId)
-      .eq("email", decoded.email);
+      .eq("email", decoded.email)
+      .select();
 
     if (updateError) {
-      console.error("Erro ao atualizar senha:", updateError);
+      console.error("❌ [reset-password] Erro ao atualizar senha:", updateError);
+      console.error("❌ [reset-password] Detalhes do erro:", JSON.stringify(updateError, null, 2));
       return res.status(500).json({
         success: false,
         error: "Erro ao atualizar senha. Tente novamente.",
       });
     }
 
-    console.log("✅ Senha atualizada com sucesso para usuário:", decoded.email);
+    console.log("✅ [reset-password] Senha atualizada com sucesso");
+    console.log("✅ [reset-password] Dados atualizados:", updateData);
+    console.log("✅ [reset-password] Email:", decoded.email);
     
     return res.status(200).json({ success: true });
 

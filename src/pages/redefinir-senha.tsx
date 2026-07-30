@@ -49,6 +49,9 @@ export default function RedefinirSenha() {
     if (pass.length < 8) {
       return "A senha deve ter no mínimo 8 caracteres";
     }
+    if (pass.length > 12) {
+      return "A senha deve ter no máximo 12 caracteres";
+    }
     if (!/[A-Z]/.test(pass)) {
       return "A senha deve conter pelo menos uma letra maiúscula";
     }
@@ -57,6 +60,9 @@ export default function RedefinirSenha() {
     }
     if (!/[0-9]/.test(pass)) {
       return "A senha deve conter pelo menos um número";
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pass)) {
+      return "A senha deve conter pelo menos um caractere especial";
     }
     return null;
   };
@@ -270,19 +276,23 @@ export default function RedefinirSenha() {
                   <p className="font-semibold text-sm text-slate-900 mb-2">Requisitos da senha:</p>
                   <ul className="space-y-1 text-xs text-slate-600">
                     <li className="flex items-center gap-2">
-                      <div className={`h-1.5 w-1.5 rounded-full ${password.length >= 8 ? 'bg-green-500' : 'bg-slate-300'}`} />
-                      Mínimo de 8 caracteres
+                      <div className={`h-1.5 w-1.5 rounded-full ${password.length >= 8 && password.length <= 12 ? 'bg-green-500' : 'bg-red-500'}`} />
+                      Mínimo de 8 e máximo de 12 caracteres
                     </li>
                     <li className="flex items-center gap-2">
-                      <div className={`h-1.5 w-1.5 rounded-full ${/[A-Z]/.test(password) ? 'bg-green-500' : 'bg-slate-300'}`} />
+                      <div className={`h-1.5 w-1.5 rounded-full ${/[A-Z]/.test(password) ? 'bg-green-500' : 'bg-red-500'}`} />
                       Pelo menos uma letra maiúscula
                     </li>
                     <li className="flex items-center gap-2">
-                      <div className={`h-1.5 w-1.5 rounded-full ${/[a-z]/.test(password) ? 'bg-green-500' : 'bg-slate-300'}`} />
+                      <div className={`h-1.5 w-1.5 rounded-full ${/[a-z]/.test(password) ? 'bg-green-500' : 'bg-red-500'}`} />
                       Pelo menos uma letra minúscula
                     </li>
                     <li className="flex items-center gap-2">
-                      <div className={`h-1.5 w-1.5 rounded-full ${/[0-9]/.test(password) ? 'bg-green-500' : 'bg-slate-300'}`} />
+                      <div className={`h-1.5 w-1.5 rounded-full ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password) ? 'bg-green-500' : 'bg-red-500'}`} />
+                      Pelo menos um caractere especial
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className={`h-1.5 w-1.5 rounded-full ${/[0-9]/.test(password) ? 'bg-green-500' : 'bg-red-500'}`} />
                       Pelo menos um número
                     </li>
                   </ul>
