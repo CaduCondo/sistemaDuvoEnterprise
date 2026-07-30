@@ -6,13 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { SEO } from "@/components/SEO";
-import jwt from "jsonwebtoken";
-
-interface TokenPayload {
-  userId: string;
-  email: string;
-  type: string;
-}
 
 export default function RedefinirSenha() {
   const router = useRouter();
@@ -25,10 +18,9 @@ export default function RedefinirSenha() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [validatingToken, setValidatingToken] = useState(true);
-  const [tokenPayload, setTokenPayload] = useState<TokenPayload | null>(null);
 
   useEffect(() => {
-    // Verificar se há um token válido
+    // Verificar se há um token
     const checkToken = async () => {
       if (!token || typeof token !== "string") {
         setError("Link inválido ou expirado. Solicite um novo link de recuperação.");
@@ -36,25 +28,16 @@ export default function RedefinirSenha() {
         return;
       }
 
-      try {
-        // Verificar token JWT - usar mesma secret da API
-        const secret = process.env.JWT_SECRET || process.env.NEXT_PUBLIC_JWT_SECRET || "duvo-enterprise-secret-key-2024";
-        const decoded = jwt.verify(token, secret) as TokenPayload;
-
-        if (decoded.type !== "password_reset") {
-          setError("Token inválido. Solicite um novo link de recuperação.");
-          setValidatingToken(false);
-          return;
-        }
-
-        setTokenPayload(decoded);
+      // Validação básica de formato JWT (deve ter 3 partes separadas por ponto)
+      const parts = token.split(".");
+      if (parts.length !== 3) {
+        setError("Token inválido. Solicite um novo link de recuperação.");
         setValidatingToken(false);
-
-      } catch (err) {
-        console.error("Erro ao validar token:", err);
-        setError("Link expirado ou inválido. Solicite um novo link de recuperação.");
-        setValidatingToken(false);
+        return;
       }
+
+      // Token parece válido em formato - validação completa acontece no backend
+      setValidatingToken(false);
     };
 
     if (router.isReady) {
@@ -82,7 +65,7 @@ export default function RedefinirSenha() {
     e.preventDefault();
     setError("");
     
-    if (!tokenPayload) {
+    if (!token || typeof token !== "string") {
       setError("Sessão inválida. Por favor, solicite um novo link.");
       return;
     }
@@ -101,21 +84,22 @@ export default function RedefinirSenha() {
     setLoading(true);
 
     try {
-      // Atualizar senha diretamente no banco
-      const { error: updateError } = await supabase
-        .from("system_users")
-        .update({
-          password_hash: password,
-          requires_password_change: false,
-          temporary_password: false,
-          login_attempts: 0,
-          blocked_until: null,
-        })
-        .eq("id", tokenPayload.userId);
+      // Validar e processar token via API
+      const response = await fetch("/api/reset-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token,
+          newPassword: password,
+        }),
+      });
 
-      if (updateError) {
-        console.error("Erro ao atualizar senha:", updateError);
-        setError("Erro ao atualizar senha. Tente novamente.");
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.error || "Erro ao atualizar senha. Tente novamente.");
         setLoading(false);
         return;
       }
@@ -149,7 +133,7 @@ export default function RedefinirSenha() {
     );
   }
 
-  if (error && !tokenPayload) {
+  if (error && !token) {
     return (
       <>
         <SEO title="Link Inválido" />
