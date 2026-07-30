@@ -818,10 +818,18 @@ export default function Settings() {
                             if (confirm(`Deseja excluir ${method.name}?`)) {
                               try {
                                 await deletePaymentMethod(method.id);
-                                showAlert({ title: "Forma de pagamento excluída" });
+                                showAlert({ 
+                                  title: "Forma de pagamento excluída",
+                                  description: "A forma de pagamento foi excluída com sucesso.",
+                                  type: "success",
+                                });
                                 await fetchPaymentMethods();
                               } catch (error) {
-                                showAlert({ title: "Erro ao excluir", type: "error" });
+                                showAlert({ 
+                                  title: "Erro ao excluir",
+                                  description: "Não foi possível excluir a forma de pagamento.",
+                                  type: "error",
+                                });
                               }
                             }
                           }}
