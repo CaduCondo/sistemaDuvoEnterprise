@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -90,7 +90,7 @@ import { HelpDialog } from "@/components/HelpDialog";
 
 export default function Settings() {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState("company");
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -205,9 +205,10 @@ export default function Settings() {
       setPaymentMethods(data);
     } catch (error) {
       console.error("Failed to fetch payment methods:", error);
-      toast({ 
+      showAlert({ 
         title: "Erro ao carregar formas de pagamento",
-        variant: "destructive" 
+        type: "error",
+        description: "Não foi possível carregar as formas de pagamento."
       });
     }
   };
@@ -224,10 +225,10 @@ export default function Settings() {
       }
     } catch (error) {
       console.error("Erro ao carregar configurações:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível carregar as configurações.",
-        variant: "destructive",
+        type: "error",
       });
     }
   };
@@ -238,10 +239,10 @@ export default function Settings() {
       setLocations(data);
     } catch (error) {
       console.error("Failed to fetch locations:", error);
-      toast({ 
+      showAlert({ 
         title: "Erro ao carregar locais",
         description: "Não foi possível carregar a lista de locais.",
-        variant: "destructive" 
+        type: "error",
       });
     }
   };
@@ -257,10 +258,18 @@ export default function Settings() {
     };
     try {
       await updateConfig(updatedConfig);
-      toast({ title: "Configurações salvas com sucesso!" });
+      showAlert({ 
+        title: "Configurações salvas com sucesso!",
+        type: "success",
+        description: "As configurações foram atualizadas."
+      });
     } catch (error) {
       console.error("Erro ao salvar config:", error);
-      toast({ title: "Erro ao salvar configurações", variant: "destructive" });
+      showAlert({ 
+        title: "Erro ao salvar configurações", 
+        type: "error",
+        description: "Não foi possível salvar as configurações."
+      });
     }
   };
 
@@ -282,18 +291,18 @@ export default function Settings() {
           is_active: prev.is_active,
         }));
       } else {
-        toast({
+        showAlert({
           title: "CEP não encontrado",
           description: "Verifique o CEP informado.",
-          variant: "destructive",
+          type: "error",
         });
       }
     } catch (error) {
       console.error("Error fetching CEP:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível buscar o CEP.",
-        variant: "destructive",
+        type: "error",
       });
     }
   };
@@ -313,9 +322,10 @@ export default function Settings() {
           state: locationForm.state,
           zip_code: locationForm.zip_code,
         });
-        toast({
+        showAlert({
           title: "Sucesso",
           description: "Local atualizado com sucesso.",
+          type: "success",
         });
       } else {
         await locationService.createLocation({
@@ -328,9 +338,10 @@ export default function Settings() {
           state: locationForm.state,
           zip_code: locationForm.zip_code,
         });
-        toast({
+        showAlert({
           title: "Sucesso",
           description: "Local cadastrado com sucesso.",
+          type: "success",
         });
       }
 
@@ -350,10 +361,10 @@ export default function Settings() {
       await fetchLocations();
     } catch (error: any) {
       console.error("Failed to save location:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: error.message || "Não foi possível salvar o local.",
-        variant: "destructive",
+        type: "error",
       });
     }
   };
@@ -396,18 +407,20 @@ export default function Settings() {
     setIsLoadingLocations(true);
 
     try {
-      toast({
+      showAlert({
         title: "Processando...",
         description: "Removendo local do sistema...",
+        type: "info",
       });
 
       await locationService.deleteLocation(locationToDelete.id);
 
       setLocations(prev => prev.filter(loc => loc.id !== locationToDelete.id));
 
-      toast({
+      showAlert({
         title: "Sucesso!",
         description: "Local excluído com sucesso.",
+        type: "success",
       });
 
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -426,10 +439,10 @@ export default function Settings() {
         errorMessage = "Este local possui dados vinculados e não pode ser excluído.";
       }
 
-      toast({
+      showAlert({
         title: "Erro",
         description: errorMessage,
-        variant: "destructive",
+        type: "error",
       });
 
       await fetchLocations();
@@ -519,18 +532,19 @@ export default function Settings() {
       console.log('Equipe D\'Uvo Enterprise');
       console.log('================================');
 
-      toast({ 
+      showAlert({ 
         title: "Senha resetada com sucesso!",
         description: "Email enviado para " + user.email,
+        type: "success",
       });
       
       return true;
     } catch (error) {
       console.error("Erro ao resetar senha:", error);
-      toast({ 
+      showAlert({ 
         title: "Erro ao resetar senha", 
         description: "Não foi possível resetar a senha do usuário.",
-        variant: "destructive" 
+        type: "error",
       });
       return false;
     }
@@ -804,10 +818,10 @@ export default function Settings() {
                             if (confirm(`Deseja excluir ${method.name}?`)) {
                               try {
                                 await deletePaymentMethod(method.id);
-                                toast({ title: "Forma de pagamento excluída" });
+                                showAlert({ title: "Forma de pagamento excluída" });
                                 await fetchPaymentMethods();
                               } catch (error) {
-                                toast({ title: "Erro ao excluir", variant: "destructive" });
+                                showAlert({ title: "Erro ao excluir", type: "error" });
                               }
                             }
                           }}
@@ -1317,10 +1331,10 @@ export default function Settings() {
               // ✅ Validar se code não está vazio
               if (!code) {
                 console.error("❌ [settings] Code está vazio!");
-                toast({ 
+                showAlert({ 
                   title: "Erro de validação", 
                   description: "O código da forma de pagamento é obrigatório.",
-                  variant: "destructive" 
+                  type: "error" 
                 });
                 return;
               }
@@ -1336,22 +1350,30 @@ export default function Settings() {
                 if (editingPaymentMethod) {
                   console.log("📝 [settings] Atualizando forma de pagamento ID:", editingPaymentMethod.id);
                   await updatePaymentMethod(editingPaymentMethod.id, dataToSave);
-                  toast({ title: "Forma de pagamento atualizada" });
+                  showAlert({ 
+                    title: "Forma de pagamento atualizada",
+                    type: "success",
+                    description: "A forma de pagamento foi atualizada com sucesso."
+                  });
                 } else {
                   console.log("➕ [settings] Criando nova forma de pagamento");
                   const result = await createPaymentMethod(dataToSave);
                   console.log("✅ [settings] Forma de pagamento criada:", result);
-                  toast({ title: "Forma de pagamento criada" });
+                  showAlert({ 
+                    title: "Forma de pagamento criada",
+                    type: "success",
+                    description: "A forma de pagamento foi criada com sucesso."
+                  });
                 }
                 setIsPaymentMethodDialogOpen(false);
                 await fetchPaymentMethods();
               } catch (error: any) {
                 console.error("❌ [settings] Erro ao salvar forma de pagamento:", error);
                 console.error("❌ [settings] Error details:", error.message, error.details);
-                toast({ 
+                showAlert({ 
                   title: "Erro ao salvar", 
                   description: error.message || "Não foi possível salvar a forma de pagamento.",
-                  variant: "destructive" 
+                  type: "error" 
                 });
               }
             }} className="space-y-4">

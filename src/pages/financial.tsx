@@ -75,7 +75,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import * as XLSX from "xlsx";
 import { Payment, Property, Rental, Tenant } from "@/types";
 import { formatCurrency } from "@/lib/masks";
@@ -479,7 +479,7 @@ const CACHE_DURATION = 2 * 60 * 1000; // 2 minutos
 
 export default function Financial() {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const isAdmin = user?.role === "admin" || user?.role === "broker";
   const isFinancial = user?.role === "financial";
   
@@ -823,10 +823,10 @@ export default function Financial() {
       }
       
       console.error("❌ Error loading financial data:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível carregar os dados financeiros.",
-        variant: "destructive",
+        type: "error",
       });
     } finally {
       loadingRef.current = false;
@@ -1048,10 +1048,10 @@ export default function Financial() {
   const handlePrint = useCallback(async () => {
     try {
       if (getSortedPayments.length === 0) {
-        toast({
+        showAlert({
           title: "Aviso",
           description: "Não há dados para imprimir.",
-          variant: "destructive",
+          type: "error",
         });
         return;
       }
@@ -1061,20 +1061,20 @@ export default function Financial() {
 
     } catch (error) {
       console.error("❌ [handlePrint] Erro ao imprimir:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível iniciar a impressão. Veja o console para detalhes.",
-        variant: "destructive",
+        type: "error",
       });
     }
-  }, [getSortedPayments, toast]);
+  }, [getSortedPayments, showAlert]);
 
   const handleExportExpenses = () => {
     if (!filteredExpensesDetails || filteredExpensesDetails.length === 0) {
-      toast({
-        variant: "destructive",
+      showAlert({
         title: "Erro ao exportar",
         description: "Não há dados para exportar.",
+        type: "error",
       });
       return;
     }
@@ -1092,9 +1092,10 @@ export default function Financial() {
 
     XLSX.writeFile(wb, `despesas_${selectedMonth}_${selectedYear}.xlsx`);
 
-    toast({
+    showAlert({
       title: "Exportado com sucesso!",
       description: "O arquivo foi baixado.",
+      type: "success",
     });
   };
 
@@ -1134,9 +1135,10 @@ export default function Financial() {
       }));
 
       if (expenses.length === 0) {
-        toast({
+        showAlert({
           title: "Sem despesas",
           description: "Não há despesas cadastradas para este período.",
+          type: "info",
         });
         return;
       }
@@ -1366,10 +1368,10 @@ export default function Financial() {
       }
     } catch (error) {
       console.error("Erro ao abrir despesas:", error);
-      toast({
-        variant: "destructive",
+      showAlert({
         title: "Erro ao abrir despesas",
         description: "Ocorreu um erro ao carregar os dados.",
+        type: "error",
       });
     }
   };
@@ -1384,9 +1386,10 @@ export default function Financial() {
 
       if (error) throw error;
 
-      toast({
+      showAlert({
         title: "Sucesso",
         description: "Código PIX atualizado com sucesso!",
+        type: "success",
       });
 
       // ✅ Atualizar estado local corretamente
@@ -1409,10 +1412,10 @@ export default function Financial() {
       
     } catch (error) {
       console.error("Erro ao atualizar código PIX:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: error instanceof Error ? error.message : "Não foi possível atualizar o código PIX.",
-        variant: "destructive",
+        type: "error",
       });
     }
   };
@@ -1442,9 +1445,10 @@ export default function Financial() {
         )
       );
 
-      toast({
+      showAlert({
         title: "Código PIX atualizado",
         description: "O código foi atualizado com sucesso.",
+        type: "success",
       });
 
       setEditingPixCell(null);
@@ -1454,10 +1458,10 @@ export default function Financial() {
       financialCache = { data: null, key: "", timestamp: 0 };
     } catch (error) {
       console.error("Erro ao atualizar código PIX:", error);
-      toast({
-        variant: "destructive",
+      showAlert({
         title: "Erro ao atualizar",
         description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido",
+        type: "error",
       });
     }
   };
@@ -1505,11 +1509,12 @@ export default function Financial() {
     XLSX.utils.book_append_sheet(wb, ws, `${monthName} ${filterYear}`);
     XLSX.writeFile(wb, `Financeiro_${monthName}_${filterYear}.xlsx`);
 
-    toast({
+    showAlert({
       title: "Sucesso!",
       description: "Planilha exportada com sucesso.",
+      type: "success",
     });
-  }, [getSortedPayments, filterMonth, filterYear, getPaymentDetails, calculatePaymentNumber, getExpectedAmount, toast]);
+  }, [getSortedPayments, filterMonth, filterYear, getPaymentDetails, calculatePaymentNumber, getExpectedAmount, showAlert]);
 
   // KPI Calculations (MEMOIZADOS COM FILTRO DE LOCALIZAÇÃO!)
   const kpiCalculations = useMemo(() => {
