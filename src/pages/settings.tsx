@@ -1334,7 +1334,7 @@ export default function Settings() {
                 showAlert({ 
                   title: "Erro de validação", 
                   description: "O código da forma de pagamento é obrigatório.",
-                  type: "error" 
+                  type: "error",
                 });
                 return;
               }
