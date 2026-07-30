@@ -297,12 +297,12 @@ export function useProperties(): UsePropertiesReturn {
 
       // 3. Ajustar os recebimentos
       const today = new Date();
-      await rentalUpdateService.adjustRentalValue({
+      await rentalUpdateService.adjustRentalValue(
         rentalId,
         oldValue,
         newValue,
-        effectiveDate: today.toISOString().split('T')[0],
-      });
+        today.toISOString().split('T')[0]
+      );
 
       // 4. Recarregar dados
       await loadData();
