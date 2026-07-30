@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   // Lista de rotas públicas que não requerem autenticação
-  const publicRoutes = ["/", "/login"];
+  const publicRoutes = ["/", "/login", "/redefinir-senha"];
 
   const refreshUser = () => {
     const currentUser = getCurrentUser();
