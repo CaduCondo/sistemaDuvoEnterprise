@@ -295,6 +295,10 @@ export default function RedefinirSenha() {
                       <div className={`h-1.5 w-1.5 rounded-full ${/[0-9]/.test(password) ? 'bg-green-500' : 'bg-red-500'}`} />
                       Pelo menos um número
                     </li>
+                    <li className="flex items-center gap-2">
+                      <div className={`h-1.5 w-1.5 rounded-full ${password && confirmPassword && password === confirmPassword ? 'bg-green-500' : 'bg-red-500'}`} />
+                      As senhas informadas devem ser iguais
+                    </li>
                   </ul>
                 </div>
 

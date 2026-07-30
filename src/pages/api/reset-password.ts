@@ -109,6 +109,35 @@ export default async function handler(
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Verificar se o usuário existe primeiro
+    console.log("🔍 [reset-password] Verificando se o usuário existe...");
+    const { data: existingUser, error: fetchError } = await supabase
+      .from("system_users")
+      .select("id, email, name")
+      .eq("id", decoded.userId)
+      .eq("email", decoded.email)
+      .single();
+
+    if (fetchError) {
+      console.error("❌ [reset-password] Erro ao buscar usuário:", fetchError);
+      console.error("❌ [reset-password] Código do erro:", fetchError.code);
+      console.error("❌ [reset-password] Mensagem:", fetchError.message);
+      return res.status(404).json({
+        success: false,
+        error: "Usuário não encontrado. O link pode estar inválido.",
+      });
+    }
+
+    if (!existingUser) {
+      console.error("❌ [reset-password] Usuário não encontrado no banco");
+      return res.status(404).json({
+        success: false,
+        error: "Usuário não encontrado. O link pode estar inválido.",
+      });
+    }
+
+    console.log("✅ [reset-password] Usuário encontrado:", existingUser.email);
+
     // Atualizar senha no banco
     console.log("📝 [reset-password] Tentando atualizar senha no banco...");
     const { data: updateData, error: updateError } = await supabase
@@ -126,15 +155,35 @@ export default async function handler(
 
     if (updateError) {
       console.error("❌ [reset-password] Erro ao atualizar senha:", updateError);
-      console.error("❌ [reset-password] Detalhes do erro:", JSON.stringify(updateError, null, 2));
+      console.error("❌ [reset-password] Código do erro:", updateError.code);
+      console.error("❌ [reset-password] Mensagem:", updateError.message);
+      console.error("❌ [reset-password] Detalhes:", updateError.details);
+      console.error("❌ [reset-password] Hint:", updateError.hint);
+      
+      // Mensagens de erro mais específicas
+      if (updateError.code === "42501") {
+        return res.status(500).json({
+          success: false,
+          error: "Erro de permissão ao atualizar senha. Contate o suporte.",
+        });
+      }
+      
       return res.status(500).json({
         success: false,
-        error: "Erro ao atualizar senha. Tente novamente.",
+        error: `Erro ao atualizar senha: ${updateError.message}`,
+      });
+    }
+
+    if (!updateData || updateData.length === 0) {
+      console.error("❌ [reset-password] Nenhum registro foi atualizado");
+      return res.status(500).json({
+        success: false,
+        error: "Não foi possível atualizar a senha. Tente novamente.",
       });
     }
 
     console.log("✅ [reset-password] Senha atualizada com sucesso");
-    console.log("✅ [reset-password] Dados atualizados:", updateData);
+    console.log("✅ [reset-password] Registros atualizados:", updateData.length);
     console.log("✅ [reset-password] Email:", decoded.email);
     
     return res.status(200).json({ success: true });
