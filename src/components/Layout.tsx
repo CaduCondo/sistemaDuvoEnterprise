@@ -32,7 +32,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import { EditProfileDialog } from "./EditProfileDialog";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,7 +48,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const { user: authUser, refreshUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -131,16 +131,17 @@ export function Layout({ children }: LayoutProps) {
       // Atualizar contexto
       refreshUser();
 
-      toast({
+      showAlert({
         title: "Tema alterado",
         description: `Tema ${newTheme === 'dark' ? 'escuro' : 'claro'} aplicado com sucesso.`,
+        type: "success",
       });
     } catch (error) {
       console.error("Error updating theme:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível alterar o tema.",
-        variant: "destructive",
+        type: "error",
       });
     }
   };
@@ -149,27 +150,27 @@ export function Layout({ children }: LayoutProps) {
     if (!authUser) return;
 
     if (newPassword !== confirmPassword) {
-      toast({
+      showAlert({
         title: "Erro!",
         description: "As senhas não coincidem!",
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
 
     if (newPassword.length < 8) {
-      toast({
+      showAlert({
         title: "Erro!",
         description: "A nova senha deve ter no mínimo 8 caracteres!",
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
 
-    toast({
+    showAlert({
       title: "Senha alterada com sucesso!",
       description: "Sua senha foi atualizada com sucesso.",
-      variant: "default",
+      type: "success",
     });
 
     setShowPasswordDialog(false);

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 
 interface PasswordValidation {
   hasUpperCase: boolean;
@@ -21,7 +21,7 @@ interface PasswordChangeDialogProps {
 }
 
 export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialogProps) {
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -69,10 +69,10 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
     e.preventDefault();
     
     if (!isValid) {
-      toast({
+      showAlert({
         title: "Senha inválida",
         description: "Verifique os requisitos de senha.",
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
@@ -80,11 +80,10 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
     setLoading(true);
 
     try {
-      // Atualizar senha no banco
       const { error } = await supabase
         .from("system_users")
         .update({
-          password_hash: newPassword, // TEMPORARY: será hash depois
+          password_hash: newPassword,
           requires_password_change: false,
           temporary_password: false,
         })
@@ -92,20 +91,18 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
 
       if (error) throw error;
 
-      // Mostrar tela de sucesso
       setShowSuccessScreen(true);
 
-      // Aguardar 3 segundos antes de redirecionar para login
       setTimeout(() => {
         onSuccess();
       }, 3000);
 
     } catch (error) {
       console.error("Erro ao atualizar senha:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível atualizar a senha.",
-        variant: "destructive",
+        type: "error",
       });
       setLoading(false);
     }

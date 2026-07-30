@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { useAlert } from "@/contexts/AlertContext";
 import { formatCurrency, formatCurrencyInput, parseCurrencyToNumber } from "@/lib/masks";
 import { supabase } from "@/integrations/supabase/client";
 import type { DepositInstallment, Rental } from "@/types";
@@ -43,7 +43,7 @@ export function DepositPaymentDialog({
   rental,
   onSuccess,
 }: DepositPaymentDialogProps) {
-  const { toast } = useToast();
+  const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState<any>(null);
 
@@ -169,16 +169,17 @@ export function DepositPaymentDialog({
       const { url } = await response.json();
       setAttachments((prev) => [...prev, url]);
 
-      toast({
+      showAlert({
         title: "Sucesso",
         description: "Arquivo anexado com sucesso",
+        type: "success",
       });
     } catch (error) {
       console.error("Erro ao fazer upload:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível anexar o arquivo",
-        variant: "destructive",
+        type: "error",
       });
     }
   };
@@ -187,10 +188,10 @@ export function DepositPaymentDialog({
     e.preventDefault();
     
     if (!installment) {
-      toast({
+      showAlert({
         title: "Erro",
         description: "Parcela não encontrada",
-        variant: "destructive",
+        type: "error",
       });
       return;
     }
@@ -207,20 +208,20 @@ export function DepositPaymentDialog({
 
       if (fetchError || !dbInstallment) {
         console.error("Erro ao buscar parcela:", fetchError);
-        toast({
+        showAlert({
           title: "Erro",
           description: "Parcela não encontrada no banco de dados. Por favor, recarregue a página.",
-          variant: "destructive",
+          type: "error",
         });
         return;
       }
 
       const paidValue = parseCurrencyToNumber(paidAmount);
       if (paidValue <= 0) {
-        toast({
+        showAlert({
           title: "Erro",
           description: "Informe um valor válido",
-          variant: "destructive",
+          type: "error",
         });
         return;
       }
@@ -250,24 +251,25 @@ export function DepositPaymentDialog({
 
       if (error) throw error;
 
-      toast({
+      showAlert({
         title: "Sucesso",
         description: "Recebimento de caução registrado com sucesso!",
+        type: "success",
       });
 
       onSuccess();
       onOpenChange(false);
     } catch (error) {
       console.error("Erro ao registrar recebimento:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível registrar o recebimento",
-        variant: "destructive",
+        type: "error",
       });
     } finally {
       setLoading(false);
     }
-  }, [paymentDate, paymentMethod, paidAmount, notes, attachments, calculations, installment, onSuccess, onOpenChange, toast]);
+  }, [paymentDate, paymentMethod, paidAmount, notes, attachments, calculations, installment, onSuccess, onOpenChange, showAlert]);
 
   const handleDelete = async () => {
     if (!confirm("Deseja realmente excluir este recebimento? O status voltará para Pendente.")) {
@@ -292,19 +294,20 @@ export function DepositPaymentDialog({
 
       if (error) throw error;
 
-      toast({
+      showAlert({
         title: "Sucesso",
         description: "Recebimento excluído com sucesso!",
+        type: "success",
       });
 
       onSuccess();
       onOpenChange(false);
     } catch (error) {
       console.error("Erro ao excluir recebimento:", error);
-      toast({
+      showAlert({
         title: "Erro",
         description: "Não foi possível excluir o recebimento",
-        variant: "destructive",
+        type: "error",
       });
     } finally {
       setLoading(false);
