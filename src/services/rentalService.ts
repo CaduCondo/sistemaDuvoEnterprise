@@ -466,41 +466,7 @@ export const rentalService = {
 
     if (error) throw error;
 
-    if (isReactivating) {
-      console.log("🔄 [rentalService.update] Deletando recebimentos PENDING antigos...");
-      
-      const { error: deleteError } = await supabase
-        .from("payments")
-        .delete()
-        .eq("rental_id", id)
-        .eq("status", "pending");
-      
-      if (deleteError) {
-        console.error("❌ Erro ao deletar recebimentos pending:", deleteError);
-      }
-
-      console.log("🔄 [rentalService.update] Gerando novos recebimentos até nova data fim...");
-      
-      const newStartDate = rental.startDate || oldRental.startDate;
-      const newEndDate = rental.endDate!;
-      const monthlyRent = rental.monthlyRent || rental.value || oldRental.monthlyRent;
-      const paymentDay = rental.paymentDay || oldRental.paymentDay;
-      const hasGarage = rental.hasGarage !== undefined ? rental.hasGarage : oldRental.hasGarage;
-      const garageValue = rental.garageValue !== undefined ? rental.garageValue : oldRental.garageValue;
-
-      await createPaymentsForRental({
-        rental: { id } as Rental,
-        startDate: new Date(newStartDate),
-        endDate: new Date(newEndDate),
-        monthlyRent,
-        paymentDay,
-        hasGarage,
-        garageValue,
-      });
-      
-      console.log("✅ [rentalService.update] Recebimentos recriados com sucesso!");
-    }
-
+    // Gerenciar parcelas de caução (código existente permanece igual)
     const { data: existingInstallments } = await supabase
       .from("deposit_installments")
       .select("*")
@@ -654,36 +620,39 @@ export const rentalService = {
       }
     }
 
-    if (!isReactivating) {
-      const rentPaymentsChanged = 
-        (rental.startDate !== undefined && rental.startDate !== oldRental.startDate) ||
-        (rental.endDate !== undefined && rental.endDate !== oldRental.endDate) ||
-        (rental.paymentDay !== undefined && rental.paymentDay !== oldRental.paymentDay) ||
-        (rental.hasGarage !== undefined && rental.hasGarage !== oldRental.hasGarage) ||
-        (rental.garageValue !== undefined && rental.garageValue !== oldRental.garageValue) ||
-        (rental.monthlyRent !== undefined && rental.monthlyRent !== oldRental.monthlyRent) ||
-        (rental.value !== undefined && rental.value !== oldRental.monthlyRent);
+    // NOVA LÓGICA UNIFICADA: Sincronizar recebimentos de aluguel se qualquer data ou valor mudou
+    const rentPaymentsChanged = 
+      (rental.startDate !== undefined && rental.startDate !== oldRental.startDate) ||
+      (rental.endDate !== undefined && rental.endDate !== oldRental.endDate) ||
+      (rental.paymentDay !== undefined && rental.paymentDay !== oldRental.paymentDay) ||
+      (rental.hasGarage !== undefined && rental.hasGarage !== oldRental.hasGarage) ||
+      (rental.garageValue !== undefined && rental.garageValue !== oldRental.garageValue) ||
+      (rental.monthlyRent !== undefined && rental.monthlyRent !== oldRental.monthlyRent) ||
+      (rental.value !== undefined && rental.value !== oldRental.monthlyRent);
 
-      if (rentPaymentsChanged) {
-        console.log("🔄 [rentalService.update] Sincronizando recebimentos...");
+    if (rentPaymentsChanged) {
+      console.log("🔄 [rentalService.update] Sincronizando recebimentos de aluguel...");
+      
+      try {
+        const { rentalUpdateService } = await import("./rentalUpdateService");
         
-        try {
-          const fullRental = await rentalService.getById(id);
-          await updatePendingPaymentsOnRentalEdit(
-            id, 
-            {
-              monthlyRent: rental.monthlyRent ?? rental.value,
-              paymentDay: rental.paymentDay,
-              hasGarage: rental.hasGarage,
-              garageValue: rental.garageValue,
-            }, 
-            fullRental
-          );
-          
-          console.log("✅ [rentalService.update] Recebimentos de aluguel atualizados com sucesso!");
-        } catch (paymentError) {
-          console.error("❌ [rentalService.update] ERRO ao atualizar recebimentos:", paymentError);
-        }
+        await rentalUpdateService.updatePaymentsOnRentalEdit(
+          id,
+          oldRental,
+          {
+            startDate: rental.startDate,
+            endDate: rental.endDate,
+            monthlyRent: rental.monthlyRent ?? rental.value,
+            paymentDay: rental.paymentDay,
+            hasGarage: rental.hasGarage,
+            garageValue: rental.garageValue,
+          }
+        );
+        
+        console.log("✅ [rentalService.update] Recebimentos de aluguel sincronizados com sucesso!");
+      } catch (paymentError) {
+        console.error("❌ [rentalService.update] ERRO ao sincronizar recebimentos:", paymentError);
+        throw paymentError;
       }
     }
 
