@@ -286,7 +286,16 @@ export default function Payments() {
   const handleManagePaymentSuccess = useCallback(async () => {
     const paymentId = uiState.selectedPaymentId;
     
-    setUiState(prev => ({ ...prev, selectedPaymentId: null }));
+    // ✅ CORREÇÃO: Fechar o modal de edição PRIMEIRO
+    setUiState(prev => ({ 
+      ...prev, 
+      selectedPaymentId: null,
+      showReceiptDialog: false,
+      selectedPayment: null,
+    }));
+    
+    // ✅ CORREÇÃO: Aguardar um momento para garantir que o DOM foi limpo
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // 🔥 CORREÇÃO: Recarregar com os filtros corretos
     await loadPayments(selectedMonth.toString(), selectedYear.toString());
@@ -367,7 +376,7 @@ export default function Payments() {
                 lateFee: paymentData.late_fee || 0,
                 interest: paymentData.interest || 0,
                 breakdown: paymentData.breakdown || null,
-                attachments: paymentData.attachments as any, // Json type from database
+                attachments: paymentData.attachments as any,
                 installment: paymentData.installment || 1,
                 totalInstallments: paymentData.total_installments || 24,
               };
@@ -386,7 +395,7 @@ export default function Payments() {
                 value: rentalData.rent_value || 0,
                 monthlyRent: rentalData.rent_value || 0,
                 monthly_rent: rentalData.rent_value || 0,
-                paymentDay: 10, // Valor padrão já que não existe no banco
+                paymentDay: 10,
                 depositAmount: rentalData.security_deposit || rentalData.deposit_value || 0,
                 deposit_amount: rentalData.security_deposit || rentalData.deposit_value || 0,
                 security_deposit: rentalData.security_deposit || rentalData.deposit_value || 0,
@@ -436,7 +445,7 @@ export default function Payments() {
                 created_at: propertyData.created_at,
                 address: locationData?.street || "",
                 features: [],
-                type: "apartment" as "apartment" | "house" | "commercial", // Valor padrão já que não existe no banco
+                type: "apartment" as "apartment" | "house" | "commercial",
                 monthlyRent: rentalData.rent_value || 0,
                 number: locationData?.number || propertyData.property_identifier || "",
                 neighborhood: locationData?.neighborhood || "",
@@ -460,15 +469,15 @@ export default function Payments() {
                   : "new" as "new" | "inactive" | "rented",
               };
               
+              // ✅ CORREÇÃO: Aguardar mais um momento para garantir que tudo foi limpo
+              await new Promise(resolve => setTimeout(resolve, 150));
+              
               // Abrir o recibo com os dados completos
               setUiState(prev => ({
                 ...prev,
                 selectedPayment: payment,
                 showReceiptDialog: true,
               }));
-              
-              // ✅ CORREÇÃO: Removido alerta que pode travar a tela
-              // O recibo sendo aberto já é confirmação visual de sucesso
               
               return;
             }
