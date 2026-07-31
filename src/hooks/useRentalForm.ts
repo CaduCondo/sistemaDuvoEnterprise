@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/masks";
 import { calculateProportionalRent, calculateDaysBetweenDates, shouldUseProportionalRent } from "@/lib/rentalCalculations";
 import { getDepositInstallmentsByRental } from "@/services/depositInstallmentService";
@@ -28,7 +27,6 @@ export function useRentalForm({
   tenants,
   locations,
 }: UseRentalFormProps) {
-  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(!isViewMode);
   
   // Estados principais
@@ -281,34 +279,21 @@ export function useRentalForm({
             url: url,
             type: file.type,
             uploadedAt: new Date().toISOString(),
-            category: "contract", // ✅ CORREÇÃO: Adicionar campo obrigatório
+            category: "contract",
           };
           setAttachments((prev) => [...prev, attachment]);
-          toast({
-            title: "Arquivo anexado",
-            description: `${file.name} foi anexado com sucesso.`,
-          });
           resolve(attachment);
         })
         .catch(() => {
-          toast({
-            title: "Erro ao anexar arquivo",
-            description: "Não foi possível salvar o arquivo.",
-            variant: "destructive",
-          });
           reject();
         });
     });
-  }, [toast]);
+  }, []);
 
   // Remover anexo
   const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((att) => att.id !== id));
-    toast({
-      title: "Anexo removido",
-      description: "Anexo removido com sucesso.",
-    });
-  }, [toast]);
+  }, []);
 
   // Obter propriedade selecionada (MEMOIZADO)
   const getSelectedProperty = useCallback((): Property | undefined => {
