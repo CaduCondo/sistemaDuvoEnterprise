@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, Upload, X, FileText, ImageIcon, Loader2 } from "lucide-react";
+import { Camera, Upload, X, FileText, ImageIcon, Loader2, Paperclip } from "lucide-react";
 
 interface Attachment {
   url: string;
@@ -97,41 +97,65 @@ export const PaymentAttachments = memo(function PaymentAttachments({
       {/* Lista de anexos - SEMPRE CLICÁVEL para visualizar/baixar */}
       {attachments.filter(a => a.url).length > 0 && (
         <div className="space-y-2 pt-2 border-t">
-          <p className="text-sm font-medium text-muted-foreground">
+          <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <Paperclip className="h-4 w-4" />
             Arquivos Anexados ({attachments.filter(a => a.url).length})
           </p>
           {attachments.map((attachment, index) => {
             if (!attachment.url) return null;
             
             const isPdf = attachment.url.toLowerCase().endsWith(".pdf");
+            const fileName = attachment.name || "Arquivo";
             
             return (
-              <div key={index} className="flex items-center gap-3 p-3 bg-secondary rounded-lg hover:bg-secondary/80 transition-colors">
+              <div key={index} className="flex items-center gap-2 p-3 bg-secondary rounded-lg border border-border hover:border-primary/50 transition-all group">
+                {/* Ícone do tipo de arquivo */}
                 <div className="flex-shrink-0">
                   {isPdf ? (
-                    <FileText className="h-8 w-8 text-primary" />
+                    <FileText className="h-6 w-6 text-red-600" />
                   ) : (
-                    <ImageIcon className="h-8 w-8 text-primary" />
+                    <ImageIcon className="h-6 w-6 text-blue-600" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {attachment.name || "Arquivo"}
+                
+                {/* Nome do arquivo e botões de ação */}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <p className="text-sm font-medium truncate text-foreground">
+                    {fileName}
                   </p>
-                  {/* ✅ CORREÇÃO: Link SEMPRE clicável, independente de isReadOnly */}
-                  <a 
-                    href={attachment.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                  >
-                    {isPdf ? "📄 Ver PDF" : "🖼️ Ver Imagem"} →
-                  </a>
+                  
+                  {/* ✅ BOTÕES DE AÇÃO - SEMPRE VISÍVEIS E CLICÁVEIS */}
+                  <div className="flex items-center gap-2">
+                    {/* Botão Visualizar */}
+                    <a
+                      href={attachment.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 hover:underline cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      👁️ Visualizar
+                    </a>
+                    
+                    <span className="text-xs text-muted-foreground">•</span>
+                    
+                    {/* Botão Baixar */}
+                    <a
+                      href={attachment.url}
+                      download={fileName}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-700 hover:underline cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      💾 Baixar
+                    </a>
+                  </div>
                 </div>
-                {/* Botão de remover só aparece quando NÃO é readonly */}
+                
+                {/* Botão de remover - só aparece quando NÃO é readonly */}
                 {!isReadOnly && (
                   <Button
                     type="button"
@@ -141,9 +165,10 @@ export const PaymentAttachments = memo(function PaymentAttachments({
                       e.stopPropagation();
                       onRemoveAttachment(index);
                     }}
-                    className="h-8 w-8 p-0 flex-shrink-0"
+                    className="h-8 w-8 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remover anexo"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4 text-destructive" />
                   </Button>
                 )}
               </div>

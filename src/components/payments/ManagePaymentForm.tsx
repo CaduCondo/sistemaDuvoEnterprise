@@ -568,11 +568,9 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         return newAttachments;
       });
 
-      showAlert({
-        title: "Arquivo enviado",
-        description: "Comprovante anexado com sucesso",
-        type: "success",
-      });
+      // ✅ CORREÇÃO: Remover alerta que fecha o formulário
+      // O arquivo aparece na lista automaticamente, não precisa de alerta
+      
     } catch (error) {
       console.error("❌ Upload error:", error);
       
