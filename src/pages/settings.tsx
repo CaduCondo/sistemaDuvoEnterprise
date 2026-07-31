@@ -81,6 +81,7 @@ import { PermissionsTab } from "@/components/settings/PermissionsTab";
 import { FeeExemptionDialog } from "@/components/settings/FeeExemptionDialog";
 import { UserDialog } from "@/components/settings/UserDialog";
 import { EmailSettingsTab } from "@/components/settings/EmailSettingsTab";
+import { LogsTab } from "@/components/settings/LogsTab";
 
 // Custom hooks
 import { useUsers } from "@/hooks/useUsers";
@@ -658,6 +659,14 @@ export default function Settings() {
               <Mail className="h-4 w-4" />
               E-mails
             </TabsTrigger>
+            <TabsTrigger 
+              id="settings-tab-logs" 
+              value="logs" 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Logs
+            </TabsTrigger>
           </TabsList>
 
           {/* DADOS DA EMPRESA */}
@@ -1125,6 +1134,11 @@ export default function Settings() {
           {/* E-MAILS */}
           <TabsContent value="emails">
             <EmailSettingsTab />
+          </TabsContent>
+
+          {/* LOGS */}
+          <TabsContent value="logs">
+            <LogsTab />
           </TabsContent>
         </Tabs>
 
