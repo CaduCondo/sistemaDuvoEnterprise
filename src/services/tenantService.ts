@@ -288,7 +288,11 @@ export const update = async (
     },
   });
 
-  return data;
+  // ✅ CORREÇÃO: Fazer cast do status para o tipo literal correto
+  return {
+    ...data,
+    status: data.status as "new" | "rented" | "inactive",
+  } as Tenant;
 };
 
 export async function deleteTenant(id: string): Promise<void> {
