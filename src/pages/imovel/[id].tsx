@@ -382,9 +382,9 @@ export default function PropertyDetailPage() {
 
         {lightboxOpen && (
           <Lightbox
-            images={property.images.map(img => ({
-              url: img.url,
-              alt: img.name || 'Imagem do imóvel',
+            images={images.map((url, index) => ({
+              url: url,
+              alt: `${displayTitle} - Foto ${index + 1}`,
             }))}
             currentIndex={lightboxIndex}
             isOpen={lightboxOpen}
