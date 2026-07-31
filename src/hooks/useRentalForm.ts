@@ -281,6 +281,7 @@ export function useRentalForm({
             url: url,
             type: file.type,
             uploadedAt: new Date().toISOString(),
+            category: "contract", // ✅ CORREÇÃO: Adicionar campo obrigatório
           };
           setAttachments((prev) => [...prev, attachment]);
           toast({

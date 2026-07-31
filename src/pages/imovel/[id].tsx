@@ -380,11 +380,16 @@ export default function PropertyDetailPage() {
           propertyId={property.id}
         />
 
-        {showLightbox && (
+        {lightboxOpen && (
           <Lightbox
-            files={lightboxFiles}
-            initialIndex={lightboxIndex}
-            onClose={() => setShowLightbox(false)}
+            images={property.images.map(img => ({
+              url: img.url,
+              alt: img.name || 'Imagem do imóvel',
+            }))}
+            currentIndex={lightboxIndex}
+            isOpen={lightboxOpen}
+            onClose={() => setLightboxOpen(false)}
+            onNavigate={setLightboxIndex}
           />
         )}
       </div>
