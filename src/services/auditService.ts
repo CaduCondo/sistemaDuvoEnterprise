@@ -37,8 +37,14 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
 
     // ✅ CORREÇÃO: Buscar usuário do localStorage (autenticação custom)
     const currentUserStr = localStorage.getItem("currentUser");
+    
+    // 🔥 DEBUG: Mostrar EXATAMENTE o que tem no localStorage
+    console.log("🔍 [audit] localStorage.getItem('currentUser'):", currentUserStr);
+    console.log("🔍 [audit] Todas as chaves do localStorage:", Object.keys(localStorage));
+    
     if (!currentUserStr) {
       console.warn("⚠️ [audit] Tentativa de log sem usuário autenticado - localStorage vazio");
+      console.warn("⚠️ [audit] TODAS as chaves disponíveis:", Object.keys(localStorage).join(", "));
       return;
     }
 
@@ -48,6 +54,7 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
     const userId = currentUser.id;
 
     console.log("📋 [audit] User ID extraído:", userId);
+    console.log("📋 [audit] Usuário completo:", currentUser);
 
     if (!userId) {
       console.warn("⚠️ [audit] Usuário sem ID no localStorage");
