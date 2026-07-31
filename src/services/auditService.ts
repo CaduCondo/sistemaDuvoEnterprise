@@ -33,11 +33,18 @@ interface AuditLogParams {
  */
 export async function logAudit(params: AuditLogParams): Promise<void> {
   try {
-    // Obter usuário atual
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
+    // ✅ CORREÇÃO: Buscar usuário do localStorage (autenticação custom)
+    const currentUserStr = localStorage.getItem("currentUser");
+    if (!currentUserStr) {
       console.warn("⚠️ [audit] Tentativa de log sem usuário autenticado");
+      return;
+    }
+
+    const currentUser = JSON.parse(currentUserStr);
+    const userId = currentUser.id;
+
+    if (!userId) {
+      console.warn("⚠️ [audit] Usuário sem ID no localStorage");
       return;
     }
 
@@ -58,7 +65,7 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
 
     // Inserir log
     const { error } = await supabase.from("audit_logs").insert({
-      user_id: user.id,
+      user_id: userId,
       action_type: params.action_type,
       entity_type: params.entity_type,
       entity_id: params.entity_id,
@@ -77,6 +84,7 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
         action: params.action_type,
         entity: params.entity_type,
         id: params.entity_id,
+        summary: changesSummary,
       });
     }
   } catch (error) {
