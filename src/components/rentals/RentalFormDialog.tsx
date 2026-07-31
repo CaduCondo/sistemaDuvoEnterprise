@@ -1081,7 +1081,10 @@ export const RentalFormDialog = memo(function RentalFormDialog({
             <Label>Anexos</Label>
             
             {attachments.length > 0 && (
-              <AttachmentViewer attachments={attachments} onRemove={removeAttachment} />
+              <AttachmentViewer 
+                attachments={attachments} 
+                onRemove={(id: string) => removeAttachment(id)} 
+              />
             )}
             
             <div className="w-full">
