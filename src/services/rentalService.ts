@@ -788,7 +788,7 @@ export const create = async (rental: Partial<Rental>): Promise<Rental> => {
   console.log("✅ [rentalService.create] Locação criada com sucesso:", data);
   console.log("📎 [rentalService.create] Attachments salvos no banco:", data.attachments); // ✅ DEBUG
 
-  return mapDatabaseRental(data);
+  return mapRentalData(data);
 };
 export const update = async (id: string, rental: Partial<Rental>): Promise<Rental> => {
   const updateData: any = {};
@@ -838,5 +838,5 @@ export const update = async (id: string, rental: Partial<Rental>): Promise<Renta
   console.log("✅ [rentalService.update] Locação atualizada com sucesso:", data);
   console.log("📎 [rentalService.update] Attachments salvos no banco:", data.attachments); // ✅ DEBUG
 
-  return mapDatabaseRental(data);
+  return mapRentalData(data);
 };
