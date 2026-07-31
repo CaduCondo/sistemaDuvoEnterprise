@@ -205,6 +205,14 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
     console.log("💾 Saving new session...");
     localStorage.setItem("auth_session", JSON.stringify(session));
     localStorage.setItem("auth_user", JSON.stringify(session.user));
+    
+    // ✅ CORREÇÃO CRÍTICA: Salvar TAMBÉM em 'currentUser' para compatibilidade com auditService
+    localStorage.setItem("currentUser", JSON.stringify(session.user));
+    console.log("✅ Session saved in all keys: auth_session, auth_user, currentUser");
+
+    // ✅ Registrar log de login APÓS salvar no localStorage
+    await logLogin(user.id);
+    console.log("✅ Login audit log registered");
 
     // 6. Return success with properly typed user
     const userResult: LoginResult["user"] = {
@@ -236,11 +244,17 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
 /**
  * Logout - clear local session
  */
-export function logout(): void {
+export async function logout(): Promise<void> {
+  // ✅ Registrar log de logout ANTES de limpar sessão
+  const currentUser = getCurrentUser();
+  if (currentUser?.id) {
+    await logLogout(currentUser.id);
+  }
+
   localStorage.removeItem("auth_session");
   localStorage.removeItem("auth_user");
   localStorage.removeItem("rental_auth_user");
-  localStorage.removeItem("currentUser");
+  localStorage.removeItem("currentUser"); // ✅ CORREÇÃO: Limpar currentUser também
   localStorage.removeItem("login_attempts");
   localStorage.removeItem("locked_until");
   console.log("✅ Logout completed");
