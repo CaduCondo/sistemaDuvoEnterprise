@@ -491,6 +491,41 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     rental, isViewMode, locations, showAlert
   ]);
 
+  const handleCloseDialog = useCallback(() => {
+    // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays ao fechar
+    
+    // 1. Fechar o dialog
+    onOpenChange(false);
+    
+    // 2. Resetar formulário
+    resetForm();
+    setShowContract(false);
+    
+    // 3. Remover manualmente TODOS os overlays presos no DOM
+    setTimeout(() => {
+      const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
+      overlays.forEach(overlay => {
+        if (overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay);
+        }
+      });
+      
+      // 4. Restaurar scroll e pointer-events no body
+      document.body.style.overflow = '';
+      document.body.style.pointerEvents = '';
+      document.body.style.paddingRight = '';
+      
+      // 5. Remover classes de modal que podem estar presas
+      document.body.classList.remove('overflow-hidden', 'pointer-events-none');
+      
+      // 6. Garantir que data-radix-* attributes são removidos
+      document.documentElement.removeAttribute('data-radix-scroll-lock');
+      document.body.removeAttribute('data-radix-scroll-lock');
+      
+      console.log('✅ [RentalFormDialog] Overlays removidos e página desbloqueada');
+    }, 100);
+  }, [onOpenChange, resetForm]);
+
   const calculateTotalDeposit = useCallback(() => {
     let total = 0;
     if (depositAmount) total += parseMoneyMaskToNumber(depositAmount);

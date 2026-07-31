@@ -1276,6 +1276,21 @@ export default function RentalsPage() {
             setPaymentCounts(null);
             setDeleteStep(1);
             setDeleteChoices({ pending: false, paid: false });
+            // ✅ CORREÇÃO: Limpeza agressiva de overlays
+            setTimeout(() => {
+              const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
+              overlays.forEach(overlay => {
+                if (overlay.parentNode) {
+                  overlay.parentNode.removeChild(overlay);
+                }
+              });
+              document.body.style.overflow = '';
+              document.body.style.pointerEvents = '';
+              document.body.style.paddingRight = '';
+              document.body.classList.remove('overflow-hidden', 'pointer-events-none');
+              document.documentElement.removeAttribute('data-radix-scroll-lock');
+              document.body.removeAttribute('data-radix-scroll-lock');
+            }, 100);
           }
         }}
       >
@@ -1324,6 +1339,21 @@ export default function RentalsPage() {
             setPaymentCounts(null);
             setDeleteStep(1);
             setDeleteChoices({ pending: false, paid: false });
+            // ✅ CORREÇÃO: Limpeza agressiva de overlays
+            setTimeout(() => {
+              const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
+              overlays.forEach(overlay => {
+                if (overlay.parentNode) {
+                  overlay.parentNode.removeChild(overlay);
+                }
+              });
+              document.body.style.overflow = '';
+              document.body.style.pointerEvents = '';
+              document.body.style.paddingRight = '';
+              document.body.classList.remove('overflow-hidden', 'pointer-events-none');
+              document.documentElement.removeAttribute('data-radix-scroll-lock');
+              document.body.removeAttribute('data-radix-scroll-lock');
+            }, 100);
           }
         }}
       >
@@ -1378,6 +1408,21 @@ export default function RentalsPage() {
             setPaymentCounts(null);
             setDeleteStep(1);
             setDeleteChoices({ pending: false, paid: false });
+            // ✅ CORREÇÃO: Limpeza agressiva de overlays
+            setTimeout(() => {
+              const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
+              overlays.forEach(overlay => {
+                if (overlay.parentNode) {
+                  overlay.parentNode.removeChild(overlay);
+                }
+              });
+              document.body.style.overflow = '';
+              document.body.style.pointerEvents = '';
+              document.body.style.paddingRight = '';
+              document.body.classList.remove('overflow-hidden', 'pointer-events-none');
+              document.documentElement.removeAttribute('data-radix-scroll-lock');
+              document.body.removeAttribute('data-radix-scroll-lock');
+            }, 100);
           }
         }}
       >
@@ -1422,7 +1467,26 @@ export default function RentalsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!rentalToRenew} onOpenChange={() => setRentalToRenew(null)}>
+      <AlertDialog open={!!rentalToRenew} onOpenChange={(open) => {
+        if (!open) {
+          setRentalToRenew(null);
+          // ✅ CORREÇÃO: Limpeza agressiva de overlays
+          setTimeout(() => {
+            const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
+            overlays.forEach(overlay => {
+              if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+              }
+            });
+            document.body.style.overflow = '';
+            document.body.style.pointerEvents = '';
+            document.body.style.paddingRight = '';
+            document.body.classList.remove('overflow-hidden', 'pointer-events-none');
+            document.documentElement.removeAttribute('data-radix-scroll-lock');
+            document.body.removeAttribute('data-radix-scroll-lock');
+          }, 100);
+        }
+      }}>
         <AlertDialogContent id="rentals-renew-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Renovação</AlertDialogTitle>
