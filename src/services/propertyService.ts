@@ -342,10 +342,13 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
  * Atualizar imóvel existente
  */
 export const update = async (id: string, property: Partial<Property>): Promise<Property> => {
-  // ✅ CORREÇÃO: Buscar valores antigos ANTES de atualizar
+  // ✅ CORREÇÃO: Buscar TODOS os campos antigos ANTES de atualizar
   const { data: oldData, error: oldError } = await supabase
     .from("properties")
-    .select("complement, value, status, locations!properties_location_id_fkey(name)")
+    .select(`
+      *,
+      locations!properties_location_id_fkey(name)
+    `)
     .eq("id", id)
     .single();
 
@@ -396,30 +399,79 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
 
   if (error) throw error;
 
-  // ✅ CORREÇÃO: Registrar log de auditoria com valores corretos
-  console.log("🔍 [propertyService.update] Registrando log de auditoria...");
-  console.log("📋 Valores antigos:", oldData);
-  console.log("📋 Valores novos:", data);
+  // ✅ CORREÇÃO: Registrar TODOS os campos que foram alterados
+  if (oldData) {
+    const oldValues: any = {};
+    const newValues: any = {};
 
-  await logAudit({
-    action_type: "update",
-    entity_type: "property",
-    entity_id: id,
-    old_values: oldData ? {
-      location: oldData.locations?.name,
-      complement: oldData.complement,
-      value: oldData.value,
-      status: oldData.status,
-    } : undefined,
-    new_values: {
-      location: data.locations?.name,
-      complement: data.complement,
-      value: data.value,
-      status: data.status,
-    },
-  });
+    // Helper para formatar valores
+    const formatValue = (value: any, field: string): string => {
+      if (value === null || value === undefined) return "-";
+      
+      if (field === "value") {
+        // Formatar valor monetário
+        return new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }).format(value);
+      }
+      
+      if (typeof value === "boolean") {
+        return value ? "Sim" : "Não";
+      }
+      
+      if (typeof value === "number") {
+        return value.toString();
+      }
+      
+      return value.toString();
+    };
 
-  console.log("✅ [propertyService.update] Log de auditoria registrado com sucesso");
+    // Comparar e registrar apenas campos que mudaram
+    const fieldsToCheck = [
+      { old: oldData.locations?.name, new: data.locations?.name, key: "location", label: "Localização" },
+      { old: oldData.complement, new: data.complement, key: "complement", label: "Complemento" },
+      { old: oldData.description, new: data.description, key: "description", label: "Descrição" },
+      { old: oldData.rooms, new: data.rooms, key: "rooms", label: "Quartos" },
+      { old: oldData.bathrooms, new: data.bathrooms, key: "bathrooms", label: "Banheiros" },
+      { old: oldData.area, new: data.area, key: "area", label: "Área" },
+      { old: oldData.value, new: data.value, key: "value", label: "Valor" },
+      { old: oldData.has_garage, new: data.has_garage, key: "has_garage", label: "Garagem" },
+      { old: oldData.has_furniture, new: data.has_furniture, key: "has_furniture", label: "Mobiliado" },
+      { old: oldData.accepts_pets, new: data.accepts_pets, key: "accepts_pets", label: "Aceita Pets" },
+      { old: oldData.status, new: data.status, key: "status", label: "Status" },
+    ];
+
+    for (const field of fieldsToCheck) {
+      // Comparar valores (considerar null == undefined como iguais)
+      const oldVal = field.old ?? null;
+      const newVal = field.new ?? null;
+      
+      if (oldVal !== newVal) {
+        oldValues[field.key] = formatValue(field.old, field.key);
+        newValues[field.key] = formatValue(field.new, field.key);
+      }
+    }
+
+    console.log("🔍 [propertyService.update] Registrando log de auditoria...");
+    console.log("📋 Valores antigos formatados:", oldValues);
+    console.log("📋 Valores novos formatados:", newValues);
+
+    // Apenas registrar se houve mudanças
+    if (Object.keys(oldValues).length > 0) {
+      await logAudit({
+        action_type: "update",
+        entity_type: "property",
+        entity_id: id,
+        old_values: oldValues,
+        new_values: newValues,
+      });
+
+      console.log("✅ [propertyService.update] Log de auditoria registrado com sucesso");
+    } else {
+      console.log("ℹ️ [propertyService.update] Nenhuma mudança detectada, log não registrado");
+    }
+  }
 
   // Invalidate cache
   invalidateCache();

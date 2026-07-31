@@ -121,11 +121,11 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
 }
 
 /**
- * Gera um resumo legível das alterações
+ * Gera um resumo automático das mudanças com base nos valores antigos e novos
  */
 function generateChangesSummary(
-  action: AuditActionType,
-  entity: AuditEntityType,
+  actionType: AuditActionType,
+  entityType: AuditEntityType,
   oldValues: Record<string, any>,
   newValues: Record<string, any>
 ): string {
@@ -135,46 +135,66 @@ function generateChangesSummary(
     rental: "Locação",
     payment: "Recebimento",
     user: "Usuário",
-    location: "Local",
     system: "Sistema",
   };
 
-  const entityName = entityNames[entity] || entity;
+  const entityName = entityNames[entityType] || entityType;
 
-  if (action === "create") {
+  if (actionType === "create") {
     return `${entityName} criado`;
   }
 
-  if (action === "delete") {
-    return `${entityName} excluído`;
+  if (actionType === "delete") {
+    return `${entityName} deletado`;
   }
 
-  if (action === "update") {
+  if (actionType === "update") {
+    // ✅ CORREÇÃO: Listar TODAS as mudanças, não apenas a primeira
     const changes: string[] = [];
-    
-    // Comparar valores
+
     for (const key in newValues) {
-      if (oldValues[key] !== newValues[key]) {
-        const fieldName = formatFieldName(key);
-        const oldVal = formatValue(oldValues[key]);
-        const newVal = formatValue(newValues[key]);
-        
-        changes.push(`${fieldName}: "${oldVal}" → "${newVal}"`);
+      const oldValue = oldValues[key];
+      const newValue = newValues[key];
+
+      if (oldValue !== newValue) {
+        // Mapear nomes dos campos para português
+        const fieldNames: Record<string, string> = {
+          location: "Localização",
+          complement: "Complemento",
+          description: "Descrição",
+          rooms: "Quartos",
+          bathrooms: "Banheiros",
+          area: "Área",
+          value: "Valor",
+          has_garage: "Garagem",
+          has_furniture: "Mobiliado",
+          accepts_pets: "Aceita Pets",
+          status: "Status",
+          name: "Nome",
+          email: "E-mail",
+          phone: "Telefone",
+          cpf: "CPF",
+          rg: "RG",
+        };
+
+        const fieldName = fieldNames[key] || key;
+        changes.push(`${fieldName}: "${oldValue}" → "${newValue}"`);
       }
     }
 
     if (changes.length === 0) {
-      return `${entityName} atualizado (sem alterações detectadas)`;
+      return `${entityName} atualizado`;
     }
 
-    if (changes.length === 1) {
-      return `${entityName}: ${changes[0]}`;
+    // Se houver muitas mudanças (>3), resumir
+    if (changes.length > 3) {
+      return `${entityName}: ${changes.slice(0, 3).join(", ")} e mais ${changes.length - 3} alterações`;
     }
 
-    return `${entityName}: ${changes.slice(0, 3).join(", ")}${changes.length > 3 ? ` e mais ${changes.length - 3}` : ""}`;
+    return `${entityName}: ${changes.join(", ")}`;
   }
 
-  return `${entityName}: ${action}`;
+  return `${entityName} - ${actionType}`;
 }
 
 /**
