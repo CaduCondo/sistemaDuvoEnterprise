@@ -473,37 +473,75 @@ export default function Settings() {
         throw new Error("Usuário não encontrado");
       }
 
-      // Chamar API para enviar email de redefinição
-      const response = await fetch("/api/send-password-recovery", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: user.email,
-          userId: userId,
-          name: user.name,
-        }),
-      });
+      // Gerar senha temporária aleatória (8-12 caracteres com todos os requisitos)
+      const generateTemporaryPassword = (): string => {
+        const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        const numbers = '0123456789';
+        const specials = '!@#$%&*';
+        
+        // Garantir pelo menos 1 de cada tipo
+        let password = '';
+        password += uppercase[Math.floor(Math.random() * uppercase.length)];
+        password += lowercase[Math.floor(Math.random() * lowercase.length)];
+        password += numbers[Math.floor(Math.random() * numbers.length)];
+        password += specials[Math.floor(Math.random() * specials.length)];
+        
+        // Completar até 10 caracteres com caracteres aleatórios
+        const allChars = uppercase + lowercase + numbers + specials;
+        for (let i = 4; i < 10; i++) {
+          password += allChars[Math.floor(Math.random() * allChars.length)];
+        }
+        
+        // Embaralhar a senha
+        return password.split('').sort(() => Math.random() - 0.5).join('');
+      };
 
-      const data = await response.json();
+      const temporaryPassword = generateTemporaryPassword();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Erro ao enviar e-mail de redefinição");
+      // Atualizar senha no banco
+      const { error: updateError } = await supabase
+        .from("system_users")
+        .update({ 
+          password_hash: temporaryPassword,
+          requires_password_change: true,
+          temporary_password: true,
+          login_attempts: 0,
+          blocked_until: null,
+        })
+        .eq("id", userId);
+
+      if (updateError) throw updateError;
+
+      // Enviar email com senha temporária
+      try {
+        await fetch("/api/send-password-recovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: user.email,
+            userId: userId,
+            name: user.name,
+            temporaryPassword: temporaryPassword,
+            isReset: true, // Flag para usar template diferente
+          }),
+        });
+      } catch (emailError) {
+        console.error("Erro ao enviar email (senha já foi resetada no banco):", emailError);
       }
 
       showAlert({ 
-        title: "E-mail enviado com sucesso!",
-        description: `Um link de redefinição foi enviado para ${user.email}. O link é válido por 1 hora.`,
+        title: "Senha resetada com sucesso!",
+        description: `Senha temporária: ${temporaryPassword}\n\nUm email foi enviado para ${user.email} com a senha temporária.\n\nO usuário deverá trocar a senha no primeiro login.`,
         type: "success",
       });
       
       return true;
     } catch (error) {
-      console.error("Erro ao enviar e-mail de redefinição:", error);
+      console.error("Erro ao resetar senha:", error);
       showAlert({ 
-        title: "Erro ao enviar e-mail", 
-        description: error instanceof Error ? error.message : "Não foi possível enviar o e-mail de redefinição.",
+        title: "Erro ao resetar senha", 
+        description: error instanceof Error ? error.message : "Não foi possível resetar a senha do usuário.",
         type: "error",
       });
       return false;

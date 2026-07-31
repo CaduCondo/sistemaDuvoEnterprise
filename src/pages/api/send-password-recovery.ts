@@ -19,7 +19,7 @@ export default async function handler(
   }
 
   try {
-    const { email, userId, name } = req.body;
+    const { email, userId, name, temporaryPassword, isReset } = req.body;
 
     if (!email || !userId) {
       return res.status(400).json({
@@ -36,6 +36,119 @@ export default async function handler(
       });
     }
 
+    // Modo 1: Email com senha temporária (isReset=true)
+    if (isReset && temporaryPassword) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("📧 ========================================");
+        console.log("📧 SENHA TEMPORÁRIA GERADA (DEV)");
+        console.log("📧 ========================================");
+        console.log("📧 Para:", email);
+        console.log("📧 Nome:", name || "N/A");
+        console.log("📧 Senha:", temporaryPassword);
+        console.log("📧 ========================================");
+      }
+
+      const { data, error } = await resend.emails.send({
+        from: "D'Uvo Enterprise <noreply@duvoenterprise.com.br>",
+        to: [email],
+        subject: "🔐 Senha Resetada - D'Uvo Enterprise",
+        html: `
+          <!DOCTYPE html>
+          <html lang="pt-BR">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+              
+              <!-- Header -->
+              <div style="background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); padding: 40px 20px; text-align: center;">
+                <div style="background-color: white; width: 60px; height: 60px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1e40af" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="9" y1="3" x2="9" y2="21"></line>
+                  </svg>
+                </div>
+                <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">D'Uvo Enterprise</h1>
+                <p style="color: rgba(255, 255, 255, 0.9); margin: 8px 0 0; font-size: 14px;">Property Control System</p>
+              </div>
+
+              <!-- Content -->
+              <div style="padding: 40px 30px;">
+                <h2 style="color: #1e293b; margin: 0 0 16px; font-size: 24px; font-weight: 600;">Senha Resetada</h2>
+                
+                <p style="color: #475569; margin: 0 0 24px; font-size: 16px; line-height: 1.6;">
+                  Olá${name ? ` <strong>${name}</strong>` : ""},
+                </p>
+
+                <p style="color: #475569; margin: 0 0 24px; font-size: 16px; line-height: 1.6;">
+                  Sua senha foi resetada por um administrador. Use a senha temporária abaixo para fazer login:
+                </p>
+
+                <!-- Temporary Password Box -->
+                <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #3b82f6; border-radius: 12px; padding: 24px; margin: 0 0 32px; text-align: center;">
+                  <p style="color: #1e40af; margin: 0 0 8px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Senha Temporária
+                  </p>
+                  <p style="color: #1e40af; margin: 0; font-size: 32px; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 2px;">
+                    ${temporaryPassword}
+                  </p>
+                </div>
+
+                <div style="background-color: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 16px; margin: 0 0 24px;">
+                  <p style="color: #92400e; margin: 0 0 8px; font-size: 13px; font-weight: 600;">
+                    ⚠️ IMPORTANTE:
+                  </p>
+                  <ul style="color: #92400e; margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6;">
+                    <li>Você será <strong>obrigado a criar uma nova senha</strong> no primeiro login</li>
+                    <li>A nova senha deve ter entre 8 e 12 caracteres</li>
+                    <li>Deve conter: maiúscula, minúscula, número e caractere especial</li>
+                  </ul>
+                </div>
+
+                <div style="text-align: center; margin: 0 0 24px;">
+                  <a href="https://duvoenterprise.com.br" 
+                     style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);">
+                    🔐 Acessar o Sistema
+                  </a>
+                </div>
+
+                <p style="color: #475569; margin: 0; font-size: 14px; line-height: 1.6;">
+                  Atenciosamente,<br>
+                  <strong>Equipe D'Uvo Enterprise</strong>
+                </p>
+              </div>
+
+              <!-- Footer -->
+              <div style="background-color: #f8fafc; padding: 24px 30px; border-top: 1px solid #e2e8f0; text-align: center;">
+                <p style="color: #64748b; margin: 0 0 8px; font-size: 12px;">
+                  © ${new Date().getFullYear()} D'Uvo Enterprise Corporation. Todos os direitos reservados.
+                </p>
+                <p style="color: #94a3b8; margin: 0; font-size: 11px;">
+                  Desenvolvido por Carlos Uva
+                </p>
+              </div>
+
+            </div>
+          </body>
+          </html>
+        `,
+      });
+
+      if (error) {
+        console.error("Erro ao enviar e-mail via Resend:", error);
+        return res.status(500).json({
+          success: false,
+          error: "Erro ao enviar e-mail. A senha já foi resetada no sistema.",
+        });
+      }
+
+      console.log("E-mail de senha temporária enviado com sucesso:", data);
+      return res.status(200).json({ success: true });
+    }
+
+    // Modo 2: Email com link de redefinição (modo antigo - "Esqueci minha senha")
     const secret = process.env.JWT_SECRET || "duvo-enterprise-secret-key-2024";
     const token = jwt.sign(
       { userId, email, type: "password_reset" },
