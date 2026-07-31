@@ -408,15 +408,15 @@ export function PropertyPublicCard({ property, priority = false, index = 0 }: Pr
         propertyId={property.id}
       />
 
-      {lightboxOpen && (
+      {showLightbox && (
         <Lightbox
           images={images.map((url, index) => ({
             url: url,
             alt: `${displayTitle} - Foto ${index + 1}`,
           }))}
           currentIndex={lightboxIndex}
-          isOpen={lightboxOpen}
-          onClose={() => setLightboxOpen(false)}
+          isOpen={showLightbox}
+          onClose={() => setShowLightbox(false)}
           onNavigate={setLightboxIndex}
         />
       )}
