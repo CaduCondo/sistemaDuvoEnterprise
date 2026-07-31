@@ -312,6 +312,9 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
   if (error) throw error;
 
   // ✅ Registrar log de auditoria
+  console.log("🔍 [propertyService.create] Registrando log de auditoria...");
+  console.log("📋 Imóvel criado:", data);
+
   await logAudit({
     action_type: "create",
     entity_type: "property",
@@ -323,6 +326,8 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
       status: data.status,
     },
   });
+
+  console.log("✅ [propertyService.create] Log de auditoria registrado com sucesso");
 
   // Invalidate cache
   invalidateCache();
@@ -337,6 +342,17 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
  * Atualizar imóvel existente
  */
 export const update = async (id: string, property: Partial<Property>): Promise<Property> => {
+  // ✅ CORREÇÃO: Buscar valores antigos ANTES de atualizar
+  const { data: oldData, error: oldError } = await supabase
+    .from("properties")
+    .select("complement, value, status, locations!properties_location_id_fkey(name)")
+    .eq("id", id)
+    .single();
+
+  if (oldError) {
+    console.error("❌ [propertyService.update] Erro ao buscar valores antigos:", oldError);
+  }
+
   const propertyData: any = {};
 
   if (property.locationId !== undefined) propertyData.location_id = property.locationId;
@@ -380,22 +396,30 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
 
   if (error) throw error;
 
-  // ✅ Registrar log de auditoria
+  // ✅ CORREÇÃO: Registrar log de auditoria com valores corretos
+  console.log("🔍 [propertyService.update] Registrando log de auditoria...");
+  console.log("📋 Valores antigos:", oldData);
+  console.log("📋 Valores novos:", data);
+
   await logAudit({
     action_type: "update",
     entity_type: "property",
     entity_id: id,
-    old_values: {
-      complement: propertyData.complement,
-      value: propertyData.value,
-      status: propertyData.status,
-    },
+    old_values: oldData ? {
+      location: oldData.locations?.name,
+      complement: oldData.complement,
+      value: oldData.value,
+      status: oldData.status,
+    } : undefined,
     new_values: {
-      complement: property.complement,
-      value: property.value,
-      status: property.status,
+      location: data.locations?.name,
+      complement: data.complement,
+      value: data.value,
+      status: data.status,
     },
   });
+
+  console.log("✅ [propertyService.update] Log de auditoria registrado com sucesso");
 
   // Invalidate cache
   invalidateCache();

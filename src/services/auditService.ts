@@ -33,15 +33,21 @@ interface AuditLogParams {
  */
 export async function logAudit(params: AuditLogParams): Promise<void> {
   try {
+    console.log("🔍 [audit] Tentando registrar log:", params);
+
     // ✅ CORREÇÃO: Buscar usuário do localStorage (autenticação custom)
     const currentUserStr = localStorage.getItem("currentUser");
     if (!currentUserStr) {
-      console.warn("⚠️ [audit] Tentativa de log sem usuário autenticado");
+      console.warn("⚠️ [audit] Tentativa de log sem usuário autenticado - localStorage vazio");
       return;
     }
 
+    console.log("📋 [audit] localStorage currentUser encontrado:", currentUserStr);
+
     const currentUser = JSON.parse(currentUserStr);
     const userId = currentUser.id;
+
+    console.log("📋 [audit] User ID extraído:", userId);
 
     if (!userId) {
       console.warn("⚠️ [audit] Usuário sem ID no localStorage");
@@ -51,6 +57,9 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
     // Obter informações do navegador/IP
     const userAgent = navigator.userAgent;
     const pageUrl = window.location.href;
+
+    console.log("📋 [audit] UserAgent:", userAgent);
+    console.log("📋 [audit] PageURL:", pageUrl);
 
     // Gerar resumo automático se não fornecido
     let changesSummary = params.changes_summary;
@@ -63,8 +72,9 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
       );
     }
 
-    // Inserir log
-    const { error } = await supabase.from("audit_logs").insert({
+    console.log("📋 [audit] Resumo gerado:", changesSummary);
+
+    const logData = {
       user_id: userId,
       action_type: params.action_type,
       entity_type: params.entity_type,
@@ -75,20 +85,31 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
       user_agent: userAgent,
       page_url: pageUrl,
       metadata: params.metadata || null,
-    });
+    };
+
+    console.log("📤 [audit] Enviando para banco:", logData);
+
+    // Inserir log
+    const { data: insertedData, error } = await supabase
+      .from("audit_logs")
+      .insert(logData)
+      .select()
+      .single();
 
     if (error) {
       console.error("❌ [audit] Erro ao registrar log:", error);
+      console.error("❌ [audit] Código do erro:", error.code);
+      console.error("❌ [audit] Mensagem:", error.message);
+      console.error("❌ [audit] Detalhes:", error.details);
     } else {
-      console.log("✅ [audit] Log registrado:", {
-        action: params.action_type,
-        entity: params.entity_type,
-        id: params.entity_id,
-        summary: changesSummary,
-      });
+      console.log("✅ [audit] Log registrado com SUCESSO:", insertedData);
+      console.log("✅ [audit] ID do log:", insertedData?.id);
     }
   } catch (error) {
     console.error("❌ [audit] Erro ao registrar auditoria:", error);
+    if (error instanceof Error) {
+      console.error("❌ [audit] Stack:", error.stack);
+    }
   }
 }
 
