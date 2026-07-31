@@ -128,21 +128,42 @@ export default async function handler(
     }
 
     console.log("📊 [reset-password] Resultado RPC:", result);
+    console.log("📊 [reset-password] Tipo do resultado:", typeof result);
+    console.log("📊 [reset-password] Resultado stringificado:", JSON.stringify(result));
+
+    // A função retorna JSONB, que pode vir como objeto ou string
+    let parsedResult: any;
+    
+    if (typeof result === 'string') {
+      try {
+        parsedResult = JSON.parse(result);
+      } catch (e) {
+        console.error("❌ [reset-password] Erro ao parsear resultado:", e);
+        return res.status(500).json({
+          success: false,
+          error: "Erro ao processar resposta do servidor.",
+        });
+      }
+    } else {
+      parsedResult = result;
+    }
+
+    console.log("📊 [reset-password] Resultado parseado:", parsedResult);
 
     // Verificar se a função retornou sucesso
-    if (!result || typeof result !== 'object') {
-      console.error("❌ [reset-password] Resultado RPC inválido:", result);
+    if (!parsedResult || typeof parsedResult !== 'object') {
+      console.error("❌ [reset-password] Resultado RPC inválido:", parsedResult);
       return res.status(500).json({
         success: false,
         error: "Erro ao processar redefinição de senha.",
       });
     }
 
-    if (!result.success) {
-      console.error("❌ [reset-password] Função retornou erro:", result.error);
+    if (!parsedResult.success) {
+      console.error("❌ [reset-password] Função retornou erro:", parsedResult.error);
       return res.status(400).json({
         success: false,
-        error: result.error || "Erro ao atualizar senha.",
+        error: parsedResult.error || "Erro ao atualizar senha.",
       });
     }
 
