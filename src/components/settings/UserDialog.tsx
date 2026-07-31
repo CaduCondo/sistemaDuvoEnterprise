@@ -209,8 +209,8 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           temporary_password: true,
         });
 
-        // Enviar email de boas-vindas via Resend (se habilitado)
-        const emailEnabled = await isEmailEnabled("welcome_user");
+        // Enviar e-mail de boas-vindas se configurado
+        const emailEnabled = await isEmailEnabled("welcome");
         
         if (emailEnabled) {
           try {
