@@ -30,6 +30,7 @@ export function PublicHeader() {
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [recoverySuccess, setRecoverySuccess] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,7 +125,57 @@ export function PublicHeader() {
         return;
       }
 
-      // Enviar link mágico via API route (Resend)
+      // Gerar senha temporária aleatória (8-12 caracteres com todos os requisitos)
+      const generateTemporaryPassword = (): string => {
+        const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        const numbers = '0123456789';
+        const specials = '!@#$%&*';
+        
+        // Garantir pelo menos 1 de cada tipo
+        let password = '';
+        password += uppercase[Math.floor(Math.random() * uppercase.length)];
+        password += lowercase[Math.floor(Math.random() * lowercase.length)];
+        password += numbers[Math.floor(Math.random() * numbers.length)];
+        password += specials[Math.floor(Math.random() * specials.length)];
+        
+        // Completar até 10 caracteres com caracteres aleatórios
+        const allChars = uppercase + lowercase + numbers + specials;
+        for (let i = 4; i < 10; i++) {
+          password += allChars[Math.floor(Math.random() * allChars.length)];
+        }
+        
+        // Embaralhar a senha
+        return password.split('').sort(() => Math.random() - 0.5).join('');
+      };
+
+      const temporaryPassword = generateTemporaryPassword();
+      setGeneratedPassword(temporaryPassword);
+
+      // Atualizar senha no banco
+      const { error: updateError } = await supabase
+        .from("system_users")
+        .update({ 
+          password_hash: temporaryPassword,
+          requires_password_change: true,
+          temporary_password: true,
+          login_attempts: 0,
+          blocked_until: null,
+        })
+        .eq("id", user.id);
+
+      if (updateError) {
+        console.error("Erro ao atualizar senha:", updateError);
+        toast({
+          title: "Erro",
+          description: "Não foi possível resetar a senha. Tente novamente.",
+          variant: "destructive",
+        });
+        setRecoveryLoading(false);
+        return;
+      }
+
+      // Enviar email com senha temporária
       const response = await fetch("/api/send-password-recovery", {
         method: "POST",
         headers: {
@@ -134,42 +185,24 @@ export function PublicHeader() {
           email: user.email,
           userId: user.id,
           name: user.name,
+          temporaryPassword: temporaryPassword,
+          isReset: true,
         }),
       });
 
       const result = await response.json();
 
       if (!result.success) {
-        console.error("Erro ao enviar e-mail:", result.error);
-        toast({
-          title: "Erro ao enviar e-mail",
-          description: result.error || "Não foi possível enviar o e-mail. Tente novamente.",
-          variant: "destructive",
-        });
+        console.error("Erro ao enviar e-mail (senha já foi resetada):", result.error);
+        // Mesmo que o email falhe, a senha já foi resetada - mostrar sucesso com a senha
+        setRecoverySuccess(true);
         setRecoveryLoading(false);
         return;
       }
 
-      // Log do link em DEV (para teste local)
-      if (process.env.NODE_ENV === "development" && result.resetLink) {
-        console.log("📧 ========================================");
-        console.log("📧 E-MAIL DE RECUPERAÇÃO ENVIADO (DEV)");
-        console.log("📧 ========================================");
-        console.log("📧 Para:", recoveryEmail);
-        console.log("📧 Nome:", user.name);
-        console.log("📧");
-        console.log("📧 🔗 Link de recuperação:");
-        console.log("📧", result.resetLink);
-        console.log("📧");
-        console.log("📧 ⏱️ Link válido por 1 hora");
-        console.log("📧 ========================================");
-        console.log("📧");
-        console.log("📧 💡 TESTE LOCAL: Copie o link acima e cole no navegador");
-        console.log("📧");
-      }
-
-      // Sucesso - mostrar na tela
+      // Sucesso completo
       setRecoverySuccess(true);
+      setRecoveryLoading(false);
       
     } catch (error) {
       console.error("Erro ao recuperar senha:", error);
@@ -232,7 +265,7 @@ export function PublicHeader() {
               ) : showForgotPassword ? (
                 <div className="space-y-3">
                   {recoverySuccess ? (
-                    // Tela de sucesso
+                    // Tela de sucesso com senha temporária
                     <div className="text-center py-4">
                       <div className="mx-auto bg-gradient-to-br from-green-600 to-green-800 w-16 h-16 rounded-full flex items-center justify-center shadow-lg mb-4 animate-bounce">
                         <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -240,25 +273,36 @@ export function PublicHeader() {
                         </svg>
                       </div>
                       
-                      <h3 className="font-bold text-xl text-green-700 mb-2">E-mail Enviado com Sucesso!</h3>
+                      <h3 className="font-bold text-xl text-green-700 mb-2">Senha Resetada com Sucesso!</h3>
                       <p className="text-sm text-slate-600 mb-4">
-                        Enviamos um link de recuperação para:<br/>
+                        Sua senha temporária foi enviada para:<br/>
                         <strong className="text-slate-900">{recoveryEmail}</strong>
                       </p>
 
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-left mb-4">
-                        <p className="font-semibold text-blue-900 mb-2 text-sm">📧 Próximos passos:</p>
-                        <ol className="list-decimal list-inside space-y-1 text-xs text-blue-800">
-                          <li>Verifique sua caixa de entrada</li>
-                          <li>Clique no link recebido (válido por 1 hora)</li>
-                          <li>Defina sua nova senha</li>
-                          <li>Faça login com a nova senha</li>
-                        </ol>
+                      {/* Senha Temporária Destacada */}
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-600 rounded-xl p-4 mb-4 shadow-lg">
+                        <p className="text-blue-900 font-semibold text-xs mb-2">🔐 SENHA TEMPORÁRIA:</p>
+                        <p className="text-blue-900 font-bold text-2xl font-mono tracking-wider mb-1">
+                          {generatedPassword}
+                        </p>
+                        <p className="text-blue-700 text-xs">
+                          Use esta senha para fazer login agora
+                        </p>
                       </div>
 
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-                        <p className="text-xs text-amber-800">
-                          <strong>💡 Dica:</strong> Não encontrou o e-mail? Verifique sua caixa de spam ou lixeira.
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-left mb-4">
+                        <p className="font-semibold text-amber-900 mb-2 text-sm">⚠️ IMPORTANTE:</p>
+                        <ul className="list-disc list-inside space-y-1 text-xs text-amber-800">
+                          <li>Esta é uma senha <strong>temporária</strong></li>
+                          <li>Ao fazer login, você será <strong>obrigado a criar uma nova senha</strong></li>
+                          <li>A nova senha deve ter 8-12 caracteres</li>
+                          <li>Deve conter: maiúscula, minúscula, número e caractere especial</li>
+                        </ul>
+                      </div>
+
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                        <p className="text-xs text-blue-800">
+                          <strong>💡 Dica:</strong> Copie a senha temporária acima e cole no campo de login.
                         </p>
                       </div>
 
@@ -267,6 +311,9 @@ export function PublicHeader() {
                           setShowForgotPassword(false);
                           setRecoverySuccess(false);
                           setRecoveryEmail("");
+                          setGeneratedPassword("");
+                          // Preencher username com o email de recuperação para facilitar
+                          setUsername(recoveryEmail);
                         }}
                         className="w-full h-9 bg-blue-600 hover:bg-blue-700 text-sm"
                       >
@@ -288,7 +335,7 @@ export function PublicHeader() {
                           <Mail className="h-6 w-6 text-white" />
                         </div>
                         <h3 className="font-bold text-lg text-slate-900">Recuperar Senha</h3>
-                        <p className="text-xs text-slate-600">Digite seu e-mail para receber o link de recuperação</p>
+                        <p className="text-xs text-slate-600">Digite seu e-mail para receber uma senha temporária</p>
                       </div>
 
                       <form onSubmit={handleForgotPasswordSubmit} className="space-y-3">
@@ -306,11 +353,11 @@ export function PublicHeader() {
                         </div>
                         
                         <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-800">
-                          <p className="font-semibold mb-1">📧 Você receberá:</p>
+                          <p className="font-semibold mb-1">🔐 Você receberá:</p>
                           <ul className="list-disc list-inside space-y-0.5 text-xs">
-                            <li>Link seguro para redefinir sua senha</li>
-                            <li>Válido por 1 hora</li>
-                            <li>Acesso direto ao sistema após redefinir</li>
+                            <li>Senha temporária por e-mail</li>
+                            <li>Acesso imediato ao sistema</li>
+                            <li>Você será obrigado a criar uma nova senha no login</li>
                           </ul>
                         </div>
                         
@@ -318,7 +365,10 @@ export function PublicHeader() {
                           <Button 
                             type="button"
                             variant="outline"
-                            onClick={() => setShowForgotPassword(false)}
+                            onClick={() => {
+                              setShowForgotPassword(false);
+                              setRecoveryEmail("");
+                            }}
                             className="flex-1 h-9 text-sm"
                             disabled={recoveryLoading}
                           >
@@ -336,7 +386,7 @@ export function PublicHeader() {
                                 Enviando...
                               </>
                             ) : (
-                              "Enviar E-mail"
+                              "Enviar Senha"
                             )}
                           </Button>
                         </div>
@@ -419,7 +469,13 @@ export function PublicHeader() {
                     <div className="flex justify-end">
                       <button
                         type="button"
-                        onClick={() => setShowForgotPassword(true)}
+                        onClick={() => {
+                          setShowForgotPassword(true);
+                          // Preencher email automaticamente se já digitado
+                          if (username) {
+                            setRecoveryEmail(username);
+                          }
+                        }}
                         className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                       >
                         Esqueci minha senha
