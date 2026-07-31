@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { logLogin, logLogout, logPasswordChange } from "./auditService";
 import type { Tables } from "@/integrations/supabase/types";
 import type { LoginCredentials, LoginResult } from "@/types";
 
@@ -297,4 +298,33 @@ export function renewSession(): boolean {
   } catch {
     return false;
   }
+}
+
+export async function signOut(): Promise<void> {
+  // ✅ Registrar log de logout ANTES de limpar sessão
+  const currentUser = getCurrentUser();
+  if (currentUser?.id) {
+    await logLogout(currentUser.id);
+  }
+
+  localStorage.removeItem("currentUser");
+}
+
+export async function changePassword(
+  userId: string,
+  newPassword: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("system_users")
+    .update({
+      password_hash: newPassword,
+      requires_password_change: false,
+      temporary_password: false,
+    })
+    .eq("id", userId);
+
+  if (error) throw error;
+
+  // ✅ Registrar log de mudança de senha
+  await logPasswordChange(userId, false);
 }

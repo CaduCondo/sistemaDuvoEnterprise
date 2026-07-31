@@ -7,6 +7,7 @@ import {
   deleteSingle 
 } from "@/lib/supabaseHelpers";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "./auditService";
 
 const TABLE = "tenants";
 
@@ -239,7 +240,56 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
   }
 };
 
-export const update = updateTenant;
+export const update = async (
+  id: string,
+  tenant: Partial<Omit<Tenant, "id" | "createdAt">>
+): Promise<Tenant> => {
+  // ✅ Buscar valores antigos ANTES de atualizar
+  const { data: oldData } = await supabase
+    .from("tenants")
+    .select("name, email, phone, status")
+    .eq("id", id)
+    .single();
+
+  const updateData: any = {};
+
+  if (tenant.name !== undefined) updateData.name = tenant.name;
+  if (tenant.email !== undefined) updateData.email = tenant.email;
+  if (tenant.phone !== undefined) updateData.phone = tenant.phone;
+  if (tenant.cpf !== undefined) updateData.cpf = tenant.cpf;
+  if (tenant.rg !== undefined) updateData.rg = tenant.rg;
+  if (tenant.status !== undefined) updateData.status = tenant.status;
+
+  const { data, error } = await supabase
+    .from("tenants")
+    .update(updateData)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // ✅ Registrar log de auditoria
+  await logAudit({
+    action_type: "update",
+    entity_type: "tenant",
+    entity_id: id,
+    old_values: oldData ? {
+      name: oldData.name,
+      email: oldData.email,
+      phone: oldData.phone,
+      status: oldData.status,
+    } : undefined,
+    new_values: {
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      status: data.status,
+    },
+  });
+
+  return data;
+};
 
 export async function deleteTenant(id: string): Promise<void> {
   const { data: activeRentals, error: rentalError } = await supabase
@@ -263,7 +313,32 @@ export async function deleteTenant(id: string): Promise<void> {
   return deleteSingle(TABLE, id);
 }
 
-export const remove = deleteTenant;
+export const remove = async (id: string): Promise<void> => {
+  // ✅ Buscar dados ANTES de deletar
+  const { data: tenantData } = await supabase
+    .from("tenants")
+    .select("name, email, phone")
+    .eq("id", id)
+    .single();
+
+  const { error } = await supabase.from("tenants").delete().eq("id", id);
+
+  if (error) throw error;
+
+  // ✅ Registrar log de auditoria
+  if (tenantData) {
+    await logAudit({
+      action_type: "delete",
+      entity_type: "tenant",
+      entity_id: id,
+      old_values: {
+        name: tenantData.name,
+        email: tenantData.email,
+        phone: tenantData.phone,
+      },
+    });
+  }
+};
 
 export async function getActive(): Promise<Tenant[]> {
   console.log("🔄 [tenantService.getActive] Buscando inquilinos disponíveis (apenas status 'new')...");
