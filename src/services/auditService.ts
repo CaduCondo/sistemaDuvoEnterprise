@@ -135,6 +135,7 @@ function generateChangesSummary(
     rental: "Locação",
     payment: "Recebimento",
     user: "Usuário",
+    location: "Localização",
     system: "Sistema",
   };
 
