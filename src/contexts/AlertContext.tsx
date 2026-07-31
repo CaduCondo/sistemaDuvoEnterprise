@@ -39,14 +39,11 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleConfirm = () => {
-    setOpen(false);
-    if (alertData.onConfirm) {
-      alertData.onConfirm();
-    }
+    hideAlert();
   };
 
   const hideAlert = useCallback(() => {
-    setIsOpen(false);
+    setOpen(false);
     
     // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays ao fechar
     setTimeout(() => {
@@ -73,11 +70,15 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     }, 100);
     
     // Resetar callback após execução
-    if (currentAlert?.onConfirm) {
-      currentAlert.onConfirm();
+    if (alertData.onConfirm) {
+      alertData.onConfirm();
     }
-    setCurrentAlert(null);
-  }, [currentAlert]);
+    setAlertData({
+      title: "",
+      description: "",
+      type: "info",
+    });
+  }, [alertData]);
 
   const getIcon = () => {
     const iconClass = "h-6 w-6";
