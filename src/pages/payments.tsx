@@ -964,11 +964,39 @@ export default function Payments() {
           property={getPropertyForPayment(uiState.selectedPayment) as any}
           tenant={getTenantForPayment(uiState.selectedPayment) as any}
           onClose={() => {
+            // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays ao fechar recibo
+            
+            // 1. Limpar estado do UI
             setUiState(prev => ({
               ...prev,
               showReceiptDialog: false,
               selectedPayment: null,
+              selectedPaymentId: null, // ✅ Garantir que nenhum modal de edição fica aberto
             }));
+            
+            // 2. Remover manualmente TODOS os overlays presos no DOM
+            setTimeout(() => {
+              const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]');
+              overlays.forEach(overlay => {
+                if (overlay.parentNode) {
+                  overlay.parentNode.removeChild(overlay);
+                }
+              });
+              
+              // 3. Restaurar scroll e pointer-events no body
+              document.body.style.overflow = '';
+              document.body.style.pointerEvents = '';
+              document.body.style.paddingRight = '';
+              
+              // 4. Remover classes de modal que podem estar presas
+              document.body.classList.remove('overflow-hidden', 'pointer-events-none');
+              
+              // 5. Garantir que data-radix-* attributes são removidos
+              document.documentElement.removeAttribute('data-radix-scroll-lock');
+              document.body.removeAttribute('data-radix-scroll-lock');
+              
+              console.log('✅ Overlays removidos e página desbloqueada');
+            }, 100);
           }}
         />
       )}
