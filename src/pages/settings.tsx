@@ -523,7 +523,8 @@ export default function Settings() {
             userId: userId,
             name: user.name,
             temporaryPassword: temporaryPassword,
-            isReset: true, // Flag para usar template diferente
+            isReset: true,
+            isAdminReset: true, // Flag: foi um admin que resetou
           }),
         });
       } catch (emailError) {
@@ -532,7 +533,7 @@ export default function Settings() {
 
       showAlert({ 
         title: "Senha resetada com sucesso!",
-        description: `Senha temporária: ${temporaryPassword}\n\nUm email foi enviado para ${user.email} com a senha temporária.\n\nO usuário deverá trocar a senha no primeiro login.`,
+        description: `Um email foi enviado para ${user.email} com a senha temporária.\n\nO usuário deverá trocar a senha no primeiro login.`,
         type: "success",
       });
       

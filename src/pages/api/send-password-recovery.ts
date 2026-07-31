@@ -48,10 +48,26 @@ export default async function handler(
         console.log("📧 ========================================");
       }
 
+      // Detectar se foi via admin ou via usuário (esqueci minha senha)
+      const { isAdminReset } = req.body;
+      const messageText = isAdminReset 
+        ? "Sua senha foi resetada por um administrador. Use a senha temporária abaixo para fazer login:"
+        : "Sua senha foi resetada. Use a senha temporária abaixo para fazer login:";
+
+      // Criar link com email e senha preenchidos (base64 encoded para segurança na URL)
+      const encodedEmail = Buffer.from(email).toString('base64');
+      const encodedPassword = Buffer.from(temporaryPassword).toString('base64');
+      
+      const protocol = req.headers["x-forwarded-proto"] || "http";
+      const host = req.headers.host || "localhost:3000";
+      const isDevelopment = host.includes("localhost") || host.includes("127.0.0.1");
+      const baseUrl = isDevelopment ? `http://${host}` : `https://${host}`;
+      const loginLink = `${baseUrl}/?u=${encodedEmail}&p=${encodedPassword}`;
+
       const { data, error } = await resend.emails.send({
         from: "D'Uvo Enterprise <noreply@duvoenterprise.com.br>",
         to: [email],
-        subject: "🔐 Senha Resetada - D'Uvo Enterprise",
+        subject: "🔐 Senha Temporária - D'Uvo Enterprise",
         html: `
           <!DOCTYPE html>
           <html lang="pt-BR">
@@ -76,18 +92,18 @@ export default async function handler(
 
               <!-- Content -->
               <div style="padding: 40px 30px;">
-                <h2 style="color: #1e293b; margin: 0 0 16px; font-size: 24px; font-weight: 600;">Senha Resetada</h2>
+                <h2 style="color: #1e293b; margin: 0 0 16px; font-size: 24px; font-weight: 600;">Senha Temporária</h2>
                 
                 <p style="color: #475569; margin: 0 0 24px; font-size: 16px; line-height: 1.6;">
                   Olá${name ? ` <strong>${name}</strong>` : ""},
                 </p>
 
                 <p style="color: #475569; margin: 0 0 24px; font-size: 16px; line-height: 1.6;">
-                  Sua senha foi resetada por um administrador. Use a senha temporária abaixo para fazer login:
+                  ${messageText}
                 </p>
 
                 <!-- Temporary Password Box -->
-                <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #3b82f6; border-radius: 12px; padding: 24px; margin: 0 0 32px; text-align: center;">
+                <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #3b82f6; border-radius: 12px; padding: 24px; margin: 0 0 24px; text-align: center;">
                   <p style="color: #1e40af; margin: 0 0 8px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
                     Senha Temporária
                   </p>
@@ -96,22 +112,23 @@ export default async function handler(
                   </p>
                 </div>
 
+                <!-- Login Button -->
+                <div style="text-align: center; margin: 0 0 24px;">
+                  <a href="${loginLink}" 
+                     style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);">
+                    🔐 Clique Aqui para Acessar
+                  </a>
+                </div>
+
                 <div style="background-color: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 16px; margin: 0 0 24px;">
                   <p style="color: #92400e; margin: 0 0 8px; font-size: 13px; font-weight: 600;">
                     ⚠️ IMPORTANTE:
                   </p>
                   <ul style="color: #92400e; margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6;">
                     <li>Você será <strong>obrigado a criar uma nova senha</strong> no primeiro login</li>
-                    <li>A nova senha deve ter entre 8 e 12 caracteres</li>
-                    <li>Deve conter: maiúscula, minúscula, número e caractere especial</li>
+                    <li>A nova senha deve ter entre <strong>8 e 12 caracteres</strong></li>
+                    <li>Deve conter: <strong>maiúscula, minúscula, número e caractere especial</strong></li>
                   </ul>
-                </div>
-
-                <div style="text-align: center; margin: 0 0 24px;">
-                  <a href="https://duvoenterprise.com.br" 
-                     style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);">
-                    🔐 Acessar o Sistema
-                  </a>
                 </div>
 
                 <p style="color: #475569; margin: 0; font-size: 14px; line-height: 1.6;">

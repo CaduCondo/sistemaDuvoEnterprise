@@ -187,6 +187,7 @@ export function PublicHeader() {
           name: user.name,
           temporaryPassword: temporaryPassword,
           isReset: true,
+          isAdminReset: false, // Flag: foi o próprio usuário que clicou "Esqueci minha senha"
         }),
       });
 
@@ -265,45 +266,33 @@ export function PublicHeader() {
               ) : showForgotPassword ? (
                 <div className="space-y-3">
                   {recoverySuccess ? (
-                    // Tela de sucesso com senha temporária
+                    // Tela de sucesso SEM mostrar a senha
                     <div className="text-center py-4">
                       <div className="mx-auto bg-gradient-to-br from-green-600 to-green-800 w-16 h-16 rounded-full flex items-center justify-center shadow-lg mb-4 animate-bounce">
-                        <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
+                        <Mail className="h-8 w-8 text-white" />
                       </div>
                       
-                      <h3 className="font-bold text-xl text-green-700 mb-2">Senha Resetada com Sucesso!</h3>
+                      <h3 className="font-bold text-xl text-green-700 mb-2">E-mail Enviado com Sucesso!</h3>
                       <p className="text-sm text-slate-600 mb-4">
-                        Sua senha temporária foi enviada para:<br/>
+                        Uma senha temporária foi enviada para:<br/>
                         <strong className="text-slate-900">{recoveryEmail}</strong>
                       </p>
 
-                      {/* Senha Temporária Destacada */}
-                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-600 rounded-xl p-4 mb-4 shadow-lg">
-                        <p className="text-blue-900 font-semibold text-xs mb-2">🔐 SENHA TEMPORÁRIA:</p>
-                        <p className="text-blue-900 font-bold text-2xl font-mono tracking-wider mb-1">
-                          {generatedPassword}
-                        </p>
-                        <p className="text-blue-700 text-xs">
-                          Use esta senha para fazer login agora
-                        </p>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left mb-4">
+                        <p className="font-semibold text-blue-900 mb-2 text-sm">📧 Verifique seu e-mail</p>
+                        <ul className="list-disc list-inside space-y-1 text-xs text-blue-800">
+                          <li>Enviamos uma <strong>senha temporária</strong> para seu e-mail</li>
+                          <li>Use essa senha para fazer login</li>
+                          <li>Você será obrigado a criar uma nova senha no primeiro login</li>
+                        </ul>
                       </div>
 
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-left mb-4">
                         <p className="font-semibold text-amber-900 mb-2 text-sm">⚠️ IMPORTANTE:</p>
                         <ul className="list-disc list-inside space-y-1 text-xs text-amber-800">
-                          <li>Esta é uma senha <strong>temporária</strong></li>
-                          <li>Ao fazer login, você será <strong>obrigado a criar uma nova senha</strong></li>
-                          <li>A nova senha deve ter 8-12 caracteres</li>
-                          <li>Deve conter: maiúscula, minúscula, número e caractere especial</li>
+                          <li>A nova senha deve ter <strong>8-12 caracteres</strong></li>
+                          <li>Deve conter: <strong>maiúscula, minúscula, número e caractere especial</strong></li>
                         </ul>
-                      </div>
-
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                        <p className="text-xs text-blue-800">
-                          <strong>💡 Dica:</strong> Copie a senha temporária acima e cole no campo de login.
-                        </p>
                       </div>
 
                       <Button 
