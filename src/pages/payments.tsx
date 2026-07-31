@@ -467,10 +467,8 @@ export default function Payments() {
                 showReceiptDialog: true,
               }));
               
-              showAlert({
-                title: "Sucesso!",
-                description: "Recebimento registrado com sucesso.",
-              });
+              // ✅ CORREÇÃO: Removido alerta que pode travar a tela
+              // O recibo sendo aberto já é confirmação visual de sucesso
               
               return;
             }
