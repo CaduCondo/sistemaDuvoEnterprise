@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Property } from "@/types";
-import { cacheService } from "./cacheService";
+import type { Property } from "@/types";
+import { logAudit } from "./auditService";
 
 // Cache em memória otimizado com chaves diferentes para listagem vs detalhes
 let propertiesListCache: { data: Property[] | null; timestamp: number } = {
@@ -312,6 +312,19 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
 
   if (error) throw error;
 
+  // ✅ Registrar log de auditoria
+  await logAudit({
+    action_type: "create",
+    entity_type: "property",
+    entity_id: data.id,
+    new_values: {
+      location: data.locations?.name,
+      complement: data.complement,
+      value: data.value,
+      status: data.status,
+    },
+  });
+
   // Invalidate cache
   invalidateCache();
 
@@ -368,6 +381,23 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
 
   if (error) throw error;
 
+  // ✅ Registrar log de auditoria
+  await logAudit({
+    action_type: "update",
+    entity_type: "property",
+    entity_id: id,
+    old_values: {
+      complement: propertyData.complement,
+      value: propertyData.value,
+      status: propertyData.status,
+    },
+    new_values: {
+      complement: property.complement,
+      value: property.value,
+      status: property.status,
+    },
+  });
+
   // Invalidate cache
   invalidateCache();
 
@@ -393,6 +423,21 @@ export const remove = async (id: string): Promise<void> => {
 
   const { error } = await supabase.from("properties").delete().eq("id", id);
   if (error) throw error;
+
+  // ✅ Registrar log de auditoria
+  if (property) {
+    const location = property.locations as any;
+    await logAudit({
+      action_type: "delete",
+      entity_type: "property",
+      entity_id: id,
+      old_values: {
+        location: location?.name || "-",
+        complement: property.complement,
+        value: property.value,
+      },
+    });
+  }
 
   // Invalidate cache
   invalidateCache();
