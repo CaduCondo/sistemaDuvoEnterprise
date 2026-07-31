@@ -903,16 +903,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
       const remainingAmount = Math.max(0, Math.abs(expectedTotal) - Math.abs(finalPaidAmount));
 
-      showAlert({
-        title: "Sucesso",
-        description: userInputAmount === 0
-          ? "Pagamento atualizado com sucesso!"
-          : paymentStatus === "partial" 
-            ? `Pagamento parcial registrado! Total pago: ${formatCurrency(Math.abs(finalPaidAmount).toFixed(2))} de ${formatCurrency(Math.abs(expectedTotal).toFixed(2))}. Restante: ${formatCurrency(remainingAmount.toFixed(2))}`
-            : isPaid ? "Pagamento atualizado com sucesso!" : "Pagamento registrado com sucesso!",
-        type: "success",
-      });
-
+      // ✅ CORREÇÃO: Chamar callbacks ANTES do alerta para evitar conflito de estado
       if (onSuccess) {
         const updatedPayment: any = {
           ...payment,
@@ -935,6 +926,19 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       } else {
         router.push("/payments");
       }
+
+      // ✅ CORREÇÃO: Alerta DEPOIS dos callbacks - com timeout para garantir que não trave
+      setTimeout(() => {
+        showAlert({
+          title: "Sucesso",
+          description: userInputAmount === 0
+            ? "Pagamento atualizado com sucesso!"
+            : paymentStatus === "partial" 
+              ? `Pagamento parcial registrado! Total pago: ${formatCurrency(Math.abs(finalPaidAmount).toFixed(2))} de ${formatCurrency(Math.abs(expectedTotal).toFixed(2))}. Restante: ${formatCurrency(remainingAmount.toFixed(2))}`
+              : isPaid ? "Pagamento atualizado com sucesso!" : "Pagamento registrado com sucesso!",
+          type: "success",
+        });
+      }, 100);
 
     } catch (error) {
       console.error("Erro ao confirmar recebimento:", error);
