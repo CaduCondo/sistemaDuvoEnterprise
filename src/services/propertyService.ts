@@ -95,7 +95,6 @@ const mapDatabasePropertyFull = (item: any): Property => {
 const invalidateCache = () => {
   propertiesListCache = { data: null, timestamp: 0 };
   propertyDetailsCache.clear();
-  cacheService.remove("properties_list");
   console.log("🗑️ [propertyService] Cache invalidado");
 };
 
@@ -411,9 +410,10 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
  * Deletar imóvel
  */
 export const remove = async (id: string): Promise<void> => {
-  // 🔒 GATILHO DE SEGURANÇA: Verificar status antes de deletar
+  // ✅ Buscar dados ANTES de deletar para log de auditoria
   const property = await getById(id);
   
+  // 🔒 GATILHO DE SEGURANÇA: Verificar status antes de deletar
   if (property && property.status === "occupied") {
     throw new Error(
       "Não é possível deletar este imóvel porque ele possui uma locação ativa. " +
@@ -426,13 +426,12 @@ export const remove = async (id: string): Promise<void> => {
 
   // ✅ Registrar log de auditoria
   if (property) {
-    const location = property.locations as any;
     await logAudit({
       action_type: "delete",
       entity_type: "property",
       entity_id: id,
       old_values: {
-        location: location?.name || "-",
+        location: property.location,
         complement: property.complement,
         value: property.value,
       },
