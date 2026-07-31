@@ -294,7 +294,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         depositAmount: parseMoneyMaskToNumber(depositAmount) || 0,
         status: "active" as const,
         isActive: true,
-        attachments: attachments.length > 0 ? attachments : [],
+        attachments: attachments, // ✅ CORREÇÃO: Remover length check - sempre salvar o array (mesmo vazio)
         contractAttachments: [],
         hasGarage: hasGarage,
         garageValue: hasGarage && garageValue ? parseCurrencyToNumber(garageValue) : undefined,
@@ -333,6 +333,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         console.log("🔄 [RentalFormDialog] EDITANDO locação:", rental.id);
         console.log("📦 [RentalFormDialog] Dados sendo enviados:", fullUpdateData);
         console.log("💰 [RentalFormDialog] Dados de caução enviados:", depositData);
+        console.log("📎 [RentalFormDialog] Anexos sendo salvos:", attachments); // ✅ DEBUG: Log de anexos
         
         const changes: any = {};
         if (startDate !== rental.startDate) changes.startDate = startDate;

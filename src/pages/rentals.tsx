@@ -408,9 +408,12 @@ export default function RentalsPage() {
         endDate: newEndDate.toISOString().split("T")[0],
       });
 
+      // ✅ CORREÇÃO: Formatar data corretamente para exibição
+      const formattedDate = formatDate(newEndDate.toISOString().split("T")[0]);
+
       showAlert({
         title: "Sucesso",
-        description: `Contrato renovado com sucesso! Nova data final: ${formatDate(newEndDate.toISOString())}`,
+        description: `Contrato renovado com sucesso! Nova data final: ${formattedDate}`,
       });
 
       setRentalToRenew(null);
