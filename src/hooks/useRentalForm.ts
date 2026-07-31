@@ -3,7 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/masks";
 import { calculateProportionalRent, calculateDaysBetweenDates, shouldUseProportionalRent } from "@/lib/rentalCalculations";
 import { getDepositInstallmentsByRental } from "@/services/depositInstallmentService";
-import type { Rental, Property, Tenant, Location } from "@/types";
+import type { Rental, Property, Tenant, Location, Attachment } from "@/types";
 
 interface UseRentalFormProps {
   open: boolean;
@@ -57,7 +57,7 @@ export function useRentalForm({
   const [depositInstallment3PixCode, setDepositInstallment3PixCode] = useState("");
   
   // Outros estados
-  const [attachments, setAttachments] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [proportionalRentInfo, setProportionalRentInfo] = useState<ProportionalRentInfo>({
     isProportional: false,
     days: 30,
@@ -260,7 +260,7 @@ export function useRentalForm({
   }, [open, rental, isViewMode, initializeFromRental, resetForm]);
 
   // Handler de upload de arquivo
-  const handleFileUpload = useCallback(async (file: File) => {
+  const handleFileUpload = useCallback(async (file: File): Promise<Attachment> => {
     const uuid = crypto.randomUUID();
     const extension = file.name.split(".").pop();
     const fileName = `rental_${uuid}.${extension}`;
@@ -268,19 +268,26 @@ export function useRentalForm({
     const formData = new FormData();
     formData.append("file", file, fileName);
 
-    return new Promise<string>((resolve, reject) => {
+    return new Promise<Attachment>((resolve, reject) => {
       fetch("/api/upload", {
         method: "POST",
         body: formData,
       })
         .then(() => {
           const url = `/uploads/${fileName}`;
-          setAttachments((prev) => [...prev, url]);
+          const attachment: Attachment = {
+            id: uuid,
+            name: file.name,
+            url: url,
+            type: file.type,
+            uploadedAt: new Date().toISOString(),
+          };
+          setAttachments((prev) => [...prev, attachment]);
           toast({
             title: "Arquivo anexado",
             description: `${file.name} foi anexado com sucesso.`,
           });
-          resolve(url);
+          resolve(attachment);
         })
         .catch(() => {
           toast({
@@ -294,8 +301,8 @@ export function useRentalForm({
   }, [toast]);
 
   // Remover anexo
-  const removeAttachment = useCallback((index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  const removeAttachment = useCallback((id: string) => {
+    setAttachments((prev) => prev.filter((att) => att.id !== id));
     toast({
       title: "Anexo removido",
       description: "Anexo removido com sucesso.",

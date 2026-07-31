@@ -294,7 +294,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         depositAmount: parseMoneyMaskToNumber(depositAmount) || 0,
         status: "active" as const,
         isActive: true,
-        attachments: attachments, // ✅ CORREÇÃO: Remover length check - sempre salvar o array (mesmo vazio)
+        attachments: attachments, // ✅ Agora é Attachment[] corretamente
         contractAttachments: [],
         hasGarage: hasGarage,
         garageValue: hasGarage && garageValue ? parseCurrencyToNumber(garageValue) : undefined,

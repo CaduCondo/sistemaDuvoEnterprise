@@ -408,8 +408,12 @@ export default function RentalsPage() {
         endDate: newEndDate.toISOString().split("T")[0],
       });
 
-      // ✅ CORREÇÃO: Formatar data corretamente para exibição
-      const formattedDate = formatDate(newEndDate.toISOString().split("T")[0]);
+      // ✅ CORREÇÃO: Formatar data corretamente para pt-BR
+      const formattedDate = new Date(newEndDate).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
 
       showAlert({
         title: "Sucesso",
@@ -426,7 +430,7 @@ export default function RentalsPage() {
         type: "error",
       });
     }
-  }, [rentalToRenew, showAlert, formatDate, loadRentalsData]);
+  }, [rentalToRenew, showAlert, loadRentalsData]);
 
   // Handler para deletar locação
   const handleDeleteRental = useCallback(async () => {
