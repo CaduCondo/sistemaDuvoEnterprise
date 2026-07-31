@@ -87,69 +87,67 @@ export default async function handler(
 
     console.log("✅ [reset-password] Senha validada");
 
-    // Verificar se as variáveis de ambiente estão configuradas
+    // Usar anon key para chamar RPC (suficiente)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
-    if (!supabaseUrl) {
-      console.error("❌ [reset-password] NEXT_PUBLIC_SUPABASE_URL não configurada");
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("❌ [reset-password] Credenciais Supabase não configuradas");
       return res.status(500).json({
         success: false,
-        error: "Configuração do servidor incorreta (URL).",
+        error: "Configuração do servidor incorreta.",
       });
     }
 
-    if (!supabaseServiceKey) {
-      console.error("❌ [reset-password] SUPABASE_SERVICE_ROLE_KEY não configurada");
-      return res.status(500).json({
-        success: false,
-        error: "Configuração do servidor incorreta (Service Key não configurada). Contate o administrador.",
-      });
-    }
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    console.log("✅ [reset-password] Credenciais Supabase configuradas");
+    console.log("📝 [reset-password] Chamando função reset_user_password_by_token via RPC");
+    console.log("📝 [reset-password] User ID:", decoded.userId);
+    console.log("📝 [reset-password] Email:", decoded.email);
 
-    // Criar cliente com service role (bypassa RLS)
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
+    // Chamar função SECURITY DEFINER que bypassa RLS
+    const { data: result, error: rpcError } = await supabase.rpc(
+      'reset_user_password_by_token',
+      {
+        p_user_id: decoded.userId,
+        p_email: decoded.email,
+        p_new_password: newPassword
       }
-    });
+    );
 
-    console.log("📝 [reset-password] Atualizando senha para:", decoded.email);
-
-    // Atualizar senha diretamente (service role bypassa RLS)
-    const { data: updateData, error: updateError } = await supabaseAdmin
-      .from("system_users")
-      .update({
-        password_hash: newPassword,
-        requires_password_change: false,
-        temporary_password: false,
-        login_attempts: 0,
-        blocked_until: null,
-      })
-      .eq("id", decoded.userId)
-      .eq("email", decoded.email)
-      .select("id, email");
-
-    if (updateError) {
-      console.error("❌ [reset-password] Erro ao atualizar:", updateError);
+    if (rpcError) {
+      console.error("❌ [reset-password] Erro RPC:", rpcError);
+      console.error("❌ [reset-password] Código:", rpcError.code);
+      console.error("❌ [reset-password] Mensagem:", rpcError.message);
+      console.error("❌ [reset-password] Detalhes:", rpcError.details);
+      
       return res.status(500).json({
         success: false,
-        error: "Erro ao atualizar senha. Tente novamente.",
+        error: "Erro ao processar redefinição de senha. Tente novamente.",
       });
     }
 
-    if (!updateData || updateData.length === 0) {
-      console.error("❌ [reset-password] Nenhum usuário atualizado");
-      return res.status(404).json({
+    console.log("📊 [reset-password] Resultado RPC:", result);
+
+    // Verificar se a função retornou sucesso
+    if (!result || typeof result !== 'object') {
+      console.error("❌ [reset-password] Resultado RPC inválido:", result);
+      return res.status(500).json({
         success: false,
-        error: "Usuário não encontrado ou link expirado.",
+        error: "Erro ao processar redefinição de senha.",
       });
     }
 
-    console.log("✅ [reset-password] Senha atualizada com sucesso:", updateData[0].email);
+    if (!result.success) {
+      console.error("❌ [reset-password] Função retornou erro:", result.error);
+      return res.status(400).json({
+        success: false,
+        error: result.error || "Erro ao atualizar senha.",
+      });
+    }
+
+    console.log("✅ [reset-password] Senha atualizada com sucesso via RPC");
+    console.log("✅ [reset-password] Email:", decoded.email);
     
     return res.status(200).json({ success: true });
 
