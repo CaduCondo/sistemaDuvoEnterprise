@@ -610,27 +610,19 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   const handleEnableEdit = useCallback(() => {
     setIsEditMode(true);
     
+    // ✅ CORREÇÃO: Apenas zerar o campo, SEM mostrar alerta que trava a tela
     setFormData(prev => ({
       ...prev,
       amount_to_pay: ""
     }));
-    
-    showAlert({
-      title: "Modo de Edição",
-      description: "Campos desbloqueados para edição. Campo 'Valor a Pagar' zerado - preencha o valor manualmente.",
-      type: "info",
-    });
-  }, [showAlert]);
+  }, []);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditMode(false);
     loadPaymentData();
-    showAlert({
-      title: "Edição Cancelada",
-      description: "Alterações descartadas.",
-      type: "info",
-    });
-  }, [loadPaymentData, showAlert]);
+    
+    // ✅ CORREÇÃO: Remover alerta que pode travar a tela
+  }, [loadPaymentData]);
 
   const handleRepairExpensesChange = useCallback((value: string) => {
     const masked = applyMoneyMask(value);

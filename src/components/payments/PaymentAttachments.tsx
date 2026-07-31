@@ -40,57 +40,61 @@ export const PaymentAttachments = memo(function PaymentAttachments({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1">
-          <input
-            id="file-input"
-            type="file"
-            accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
-            onChange={handleFileInputChange}
-            disabled={uploadingFile || isReadOnly}
-            className="hidden"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full h-12"
-            onClick={(e) => {
-              e.preventDefault();
-              document.getElementById('file-input')?.click();
-            }}
-            disabled={uploadingFile || isReadOnly}
-          >
-            <Upload className="mr-2 h-5 w-5" />
-            Escolher Arquivo
-          </Button>
-        </div>
+      {/* Botões de upload - só aparecem quando NÃO é readonly */}
+      {!isReadOnly && (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <input
+              id="file-input"
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+              onChange={handleFileInputChange}
+              disabled={uploadingFile || isReadOnly}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-12"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById('file-input')?.click();
+              }}
+              disabled={uploadingFile || isReadOnly}
+            >
+              <Upload className="mr-2 h-5 w-5" />
+              Escolher Arquivo
+            </Button>
+          </div>
 
-        <div className="flex-1 sm:hidden">
-          <input
-            id="camera-input"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileInputChange}
-            disabled={uploadingFile || isReadOnly}
-            className="hidden"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full h-12"
-            onClick={(e) => {
-              e.preventDefault();
-              document.getElementById('camera-input')?.click();
-            }}
-            disabled={uploadingFile || isReadOnly}
-          >
-            <Camera className="mr-2 h-5 w-5" />
-            Tirar Foto
-          </Button>
+          <div className="flex-1 sm:hidden">
+            <input
+              id="camera-input"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileInputChange}
+              disabled={uploadingFile || isReadOnly}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-12"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById('camera-input')?.click();
+              }}
+              disabled={uploadingFile || isReadOnly}
+            >
+              <Camera className="mr-2 h-5 w-5" />
+              Tirar Foto
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
+      {/* Lista de anexos - SEMPRE CLICÁVEL para visualizar/baixar */}
       {attachments.filter(a => a.url).length > 0 && (
         <div className="space-y-2 pt-2 border-t">
           <p className="text-sm font-medium text-muted-foreground">
@@ -99,10 +103,12 @@ export const PaymentAttachments = memo(function PaymentAttachments({
           {attachments.map((attachment, index) => {
             if (!attachment.url) return null;
             
+            const isPdf = attachment.url.toLowerCase().endsWith(".pdf");
+            
             return (
-              <div key={index} className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+              <div key={index} className="flex items-center gap-3 p-3 bg-secondary rounded-lg hover:bg-secondary/80 transition-colors">
                 <div className="flex-shrink-0">
-                  {attachment.url.toLowerCase().endsWith(".pdf") ? (
+                  {isPdf ? (
                     <FileText className="h-8 w-8 text-primary" />
                   ) : (
                     <ImageIcon className="h-8 w-8 text-primary" />
@@ -112,21 +118,29 @@ export const PaymentAttachments = memo(function PaymentAttachments({
                   <p className="text-sm font-medium truncate">
                     {attachment.name || "Arquivo"}
                   </p>
+                  {/* ✅ CORREÇÃO: Link SEMPRE clicável, independente de isReadOnly */}
                   <a 
                     href={attachment.url} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline"
+                    className="text-xs text-primary hover:underline cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
-                    Visualizar →
+                    {isPdf ? "📄 Ver PDF" : "🖼️ Ver Imagem"} →
                   </a>
                 </div>
+                {/* Botão de remover só aparece quando NÃO é readonly */}
                 {!isReadOnly && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => onRemoveAttachment(index)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveAttachment(index);
+                    }}
                     className="h-8 w-8 p-0 flex-shrink-0"
                   >
                     <X className="h-4 w-4" />
@@ -138,6 +152,7 @@ export const PaymentAttachments = memo(function PaymentAttachments({
         </div>
       )}
 
+      {/* Progress de upload */}
       {Object.keys(uploadProgress).length > 0 && (
         <div className="space-y-2">
           {Object.entries(uploadProgress).map(([key, progress]) => (
