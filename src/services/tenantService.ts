@@ -205,7 +205,22 @@ export const getById = getTenantById;
 export async function createTenant(data: Partial<Tenant>): Promise<Tenant> {
   const dbData = toDatabase(data);
   const result = await createSingle<any>(TABLE, dbData);
-  return fromDatabase(result);
+  const tenant = fromDatabase(result);
+  
+  // ✅ Registrar log de auditoria
+  await logAudit({
+    action_type: "create",
+    entity_type: "tenant",
+    entity_id: tenant.id,
+    new_values: {
+      name: tenant.name,
+      email: tenant.email,
+      phone: tenant.phone,
+      status: tenant.status,
+    },
+  });
+  
+  return tenant;
 }
 
 export const create = createTenant;
@@ -214,6 +229,13 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
   try {
     console.log("🔄 [tenantService.updateTenant] Atualizando inquilino:", id);
     console.log("📥 [tenantService.updateTenant] Dados recebidos:", data);
+    
+    // ✅ Buscar valores antigos ANTES de atualizar para log de auditoria
+    const { data: oldData } = await supabase
+      .from("tenants")
+      .select("name, email, phone, status")
+      .eq("id", id)
+      .single();
     
     // ✅ CORREÇÃO: Usar toDatabase para garantir mapeamento correto
     const updateData = toDatabase(data);
@@ -233,6 +255,28 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     }
 
     console.log("✅ [tenantService.updateTenant] Inquilino atualizado com sucesso");
+    
+    // ✅ Registrar log de auditoria
+    if (tenant) {
+      await logAudit({
+        action_type: "update",
+        entity_type: "tenant",
+        entity_id: id,
+        old_values: oldData ? {
+          name: oldData.name,
+          email: oldData.email,
+          phone: oldData.phone,
+          status: oldData.status,
+        } : undefined,
+        new_values: {
+          name: tenant.name,
+          email: tenant.email,
+          phone: tenant.phone,
+          status: tenant.status,
+        },
+      });
+    }
+    
     return tenant ? fromDatabase(tenant) : null;
   } catch (error) {
     console.error("❌ [tenantService.updateTenant] Erro:", error);
@@ -314,7 +358,28 @@ export async function deleteTenant(id: string): Promise<void> {
     );
   }
 
-  return deleteSingle(TABLE, id);
+  // ✅ Buscar dados ANTES de deletar para log de auditoria
+  const { data: tenantData } = await supabase
+    .from("tenants")
+    .select("name, email, phone")
+    .eq("id", id)
+    .single();
+
+  await deleteSingle(TABLE, id);
+  
+  // ✅ Registrar log de auditoria
+  if (tenantData) {
+    await logAudit({
+      action_type: "delete",
+      entity_type: "tenant",
+      entity_id: id,
+      old_values: {
+        name: tenantData.name,
+        email: tenantData.email,
+        phone: tenantData.phone,
+      },
+    });
+  }
 }
 
 export const remove = async (id: string): Promise<void> => {
