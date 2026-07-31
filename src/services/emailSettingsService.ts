@@ -1,22 +1,20 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type EmailType =
-  | "password_recovery"
-  | "welcome_user"
-  | "welcome_tenant"
-  | "contract_expiration"
+  | "welcome"
   | "payment_reminder"
   | "payment_overdue"
-  | "payment_confirmed";
+  | "rental_expiring"
+  | "password_recovery_admin"
+  | "password_recovery_user";
 
 export interface EmailSetting {
   id: string;
   email_type: EmailType;
   enabled: boolean;
-  description: string | null;
   email_subject: string | null;
   email_body: string | null;
-  available_variables: string[] | null;
+  description: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -116,24 +114,22 @@ export async function getEmailTemplate(emailType: EmailType): Promise<{
  * Nomes amigáveis para os tipos de e-mail
  */
 export const EMAIL_TYPE_LABELS: Record<EmailType, string> = {
-  password_recovery: "Recuperação de Senha",
-  welcome_user: "Boas-Vindas Usuário",
-  welcome_tenant: "Boas-Vindas Inquilino",
-  contract_expiration: "Vencimento de Contrato",
+  welcome: "Boas-vindas",
   payment_reminder: "Lembrete de Pagamento",
   payment_overdue: "Pagamento Atrasado",
-  payment_confirmed: "Confirmação de Pagamento",
+  rental_expiring: "Locação Expirando",
+  password_recovery_admin: "Senha Temporária (via Admin)",
+  password_recovery_user: "Senha Temporária (via Usuário)",
 };
 
 /**
  * Ícones para os tipos de e-mail
  */
 export const EMAIL_TYPE_ICONS: Record<EmailType, string> = {
-  password_recovery: "🔐",
-  welcome_user: "👋",
-  welcome_tenant: "🏠",
-  contract_expiration: "📅",
-  payment_reminder: "⏰",
+  welcome: "👋",
+  payment_reminder: "📅",
   payment_overdue: "⚠️",
-  payment_confirmed: "✅",
+  rental_expiring: "📆",
+  password_recovery_admin: "🔐",
+  password_recovery_user: "🔑",
 };

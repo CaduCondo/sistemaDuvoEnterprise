@@ -61,7 +61,9 @@ export function EmailSettingsTab() {
 
   // Verificar se o template está configurado (tem subject e body preenchidos)
   const isTemplateConfigured = (setting: EmailSetting): boolean => {
-    return !!(setting.email_subject && setting.email_body);
+    const hasSubject = setting.email_subject && setting.email_subject.trim().length > 0;
+    const hasBody = setting.email_body && setting.email_body.trim().length > 0;
+    return hasSubject && hasBody;
   };
 
   useEffect(() => {
