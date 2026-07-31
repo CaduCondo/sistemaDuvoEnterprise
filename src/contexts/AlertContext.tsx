@@ -45,17 +45,10 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const handleClose = useCallback(() => {
-    // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays ao fechar alerta
+  const hideAlert = useCallback(() => {
+    setIsOpen(false);
     
-    // 1. Limpar estado do alerta
-    setAlertData({
-      title: "",
-      description: "",
-      type: "info",
-    });
-    
-    // 2. Remover manualmente TODOS os overlays presos no DOM
+    // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays ao fechar
     setTimeout(() => {
       const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
       overlays.forEach(overlay => {
@@ -64,21 +57,27 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         }
       });
       
-      // 3. Restaurar scroll e pointer-events no body
+      // Restaurar scroll e pointer-events no body
       document.body.style.overflow = '';
       document.body.style.pointerEvents = '';
       document.body.style.paddingRight = '';
       
-      // 4. Remover classes de modal que podem estar presas
+      // Remover classes de modal que podem estar presas
       document.body.classList.remove('overflow-hidden', 'pointer-events-none');
       
-      // 5. Garantir que data-radix-* attributes são removidos
+      // Garantir que data-radix-* attributes são removidos
       document.documentElement.removeAttribute('data-radix-scroll-lock');
       document.body.removeAttribute('data-radix-scroll-lock');
       
       console.log('✅ [AlertContext] Overlays removidos e página desbloqueada');
     }, 100);
-  }, []);
+    
+    // Resetar callback após execução
+    if (currentAlert?.onConfirm) {
+      currentAlert.onConfirm();
+    }
+    setCurrentAlert(null);
+  }, [currentAlert]);
 
   const getIcon = () => {
     const iconClass = "h-6 w-6";
