@@ -307,7 +307,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       console.log("📦 Dados completos sendo enviados:", commonData);
 
       if (!rental) {
-        const createdRental = await createRental(fullUpdateData);
+        const createdRental = await createRental(commonData);
         
         await updateProperty(propertyId, { status: "occupied" });
         await updateTenant(tenantId, { status: "rented" });
@@ -401,8 +401,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         setShowContract(true);
       } else {
         console.log("🔄 [RentalFormDialog] EDITANDO locação:", rental.id);
-        console.log("📦 [RentalFormDialog] Dados sendo enviados:", fullUpdateData);
-        console.log("💰 [RentalFormDialog] Dados de caução enviados:", depositData);
+        console.log("📦 [RentalFormDialog] Dados sendo enviados:", commonData);
         console.log("📎 [RentalFormDialog] Anexos sendo salvos:", attachments); // ✅ DEBUG: Log de anexos
         
         const changes: any = {};
@@ -414,7 +413,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         if (hasGarage && garageAmount !== (rental.garageValue || 0)) changes.garageValue = garageAmount;
 
         // 🔥 CORREÇÃO: NÃO deletar/recriar parcelas - deixar rentalService.update() fazer a atualização inteligente
-        const updatedRental = await updateRentalService(rental.id, fullUpdateData);
+        const updatedRental = await updateRentalService(rental.id, commonData);
         
         console.log("✅ [RentalFormDialog] Locação atualizada, rentalService.update() já atualizou as parcelas");
         
@@ -1144,7 +1143,6 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         <DepositPaymentDialog
           open={paymentDialogOpen}
           onOpenChange={setPaymentDialogOpen}
-          installment={loadedInstallment}
           rental={rental}
           onSuccess={() => {
             setPaymentDialogOpen(false);

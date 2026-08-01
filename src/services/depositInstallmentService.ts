@@ -149,55 +149,26 @@ export async function getAllDepositInstallments(): Promise<DepositInstallment[]>
 /**
  * Atualizar parcela de caução
  */
-export async function updateDepositInstallment(
+export const updateDepositInstallment = async (
   id: string,
-  updates: Partial<DepositInstallment>
-): Promise<DepositInstallment> {
-  try {
-    // Convert DepositInstallment fields to database schema
-    const dbUpdates: any = {};
-    
-    if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
-    if (updates.due_date !== undefined) dbUpdates.due_date = updates.due_date;
-    if (updates.payment_date !== undefined) dbUpdates.payment_date = updates.payment_date;
-    if (updates.paid_amount !== undefined) dbUpdates.paid_amount = updates.paid_amount;
-    if (updates.payment_method !== undefined) dbUpdates.payment_method = updates.payment_method;
-    if (updates.status !== undefined) dbUpdates.status = updates.status;
-    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
-    if (updates.attachments !== undefined) {
-      dbUpdates.attachments = updates.attachments;
-    }
-
-    const { data, error } = await supabase
-      .from("deposit_installments")
-      .update(dbUpdates)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return {
-      id: data.id,
-      rental_id: data.rental_id,
-      installment_number: data.installment_number,
-      total_installments: data.installment_total,
-      amount: data.amount,
-      due_date: data.due_date,
-      payment_date: data.payment_date,
-      paid_amount: data.paid_amount || 0,
-      payment_method: data.payment_method,
-      status: data.status,
-      notes: data.notes,
-      attachments: Array.isArray(data.attachments) ? data.attachments : [],
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-    } as DepositInstallment;
-  } catch (error) {
-    console.error("Erro ao atualizar parcela de caução:", error);
-    throw error;
+  data: {
+    payment_date?: string;
+    paid_value?: number;
+    status?: "pending" | "paid" | "overdue";
+    attachments?: any[]; // ✅ JSONB aceita qualquer array de objetos
+    pix_code?: string;
   }
-}
+) => {
+  const { data: result, error } = await supabase
+    .from("deposit_installments")
+    .update(data)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return result;
+};
 
 /**
  * Registrar pagamento de parcela de caução
