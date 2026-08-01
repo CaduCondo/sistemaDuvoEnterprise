@@ -271,12 +271,12 @@ export function LogsTab() {
                     <TableCell className="whitespace-nowrap">
                       {new Date(log.created_at).toLocaleString("pt-BR")}
                     </TableCell>
-                    <TableCell>{log.user_name || log.username || "-"}</TableCell>
+                    <TableCell>{log.user_name || "-"}</TableCell>
                     <TableCell>
-                      {actionTypeLabels[log.action_type as AuditActionType] || log.action_type}
+                      {getActionBadge(log.action_type)}
                     </TableCell>
                     <TableCell>
-                      {entityTypeLabels[log.entity_type as AuditEntityType] || log.entity_type}
+                      {getEntityLabel(log.entity_type)}
                     </TableCell>
                     <TableCell className="max-w-md">
                       {log.changes_summary ? (
