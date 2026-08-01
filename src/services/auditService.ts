@@ -150,7 +150,7 @@ function generateChangesSummary(
   }
 
   if (actionType === "update") {
-    // ✅ CORREÇÃO: Listar TODAS as mudanças, não apenas a primeira
+    // ✅ CORREÇÃO: Listar TODAS as mudanças sem limite, uma por linha
     const changes: string[] = [];
 
     for (const key in newValues) {
@@ -187,11 +187,7 @@ function generateChangesSummary(
       return `${entityName} atualizado`;
     }
 
-    // Se houver muitas mudanças (>3), resumir
-    if (changes.length > 3) {
-      return `${entityName}: ${changes.slice(0, 3).join(", ")} e mais ${changes.length - 3} alterações`;
-    }
-
+    // ✅ CORREÇÃO: Retornar TODAS as mudanças sem truncar, separadas por quebra de linha
     return `${entityName}: ${changes.join(", ")}`;
   }
 

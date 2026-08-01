@@ -241,9 +241,9 @@ export function LogsTab() {
         </div>
 
         {/* Tabela de Logs */}
-        <div className="border rounded-lg">
+        <div className="border rounded-lg overflow-auto max-h-[600px]">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
                 <TableHead className="w-[180px]">Data/Hora</TableHead>
                 <TableHead className="w-[150px]">Usuário</TableHead>
@@ -268,13 +268,37 @@ export function LogsTab() {
               ) : (
                 filteredLogs.map((log) => (
                   <TableRow key={log.id}>
-                    <TableCell className="font-mono text-xs">
-                      {format(new Date(log.created_at), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+                    <TableCell className="whitespace-nowrap">
+                      {new Date(log.created_at).toLocaleString("pt-BR")}
                     </TableCell>
-                    <TableCell className="font-medium">{log.user_name}</TableCell>
-                    <TableCell>{getActionBadge(log.action_type)}</TableCell>
-                    <TableCell>{getEntityLabel(log.entity_type)}</TableCell>
-                    <TableCell className="text-sm">{log.changes_summary || "-"}</TableCell>
+                    <TableCell>{log.user_name || log.username || "-"}</TableCell>
+                    <TableCell>
+                      {actionTypeLabels[log.action_type as AuditActionType] || log.action_type}
+                    </TableCell>
+                    <TableCell>
+                      {entityTypeLabels[log.entity_type as AuditEntityType] || log.entity_type}
+                    </TableCell>
+                    <TableCell className="max-w-md">
+                      {log.changes_summary ? (
+                        <div className="whitespace-pre-wrap break-words">
+                          {log.changes_summary.includes(": ") ? (
+                            // ✅ CORREÇÃO: Se tiver mudanças de campos, quebrar cada uma em uma linha
+                            <div className="space-y-1">
+                              {log.changes_summary.split(", ").map((change, idx) => (
+                                <div key={idx} className="text-sm">
+                                  {change}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            // Mensagem simples (ex: "Imóvel criado")
+                            log.changes_summary
+                          )}
+                        </div>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))
               )}
