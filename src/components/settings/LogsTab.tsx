@@ -306,8 +306,7 @@ export function LogsTab() {
             </TableBody>
           </Table>
         </ScrollArea>
-      </div>
-
+        
         <div className="text-sm text-muted-foreground text-center">
           Mostrando {filteredLogs.length} de {logs.length} registros
         </div>
