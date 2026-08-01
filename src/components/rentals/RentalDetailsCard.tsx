@@ -455,9 +455,11 @@ export const RentalDetailsCard = memo(function RentalDetailsCard({ rental, prope
         <DepositPaymentDialog
           open={paymentDialogOpen}
           onOpenChange={setPaymentDialogOpen}
-          installment={selectedInstallment}
           rental={rental}
-          onSuccess={reloadInstallments}
+          onSuccess={async () => {
+            setPaymentDialogOpen(false);
+            await refetch();
+          }}
         />
       )}
     </Card>
