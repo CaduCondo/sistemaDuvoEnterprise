@@ -259,6 +259,8 @@ export function useRentalForm({
 
   // Handler de upload de arquivo
   const handleFileUpload = useCallback(async (file: File): Promise<Attachment> => {
+    console.log("📤 [useRentalForm.handleFileUpload] INÍCIO - file:", file.name);
+    
     const uuid = crypto.randomUUID();
     const extension = file.name.split(".").pop();
     const fileName = `rental_${uuid}.${extension}`;
@@ -271,7 +273,15 @@ export function useRentalForm({
         method: "POST",
         body: formData,
       })
-        .then(() => {
+        .then((response) => {
+          console.log("📤 [useRentalForm.handleFileUpload] Upload response:", response.status);
+          
+          if (!response.ok) {
+            console.error("❌ [useRentalForm.handleFileUpload] Upload falhou:", response.statusText);
+            reject();
+            return;
+          }
+          
           const url = `/uploads/${fileName}`;
           const attachment: Attachment = {
             id: uuid,
@@ -281,10 +291,19 @@ export function useRentalForm({
             uploadedAt: new Date().toISOString(),
             category: "contract",
           };
-          setAttachments((prev) => [...prev, attachment]);
+          
+          console.log("✅ [useRentalForm.handleFileUpload] Anexo criado:", attachment);
+          
+          setAttachments((prev) => {
+            const newAttachments = [...prev, attachment];
+            console.log("📎 [useRentalForm.handleFileUpload] Attachments após adicionar:", newAttachments);
+            return newAttachments;
+          });
+          
           resolve(attachment);
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error("❌ [useRentalForm.handleFileUpload] Erro no upload:", error);
           reject();
         });
     });

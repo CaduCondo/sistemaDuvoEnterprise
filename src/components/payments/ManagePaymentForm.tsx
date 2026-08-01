@@ -749,11 +749,17 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     return () => clearTimeout(timeoutId);
   }, [repairExpenses, discountAmount, handleSaveExpensesAndDiscount, isTerminationPayment, loading, payment, igpmCorrection]);
 
-  const handleSubmit = async () => {
-    if (!formData.payment_date || !formData.payment_method) {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    console.log("🚀 [ManagePaymentForm.handleSubmit] INÍCIO");
+    console.log("📎 [ManagePaymentForm.handleSubmit] attachments:", attachments);
+    console.log("💰 [ManagePaymentForm.handleSubmit] formData:", formData);
+
+    if (!formData.value || !formData.due_date) {
       showAlert({
-        title: "Atenção",
-        description: "Preencha os campos obrigatórios: Data e Método de Pagamento",
+        title: "Erro de validação",
+        description: "Preencha todos os campos obrigatórios.",
         type: "error",
       });
       return;

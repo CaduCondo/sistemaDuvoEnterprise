@@ -222,6 +222,21 @@ export const RentalFormDialog = memo(function RentalFormDialog({
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log("🚀 [RentalFormDialog.onSubmit] INÍCIO DO SUBMIT");
+    console.log("📎 [RentalFormDialog.onSubmit] Estado de attachments:", attachments);
+    console.log("📦 [RentalFormDialog.onSubmit] Todos os estados:", {
+      propertyId: String(selectedPropertyId),
+      tenantId: String(selectedTenantId),
+      startDate,
+      endDate: endDate || null,
+      paymentDay,
+      baseRent: selectedProperty?.value || selectedProperty?.monthlyRent || 0,
+      depositAmount,
+      hasGarage,
+      garageValue,
+      attachments,
+    });
+
     if (!selectedPropertyId || !selectedTenantId || !startDate || !paymentDay) {
       showAlert({
         title: "Erro",

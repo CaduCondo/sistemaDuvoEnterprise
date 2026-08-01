@@ -99,6 +99,37 @@ export function DepositPaymentDialog({
     setAttachments((prev) => prev.filter((att) => att.id !== id));
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    console.log("🚀 [DepositPaymentDialog.handleSubmit] INÍCIO");
+    console.log("📎 [DepositPaymentDialog.handleSubmit] attachments:", attachments);
+    console.log("📦 [DepositPaymentDialog.handleSubmit] formData:", formData);
+
+    if (!formData.paid_value || !formData.payment_date) {
+      showAlert({
+        title: "Erro de validação",
+        description: "Preencha a data e o valor do pagamento.",
+        type: "error",
+      });
+      return;
+    }
+
+    const updateData = {
+      payment_date: formData.payment_date,
+      paid_value: parseCurrencyToNumber(formData.paid_value),
+      status: "paid" as const,
+      attachments: attachments, // ✅ CRITICAL: Attachments sendo salvos
+      pix_code: formData.pix_code || null,
+    };
+
+    console.log("📦 [DepositPaymentDialog.handleSubmit] Dados que serão enviados:");
+    console.log("📎 [DepositPaymentDialog.handleSubmit] updateData.attachments:", updateData.attachments);
+    console.log("📦 [DepositPaymentDialog.handleSubmit] updateData completo:", updateData);
+
+    await updateDepositInstallment(selectedInstallment.id, updateData);
+  };
+
   const handlePayment = async () => {
     if (!selectedInstallment || !paymentDate || !paidValue) {
       alert("Preencha todos os campos obrigatórios");
