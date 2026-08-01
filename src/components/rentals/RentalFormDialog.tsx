@@ -544,9 +544,24 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     return baseList;
   }, [rental, tenants, availableTenants]);
 
-  // Encontrar o imóvel selecionado
-  const selectedProperty = properties.find(p => p.id === propertyId);
+  // ✅ CORREÇÃO: Mover selectedProperty para ANTES do useEffect
+  const selectedProperty = propertiesToDisplay.find(p => p.id === selectedPropertyId);
   const isFieldDisabled = isViewMode && !isEditing;
+  
+  // Verificar se já existe locação ativa para este imóvel
+  useEffect(() => {
+    if (selectedPropertyId && !rental) {
+      const hasActiveRental = selectedProperty?.status === "rented";
+      
+      if (hasActiveRental) {
+        showAlert({
+          title: "Atenção",
+          description: "Este imóvel já possui uma locação ativa. Deseja continuar?",
+          type: "warning",
+        });
+      }
+    }
+  }, [selectedPropertyId, rental, selectedProperty, showAlert]);
 
   if (!open) return null;
 
