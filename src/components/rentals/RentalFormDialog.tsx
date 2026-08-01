@@ -544,7 +544,8 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     return baseList;
   }, [rental, tenants, availableTenants]);
 
-  const selectedProperty = getSelectedProperty() || (rental?.property as Property);
+  // Encontrar o imóvel selecionado
+  const selectedProperty = properties.find(p => p.id === propertyId);
   const isFieldDisabled = isViewMode && !isEditing;
 
   if (!open) return null;
