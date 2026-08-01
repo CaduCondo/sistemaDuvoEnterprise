@@ -301,85 +301,12 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         hasPartnerBroker: hasPartnerBroker,
       };
 
-      const depositData: any = {
-        depositInstallments: 1,
-        depositInstallment1: parseMoneyMaskToNumber(depositAmount),
-        depositInstallment1DueDate: depositPaymentDate || null,
-        depositInstallment1PaymentDate: depositPaymentDate || null, // ✅ Mesma data em payment_date
-        depositInstallment1PixCode: depositPixCode || null,
-      };
+      console.log("🔍 [RentalFormDialog] ANTES de salvar:");
+      console.log("📎 Attachments do form:", attachments);
+      console.log("📦 commonData.attachments:", commonData.attachments);
+      console.log("📦 Dados completos sendo enviados:", commonData);
 
-      if (isDepositInstallment && depositInstallmentCount) {
-        depositData.depositInstallments = parseInt(depositInstallmentCount);
-        
-        if (parseInt(depositInstallmentCount) >= 2) {
-          depositData.depositInstallment2 = parseMoneyMaskToNumber(depositInstallment2);
-          depositData.depositInstallment2DueDate = depositInstallment2PaymentDate || null;
-          depositData.depositInstallment2PaymentDate = null; // Será preenchido quando for pago
-          depositData.depositInstallment2PixCode = depositInstallment2PixCode || null;
-        }
-
-        if (parseInt(depositInstallmentCount) === 3) {
-          depositData.depositInstallment3 = parseMoneyMaskToNumber(depositInstallment3);
-          depositData.depositInstallment3DueDate = depositInstallment3PaymentDate || null;
-          depositData.depositInstallment3PaymentDate = null; // Será preenchido quando for pago
-          depositData.depositInstallment3PixCode = depositInstallment3PixCode || null;
-        }
-      }
-
-      const fullUpdateData = { ...commonData, ...depositData };
-
-      if (rental) {
-        console.log("🔄 [RentalFormDialog] EDITANDO locação:", rental.id);
-        console.log("📦 [RentalFormDialog] Dados sendo enviados:", fullUpdateData);
-        console.log("💰 [RentalFormDialog] Dados de caução enviados:", depositData);
-        console.log("📎 [RentalFormDialog] Anexos sendo salvos:", attachments); // ✅ DEBUG: Log de anexos
-        
-        const changes: any = {};
-        if (startDate !== rental.startDate) changes.startDate = startDate;
-        if (endDate !== rental.endDate) changes.endDate = endDate;
-        if (baseRent !== rental.monthlyRent) changes.monthlyRent = baseRent;
-        if (parseInt(paymentDay) !== rental.paymentDay) changes.paymentDay = parseInt(paymentDay);
-        if (hasGarage !== rental.hasGarage) changes.hasGarage = hasGarage;
-        if (hasGarage && garageAmount !== (rental.garageValue || 0)) changes.garageValue = garageAmount;
-
-        // 🔥 CORREÇÃO: NÃO deletar/recriar parcelas - deixar rentalService.update() fazer a atualização inteligente
-        const updatedRental = await updateRentalService(rental.id, fullUpdateData);
-        
-        console.log("✅ [RentalFormDialog] Locação atualizada, rentalService.update() já atualizou as parcelas");
-        
-        // Atualizar pagamentos apenas se houver mudanças relevantes
-        if (Object.keys(changes).length > 0) {
-          console.log("🔄 [RentalFormDialog] Atualizando pagamentos de aluguel...");
-          await rentalUpdateService.updatePaymentsOnRentalEdit(
-            rental.id,
-            rental,
-            changes
-          );
-        }
-
-        const mergedRental: Rental = {
-          ...rental,
-          ...updatedRental,
-          status: isViewMode ? "active" : (updatedRental.status || "active"),
-          value: Number(updatedRental.value || 0),
-        };
-        
-        setCreatedRentalData({
-          rental: mergedRental,
-          property: selectedProperty,
-          tenant: selectedTenant,
-          location: locations.find((loc) => loc.id === selectedProperty.locationId),
-        });
-
-        showAlert({
-          title: "Sucesso!",
-          description: "Locação atualizada com sucesso.",
-          type: "success",
-        });
-
-        setShowContract(true);
-      } else {
+      if (!rental) {
         const createdRental = await createRental(fullUpdateData);
         
         await updateProperty(propertyId, { status: "occupied" });
@@ -468,6 +395,56 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         showAlert({
           title: "Sucesso!",
           description: "Locação criada com sucesso.",
+          type: "success",
+        });
+
+        setShowContract(true);
+      } else {
+        console.log("🔄 [RentalFormDialog] EDITANDO locação:", rental.id);
+        console.log("📦 [RentalFormDialog] Dados sendo enviados:", fullUpdateData);
+        console.log("💰 [RentalFormDialog] Dados de caução enviados:", depositData);
+        console.log("📎 [RentalFormDialog] Anexos sendo salvos:", attachments); // ✅ DEBUG: Log de anexos
+        
+        const changes: any = {};
+        if (startDate !== rental.startDate) changes.startDate = startDate;
+        if (endDate !== rental.endDate) changes.endDate = endDate;
+        if (baseRent !== rental.monthlyRent) changes.monthlyRent = baseRent;
+        if (parseInt(paymentDay) !== rental.paymentDay) changes.paymentDay = parseInt(paymentDay);
+        if (hasGarage !== rental.hasGarage) changes.hasGarage = hasGarage;
+        if (hasGarage && garageAmount !== (rental.garageValue || 0)) changes.garageValue = garageAmount;
+
+        // 🔥 CORREÇÃO: NÃO deletar/recriar parcelas - deixar rentalService.update() fazer a atualização inteligente
+        const updatedRental = await updateRentalService(rental.id, fullUpdateData);
+        
+        console.log("✅ [RentalFormDialog] Locação atualizada, rentalService.update() já atualizou as parcelas");
+        
+        // Atualizar pagamentos apenas se houver mudanças relevantes
+        if (Object.keys(changes).length > 0) {
+          console.log("🔄 [RentalFormDialog] Atualizando pagamentos de aluguel...");
+          await rentalUpdateService.updatePaymentsOnRentalEdit(
+            rental.id,
+            rental,
+            changes
+          );
+        }
+
+        const mergedRental: Rental = {
+          ...rental,
+          ...updatedRental,
+          status: isViewMode ? "active" : (updatedRental.status || "active"),
+          value: Number(updatedRental.value || 0),
+        };
+        
+        setCreatedRentalData({
+          rental: mergedRental,
+          property: selectedProperty,
+          tenant: selectedTenant,
+          location: locations.find((loc) => loc.id === selectedProperty.locationId),
+        });
+
+        showAlert({
+          title: "Sucesso!",
+          description: "Locação atualizada com sucesso.",
           type: "success",
         });
 
