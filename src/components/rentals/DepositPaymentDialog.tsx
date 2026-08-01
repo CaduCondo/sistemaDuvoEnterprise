@@ -8,7 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentViewer } from "@/components/AttachmentViewer";
 import { Paperclip, Calendar, DollarSign, FileText, CheckCircle2 } from "lucide-react";
-import { applyMoneyMask, parseMoneyMaskToNumber } from "@/lib/masks";
+import { applyMoneyMask, parseMoneyMaskToNumber, parseCurrencyToNumber } from "@/lib/masks";
+import { useAlert } from "@/contexts/AlertContext";
 import type { Rental, Attachment } from "@/types";
 import { getDepositInstallmentsByRental, updateDepositInstallment } from "@/services/depositInstallmentService";
 
@@ -31,6 +32,7 @@ export function DepositPaymentDialog({
   const [paymentDate, setPaymentDate] = useState("");
   const [paidValue, setPaidValue] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const { showAlert } = useAlert();
 
   const loadInstallments = useCallback(async () => {
     if (!rental?.id) return;
@@ -104,30 +106,42 @@ export function DepositPaymentDialog({
 
     console.log("🚀 [DepositPaymentDialog.handleSubmit] INÍCIO");
     console.log("📎 [DepositPaymentDialog.handleSubmit] attachments:", attachments);
-    console.log("📦 [DepositPaymentDialog.handleSubmit] formData:", formData);
+    console.log("📦 [DepositPaymentDialog.handleSubmit] paymentDate:", paymentDate);
+    console.log("📦 [DepositPaymentDialog.handleSubmit] paidValue:", paidValue);
 
-    if (!formData.paid_value || !formData.payment_date) {
-      showAlert({
-        title: "Erro de validação",
-        description: "Preencha a data e o valor do pagamento.",
-        type: "error",
-      });
+    if (!paidValue || !paymentDate) {
+      alert("Preencha a data e o valor do pagamento.");
+      return;
+    }
+
+    if (!selectedInstallment) {
+      alert("Selecione uma parcela.");
       return;
     }
 
     const updateData = {
-      payment_date: formData.payment_date,
-      paid_value: parseCurrencyToNumber(formData.paid_value),
+      payment_date: paymentDate,
+      paid_value: parseCurrencyToNumber(paidValue),
       status: "paid" as const,
       attachments: attachments, // ✅ CRITICAL: Attachments sendo salvos
-      pix_code: formData.pix_code || null,
+      pix_code: null,
     };
 
     console.log("📦 [DepositPaymentDialog.handleSubmit] Dados que serão enviados:");
     console.log("📎 [DepositPaymentDialog.handleSubmit] updateData.attachments:", updateData.attachments);
     console.log("📦 [DepositPaymentDialog.handleSubmit] updateData completo:", updateData);
 
-    await updateDepositInstallment(selectedInstallment.id, updateData);
+    try {
+      setLoading(true);
+      await updateDepositInstallment(selectedInstallment.id, updateData);
+      onSuccess?.();
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Erro ao registrar pagamento:", error);
+      alert("Erro ao registrar pagamento");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePayment = async () => {
@@ -138,6 +152,9 @@ export function DepositPaymentDialog({
 
     try {
       setLoading(true);
+
+      console.log("💾 [DepositPaymentDialog.handlePayment] Salvando:");
+      console.log("📎 Attachments:", attachments);
 
       await updateDepositInstallment(selectedInstallment.id, {
         payment_date: paymentDate,

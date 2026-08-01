@@ -756,7 +756,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     console.log("📎 [ManagePaymentForm.handleSubmit] attachments:", attachments);
     console.log("💰 [ManagePaymentForm.handleSubmit] formData:", formData);
 
-    if (!formData.value || !formData.due_date) {
+    if (!formData.amount_to_pay || !formData.payment_date) {
       showAlert({
         title: "Erro de validação",
         description: "Preencha todos os campos obrigatórios.",
