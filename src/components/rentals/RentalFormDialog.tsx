@@ -246,10 +246,10 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       return;
     }
 
-    const selectedProperty = propertiesToDisplay.find((p) => p.id === selectedPropertyId);
+    const propertySelected = propertiesToDisplay.find((p) => p.id === selectedPropertyId);
     const selectedTenant = tenantsToDisplay.find((t) => t.id === selectedTenantId);
 
-    if (!selectedProperty || !selectedTenant) {
+    if (!propertySelected || !selectedTenant) {
       showAlert({
         title: "Erro",
         description: "Imóvel ou inquilino não encontrado.",
@@ -258,7 +258,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       return;
     }
 
-    const baseRent = selectedProperty.value || selectedProperty.monthlyRent || 0;
+    const baseRent = propertySelected.value || propertySelected.monthlyRent || 0;
     const garageAmount = hasGarage && garageValue ? parseMoneyMaskToNumber(garageValue) : 0;
     let totalValue = baseRent + garageAmount;
     totalValue = parseFloat(totalValue.toFixed(2));
@@ -398,11 +398,11 @@ export const RentalFormDialog = memo(function RentalFormDialog({
           }
         }
 
-        const selectedLocation = locations.find((loc) => loc.id === selectedProperty.locationId);
+        const selectedLocation = locations.find((loc) => loc.id === propertySelected.locationId);
 
         setCreatedRentalData({
           rental: mappedRental,
-          property: selectedProperty,
+          property: propertySelected,
           tenant: selectedTenant,
           location: selectedLocation,
         });
@@ -451,9 +451,9 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         
         setCreatedRentalData({
           rental: mergedRental,
-          property: selectedProperty,
+          property: propertySelected,
           tenant: selectedTenant,
-          location: locations.find((loc) => loc.id === selectedProperty.locationId),
+          location: locations.find((loc) => loc.id === propertySelected.locationId),
         });
 
         showAlert({
@@ -551,7 +551,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
   // Verificar se já existe locação ativa para este imóvel
   useEffect(() => {
     if (selectedPropertyId && !rental) {
-      const hasActiveRental = selectedProperty?.status === "rented";
+      const hasActiveRental = selectedProperty?.status === "occupied";
       
       if (hasActiveRental) {
         showAlert({
