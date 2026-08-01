@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Search, RefreshCw, Download, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AuditLog {
   id: string;
@@ -241,7 +242,7 @@ export function LogsTab() {
         </div>
 
         {/* Tabela de Logs */}
-        <div className="border rounded-lg overflow-auto max-h-[600px]">
+        <ScrollArea className="h-[600px] w-full rounded-md border">
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
@@ -304,7 +305,8 @@ export function LogsTab() {
               )}
             </TableBody>
           </Table>
-        </div>
+        </ScrollArea>
+      </div>
 
         <div className="text-sm text-muted-foreground text-center">
           Mostrando {filteredLogs.length} de {logs.length} registros
