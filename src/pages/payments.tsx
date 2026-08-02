@@ -210,18 +210,6 @@ export default function Payments() {
     return MONTH_NAMES[month - 1] || "";
   }, []);
 
-  // ✅ Carregar payments quando o usuário MUDA o filtro (skip primeira montagem)
-  useEffect(() => {
-    // Skip primeira execução (montagem) - usePayments.ts já carrega "all"
-    if (firstLoadRef.current) {
-      firstLoadRef.current = false;
-      return;
-    }
-    
-    console.log(`🔄 [payments.tsx] Filtro mudou - recarregando com mês=${selectedMonth}, ano=${selectedYear}`);
-    loadPayments(selectedMonth.toString(), selectedYear.toString());
-  }, [selectedMonth, selectedYear]);
-
   // 🔥 FORÇA RE-RENDER: Garantir que mudanças no estado payments causem re-render
   useEffect(() => {
     console.log(`🔔 [payments.tsx] FORÇANDO RE-RENDER - payments mudou para ${payments.length} itens`);
@@ -231,12 +219,16 @@ export default function Payments() {
   const handleMonthChange = useCallback((value: string | number) => {
     setUiState(prev => ({ ...prev, paymentToCancel: null }));
     setSelectedMonth(value);
-  }, []);
+    // ✅ Recarregar quando filtro muda
+    loadPayments(value.toString(), selectedYear.toString());
+  }, [loadPayments, selectedYear]);
 
   const handleYearChange = useCallback((value: string | number) => {
     setUiState(prev => ({ ...prev, paymentToCancel: null }));
     setSelectedYear(value);
-  }, []);
+    // ✅ Recarregar quando filtro muda
+    loadPayments(selectedMonth.toString(), value.toString());
+  }, [loadPayments, selectedMonth]);
 
   const handlePaymentClick = useCallback((payment: Payment) => {
     if (payment.status === "paid") {
