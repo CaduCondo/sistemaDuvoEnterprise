@@ -180,7 +180,7 @@ export const usePayments = () => {
             endDate: rental.end_date || null,
             monthlyRent: rental.rent_value,
             paymentDay: rental.rent_due_day,
-            status: rental.status as "active" | "inactive" | "terminated",
+            status: (rental.status === "inactive" ? "ended" : rental.status) as "active" | "terminated" | "ended",
             value: rental.rent_value,
             depositAmount: 0,
             isActive: rental.is_active || false,
