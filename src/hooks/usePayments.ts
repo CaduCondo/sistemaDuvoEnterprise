@@ -17,295 +17,153 @@ export const usePayments = () => {
     if (loadingRef.current) return;
     
     try {
-      loadingRef.current = true;
-      setLoading(true);
-
-      console.log("🔍 [usePayments] Iniciando busca de payments com filtros:", { month, year });
-
-      // 🔥 CORREÇÃO: Buscar APENAS payments sem JOINs complexos para evitar timeout
-      let paymentsQuery = supabase
-        .from("payments")
-        .select("*");
-
-      // ✅ CORREÇÃO CRÍTICA: Garantir que month sempre tenha padding (01-12)
-      if (month !== "all") {
-        const paddedMonth = String(month).padStart(2, "0");
-        paymentsQuery = paymentsQuery.eq("reference_month", paddedMonth);
-      }
-      if (year !== "all") {
-        paymentsQuery = paymentsQuery.eq("reference_year", String(year));
-      }
-
-      const { data: paymentsData, error: paymentsError } = await paymentsQuery;
+      console.log("🔄 [usePayments] Buscando recebimentos do banco...");
       
+      // 1. Buscar payments
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("payments")
+        .select("*")
+        .order("due_date", { ascending: false });
+
       if (paymentsError) {
         console.error("❌ [usePayments] Erro ao buscar payments:", paymentsError);
         throw paymentsError;
       }
 
-      console.log("✅ [usePayments] Payments carregados do banco:", paymentsData?.length || 0);
-      
+      console.log(`✅ [usePayments] Payments carregados do banco: ${paymentsData?.length || 0}`);
+
       if (!paymentsData || paymentsData.length === 0) {
-        console.warn("⚠️ [usePayments] Nenhum payment encontrado com os filtros:", { month, year });
         setPayments([]);
-        setRentals([]);
-        setProperties([]);
-        setTenants([]);
         return;
       }
 
-      // Buscar rental IDs únicos
-      const rentalIds = [...new Set(paymentsData.map(p => p.rental_id).filter(Boolean))];
-      console.log("📋 [usePayments] Buscando", rentalIds.length, "rentals...");
+      // 2. Buscar rentals únicos (apenas os necessários)
+      const uniqueRentalIds = [...new Set(paymentsData.map(p => p.rental_id).filter(Boolean))];
+      console.log(`🔍 [usePayments] Buscando ${uniqueRentalIds.length} rentals únicos...`);
 
-      // ✅ PROTEÇÃO: Não fazer query se não houver IDs
-      if (rentalIds.length === 0) {
-        console.warn("⚠️ [usePayments] Nenhum rental_id encontrado");
-        setPayments([]);
-        setRentals([]);
-        setProperties([]);
-        setTenants([]);
-        return;
-      }
-
-      // Buscar rentals separadamente
       const { data: rentalsData, error: rentalsError } = await supabase
         .from("rentals")
-        .select("*")
-        .in("id", rentalIds);
+        .select(`
+          id,
+          property_id,
+          tenant_id,
+          start_date,
+          end_date,
+          value,
+          monthly_rent,
+          payment_day,
+          status,
+          is_active
+        `)
+        .in("id", uniqueRentalIds);
 
       if (rentalsError) {
-        console.error("❌ [usePayments] Erro ao buscar rentals:", rentalsError);
+        console.error("❌ [usePayments] Erro ao buscar rentals:", rentalsError.message);
         throw rentalsError;
       }
 
-      console.log("✅ [usePayments] Rentals carregados:", rentalsData?.length || 0);
+      console.log(`✅ [usePayments] Rentals carregados: ${rentalsData?.length || 0}`);
 
-      // ✅ PROTEÇÃO: Se não há rentals, não buscar properties/tenants
-      if (!rentalsData || rentalsData.length === 0) {
-        console.warn("⚠️ [usePayments] Nenhum rental encontrado");
-        setPayments([]);
-        setRentals([]);
-        setProperties([]);
-        setTenants([]);
-        return;
+      // 3. ⚡ OTIMIZAÇÃO: Buscar TODAS as properties de uma vez (1 query)
+      const uniquePropertyIds = [...new Set(rentalsData?.map(r => r.property_id).filter(Boolean) || [])];
+      console.log(`🔍 [usePayments] Buscando ${uniquePropertyIds.length} properties ÚNICAS em LOTE...`);
+
+      const { data: propertiesData, error: propertiesError } = await supabase
+        .from("properties")
+        .select(`
+          id,
+          location_id,
+          property_identifier,
+          complement,
+          description,
+          value,
+          status,
+          locations!properties_location_id_fkey(name)
+        `)
+        .in("id", uniquePropertyIds);
+
+      if (propertiesError) {
+        console.error("❌ [usePayments] Erro ao buscar properties:", propertiesError.message, propertiesError);
+        throw new Error(`Erro ao buscar imóveis: ${propertiesError.message}`);
       }
 
-      // Buscar property IDs únicos
-      const propertyIds = [...new Set(rentalsData.map(r => r.property_id).filter(Boolean))];
-      console.log("📋 [usePayments] Buscando", propertyIds.length, "properties...");
+      console.log(`✅ [usePayments] Properties carregadas em LOTE: ${propertiesData?.length || 0}`);
 
-      let propertiesData: any[] = [];
-      if (propertyIds.length > 0) {
-        // Buscar properties separadamente COM JOIN para locations
-        const { data, error: propertiesError } = await supabase
-          .from("properties")
-          .select(`
-            *,
-            locations:location_id (
-              id,
-              name,
-              street,
-              number,
-              complement,
-              neighborhood,
-              city,
-              state,
-              zip_code
-            )
-          `)
-          .in("id", propertyIds);
+      // 4. ⚡ OTIMIZAÇÃO: Buscar TODOS os tenants de uma vez (1 query)
+      const uniqueTenantIds = [...new Set(rentalsData?.map(r => r.tenant_id).filter(Boolean) || [])];
+      console.log(`🔍 [usePayments] Buscando ${uniqueTenantIds.length} tenants ÚNICOS em LOTE...`);
 
-        if (propertiesError) {
-          console.error("❌ [usePayments] Erro ao buscar properties:", propertiesError);
-          throw propertiesError;
-        }
+      const { data: tenantsData, error: tenantsError } = await supabase
+        .from("tenants")
+        .select("id, name, cpf, phone")
+        .in("id", uniqueTenantIds);
 
-        propertiesData = data || [];
-        console.log("✅ [usePayments] Properties carregados:", propertiesData.length);
+      if (tenantsError) {
+        console.error("❌ [usePayments] Erro ao buscar tenants:", tenantsError.message, tenantsError);
+        throw new Error(`Erro ao buscar inquilinos: ${tenantsError.message}`);
       }
 
-      // Buscar tenant IDs únicos
-      const tenantIds = [...new Set(rentalsData.map(r => r.tenant_id).filter(Boolean))];
-      console.log("📋 [usePayments] Buscando", tenantIds.length, "tenants...");
+      console.log(`✅ [usePayments] Tenants carregados em LOTE: ${tenantsData?.length || 0}`);
 
-      let tenantsData: any[] = [];
-      if (tenantIds.length > 0) {
-        // Buscar tenants separadamente
-        const { data, error: tenantsError } = await supabase
-          .from("tenants")
-          .select("*")
-          .in("id", tenantIds);
+      // 5. ⚡ Criar MAPs para lookup O(1) em vez de .find() O(n)
+      const rentalsMap = new Map(rentalsData?.map(r => [r.id, r]) || []);
+      const propertiesMap = new Map(propertiesData?.map(p => [p.id, p]) || []);
+      const tenantsMap = new Map(tenantsData?.map(t => [t.id, t]) || []);
 
-        if (tenantsError) {
-          console.error("❌ [usePayments] Erro ao buscar tenants:", tenantsError);
-          throw tenantsError;
-        }
+      console.log("🗺️ [usePayments] Maps criados para lookup rápido");
 
-        tenantsData = data || [];
-        console.log("✅ [usePayments] Tenants carregados:", tenantsData.length);
-      }
-
-      // Processar payments regulares (aluguel)
-      const processedPayments = paymentsData.map((payment: any) => {
-        const rental = rentalsData.find(r => r.id === payment.rental_id);
-        const property = rental ? propertiesData.find(p => p.id === rental.property_id) : null;
-        const tenant = rental ? tenantsData.find(t => t.id === rental.tenant_id) : null;
-        
-        // Extrair dados da location do JOIN
-        const locationData = property ? (property.locations as any) : null;
+      // 6. Mapear payments com dados relacionados (lookup O(1))
+      const mappedPayments = paymentsData.map((payment): Payment => {
+        const rental = rentalsMap.get(payment.rental_id);
+        const property = rental ? propertiesMap.get(rental.property_id) : null;
+        const tenant = rental ? tenantsMap.get(rental.tenant_id) : null;
 
         return {
           id: payment.id,
           rentalId: payment.rental_id,
-          propertyId: rental?.property_id || "",
-          tenantId: rental?.tenant_id || "",
-          referenceMonth: Number(payment.reference_month),
-          referenceYear: Number(payment.reference_year),
           dueDate: payment.due_date,
-          expectedAmount: payment.expected_amount,
-          paidAmount: payment.paid_amount || 0,
-          status: payment.status as "pending" | "paid" | "overdue" | "partial",
           paymentDate: payment.payment_date || null,
-          paymentMethod: payment.payment_method || null,
-          notes: payment.notes || null,
-          lateFee: payment.late_fee || 0,
-          interest: payment.interest || 0,
-          breakdown: payment.breakdown,
+          value: payment.value || 0,
+          amountToPay: payment.amount_to_pay || payment.value || 0,
+          paidValue: payment.paid_value || 0,
+          status: payment.status as "pending" | "paid" | "overdue" | "partial",
           attachments: payment.attachments || [],
-          installment: payment.installment || 1,
-          totalInstallments: payment.total_installments || 24,
-          pixCode: payment.pix_code,
-          paymentTime: payment.payment_time,
-          rental: rental ? {
-            id: rental.id,
-            propertyId: rental.property_id,
-            property_id: rental.property_id,
-            tenantId: rental.tenant_id,
-            tenant_id: rental.tenant_id,
-            startDate: rental.start_date,
-            start_date: rental.start_date,
-            endDate: rental.end_date,
-            end_date: rental.end_date,
-            value: rental.rent_value || 0,
-            monthlyRent: rental.rent_value || 0,
-            monthly_rent: rental.rent_value || 0,
-            paymentDay: rental.rent_due_day || 10,
-            depositAmount: rental.security_deposit || 0,
-            deposit_amount: rental.security_deposit || 0,
-            security_deposit: rental.security_deposit || 0,
-            status: rental.status as "active" | "ended" | "terminated",
-            isActive: rental.status === "active",
-            is_active: rental.status === "active",
-            attachments: [],
-            contractAttachments: [],
-            contract_attachments: [],
-            hasGarage: rental.has_garage || false,
-            has_garage: rental.has_garage || false,
-            garageValue: rental.garage_value || 0,
-            garage_value: rental.garage_value || 0,
-            hasPartnerBroker: false,
-            has_partner_broker: false,
-            installments: 24,
-            totalInstallments: 24,
-          } : undefined,
+          pixCode: payment.pix_code || null,
+          createdAt: payment.created_at,
           property: property ? {
             id: property.id,
-            locationId: property.location_id,
-            location_id: property.location_id,
-            location: locationData?.name || "",
-            propertyIdentifier: property.property_identifier || "",
-            property_identifier: property.property_identifier || "",
+            location: property.locations?.name || "",
             complement: property.complement || "",
-            description: property.description || "",
-            rooms: property.rooms || 0,
-            bathrooms: property.bathrooms || 0,
-            area: property.area || 0,
-            value: property.value || 0,
-            hasGarage: property.has_garage || false,
-            has_garage: property.has_garage || false,
-            hasFurniture: property.has_furniture || false,
-            has_furniture: property.has_furniture || false,
-            acceptsPets: property.accepts_pets || false,
-            accepts_pets: property.accepts_pets || false,
-            status: property.status as "available" | "occupied" | "unavailable",
-            images: [],
-            createdAt: property.created_at,
-            created_at: property.created_at,
-            address: locationData?.street || "",
-            features: [],
-            type: "apartment" as const,
-            monthlyRent: 0,
-            number: locationData?.number || "",
-            neighborhood: locationData?.neighborhood || "",
-            city: locationData?.city || "",
-            state: locationData?.state || "",
-            zipCode: locationData?.zip_code || "",
+            propertyIdentifier: property.property_identifier || "",
           } : undefined,
           tenant: tenant ? {
             id: tenant.id,
             name: tenant.name,
-            email: tenant.email,
-            phone: tenant.phone,
-            cpf: tenant.cpf || tenant.document || "",
-            rg: tenant.rg || "",
-            createdAt: tenant.created_at,
-            document: tenant.document || tenant.cpf || "",
-            status: tenant.status as "new" | "inactive" | "rented",
           } : undefined,
-        } as Payment;
+          rental: rental ? {
+            id: rental.id,
+            startDate: rental.start_date,
+            endDate: rental.end_date,
+            monthlyRent: rental.monthly_rent,
+            paymentDay: rental.payment_day,
+            status: rental.status,
+          } : undefined,
+        };
       });
 
-      console.log("✅ [usePayments] Payments processados:", processedPayments.length);
-
-      // Extrair rentals, properties, tenants únicos
-      const uniqueRentals: Rental[] = [];
-      const uniqueProperties: Property[] = [];
-      const uniqueTenants: Tenant[] = [];
-
-      processedPayments.forEach(payment => {
-        if (payment.rental && !uniqueRentals.find(r => r.id === payment.rental!.id)) {
-          uniqueRentals.push(payment.rental);
-        }
-        if (payment.property && !uniqueProperties.find(p => p.id === payment.property!.id)) {
-          uniqueProperties.push(payment.property);
-        }
-        if (payment.tenant && !uniqueTenants.find(t => t.id === payment.tenant!.id)) {
-          uniqueTenants.push(payment.tenant);
-        }
-      });
-
-      console.log("✅ [usePayments] Dados extraídos:", {
-        rentals: uniqueRentals.length,
-        properties: uniqueProperties.length,
-        tenants: uniqueTenants.length
-      });
-
-      setPayments(processedPayments);
-      setRentals(uniqueRentals);
-      setProperties(uniqueProperties);
-      setTenants(uniqueTenants);
-      
-      console.log("✅ [usePayments] Estado atualizado com sucesso");
+      console.log(`✅ [usePayments] ${mappedPayments.length} payments mapeados com sucesso`);
+      setPayments(mappedPayments);
 
     } catch (error) {
       console.error("❌ [usePayments] Erro ao carregar recebimentos:", error);
-      
-      // ✅ Resetar estado em caso de erro
+      // ✅ CORREÇÃO: Mostrar mensagem real do erro, não "Object"
+      if (error instanceof Error) {
+        console.error("❌ [usePayments] Mensagem:", error.message);
+        console.error("❌ [usePayments] Stack:", error.stack);
+      }
       setPayments([]);
-      setRentals([]);
-      setProperties([]);
-      setTenants([]);
-      
-      toast({
-        variant: "destructive",
-        title: "Erro ao carregar recebimentos",
-        description: error instanceof Error ? error.message : "Ocorreu um erro ao buscar os dados. Tente novamente.",
-      });
     } finally {
       setLoading(false);
-      loadingRef.current = false;
-      console.log("🏁 [usePayments] Carregamento finalizado");
     }
   }, [toast]);
 
