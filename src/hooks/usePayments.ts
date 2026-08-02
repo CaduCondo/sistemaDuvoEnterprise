@@ -135,7 +135,6 @@ export const usePayments = () => {
           rentalId: payment.rental_id,
           dueDate: payment.due_date,
           paymentDate: payment.payment_date || null,
-          amountToPay: payment.expected_amount || 0,
           paidValue: payment.paid_amount || 0,
           status: payment.status as "pending" | "paid" | "overdue" | "partial",
           attachments: attachmentsArray,
