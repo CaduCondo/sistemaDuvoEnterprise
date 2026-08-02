@@ -297,12 +297,6 @@ export const usePayments = () => {
     }
   }, [toast]);
 
-  // ✅ CORREÇÃO: Carregar TODOS os payments na montagem (sem filtro)
-  useEffect(() => {
-    console.log(`📅 [usePayments] Carregando TODOS os payments (sem filtro inicial)`);
-    loadPayments("all", "all");
-  }, [loadPayments]);
-
   return {
     payments,
     rentals,
