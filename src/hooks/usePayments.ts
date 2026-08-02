@@ -17,6 +17,9 @@ export const usePayments = () => {
     if (loadingRef.current) return;
     
     try {
+      setLoading(true);
+      loadingRef.current = true;
+      
       console.log(`🔄 [usePayments] Buscando recebimentos do banco... (mês: ${month}, ano: ${year})`);
       
       // 1. Buscar payments COM FILTRO de mês/ano aplicado no banco
@@ -36,14 +39,24 @@ export const usePayments = () => {
         // Último dia do mês
         const endDate = new Date(yearNum, monthNum, 0).toISOString().split('T')[0];
         
-        console.log(`🔍 [usePayments] Filtrando por due_date: ${startDate} até ${endDate}`);
+        console.log(`🔍 [usePayments] Aplicando filtro de data: ${startDate} até ${endDate}`);
         
         query = query
           .gte("due_date", startDate)
           .lte("due_date", endDate);
+      } else {
+        console.log(`🔍 [usePayments] SEM FILTRO - buscando TODOS os payments`);
       }
 
+      console.log(`📡 [usePayments] Executando query no Supabase...`);
       const { data: paymentsData, error: paymentsError } = await query;
+
+      console.log(`📦 [usePayments] Resposta do Supabase:`, {
+        temDados: !!paymentsData,
+        quantidade: paymentsData?.length || 0,
+        temErro: !!paymentsError,
+        erro: paymentsError?.message
+      });
 
       if (paymentsError) {
         console.error("❌ [usePayments] Erro ao buscar payments:", paymentsError);
@@ -53,7 +66,10 @@ export const usePayments = () => {
       console.log(`✅ [usePayments] Payments carregados do banco: ${paymentsData?.length || 0}`);
 
       if (!paymentsData || paymentsData.length === 0) {
+        console.warn(`⚠️ [usePayments] NENHUM payment retornado - tabela vazia ou filtro muito restritivo`);
         setPayments([]);
+        setLoading(false);
+        loadingRef.current = false;
         return;
       }
 
@@ -261,6 +277,7 @@ export const usePayments = () => {
       setPayments([]);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   }, [toast]);
 
