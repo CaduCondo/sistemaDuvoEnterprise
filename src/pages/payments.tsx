@@ -255,7 +255,7 @@ export default function Payments() {
       
       setUiState(prev => ({ ...prev, paymentToCancel: null }));
       
-      await loadPayments("all", "all");
+      await loadPayments(selectedMonth.toString(), selectedYear.toString());
       
       showAlert({
         title: "Recebimento cancelado",
@@ -264,25 +264,12 @@ export default function Payments() {
     } catch (error) {
       setUiState(prev => ({ ...prev, paymentToCancel: null }));
     }
-  }, [uiState.paymentToCancel, cancelPayment, loadPayments, showAlert]);
+  }, [uiState.paymentToCancel, cancelPayment, loadPayments, selectedMonth, selectedYear, showAlert]);
 
-  const handleCancelPayment = useCallback((paymentId: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-
-    if (!permissions.canDeletePayment) {
-      showAlert({
-        title: "Acesso negado",
-        description: "Você não tem permissão para cancelar recebimentos",
-        type: "error",
-      });
-      return;
-    }
-
+  const handleCancelPayment = useCallback(async (paymentId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setUiState(prev => ({ ...prev, paymentToCancel: paymentId }));
-  }, [permissions.canDeletePayment, showAlert]);
+  }, []);
 
   const handleViewReceipt = useCallback((payment: Payment) => {
     setUiState(prev => ({

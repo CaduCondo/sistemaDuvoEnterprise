@@ -176,13 +176,19 @@ export const usePayments = () => {
           }
         }
 
+        // ✅ CORREÇÃO CRÍTICA: Calcular referenceMonth e referenceYear SEMPRE a partir de due_date
+        // NÃO usar payment.reference_month/reference_year do banco (podem estar incorretos)
+        const dueDate = new Date(payment.due_date + "T12:00:00"); // Add time para evitar timezone issues
+        const calculatedMonth = dueDate.getMonth() + 1; // 1-12
+        const calculatedYear = dueDate.getFullYear();
+
         return {
           id: payment.id,
           rentalId: payment.rental_id,
           propertyId: rental?.property_id || "",
           tenantId: rental?.tenant_id || "",
-          referenceMonth: new Date(payment.due_date).getMonth() + 1,
-          referenceYear: new Date(payment.due_date).getFullYear(),
+          referenceMonth: calculatedMonth,
+          referenceYear: calculatedYear,
           dueDate: payment.due_date,
           paymentDate: payment.payment_date || null,
           expectedAmount: payment.expected_amount || 0,
