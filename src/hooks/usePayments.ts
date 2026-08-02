@@ -149,7 +149,6 @@ export const usePayments = () => {
           breakdown: null,
           attachments: attachmentsArray,
           pixCode: payment.pix_code || null,
-          createdAt: payment.created_at,
           property: property ? {
             id: property.id,
             locationId: property.location_id,
