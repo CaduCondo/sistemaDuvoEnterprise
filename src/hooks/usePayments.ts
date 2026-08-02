@@ -297,14 +297,10 @@ export const usePayments = () => {
     }
   }, [toast]);
 
-  // ✅ CORREÇÃO: Carregar payments com filtro padrão do mês/ano ATUAL
+  // ✅ CORREÇÃO: Carregar TODOS os payments na montagem (sem filtro)
   useEffect(() => {
-    const now = new Date();
-    const currentMonth = (now.getMonth() + 1).toString(); // 1-12
-    const currentYear = now.getFullYear().toString();
-    
-    console.log(`📅 [usePayments] Carregando payments do mês atual: ${currentMonth}/${currentYear}`);
-    loadPayments(currentMonth, currentYear);
+    console.log(`📅 [usePayments] Carregando TODOS os payments (sem filtro inicial)`);
+    loadPayments("all", "all");
   }, [loadPayments]);
 
   return {

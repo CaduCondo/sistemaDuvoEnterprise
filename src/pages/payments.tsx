@@ -95,10 +95,9 @@ export default function Payments() {
     return () => clearTimeout(timer);
   }, [uiState.searchQuery]);
 
-  // ✅ CORREÇÃO: Filtros padrão para o mês/ano ATUAL ao abrir a página
-  const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState<string | number>(now.getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState<string | number>(now.getFullYear());
+  // ✅ CORREÇÃO: Filtros padrão SEM filtro (mostrar todos)
+  const [selectedMonth, setSelectedMonth] = useState<string | number>("all");
+  const [selectedYear, setSelectedYear] = useState<string | number>("all");
   const firstLoadRef = useRef(true);
 
   const { 
