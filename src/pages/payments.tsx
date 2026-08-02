@@ -132,12 +132,26 @@ export default function Payments() {
 
   // Helpers memoizados
   const getPropertyForPayment = useCallback((payment: Payment) => {
+    console.log(`🔎 [getPropertyForPayment] Payment ID: ${payment.id}`);
+    console.log(`   - payment.property existe?`, !!payment.property);
+    if (payment.property) {
+      console.log(`   - payment.property.location:`, payment.property.location);
+      console.log(`   - payment.property.complement:`, payment.property.complement);
+    }
+    
     const rental = rentals.find(r => r.id === payment.rentalId);
     if (!rental) return null;
     return properties.find(p => p.id === rental.propertyId) || null;
   }, [rentals, properties]);
 
   const getTenantForPayment = useCallback((payment: Payment) => {
+    console.log(`🔎 [getTenantForPayment] Payment ID: ${payment.id}`);
+    console.log(`   - payment.tenant existe?`, !!payment.tenant);
+    if (payment.tenant) {
+      console.log(`   - payment.tenant.name:`, payment.tenant.name);
+      console.log(`   - payment.tenant.phone:`, payment.tenant.phone);
+    }
+    
     const rental = rentals.find(r => r.id === payment.rentalId);
     if (!rental) return null;
     return tenants.find(t => t.id === rental.tenantId) || null;
@@ -519,6 +533,29 @@ export default function Payments() {
       return propertyAddress.includes(query) || tenantName.includes(query);
     };
 
+    // 🔍 LOG: Mostrar TODOS os payments antes de filtrar por status
+    console.log(`📊 [FILTRO] Total de payments ANTES de separar por status:`, payments.length);
+    console.log(`📊 [FILTRO] Filtros ativos - Mês: ${selectedMonth}, Ano: ${selectedYear}`);
+    
+    // 🔍 LOG: Verificar payments que não deveriam estar aqui
+    payments.forEach(p => {
+      if (selectedMonth !== "all" && selectedYear !== "all") {
+        const monthMatch = p.referenceMonth === parseInt(selectedMonth.toString());
+        const yearMatch = p.referenceYear === parseInt(selectedYear.toString());
+        
+        if (!monthMatch || !yearMatch) {
+          console.warn(`⚠️ [FILTRO] Payment fora do período filtrado:`, {
+            id: p.id,
+            referenceMonth: p.referenceMonth,
+            referenceYear: p.referenceYear,
+            selectedMonth: parseInt(selectedMonth.toString()),
+            selectedYear: parseInt(selectedYear.toString()),
+            dueDate: p.dueDate,
+          });
+        }
+      }
+    });
+
     const pending = payments.filter((p) => {
       const isStatusMatch = p.status === "pending" || p.status === "partial" || p.status === "overdue";
       return isStatusMatch && filterBySearch(p);
@@ -670,10 +707,14 @@ export default function Payments() {
       headerClassName: "text-center",
       render: (p: Payment) => {
         const textColor = getDueDateTextColor(p.dueDate, false);
-        return <span className={`font-medium ${textColor}`}>{getPropertyForPayment(p)?.location || "-"}</span>;
+        console.log(`🔎 [render local] Payment ${p.id}:`, p.property?.location);
+        return <span className={`font-medium ${textColor}`}>{p.property?.location || "-"}</span>;
       }
     },
-    { key: "complement", label: "Complemento", headerClassName: "text-center", render: (p: Payment) => getPropertyForPayment(p)?.complement || "-" },
+    { key: "complement", label: "Complemento", headerClassName: "text-center", render: (p: Payment) => {
+      console.log(`🔎 [render complement] Payment ${p.id}:`, p.property?.complement);
+      return p.property?.complement || "-";
+    }},
     { key: "period", label: "Período", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => `${getMonthName(p.referenceMonth)}/${p.referenceYear}` },
     { key: "installment", label: "Parcela", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[80px]", render: (p: Payment) => getPaymentInstallment(p) },
     { key: "status", label: "Status", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => {
@@ -684,8 +725,14 @@ export default function Payments() {
         }[p.status] || { label: "Pendente", className: "bg-yellow-100 text-yellow-800" };
         return <Badge className={config.className}>{config.label}</Badge>;
     }},
-    { key: "tenant", label: "Inquilino", headerClassName: "text-center", render: (p: Payment) => getTenantForPayment(p)?.name || "-" },
-    { key: "phone", label: "Celular", sortable: false, headerClassName: "text-center", render: (p: Payment) => getTenantForPayment(p)?.phone || "-" },
+    { key: "tenant", label: "Inquilino", headerClassName: "text-center", render: (p: Payment) => {
+      console.log(`🔎 [render tenant] Payment ${p.id}:`, p.tenant?.name);
+      return p.tenant?.name || "-";
+    }},
+    { key: "phone", label: "Celular", sortable: false, headerClassName: "text-center", render: (p: Payment) => {
+      console.log(`🔎 [render phone] Payment ${p.id}:`, p.tenant?.phone);
+      return p.tenant?.phone || "-";
+    }},
     { key: "dueDate", label: "Vencimento", headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[110px]", render: (p: Payment) => p.dueDate ? new Date(p.dueDate + "T12:00:00").toLocaleDateString("pt-BR") : "-" },
     { 
       key: "amount", 
@@ -697,16 +744,25 @@ export default function Payments() {
         return <span className={`font-bold text-lg ${textColor}`}>{getExpectedAmount(p).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>;
       }
     }
-  ], [getPropertyForPayment, getMonthName, getPaymentInstallment, getTenantForPayment, getExpectedAmount]);
+  ], [getMonthName, getPaymentInstallment, getExpectedAmount]);
 
   const paidColumns = useMemo(() => [
-    { key: "local", label: "Local", headerClassName: "text-center", render: (p: Payment) => <span className="font-medium text-green-600">{getPropertyForPayment(p)?.location || "-"}</span> },
-    { key: "complement", label: "Complemento", headerClassName: "text-center", render: (p: Payment) => getPropertyForPayment(p)?.complement || "-" },
+    { key: "local", label: "Local", headerClassName: "text-center", render: (p: Payment) => {
+      console.log(`🔎 [render local PAGO] Payment ${p.id}:`, p.property?.location);
+      return <span className="font-medium text-green-600">{p.property?.location || "-"}</span>;
+    }},
+    { key: "complement", label: "Complemento", headerClassName: "text-center", render: (p: Payment) => {
+      console.log(`🔎 [render complement PAGO] Payment ${p.id}:`, p.property?.complement);
+      return p.property?.complement || "-";
+    }},
     { key: "period", label: "Período", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => `${getMonthName(p.referenceMonth)}/${p.referenceYear}` },
     { key: "attachments", label: "Anexo", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[80px]", render: (p: Payment) => (p.attachments && (Array.isArray(p.attachments) ? p.attachments.length > 0 : Object.keys(p.attachments).length > 0)) ? <Badge className="bg-blue-100 text-blue-800">Sim</Badge> : <Badge variant="outline">Não</Badge> },
     { key: "installment", label: "Parcela", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[80px]", render: (p: Payment) => getPaymentInstallment(p) },
     { key: "status", label: "Status", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: () => <Badge className="bg-green-100 text-green-800">Pago</Badge> },
-    { key: "tenant", label: "Inquilino", headerClassName: "text-center", render: (p: Payment) => getTenantForPayment(p)?.name || "-" },
+    { key: "tenant", label: "Inquilino", headerClassName: "text-center", render: (p: Payment) => {
+      console.log(`🔎 [render tenant PAGO] Payment ${p.id}:`, p.tenant?.name);
+      return p.tenant?.name || "-";
+    }},
     { key: "paymentDate", label: "Pago em", headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[110px]", render: (p: Payment) => p.paymentDate ? new Date(p.paymentDate + "T12:00:00").toLocaleDateString("pt-BR") : "-" },
     { 
       key: "amount", 
@@ -731,7 +787,7 @@ export default function Payments() {
         )}
       </div>
     )}
-  ], [getPropertyForPayment, getMonthName, getPaymentInstallment, getTenantForPayment, permissions, handleViewReceipt, handleCancelPayment]);
+  ], [getMonthName, getPaymentInstallment, permissions, handleViewReceipt, handleCancelPayment]);
 
   return (
     <Layout>

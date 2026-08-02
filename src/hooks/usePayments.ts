@@ -179,6 +179,8 @@ export const usePayments = () => {
           breakdown: null,
           attachments: attachmentsArray,
           pixCode: payment.pix_code || null,
+          installment: payment.installment || 1,
+          totalInstallments: payment.total_installments || 1,
           property: property ? {
             id: property.id,
             locationId: property.location_id,
