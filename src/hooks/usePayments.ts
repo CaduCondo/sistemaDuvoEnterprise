@@ -77,6 +77,9 @@ export const usePayments = () => {
           description,
           value,
           status,
+          rooms,
+          bathrooms,
+          area,
           locations!properties_location_id_fkey(name)
         `)
         .in("id", uniquePropertyIds);
@@ -117,17 +120,13 @@ export const usePayments = () => {
         const property = rental ? propertiesMap.get(rental.property_id) : null;
         const tenant = rental ? tenantsMap.get(rental.tenant_id) : null;
 
-        // ✅ CORREÇÃO: Converter attachments JSON para array
+        // ✅ CORREÇÃO: Converter attachments JSON para array de strings
         let attachmentsArray: string[] = [];
         if (payment.attachments) {
           if (Array.isArray(payment.attachments)) {
-            attachmentsArray = payment.attachments;
-          } else if (typeof payment.attachments === 'string') {
-            try {
-              attachmentsArray = JSON.parse(payment.attachments);
-            } catch {
-              attachmentsArray = [];
-            }
+            // Json[] pode conter strings ou outros tipos - filtrar apenas strings
+            attachmentsArray = (payment.attachments as any[])
+              .filter(item => typeof item === 'string') as string[];
           }
         }
 
@@ -168,7 +167,10 @@ export const usePayments = () => {
             name: tenant.name,
             email: tenant.email || "",
             phone: tenant.phone || "",
-            status: tenant.status as "active" | "inactive",
+            cpf: tenant.cpf || "",
+            rg: "",
+            status: "rented" as const,
+            createdAt: "",
           } : undefined,
           rental: rental ? {
             id: rental.id,
@@ -184,6 +186,8 @@ export const usePayments = () => {
             isActive: rental.is_active || false,
             hasGarage: false,
             hasPartnerBroker: false,
+            attachments: [],
+            contractAttachments: [],
           } : undefined,
         };
       });
