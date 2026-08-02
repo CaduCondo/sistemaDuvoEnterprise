@@ -111,6 +111,11 @@ export const usePayments = () => {
 
       console.log(`✅ [usePayments] Properties carregadas em LOTE: ${propertiesData?.length || 0}`);
 
+      // 🔍 DEBUG: Mostrar 1 property de exemplo para verificar estrutura
+      if (propertiesData && propertiesData.length > 0) {
+        console.log("🔎 [DEBUG] Exemplo de 1 property BRUTA do banco:", JSON.stringify(propertiesData[0], null, 2));
+      }
+
       // 4. ⚡ OTIMIZAÇÃO: Buscar TODOS os tenants de uma vez (1 query)
       const uniqueTenantIds = [...new Set(rentalsData?.map(r => r.tenant_id).filter(Boolean) || [])];
       console.log(`🔍 [usePayments] Buscando ${uniqueTenantIds.length} tenants ÚNICOS em LOTE...`);
@@ -126,6 +131,11 @@ export const usePayments = () => {
       }
 
       console.log(`✅ [usePayments] Tenants carregados em LOTE: ${tenantsData?.length || 0}`);
+
+      // 🔍 DEBUG: Mostrar 1 tenant de exemplo para verificar estrutura
+      if (tenantsData && tenantsData.length > 0) {
+        console.log("🔎 [DEBUG] Exemplo de 1 tenant BRUTO do banco:", JSON.stringify(tenantsData[0], null, 2));
+      }
 
       // 5. ⚡ Criar MAPs para lookup O(1) em vez de .find() O(n)
       const rentalsMap = new Map(rentalsData?.map(r => [r.id, r]) || []);
@@ -220,6 +230,23 @@ export const usePayments = () => {
       });
 
       console.log(`✅ [usePayments] ${mappedPayments.length} payments mapeados com sucesso`);
+
+      // 🔍 DEBUG: Mostrar 1 payment MAPEADO de exemplo para verificar o resultado final
+      if (mappedPayments.length > 0) {
+        console.log("🔎 [DEBUG] Exemplo de 1 payment MAPEADO:");
+        console.log("   - ID:", mappedPayments[0].id);
+        console.log("   - Property:", mappedPayments[0].property ? {
+          id: mappedPayments[0].property.id,
+          location: mappedPayments[0].property.location,
+          complement: mappedPayments[0].property.complement,
+          propertyIdentifier: mappedPayments[0].property.propertyIdentifier,
+        } : "UNDEFINED");
+        console.log("   - Tenant:", mappedPayments[0].tenant ? {
+          id: mappedPayments[0].tenant.id,
+          name: mappedPayments[0].tenant.name,
+        } : "UNDEFINED");
+      }
+
       setPayments(mappedPayments);
 
     } catch (error) {
