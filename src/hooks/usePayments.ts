@@ -33,8 +33,8 @@ export const usePayments = () => {
         console.log(`🔍 [usePayments] Filtrando por reference_month=${monthNum} e reference_year=${yearNum}`);
         
         query = query
-          .eq("reference_month", monthNum)
-          .eq("reference_year", yearNum);
+          .eq("reference_month", monthNum.toString())
+          .eq("reference_year", yearNum.toString());
       }
 
       const { data: paymentsData, error: paymentsError } = await query;
