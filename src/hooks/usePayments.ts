@@ -297,6 +297,12 @@ export const usePayments = () => {
     }
   }, [toast]);
 
+  // ✅ Carregar TODOS os payments na montagem inicial (UMA VEZ)
+  useEffect(() => {
+    console.log(`📅 [usePayments] Hook montado - carregando TODOS os payments`);
+    loadPayments("all", "all");
+  }, []); // Dependências vazias = executa UMA vez na montagem
+
   return {
     payments,
     rentals,

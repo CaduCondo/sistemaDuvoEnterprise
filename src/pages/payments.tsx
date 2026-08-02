@@ -210,15 +210,6 @@ export default function Payments() {
     return MONTH_NAMES[month - 1] || "";
   }, []);
 
-  // ✅ Carregar TODOS os payments na montagem inicial (uma vez só)
-  useEffect(() => {
-    if (!mountedRef.current) {
-      console.log(`📅 [payments.tsx] Montagem inicial - carregando TODOS os payments`);
-      loadPayments("all", "all");
-      mountedRef.current = true;
-    }
-  }, [loadPayments]);
-
   // 🔥 FORÇA RE-RENDER: Garantir que mudanças no estado payments causem re-render
   useEffect(() => {
     console.log(`🔔 [payments.tsx] FORÇANDO RE-RENDER - payments mudou para ${payments.length} itens`);
