@@ -314,10 +314,14 @@ export const usePayments = () => {
     }
   }, [toast]);
 
-  // ✅ Carregar TODOS os payments na montagem inicial (UMA VEZ)
+  // ✅ Carregar payments do mês/ano ATUAL na montagem (como era antes)
   useEffect(() => {
-    console.log(`📅 [usePayments] Hook montado - carregando TODOS os payments`);
-    loadPayments("all", "all");
+    const now = new Date();
+    const currentMonth = (now.getMonth() + 1).toString();
+    const currentYear = now.getFullYear().toString();
+    
+    console.log(`📅 [usePayments] Hook montado - carregando mês ATUAL: ${currentMonth}/${currentYear}`);
+    loadPayments(currentMonth, currentYear);
   }, []); // Dependências vazias = executa UMA vez na montagem
 
   return {
