@@ -268,7 +268,7 @@ export const usePayments = () => {
   useEffect(() => {
     console.log(`📅 [usePayments] Montagem inicial - carregando TODOS os payments`);
     loadPayments("all", "all");
-  }, []);
+  }, [loadPayments]);
 
   const handleCancelPayment = useCallback(async (paymentId: string) => {
     try {
