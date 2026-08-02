@@ -17,13 +17,33 @@ export const usePayments = () => {
     if (loadingRef.current) return;
     
     try {
-      console.log("🔄 [usePayments] Buscando recebimentos do banco...");
+      console.log(`🔄 [usePayments] Buscando recebimentos do banco... (mês: ${month}, ano: ${year})`);
       
-      // 1. Buscar payments
-      const { data: paymentsData, error: paymentsError } = await supabase
+      // 1. Buscar payments COM FILTRO de mês/ano aplicado no banco
+      let query = supabase
         .from("payments")
         .select("*")
         .order("due_date", { ascending: false });
+
+      // ✅ FILTRO: Aplicar filtro de mês/ano DIRETAMENTE na query SQL
+      if (month !== "all" && year !== "all") {
+        const monthNum = parseInt(month);
+        const yearNum = parseInt(year);
+        
+        // Primeiro dia do mês
+        const startDate = new Date(yearNum, monthNum - 1, 1).toISOString().split('T')[0];
+        
+        // Último dia do mês
+        const endDate = new Date(yearNum, monthNum, 0).toISOString().split('T')[0];
+        
+        console.log(`🔍 [usePayments] Filtrando: ${startDate} até ${endDate}`);
+        
+        query = query
+          .gte("due_date", startDate)
+          .lte("due_date", endDate);
+      }
+
+      const { data: paymentsData, error: paymentsError } = await query;
 
       if (paymentsError) {
         console.error("❌ [usePayments] Erro ao buscar payments:", paymentsError);
@@ -247,6 +267,16 @@ export const usePayments = () => {
       throw error;
     }
   }, [toast]);
+
+  // ✅ CORREÇÃO: Carregar payments com filtro padrão do mês/ano ATUAL
+  useEffect(() => {
+    const now = new Date();
+    const currentMonth = (now.getMonth() + 1).toString(); // 1-12
+    const currentYear = now.getFullYear().toString();
+    
+    console.log(`📅 [usePayments] Carregando payments do mês atual: ${currentMonth}/${currentYear}`);
+    loadPayments(currentMonth, currentYear);
+  }, [loadPayments]);
 
   return {
     payments,
