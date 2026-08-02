@@ -30,17 +30,11 @@ export const usePayments = () => {
         const monthNum = parseInt(month);
         const yearNum = parseInt(year);
         
-        // Primeiro dia do mês
-        const startDate = new Date(yearNum, monthNum - 1, 1).toISOString().split('T')[0];
-        
-        // Último dia do mês
-        const endDate = new Date(yearNum, monthNum, 0).toISOString().split('T')[0];
-        
-        console.log(`🔍 [usePayments] Filtrando: ${startDate} até ${endDate}`);
+        console.log(`🔍 [usePayments] Filtrando por reference_month=${monthNum} e reference_year=${yearNum}`);
         
         query = query
-          .gte("due_date", startDate)
-          .lte("due_date", endDate);
+          .eq("reference_month", monthNum)
+          .eq("reference_year", yearNum);
       }
 
       const { data: paymentsData, error: paymentsError } = await query;

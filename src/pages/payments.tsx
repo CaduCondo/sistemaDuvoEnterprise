@@ -158,10 +158,10 @@ export default function Payments() {
   }, [rentals, tenants]);
 
   const getPaymentInstallment = useCallback((payment: Payment) => {
-    // Todos os pagamentos devem ter installment e totalInstallments definidos
-    // Formato sempre: "X/Y" mesmo para parcelas proporcionais
+    // ✅ CORREÇÃO: Se não tiver installment, assumir parcela única (1/1) para pagamentos de aluguel
+    // Para parcelas de caução, viria com o valor correto do banco
     if (!payment.installment || !payment.totalInstallments) {
-      return "N/A";
+      return "1/1";
     }
     
     return `${payment.installment}/${payment.totalInstallments}`;
