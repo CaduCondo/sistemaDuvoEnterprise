@@ -49,7 +49,6 @@ export const usePayments = () => {
           tenant_id,
           start_date,
           end_date,
-          value,
           monthly_rent,
           payment_day,
           status,
@@ -95,7 +94,7 @@ export const usePayments = () => {
 
       const { data: tenantsData, error: tenantsError } = await supabase
         .from("tenants")
-        .select("id, name, cpf, phone")
+        .select("id, name, cpf, phone, email, status")
         .in("id", uniqueTenantIds);
 
       if (tenantsError) {
@@ -118,35 +117,73 @@ export const usePayments = () => {
         const property = rental ? propertiesMap.get(rental.property_id) : null;
         const tenant = rental ? tenantsMap.get(rental.tenant_id) : null;
 
+        // ✅ CORREÇÃO: Converter attachments JSON para array
+        let attachmentsArray: string[] = [];
+        if (payment.attachments) {
+          if (Array.isArray(payment.attachments)) {
+            attachmentsArray = payment.attachments;
+          } else if (typeof payment.attachments === 'string') {
+            try {
+              attachmentsArray = JSON.parse(payment.attachments);
+            } catch {
+              attachmentsArray = [];
+            }
+          }
+        }
+
         return {
           id: payment.id,
           rentalId: payment.rental_id,
           dueDate: payment.due_date,
           paymentDate: payment.payment_date || null,
-          value: payment.value || 0,
-          amountToPay: payment.amount_to_pay || payment.value || 0,
-          paidValue: payment.paid_value || 0,
+          value: payment.expected_amount || 0,
+          amountToPay: payment.expected_amount || 0,
+          paidValue: payment.paid_amount || 0,
           status: payment.status as "pending" | "paid" | "overdue" | "partial",
-          attachments: payment.attachments || [],
+          attachments: attachmentsArray,
           pixCode: payment.pix_code || null,
           createdAt: payment.created_at,
           property: property ? {
             id: property.id,
+            locationId: property.location_id,
             location: property.locations?.name || "",
             complement: property.complement || "",
             propertyIdentifier: property.property_identifier || "",
+            description: property.description || "",
+            rooms: property.rooms || 0,
+            bathrooms: property.bathrooms || 0,
+            area: property.area || 0,
+            value: property.value || 0,
+            hasGarage: false,
+            hasFurniture: false,
+            acceptsPets: false,
+            status: property.status as "available" | "occupied" | "unavailable",
+            images: [],
+            createdAt: "",
+            address: "",
+            features: [],
           } : undefined,
           tenant: tenant ? {
             id: tenant.id,
             name: tenant.name,
+            email: tenant.email || "",
+            phone: tenant.phone || "",
+            status: tenant.status as "active" | "inactive",
           } : undefined,
           rental: rental ? {
             id: rental.id,
+            propertyId: rental.property_id,
+            tenantId: rental.tenant_id,
             startDate: rental.start_date,
-            endDate: rental.end_date,
+            endDate: rental.end_date || null,
             monthlyRent: rental.monthly_rent,
             paymentDay: rental.payment_day,
-            status: rental.status,
+            status: rental.status as "active" | "inactive" | "terminated",
+            value: rental.monthly_rent,
+            depositAmount: 0,
+            isActive: rental.is_active || false,
+            hasGarage: false,
+            hasPartnerBroker: false,
           } : undefined,
         };
       });
