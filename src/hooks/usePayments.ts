@@ -264,6 +264,12 @@ export const usePayments = () => {
     }
   }, [toast]);
 
+  // ✅ Carregar TODOS os payments na montagem (sem filtro)
+  useEffect(() => {
+    console.log(`📅 [usePayments] Montagem inicial - carregando TODOS os payments`);
+    loadPayments("all", "all");
+  }, []);
+
   const handleCancelPayment = useCallback(async (paymentId: string) => {
     try {
       // Cancelar apenas payment regular (aluguel)

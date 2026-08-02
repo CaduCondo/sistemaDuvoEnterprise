@@ -210,14 +210,17 @@ export default function Payments() {
     return MONTH_NAMES[month - 1] || "";
   }, []);
 
-  // Carregar pagamentos quando os filtros mudarem (incluindo montagem inicial)
+  // ✅ Carregar payments quando o usuário MUDA o filtro (skip primeira montagem)
   useEffect(() => {
-    loadPayments(selectedMonth.toString(), selectedYear.toString());
-    
+    // Skip primeira execução (montagem) - usePayments.ts já carrega "all"
     if (firstLoadRef.current) {
       firstLoadRef.current = false;
+      return;
     }
-  }, [loadPayments, selectedMonth, selectedYear]);
+    
+    console.log(`🔄 [payments.tsx] Filtro mudou - recarregando com mês=${selectedMonth}, ano=${selectedYear}`);
+    loadPayments(selectedMonth.toString(), selectedYear.toString());
+  }, [selectedMonth, selectedYear]);
 
   // 🔥 FORÇA RE-RENDER: Garantir que mudanças no estado payments causem re-render
   useEffect(() => {
