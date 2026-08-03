@@ -439,7 +439,7 @@ export default function Payments() {
         neighborhood: tenantData.neighborhood || "",
         city: tenantData.city || "",
         state: tenantData.state || "",
-        cep: tenantData.cep || "",
+        cep: tenantData.zip_code || "",
         createdAt: tenantData.created_at,
         document: tenantData.document || tenantData.cpf || "",
         status: (tenantData.status === "new" || tenantData.status === "inactive" || tenantData.status === "rented")
