@@ -460,26 +460,20 @@ export function PaymentReceipt({
     }
   };
 
-  // Buscar dados relacionados
-  const rentals = rental ? [rental] : [];
-  const property = rental ? properties.find(p => p.id === rental.propertyId) : null;
-  const tenant = rental ? tenants.find(t => t.id === rental.tenantId) : null;
-  const location = property ? locations.find(l => l.id === property.locationId) : null;
-
-  // ✅ CORREÇÃO 1: Nome do inquilino
-  const tenantName = payment.tenant?.name || tenant?.name || "LOCATÁRIO NÃO INFORMADO";
+  // ✅ CORREÇÃO 1: Nome do inquilino (usando props)
+  const tenantName = tenant?.name || "LOCATÁRIO NÃO INFORMADO";
 
   // ✅ CORREÇÃO 2: Endereço completo do imóvel com complemento concatenado
   const getPropertyAddress = () => {
-    if (!property || !location) return "IMÓVEL NÃO INFORMADO";
+    if (!property) return "IMÓVEL NÃO INFORMADO";
     
-    const address = location.address || "";
-    const number = location.number || "";
+    const address = property.address || "";
+    const number = property.number || "";
     const complement = property.complement || "";
-    const neighborhood = location.neighborhood || "";
-    const city = location.city || "";
-    const state = location.state || "";
-    const zipCode = location.zip_code || "";
+    const neighborhood = property.neighborhood || "";
+    const city = property.city || "";
+    const state = property.state || "";
+    const zipCode = property.zipCode || "";
     
     // Formato: Rua das Acácias, 70 - [COMPLEMENTO] - Parque Assunção, Taboão da Serra - SP - CEP 06753-420
     let fullAddress = `${address}${number ? ', ' + number : ''}`;
@@ -642,7 +636,7 @@ export function PaymentReceipt({
             <p className="text-justify leading-relaxed">
               Recebi dos Srs. <strong>{tenantName}</strong>, a importância de{" "}
               <strong>{formatCurrency(totalAmount)}</strong>, proveniente ao depósito de aluguel referente ao mês de{" "}
-              <strong>{monthName} de {payment.referenceYear}</strong>, tendo seu vencimento em{" "}
+              <strong>{referenceMonthName} de {payment.referenceYear}</strong>, tendo seu vencimento em{" "}
               <strong>{new Date(payment.dueDate + "T12:00:00").toLocaleDateString("pt-BR")}</strong>, do imóvel situado em{" "}
               <strong>{propertyAddress}</strong>, após a apresentação dos comprovantes de depósito bancário e contas de água e luz do mês anterior pagos, sendo este vinculado ao{" "}
               <strong>INSTRUMENTO PARTICULAR DE CONTRATO DE LOCAÇÃO PARA FIM RESIDENCIAL</strong>, assinado entre as partes em{" "}
@@ -686,14 +680,7 @@ export function PaymentReceipt({
 
           <div className="text-center text-xs text-gray-600 pt-3 border-t border-gray-300">
             <p className="uppercase">
-              SÃO PAULO, {new Date().toLocaleDateString("pt-BR", { 
-                day: "2-digit", 
-                month: "long", 
-                year: "numeric" 
-              }).toUpperCase()}, {new Date().toLocaleTimeString("pt-BR", { 
-                hour: "2-digit", 
-                minute: "2-digit" 
-              })}
+              {paymentDateTime}
             </p>
             
             <div className="pt-4"></div>
