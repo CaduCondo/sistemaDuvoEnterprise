@@ -1057,7 +1057,7 @@ export default function Settings() {
                       Cadastre locais/condomínios e gerencie contas
                     </CardDescription>
                   </div>
-                  <Button id="settings-location-new" onClick={() => setIsLocationDialogOpen(true)} size="sm">
+                  <Button id="settings-location-new" onClick={() => openLocationDialog()} size="sm">
                     <Plus className="h-4 w-4 mr-2" />
                     Novo Local
                   </Button>
@@ -1074,43 +1074,71 @@ export default function Settings() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredLocations.map((location) => (
-                    <Card key={location.id} className="relative">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-start justify-between">
-                          <span className="flex-1">{location.name}</span>
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          {location.address && (
-                            <div>{location.address}</div>
-                          )}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <Button
-                          id={`settings-location-expenses-${location.id}`}
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => {
-                            setSelectedLocation(location);
-                            setIsExpensesDialogOpen(true);
-                          }}
-                        >
-                          <Wallet className="h-4 w-4 mr-2" />
-                          Contas a Pagar
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                {filteredLocations.length === 0 && (
+                {filteredLocations.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     {searchLocation
                       ? "Nenhum local encontrado com os critérios de busca"
                       : "Nenhum local cadastrado ainda"}
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr className="border-b">
+                          <th className="text-left p-3 font-medium">Nome</th>
+                          <th className="text-left p-3 font-medium">Endereço</th>
+                          <th className="text-left p-3 font-medium">CEP</th>
+                          <th className="text-center p-3 font-medium w-[140px]">Contas</th>
+                          <th className="text-center p-3 font-medium w-[80px]">Excluir</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredLocations.map((location) => (
+                          <tr 
+                            key={location.id}
+                            className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
+                            onClick={() => openLocationDialog(location)}
+                          >
+                            <td className="p-3 font-medium">{location.name}</td>
+                            <td className="p-3 text-sm text-muted-foreground">
+                              {location.street && location.number 
+                                ? `${location.street}, ${location.number}${location.complement ? `, ${location.complement}` : ''} - ${location.neighborhood}, ${location.city} - ${location.state}`
+                                : `${location.neighborhood}, ${location.city} - ${location.state}`
+                              }
+                            </td>
+                            <td className="p-3 text-sm">{location.zip_code || "-"}</td>
+                            <td className="p-3 text-center">
+                              <Button
+                                id={`settings-location-expenses-${location.id}`}
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedLocation(location);
+                                  setIsExpensesDialogOpen(true);
+                                }}
+                              >
+                                <Wallet className="h-4 w-4 mr-2" />
+                                Contas a Pagar
+                              </Button>
+                            </td>
+                            <td className="p-3 text-center">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLocationToDelete(location);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </CardContent>
