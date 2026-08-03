@@ -157,25 +157,30 @@ export async function getAllTenants(): Promise<Tenant[]> {
     const tenant = fromDatabase(data);
     const rentalStatuses = rentalsMap.get(tenant.id) || [];
     
-    // ✅ NOVA LÓGICA: Respeitar SEMPRE o status do banco, exceto quando há locação ativa
+    // ✅ NOVA LÓGICA CORRIGIDA: 
+    // 1. Se tem locação ativa → SEMPRE é "rented" (sobrescreve qualquer status manual)
+    // 2. Se NÃO tem locação ativa E status no banco é "rented" → converter para "new" (disponível)
+    // 3. Caso contrário → respeitar o status do banco
+    
     let finalStatus: "new" | "rented" | "inactive";
     
-    // ÚNICA EXCEÇÃO: Se tem locação ativa, SEMPRE é "rented" (sobrescreve qualquer status manual)
+    // REGRA 1: Se tem locação ativa, SEMPRE é "rented" (sobrescreve qualquer status manual)
     if (rentalStatuses.includes("active")) {
       finalStatus = "rented";
       console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'rented' (tem locação ativa - SOBRESCRITO)`);
     }
-    // CASO CONTRÁRIO: Respeitar o status do banco
+    // REGRA 2: Se NÃO tem locação ativa MAS status no banco é "rented" → converter para "new" (disponível)
+    else if (data.status === "rented" && !rentalStatuses.includes("active")) {
+      finalStatus = "new";
+      console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'new' (era 'rented' mas NÃO tem locação ativa - CORRIGIDO)`);
+    }
+    // REGRA 3: Respeitar status do banco para "inactive"
     else if (data.status === "inactive") {
       finalStatus = "inactive";
       console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'inactive' (respeitando banco)`);
     }
-    else if (data.status === "rented") {
-      finalStatus = "rented";
-      console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'rented' (respeitando banco)`);
-    }
+    // REGRA 4: Caso contrário (status "active" no banco) → mostrar como "new"
     else {
-      // Status do banco é "active" → mostrar como "new"
       finalStatus = "new";
       console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'new' (respeitando banco)`);
     }

@@ -191,11 +191,15 @@ export default function TenantsPage() {
         });
         
         // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays após fechar alert
+        // Timeout aumentado de 500ms → 1000ms para dar tempo do alert fechar
         setTimeout(() => {
+          console.log("🧹 [tenants] Executando limpeza de overlays (1000ms)...");
+          
           // 1. Remover TODOS os overlays presos no DOM
           const overlays = document.querySelectorAll(
             '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
           );
+          console.log(`🧹 [tenants] ${overlays.length} overlays encontrados`);
           overlays.forEach((overlay) => {
             if (overlay.parentNode) {
               overlay.parentNode.removeChild(overlay);
@@ -214,8 +218,32 @@ export default function TenantsPage() {
           document.documentElement.removeAttribute("data-radix-scroll-lock");
           document.body.removeAttribute("data-radix-scroll-lock");
 
-          console.log("✅ [tenants] Overlays removidos e página desbloqueada");
-        }, 500); // Aguardar alert fechar antes de limpar
+          console.log("✅ [tenants] Overlays removidos e página desbloqueada (1000ms)");
+        }, 1000);
+        
+        // ✅ FALLBACK: Segunda limpeza 2000ms depois (caso a primeira falhe)
+        setTimeout(() => {
+          console.log("🧹 [tenants] FALLBACK - Segunda limpeza de overlays (2000ms)...");
+          
+          const overlays = document.querySelectorAll(
+            '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
+          );
+          console.log(`🧹 [tenants] FALLBACK - ${overlays.length} overlays encontrados`);
+          overlays.forEach((overlay) => {
+            if (overlay.parentNode) {
+              overlay.parentNode.removeChild(overlay);
+            }
+          });
+
+          document.body.style.overflow = "";
+          document.body.style.pointerEvents = "";
+          document.body.style.paddingRight = "";
+          document.body.classList.remove("overflow-hidden", "pointer-events-none");
+          document.documentElement.removeAttribute("data-radix-scroll-lock");
+          document.body.removeAttribute("data-radix-scroll-lock");
+
+          console.log("✅ [tenants] FALLBACK - Página desbloqueada (2000ms)");
+        }, 2000);
       }
     } else {
       success = await createTenant(data);
@@ -226,8 +254,9 @@ export default function TenantsPage() {
           type: "success",
         });
         
-        // ✅ Mesma limpeza para criar
+        // ✅ Mesma limpeza para criar (1000ms + fallback 2000ms)
         setTimeout(() => {
+          console.log("🧹 [tenants] Limpeza após criar (1000ms)...");
           const overlays = document.querySelectorAll(
             '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
           );
@@ -244,8 +273,29 @@ export default function TenantsPage() {
           document.documentElement.removeAttribute("data-radix-scroll-lock");
           document.body.removeAttribute("data-radix-scroll-lock");
 
-          console.log("✅ [tenants] Overlays removidos após criar");
-        }, 500);
+          console.log("✅ [tenants] Overlays removidos após criar (1000ms)");
+        }, 1000);
+        
+        setTimeout(() => {
+          console.log("🧹 [tenants] FALLBACK - Segunda limpeza após criar (2000ms)...");
+          const overlays = document.querySelectorAll(
+            '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
+          );
+          overlays.forEach((overlay) => {
+            if (overlay.parentNode) {
+              overlay.parentNode.removeChild(overlay);
+            }
+          });
+
+          document.body.style.overflow = "";
+          document.body.style.pointerEvents = "";
+          document.body.style.paddingRight = "";
+          document.body.classList.remove("overflow-hidden", "pointer-events-none");
+          document.documentElement.removeAttribute("data-radix-scroll-lock");
+          document.body.removeAttribute("data-radix-scroll-lock");
+
+          console.log("✅ [tenants] FALLBACK - Página desbloqueada após criar (2000ms)");
+        }, 2000);
       }
     }
 
