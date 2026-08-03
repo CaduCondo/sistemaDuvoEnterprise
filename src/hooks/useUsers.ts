@@ -90,7 +90,7 @@ export function useUsers() {
         email: userData.email,
         role: userData.role,
         password: userData.password || "mudar123",
-        temporary_password: userData.temporary_password,
+        temporary_password: true,
       });
       
       showAlert({
@@ -179,30 +179,12 @@ export function useUsers() {
         }
       }
 
-      const updateData: any = {
+      await updateUser(id, {
         name: userData.name,
         email: userData.email,
-        phone: userData.phone,
-        username: userData.username,
         role: userData.role,
-      };
-
-      const passwordField = (userData as any).password;
-      console.log("🔑 Password field value:", passwordField);
-      console.log("🔑 Password field type:", typeof passwordField);
-      console.log("🔑 Password is empty?:", !passwordField || passwordField.trim() === "");
-      
-      if (passwordField && passwordField.trim() !== "") {
-        updateData.password_hash = passwordField.trim();
-        console.log("✅ Senha será atualizada para:", passwordField.trim());
-      } else {
-        console.log("⚠️ Campo senha vazio - não será atualizado");
-      }
-
-      console.log("📝 Dados finais que serão enviados:", updateData);
-      console.log("🔐 ========== CALLING updateUser ==========");
-
-      await updateUser(id, updateData);
+        status: userData.active ? "active" : "inactive",
+      });
       
       console.log("✅ updateUser concluído com sucesso");
       showAlert({
@@ -272,7 +254,9 @@ export function useUsers() {
 
   const handleToggleUserStatus = async (user: SystemUser) => {
     try {
-      await updateUser(user.id, { active: !user.active });
+      await updateUser(user.id, { 
+        status: user.active ? "inactive" : "active" 
+      });
       showAlert({
         title: "Sucesso",
         description: `Usuário ${user.active ? "desativado" : "ativado"} com sucesso!`,

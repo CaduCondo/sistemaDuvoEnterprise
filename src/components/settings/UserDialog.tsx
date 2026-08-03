@@ -163,117 +163,23 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
     setIsSubmitting(true);
     try {
       if (user) {
-        // Editar usuário existente
-        await updateUser(user.id, {
+        // Editar usuário existente - updateUser aceita: name, email, role, status
+        await onSave({
           name: formData.name,
           email: formData.email,
-          phone: formData.phone || null,
-          role: formData.role as "admin" | "broker" | "financial",
-          active: formData.active,
-        });
-
-        toast({
-          title: "Sucesso",
-          description: "Usuário atualizado com sucesso!",
+          role: formData.role,
+          status: formData.active ? "active" : "inactive",
         });
       } else {
-        // Verificar se email/usuário já existe
-        const { data: existingUser } = await supabase
-          .from("system_users")
-          .select("id")
-          .or(`email.eq.${formData.email},username.eq.${formData.email}`)
-          .single();
-
-        if (existingUser) {
-          toast({
-            title: "Erro",
-            description: "O E-mail/Usuário já existe no sistema.",
-            variant: "destructive",
-          });
-          setIsSubmitting(false);
-          return;
-        }
-
-        // Criar novo usuário
+        // Criar novo usuário - createUser aceita: name, email, role, password, temporary_password
         const temporaryPassword = generateTemporaryPassword();
         
-        await createUser({
+        await onSave({
           name: formData.name,
           email: formData.email,
-          username: formData.email,
-          phone: formData.phone || null,
+          role: formData.role,
           password: temporaryPassword,
-          role: formData.role as "admin" | "broker" | "financial",
-          active: formData.active,
-          requires_password_change: true,
           temporary_password: true,
-        });
-
-        // Enviar e-mail de boas-vindas se configurado
-        const emailEnabled = await isEmailEnabled("welcome");
-        
-        if (emailEnabled) {
-          try {
-            const response = await fetch("/api/send-welcome-email", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                email: formData.email,
-                name: formData.name,
-                temporaryPassword: temporaryPassword,
-              }),
-            });
-
-            const result = await response.json();
-
-            if (!result.success) {
-              console.error("Erro ao enviar email de boas-vindas:", result.error);
-              // Não bloquear criação do usuário se email falhar
-              toast({
-                title: "Aviso",
-                description: "Usuário criado, mas houve erro ao enviar o e-mail de boas-vindas.",
-                variant: "default",
-              });
-            } else {
-              toast({
-                title: "Usuário criado!",
-                description: "E-mail de boas-vindas enviado com sucesso.",
-                duration: 5000,
-              });
-            }
-          } catch (error) {
-            console.error("Erro ao enviar email de boas-vindas:", error);
-            toast({
-              title: "Aviso",
-              description: "Usuário criado, mas houve erro ao enviar o e-mail de boas-vindas.",
-              variant: "default",
-            });
-          }
-        } else {
-          // Email desabilitado - apenas logar no console para DEV
-          if (process.env.NODE_ENV === "development") {
-            console.log("📧 ========================================");
-            console.log("📧 E-MAIL DE BOAS-VINDAS (DESABILITADO)");
-            console.log("📧 ========================================");
-            console.log("📧 Para:", formData.email);
-            console.log("📧 Nome:", formData.name);
-            console.log("📧 Senha Temporária:", temporaryPassword);
-            console.log("📧 ========================================");
-          }
-          
-          toast({
-            title: "Usuário criado!",
-            description: "Envio de e-mail está desabilitado nas configurações.",
-            duration: 5000,
-          });
-        }
-
-        toast({
-          title: "Usuário criado!",
-          description: "Email com senha temporária enviado com sucesso.",
-          duration: 5000,
         });
       }
 
