@@ -1,5 +1,6 @@
 import { Location } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "./auditService";
 
 const TABLE = "locations";
 
@@ -99,42 +100,39 @@ export async function getLocationById(id: string): Promise<Location> {
 /**
  * Create a new location
  */
-export async function createLocation(locationData: {
-  name: string;
-  street: string;
-  number: string;
-  complement?: string;
-  neighborhood: string;
-  city: string;
-  state: string;
-  zip_code: string;
-}): Promise<Location> {
-  console.log("[locationService] Creating new location:", locationData.name);
-
-  const dbLocation = {
-    name: locationData.name.trim(),
-    street: locationData.street.trim(),
-    number: locationData.number.trim(),
-    complement: locationData.complement?.trim() || null,
-    neighborhood: locationData.neighborhood.trim(),
-    city: locationData.city.trim(),
-    state: locationData.state.trim().toUpperCase(),
-    zip_code: locationData.zip_code.replace(/\D/g, ""),
-    is_active: true,
-  };
-
+export async function createLocation(location: Partial<Location>): Promise<Location> {
   const { data, error } = await supabase
-    .from(TABLE)
-    .insert(dbLocation)
+    .from("locations")
+    .insert([
+      {
+        name: location.name,
+        street: location.street,
+        number: location.number,
+        complement: location.complement,
+        neighborhood: location.neighborhood,
+        city: location.city,
+        state: location.state,
+        zip_code: location.zip_code,
+        is_active: location.is_active !== false,
+      },
+    ])
     .select()
     .single();
 
-  if (error) {
-    console.error("[locationService] Error creating location:", error);
-    throw error;
-  }
+  if (error) throw error;
 
-  console.log("[locationService] Location created successfully:", data.id);
+  // ✅ Log de auditoria
+  await logAudit({
+    action_type: "create",
+    entity_type: "location",
+    entity_id: data.id,
+    changes_summary: `Aba: Locais\nNovo local cadastrado: ${data.name}`,
+    new_values: {
+      name: data.name,
+      street: data.street,
+      city: data.city,
+    },
+  });
 
   return {
     id: data.id,
@@ -142,14 +140,11 @@ export async function createLocation(locationData: {
     street: data.street || "",
     number: data.number || "",
     complement: data.complement || "",
-    neighborhood: data.neighborhood || "",
+    neighborhood: data.neighborhood,
     city: data.city,
     state: data.state,
     zip_code: data.zip_code || "",
-    is_active: data.is_active !== false,
-    active: data.is_active !== false,
-    address: `${data.street || ''}, ${data.number || ''} - ${data.neighborhood || ''}, ${data.city || ''} - ${data.state || ''}`,
-    manager_id: null,
+    is_active: data.is_active,
     created_at: data.created_at,
     updated_at: data.updated_at,
   };
@@ -158,45 +153,58 @@ export async function createLocation(locationData: {
 /**
  * Update an existing location
  */
-export async function updateLocation(
-  id: string,
-  updates: {
-    name?: string;
-    street?: string;
-    number?: string;
-    complement?: string;
-    neighborhood?: string;
-    city?: string;
-    state?: string;
-    zip_code?: string;
-  }
-): Promise<Location> {
-  console.log(`[locationService] Updating location ${id}`);
-
-  const dbUpdates: any = {};
-  
-  if (updates.name !== undefined) dbUpdates.name = updates.name.trim();
-  if (updates.street !== undefined) dbUpdates.street = updates.street.trim();
-  if (updates.number !== undefined) dbUpdates.number = updates.number.trim();
-  if (updates.complement !== undefined) dbUpdates.complement = updates.complement?.trim() || null;
-  if (updates.neighborhood !== undefined) dbUpdates.neighborhood = updates.neighborhood.trim();
-  if (updates.city !== undefined) dbUpdates.city = updates.city.trim();
-  if (updates.state !== undefined) dbUpdates.state = updates.state.trim().toUpperCase();
-  if (updates.zip_code !== undefined) dbUpdates.zip_code = updates.zip_code.replace(/\D/g, "");
+export async function updateLocation(id: string, updates: Partial<Location>): Promise<Location> {
+  // Buscar valores antigos
+  const { data: oldData } = await supabase
+    .from("locations")
+    .select("*")
+    .eq("id", id)
+    .single();
 
   const { data, error } = await supabase
-    .from(TABLE)
-    .update(dbUpdates)
+    .from("locations")
+    .update({
+      name: updates.name,
+      street: updates.street,
+      number: updates.number,
+      complement: updates.complement,
+      neighborhood: updates.neighborhood,
+      city: updates.city,
+      state: updates.state,
+      zip_code: updates.zip_code,
+      is_active: updates.is_active,
+    })
     .eq("id", id)
     .select()
     .single();
 
-  if (error) {
-    console.error(`[locationService] Error updating location ${id}:`, error);
-    throw error;
-  }
+  if (error) throw error;
 
-  console.log(`[locationService] Location ${id} updated successfully`);
+  // ✅ Log de auditoria com mudanças
+  if (oldData) {
+    const changes: string[] = [];
+    
+    if (oldData.name !== data.name) changes.push(`name: de=${oldData.name} -> para=${data.name}`);
+    if (oldData.street !== data.street) changes.push(`street: de=${oldData.street || '-'} -> para=${data.street || '-'}`);
+    if (oldData.number !== data.number) changes.push(`number: de=${oldData.number || '-'} -> para=${data.number || '-'}`);
+    if (oldData.neighborhood !== data.neighborhood) changes.push(`neighborhood: de=${oldData.neighborhood || '-'} -> para=${data.neighborhood || '-'}`);
+    if (oldData.city !== data.city) changes.push(`city: de=${oldData.city || '-'} -> para=${data.city || '-'}`);
+    if (oldData.state !== data.state) changes.push(`state: de=${oldData.state || '-'} -> para=${data.state || '-'}`);
+    if (oldData.zip_code !== data.zip_code) changes.push(`zip_code: de=${oldData.zip_code || '-'} -> para=${data.zip_code || '-'}`);
+
+    const changesSummary = changes.length > 0
+      ? `Aba: Locais\nLocal editado: ${data.name}\n${changes.join('\n')}`
+      : `Aba: Locais\nLocal editado: ${data.name}`;
+
+    await logAudit({
+      action_type: "update",
+      entity_type: "location",
+      entity_id: id,
+      changes_summary: changesSummary,
+      old_values: { name: oldData.name, street: oldData.street, city: oldData.city },
+      new_values: { name: data.name, street: data.street, city: data.city },
+    });
+  }
 
   return {
     id: data.id,
@@ -204,14 +212,11 @@ export async function updateLocation(
     street: data.street || "",
     number: data.number || "",
     complement: data.complement || "",
-    neighborhood: data.neighborhood || "",
+    neighborhood: data.neighborhood,
     city: data.city,
     state: data.state,
     zip_code: data.zip_code || "",
-    is_active: data.is_active !== false,
-    active: data.is_active !== false,
-    address: `${data.street || ''}, ${data.number || ''} - ${data.neighborhood || ''}, ${data.city || ''} - ${data.state || ''}`,
-    manager_id: null,
+    is_active: data.is_active,
     created_at: data.created_at,
     updated_at: data.updated_at,
   };
@@ -222,50 +227,36 @@ export async function updateLocation(
  * This will CASCADE delete related records (expenses, permissions, etc.)
  */
 export async function deleteLocation(id: string): Promise<void> {
-  console.log(`[locationService] HARD DELETE - Permanently removing location: ${id}`);
-  
-  // Step 1: Verify location exists before deletion
-  const { data: existingLocation, error: checkError } = await supabase
-    .from(TABLE)
-    .select("id, name")
+  // Buscar dados antes de deletar
+  const { data: locationData } = await supabase
+    .from("locations")
+    .select("name, street, city")
     .eq("id", id)
     .single();
 
-  if (checkError || !existingLocation) {
-    console.error(`[locationService] Location ${id} not found for deletion`);
-    throw new Error("Local não encontrado");
-  }
+  const { error } = await supabase.from("locations").delete().eq("id", id);
 
-  console.log(`[locationService] Found location to delete: ${existingLocation.name}`);
-
-  // Step 2: Perform the delete
-  const { error: deleteError } = await supabase
-    .from(TABLE)
-    .delete()
-    .eq("id", id);
-
-  if (deleteError) {
-    console.error(`[locationService] Failed to delete location ${id}:`, deleteError.message);
-    
-    // Check if it's a foreign key constraint error
-    if (deleteError.message.includes("violates foreign key constraint")) {
-      throw new Error("Este local não pode ser excluído pois possui propriedades, despesas ou permissões vinculadas.");
+  if (error) {
+    if (error.code === "23503") {
+      throw new Error(
+        "Este local não pode ser excluído pois possui propriedades, despesas ou permissões vinculadas."
+      );
     }
-    
-    throw deleteError;
+    throw error;
   }
 
-  // Step 3: Verify deletion was successful
-  const { data: verifyData, error: verifyError } = await supabase
-    .from(TABLE)
-    .select("id")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (verifyData) {
-    console.error(`[locationService] DELETE FAILED - Location ${id} still exists in database!`);
-    throw new Error("Falha ao deletar o local. Por favor, tente novamente.");
+  // ✅ Log de auditoria
+  if (locationData) {
+    await logAudit({
+      action_type: "delete",
+      entity_type: "location",
+      entity_id: id,
+      changes_summary: `Aba: Locais\nLocal excluído: ${locationData.name}`,
+      old_values: {
+        name: locationData.name,
+        street: locationData.street,
+        city: locationData.city,
+      },
+    });
   }
-  
-  console.log(`[locationService] Location ${id} permanently deleted from database`);
 }
