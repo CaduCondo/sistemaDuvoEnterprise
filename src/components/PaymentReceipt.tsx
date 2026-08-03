@@ -597,13 +597,13 @@ export function PaymentReceipt({
     if (locationData && locationData.name && locationData.name.toLowerCase() === "outros") {
       console.log("🏠 [propertyAddress] Local é OUTROS - usando endereço do inquilino");
       
-      const tenantAddress = tenant?.address || "";
+      const tenantAddress = tenant?.street || "";
       const tenantNumber = tenant?.number || "";
       const tenantComplement = tenant?.complement || "";
       const tenantNeighborhood = tenant?.neighborhood || "";
       const tenantCity = tenant?.city || "";
       const tenantState = tenant?.state || "";
-      const tenantZipCode = tenant?.zipCode || "";
+      const tenantZipCode = tenant?.cep || "";
       
       if (!tenantAddress) {
         return "ENDEREÇO DO INQUILINO NÃO INFORMADO";
