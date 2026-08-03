@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, setDate } from "date-fns";
 import type { Payment, Rental, Property, Tenant } from "@/types";
 import type { Tables } from "@/integrations/supabase/types";
+import { logAudit } from "./auditService";
 
 type PaymentResponse = Tables<"payments"> & {
   rental: (Tables<"rentals"> & {
@@ -204,6 +205,23 @@ export const update = async (
   id: string,
   updatePaymentData: Partial<Payment>
 ): Promise<Payment> => {
+  // ✅ Buscar dados ANTES de atualizar
+  const { data: oldData } = await supabase
+    .from("payments")
+    .select(`
+      *,
+      rental:rentals(
+        id,
+        properties(
+          complement,
+          locations!properties_location_id_fkey(name)
+        ),
+        tenants(name)
+      )
+    `)
+    .eq("id", id)
+    .single();
+
   const updateData: any = {
     expected_amount: updatePaymentData.expectedAmount,
     paid_amount: updatePaymentData.paidAmount,
@@ -231,6 +249,47 @@ export const update = async (
     .single();
 
   if (error) throw error;
+
+  // ✅ NOVO FORMATO: Local + Complemento + Inquilino + Parcela + mudanças
+  if (oldData) {
+    const locationName = (oldData.rental as any)?.properties?.locations?.name || "Local não informado";
+    const complement = (oldData.rental as any)?.properties?.complement || "Sem complemento";
+    const tenantName = (oldData.rental as any)?.tenants?.name || "Inquilino não informado";
+    const installmentInfo = `${data.installment || '?'}/${data.total_installments || '?'}`;
+
+    const changes: string[] = [];
+    if (oldData.status !== data.status) {
+      changes.push(`status: de=${oldData.status} -> para=${data.status}`);
+    }
+    if (oldData.paid_amount !== data.paid_amount) {
+      changes.push(`paid_amount: de=${oldData.paid_amount} -> para=${data.paid_amount}`);
+    }
+    if (oldData.payment_date !== data.payment_date) {
+      changes.push(`payment_date: de=${oldData.payment_date || 'null'} -> para=${data.payment_date || 'null'}`);
+    }
+
+    const changesSummary = changes.length > 0
+      ? `Local: ${locationName} - Complemento: ${complement} - Inquilino: ${tenantName} - Parcela: ${installmentInfo}\n${changes.join('\n')}`
+      : `Local: ${locationName} - Complemento: ${complement} - Inquilino: ${tenantName} - Parcela: ${installmentInfo}`;
+
+    // Se foi um recebimento (mudou status para paid), usar action_type "payment"
+    const actionType = (oldData.status !== "paid" && data.status === "paid") ? "payment" : "update";
+
+    await logAudit({
+      action_type: actionType,
+      entity_type: "payment",
+      entity_id: id,
+      changes_summary: changesSummary,
+      old_values: {
+        status: oldData.status,
+        paid_amount: oldData.paid_amount,
+      },
+      new_values: {
+        status: data.status,
+        paid_amount: data.paid_amount,
+      },
+    });
+  }
   
   const updatedPayment: Payment = { 
     id: data.id,
@@ -258,8 +317,44 @@ export const update = async (
 };
 
 export const remove = async (id: string): Promise<void> => {
+  // ✅ Buscar dados ANTES de deletar
+  const { data: paymentData } = await supabase
+    .from("payments")
+    .select(`
+      *,
+      rental:rentals(
+        id,
+        properties(
+          complement,
+          locations!properties_location_id_fkey(name)
+        ),
+        tenants(name)
+      )
+    `)
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase.from("payments").delete().eq("id", id);
   if (error) throw error;
+
+  // ✅ NOVO FORMATO: Local + Complemento + Inquilino + Parcela
+  if (paymentData) {
+    const locationName = (paymentData.rental as any)?.properties?.locations?.name || "Local não informado";
+    const complement = (paymentData.rental as any)?.properties?.complement || "Sem complemento";
+    const tenantName = (paymentData.rental as any)?.tenants?.name || "Inquilino não informado";
+    const installmentInfo = `${paymentData.installment || '?'}/${paymentData.total_installments || '?'}`;
+
+    await logAudit({
+      action_type: "delete",
+      entity_type: "payment",
+      entity_id: id,
+      changes_summary: `Local: ${locationName} - Complemento: ${complement} - Inquilino: ${tenantName} - Parcela: ${installmentInfo}`,
+      old_values: {
+        status: paymentData.status,
+        expected_amount: paymentData.expected_amount,
+      },
+    });
+  }
 };
 
 /**

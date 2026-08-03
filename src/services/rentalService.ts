@@ -313,6 +313,41 @@ export const rentalService = {
       rent_due_day: data.rent_due_day,
     });
 
+    // ✅ NOVO FORMATO: Buscar property e tenant para log
+    const { data: propertyData } = await supabase
+      .from("properties")
+      .select(`
+        complement,
+        locations!properties_location_id_fkey(name)
+      `)
+      .eq("id", data.property_id)
+      .single();
+
+    const { data: tenantData } = await supabase
+      .from("tenants")
+      .select("name")
+      .eq("id", data.tenant_id)
+      .single();
+
+    const locationName = (propertyData?.locations as any)?.name || "Local não informado";
+    const complement = propertyData?.complement || "Sem complemento";
+    const tenantName = tenantData?.name || "Inquilino não informado";
+
+    await logAudit({
+      action_type: "create",
+      entity_type: "rental",
+      entity_id: data.id,
+      changes_summary: `Local: ${locationName} - Complemento: ${complement} - Inquilino: ${tenantName}`,
+      new_values: {
+        location: locationName,
+        complement: complement,
+        tenant: tenantName,
+        start_date: data.start_date,
+        end_date: data.end_date,
+        rent_value: data.rent_value,
+      },
+    });
+
     if (rental.startDate && rental.endDate && rental.paymentDay) {
       console.log("🔄 [rentalService.create] Gerando recebimentos automáticos...");
       
@@ -465,6 +500,64 @@ export const rentalService = {
       .single();
 
     if (error) throw error;
+
+    // ✅ NOVO FORMATO: Buscar property e tenant para log
+    const { data: propertyData } = await supabase
+      .from("properties")
+      .select(`
+        complement,
+        locations!properties_location_id_fkey(name)
+      `)
+      .eq("id", data.property_id)
+      .single();
+
+    const { data: tenantData } = await supabase
+      .from("tenants")
+      .select("name")
+      .eq("id", data.tenant_id)
+      .single();
+
+    const locationName = (propertyData?.locations as any)?.name || "Local não informado";
+    const complement = propertyData?.complement || "Sem complemento";
+    const tenantName = tenantData?.name || "Inquilino não informado";
+
+    // ✅ NOVO FORMATO: mudanças campo a campo
+    const changes: string[] = [];
+    if (oldRental.startDate !== data.start_date) {
+      changes.push(`start_date: de=${oldRental.startDate} -> para=${data.start_date}`);
+    }
+    if (oldRental.endDate !== data.end_date) {
+      changes.push(`end_date: de=${oldRental.endDate || 'null'} -> para=${data.end_date || 'null'}`);
+    }
+    if (oldRental.monthlyRent !== data.rent_value) {
+      changes.push(`rent_value: de=${oldRental.monthlyRent} -> para=${data.rent_value}`);
+    }
+    if (oldRental.status !== data.status) {
+      changes.push(`status: de=${oldRental.status} -> para=${data.status}`);
+    }
+
+    const changesSummary = changes.length > 0
+      ? `Local: ${locationName} - Complemento: ${complement} - Inquilino: ${tenantName}\n${changes.join('\n')}`
+      : `Local: ${locationName} - Complemento: ${complement} - Inquilino: ${tenantName}`;
+
+    await logAudit({
+      action_type: "update",
+      entity_type: "rental",
+      entity_id: id,
+      changes_summary: changesSummary,
+      old_values: {
+        start_date: oldRental.startDate,
+        end_date: oldRental.endDate,
+        rent_value: oldRental.monthlyRent,
+        status: oldRental.status,
+      },
+      new_values: {
+        start_date: data.start_date,
+        end_date: data.end_date,
+        rent_value: data.rent_value,
+        status: data.status,
+      },
+    });
 
     // Gerenciar parcelas de caução (código existente permanece igual)
     const { data: existingInstallments } = await supabase
@@ -674,6 +767,20 @@ export const rentalService = {
   },
 
   async remove(id: string): Promise<void> {
+    // ✅ Buscar dados ANTES de deletar
+    const { data: rentalData } = await supabase
+      .from("rentals")
+      .select(`
+        *,
+        properties!rentals_property_id_fkey(
+          complement,
+          locations!properties_location_id_fkey(name)
+        ),
+        tenants!rentals_tenant_id_fkey(name)
+      `)
+      .eq("id", id)
+      .single();
+
     const { data: paidPayments, error: paidError } = await supabase
       .from("payments")
       .select("id")
@@ -702,6 +809,27 @@ export const rentalService = {
 
     const { error } = await supabase.from("rentals").delete().eq("id", id);
     if (error) throw error;
+
+    // ✅ NOVO FORMATO: Local + Complemento + Inquilino
+    if (rentalData) {
+      const locationName = (rentalData.properties as any)?.locations?.name || "Local não informado";
+      const complement = (rentalData.properties as any)?.complement || "Sem complemento";
+      const tenantName = (rentalData.tenants as any)?.name || "Inquilino não informado";
+
+      await logAudit({
+        action_type: "delete",
+        entity_type: "rental",
+        entity_id: id,
+        changes_summary: `Local: ${locationName} - Complemento: ${complement} - Inquilino: ${tenantName}`,
+        old_values: {
+          location: locationName,
+          complement: complement,
+          tenant: tenantName,
+          start_date: rentalData.start_date,
+          end_date: rentalData.end_date,
+        },
+      });
+    }
     
     rentalService.invalidateCache();
     invalidatePaymentsCache();
