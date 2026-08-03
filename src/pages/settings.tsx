@@ -61,6 +61,7 @@ import {
 } from "@/services/configService";
 import * as locationService from "@/services/locationService";
 import { getAllPaymentMethods, createPaymentMethod, updatePaymentMethod, deletePaymentMethod, type PaymentMethod } from "@/services/paymentMethodService";
+import { logAudit } from "@/services/auditService";
 
 // Helpers
 import {
@@ -308,63 +309,97 @@ export default function Settings() {
     }
   };
 
-  const handleLocationSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleLocationSubmit = async (data: Partial<Location>) => {
     try {
-      if (editingLocation) {
-        await locationService.updateLocation(editingLocation.id, {
-          name: locationForm.name,
-          street: locationForm.street,
-          number: locationForm.number,
-          complement: locationForm.complement || undefined,
-          neighborhood: locationForm.neighborhood,
-          city: locationForm.city,
-          state: locationForm.state,
-          zip_code: locationForm.zip_code,
-        });
+      if (selectedLocation) {
+        // ✅ Buscar valores antigos ANTES de atualizar
+        const oldLocation = locations.find(l => l.id === selectedLocation.id);
+        
+        await updateLocation(selectedLocation.id, data);
+        
+        // ✅ Log de auditoria - Edição de Local
+        if (oldLocation) {
+          const changes: string[] = [];
+          
+          if (oldLocation.name !== data.name) {
+            changes.push(`name: de=${oldLocation.name} -> para=${data.name}`);
+          }
+          if (oldLocation.street !== data.street) {
+            changes.push(`street: de=${oldLocation.street || '-'} -> para=${data.street || '-'}`);
+          }
+          if (oldLocation.number !== data.number) {
+            changes.push(`number: de=${oldLocation.number || '-'} -> para=${data.number || '-'}`);
+          }
+          if (oldLocation.neighborhood !== data.neighborhood) {
+            changes.push(`neighborhood: de=${oldLocation.neighborhood || '-'} -> para=${data.neighborhood || '-'}`);
+          }
+          if (oldLocation.city !== data.city) {
+            changes.push(`city: de=${oldLocation.city || '-'} -> para=${data.city || '-'}`);
+          }
+          if (oldLocation.state !== data.state) {
+            changes.push(`state: de=${oldLocation.state || '-'} -> para=${data.state || '-'}`);
+          }
+          if (oldLocation.zip_code !== data.zip_code) {
+            changes.push(`zip_code: de=${oldLocation.zip_code || '-'} -> para=${data.zip_code || '-'}`);
+          }
+          
+          const changesSummary = changes.length > 0
+            ? `Aba: Locais\nLocal editado: ${data.name}\n${changes.join('\n')}`
+            : `Aba: Locais\nLocal editado: ${data.name}`;
+          
+          await logAudit({
+            action_type: "update",
+            entity_type: "location",
+            entity_id: selectedLocation.id,
+            changes_summary: changesSummary,
+            old_values: {
+              name: oldLocation.name,
+              street: oldLocation.street,
+              city: oldLocation.city,
+            },
+            new_values: {
+              name: data.name,
+              street: data.street,
+              city: data.city,
+            },
+          });
+        }
+        
         showAlert({
-          title: "Sucesso",
+          title: "Sucesso!",
           description: "Local atualizado com sucesso.",
           type: "success",
         });
       } else {
-        await locationService.createLocation({
-          name: locationForm.name,
-          street: locationForm.street,
-          number: locationForm.number,
-          complement: locationForm.complement || undefined,
-          neighborhood: locationForm.neighborhood,
-          city: locationForm.city,
-          state: locationForm.state,
-          zip_code: locationForm.zip_code,
+        const newLocation = await createLocation(data);
+        
+        // ✅ Log de auditoria - Criação de Local
+        await logAudit({
+          action_type: "create",
+          entity_type: "location",
+          entity_id: newLocation.id,
+          changes_summary: `Aba: Locais\nNovo local cadastrado: ${data.name}`,
+          new_values: {
+            name: data.name,
+            street: data.street,
+            city: data.city,
+          },
         });
+        
         showAlert({
-          title: "Sucesso",
-          description: "Local cadastrado com sucesso.",
+          title: "Sucesso!",
+          description: "Local criado com sucesso.",
           type: "success",
         });
       }
-
+      
       setIsLocationDialogOpen(false);
-      setEditingLocation(null);
-      setLocationForm({
-        name: "",
-        street: "",
-        number: "",
-        complement: "",
-        neighborhood: "",
-        city: "",
-        state: "",
-        zip_code: "",
-        is_active: true,
-      });
-      await fetchLocations();
-    } catch (error: any) {
-      console.error("Failed to save location:", error);
+      setSelectedLocation(null);
+    } catch (error) {
+      console.error("Erro ao salvar local:", error);
       showAlert({
         title: "Erro",
-        description: error.message || "Não foi possível salvar o local.",
+        description: "Erro ao salvar local.",
         type: "error",
       });
     }
@@ -449,6 +484,211 @@ export default function Settings() {
       await fetchLocations();
     } finally {
       setIsLoadingLocations(false);
+    }
+  };
+
+  const handleDeleteLocation = async () => {
+    if (!locationToDelete) return;
+
+    try {
+      // ✅ Buscar dados ANTES de deletar
+      const locationData = locations.find(l => l.id === locationToDelete.id);
+      
+      await deleteLocation(locationToDelete.id);
+      
+      // ✅ Log de auditoria - Exclusão de Local
+      if (locationData) {
+        await logAudit({
+          action_type: "delete",
+          entity_type: "location",
+          entity_id: locationToDelete.id,
+          changes_summary: `Aba: Locais\nLocal excluído: ${locationData.name}`,
+          old_values: {
+            name: locationData.name,
+            street: locationData.street,
+            city: locationData.city,
+          },
+        });
+      }
+      
+      showAlert({
+        title: "Sucesso!",
+        description: "Local deletado com sucesso.",
+        type: "success",
+      });
+      setLocationToDelete(null);
+    } catch (error) {
+      console.error("Erro ao deletar local:", error);
+      showAlert({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao deletar local.",
+        type: "error",
+      });
+    }
+  };
+
+  const handleUserSave = async (userData: any) => {
+    try {
+      let userId: string;
+      
+      if (selectedUser) {
+        // ✅ Buscar valores antigos ANTES de atualizar
+        const oldUserData = users.find(u => u.id === selectedUser.id);
+        
+        await updateUser(selectedUser.id, userData);
+        userId = selectedUser.id;
+        
+        // ✅ Log de auditoria - Edição de Usuário
+        if (oldUserData) {
+          const changes: string[] = [];
+          
+          if (oldUserData.name !== userData.name) {
+            changes.push(`name: de=${oldUserData.name} -> para=${userData.name}`);
+          }
+          if (oldUserData.email !== userData.email) {
+            changes.push(`email: de=${oldUserData.email} -> para=${userData.email}`);
+          }
+          if (oldUserData.role !== userData.role) {
+            changes.push(`role: de=${oldUserData.role} -> para=${userData.role}`);
+          }
+          
+          const changesSummary = changes.length > 0
+            ? `Aba: Usuários\nUsuário editado: ${userData.name}\n${changes.join('\n')}`
+            : `Aba: Usuários\nUsuário editado: ${userData.name}`;
+          
+          await logAudit({
+            action_type: "update",
+            entity_type: "user",
+            entity_id: selectedUser.id,
+            changes_summary: changesSummary,
+            old_values: {
+              name: oldUserData.name,
+              email: oldUserData.email,
+              role: oldUserData.role,
+            },
+            new_values: {
+              name: userData.name,
+              email: userData.email,
+              role: userData.role,
+            },
+          });
+        }
+        
+        showAlert({
+          title: "Sucesso!",
+          description: "Usuário atualizado com sucesso.",
+          type: "success",
+        });
+      } else {
+        const newUser = await createUser(userData);
+        userId = newUser.id;
+        
+        // ✅ Log de auditoria - Criação de Usuário
+        await logAudit({
+          action_type: "create",
+          entity_type: "user",
+          entity_id: newUser.id,
+          changes_summary: `Aba: Usuários\nNovo usuário cadastrado: ${userData.name} (${userData.email})`,
+          new_values: {
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+          },
+        });
+        
+        showAlert({
+          title: "Sucesso!",
+          description: "Usuário criado com sucesso.",
+          type: "success",
+        });
+      }
+      
+      setIsUserDialogOpen(false);
+      setSelectedUser(null);
+    } catch (error) {
+      console.error("Erro ao salvar usuário:", error);
+      showAlert({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao salvar usuário.",
+        type: "error",
+      });
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      // ✅ Buscar dados ANTES de deletar
+      const userData = users.find(u => u.id === userToDelete.id);
+      
+      await deleteUser(userToDelete.id);
+      
+      // ✅ Log de auditoria - Exclusão de Usuário
+      if (userData) {
+        await logAudit({
+          action_type: "delete",
+          entity_type: "user",
+          entity_id: userToDelete.id,
+          changes_summary: `Aba: Usuários\nUsuário excluído: ${userData.name} (${userData.email})`,
+          old_values: {
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+          },
+        });
+      }
+      
+      showAlert({
+        title: "Sucesso!",
+        description: "Usuário deletado com sucesso.",
+        type: "success",
+      });
+      setUserToDelete(null);
+    } catch (error) {
+      console.error("Erro ao deletar usuário:", error);
+      showAlert({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao deletar usuário.",
+        type: "error",
+      });
+    }
+  };
+
+  const handleSavePermissions = async () => {
+    try {
+      if (!currentRole) return;
+
+      await saveRolePermissions(currentRole, permissions);
+      
+      // ✅ Log de auditoria - Edição de Permissões
+      const enabledPermissions = Object.entries(permissions)
+        .filter(([_, value]) => value)
+        .map(([key, _]) => key)
+        .join(', ');
+      
+      await logAudit({
+        action_type: "update",
+        entity_type: "system",
+        changes_summary: `Aba: Permissões\nPermissões atualizadas para role: ${currentRole}\nPermissões habilitadas: ${enabledPermissions}`,
+        metadata: {
+          role: currentRole,
+          permissions: permissions,
+        },
+      });
+      
+      showAlert({
+        title: "Sucesso!",
+        description: "Permissões atualizadas com sucesso.",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Erro ao salvar permissões:", error);
+      showAlert({
+        title: "Erro",
+        description: "Erro ao salvar permissões.",
+        type: "error",
+      });
     }
   };
 
