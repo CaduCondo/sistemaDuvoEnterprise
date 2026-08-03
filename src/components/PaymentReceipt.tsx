@@ -460,52 +460,77 @@ export function PaymentReceipt({
     }
   };
 
-  // Formatar endereço do imóvel (SEM o nome do local)
+  // Buscar dados relacionados
+  const rentals = rental ? [rental] : [];
+  const property = rental ? properties.find(p => p.id === rental.propertyId) : null;
+  const tenant = rental ? tenants.find(t => t.id === rental.tenantId) : null;
+  const location = property ? locations.find(l => l.id === property.locationId) : null;
+
+  // ✅ CORREÇÃO 1: Nome do inquilino
+  const tenantName = payment.tenant?.name || tenant?.name || "LOCATÁRIO NÃO INFORMADO";
+
+  // ✅ CORREÇÃO 2: Endereço completo do imóvel com complemento concatenado
   const getPropertyAddress = () => {
-    console.log("\n🏠 DADOS DO PROPERTY COMPLETO:", property);
+    if (!property || !location) return "IMÓVEL NÃO INFORMADO";
     
-    // 🔥 CORREÇÃO: Verificar se property existe
-    if (!property) {
-      console.warn("⚠️ PROPERTY está null/undefined!");
-      return "IMÓVEL NÃO INFORMADO";
+    const address = location.address || "";
+    const number = location.number || "";
+    const complement = property.complement || "";
+    const neighborhood = location.neighborhood || "";
+    const city = location.city || "";
+    const state = location.state || "";
+    const zipCode = location.zip_code || "";
+    
+    // Formato: Rua das Acácias, 70 - [COMPLEMENTO] - Parque Assunção, Taboão da Serra - SP - CEP 06753-420
+    let fullAddress = `${address}${number ? ', ' + number : ''}`;
+    
+    if (complement) {
+      fullAddress += ` - ${complement}`;
     }
     
-    const parts = [];
+    fullAddress += ` - ${neighborhood}${city ? ', ' + city : ''}`;
     
-    if (property.address) {
-      parts.push(property.address.toUpperCase());
+    if (state) {
+      fullAddress += ` - ${state}`;
     }
     
-    if (property.number) {
-      parts.push(`Nº ${property.number}`);
+    if (zipCode) {
+      fullAddress += ` - CEP ${zipCode}`;
     }
     
-    if (property.complement) {
-      parts.push(property.complement.toUpperCase());
-    }
-    
-    if (property.neighborhood) {
-      parts.push(property.neighborhood.toUpperCase());
-    }
-    
-    if (property.city) {
-      parts.push(property.city.toUpperCase());
-    }
-    
-    if (property.state) {
-      parts.push(property.state.toUpperCase());
-    }
-    
-    const finalAddress = parts.length > 0 ? parts.join(", ") : "LOCAL NÃO INFORMADO";
-    console.log(`\n📍 ENDEREÇO FINAL: ${finalAddress}\n`);
-    
-    return finalAddress;
+    return fullAddress;
   };
 
   const propertyAddress = getPropertyAddress();
-  
-  // 🔥 CORREÇÃO: Verificar se tenant existe
-  const tenantName = tenant?.name?.toUpperCase() || "LOCATÁRIO NÃO INFORMADO";
+
+  // ✅ CORREÇÃO 3: Data de início da locação
+  const rentalStartDate = payment.rental?.startDate || rental?.startDate || null;
+  const formattedStartDate = rentalStartDate 
+    ? new Date(rentalStartDate + "T12:00:00").toLocaleDateString("pt-BR")
+    : "Data não informada";
+
+  // ✅ CORREÇÃO 4: Data e hora em que o pagamento foi REALIZADO (IMUTÁVEL)
+  // NÃO usar a data atual - usar paymentDate do banco
+  const getPaymentDateTime = () => {
+    if (!payment.paymentDate) {
+      return "Data não informada";
+    }
+    
+    const paymentDate = new Date(payment.paymentDate + "T12:00:00");
+    const formattedDate = paymentDate.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric"
+    }).toUpperCase();
+    
+    // Tentar pegar a hora do campo payment_time se existir
+    // Se não, usar 12:00 como padrão
+    const timeStr = payment.paymentTime || "12:00";
+    
+    return `SÃO PAULO, ${formattedDate}, ${timeStr}`;
+  };
+
+  const paymentDateTime = getPaymentDateTime();
 
   const handleShareWhatsApp = () => {
     const referenceMonthName = payment.referenceMonth 
@@ -613,27 +638,18 @@ export function PaymentReceipt({
             )}
           </div>
 
-          <div className="space-y-2 text-justify leading-tight text-sm">
-            {isTermination ? (
-              <p>
-                Recebi dos Srs. <strong>{tenantName}</strong>, a importância de{" "}
-                <strong>{extenso(totalAmount)} ({formatCurrency(totalAmount)})</strong>, referente à rescisão do contrato de locação
-                do imóvel situado em{" "}
-                <strong>{propertyAddress}</strong>, conforme detalhamento abaixo, sendo este vinculado ao INSTRUMENTO PARTICULAR DE CONTRATO DE LOCAÇÃO PARA FIM RESIDENCIAL, 
-                assinado entre as partes em <strong>{displayContractDate}</strong>.
-              </p>
-            ) : (
-              <p>
-                Recebi dos Srs. <strong>{tenantName}</strong>, a importância de{" "}
-                <strong>{extenso(totalAmount)} ({formatCurrency(totalAmount)})</strong>, proveniente ao depósito de aluguel
-                referente ao mês de <strong>{referenceMonthName} de {referenceYear}</strong>, 
-                tendo seu vencimento em <strong>{formatDate(payment.dueDate)}</strong>, 
-                do imóvel situado em{" "}
-                <strong>{propertyAddress}</strong>, após a apresentação dos comprovantes de depósito bancário e contas de água e luz do mês
-                anterior pagos, sendo este vinculado ao INSTRUMENTO PARTICULAR DE CONTRATO DE LOCAÇÃO PARA FIM RESIDENCIAL, assinado entre as partes em{" "}
-                <strong>{displayContractDate}</strong>.
-              </p>
-            )}
+          <div className="space-y-4">
+            <p className="text-justify leading-relaxed">
+              Recebi dos Srs. <strong>{tenantName}</strong>, a importância de{" "}
+              <strong>{formatCurrency(totalAmount)}</strong>, proveniente ao depósito de aluguel referente ao mês de{" "}
+              <strong>{monthName} de {payment.referenceYear}</strong>, tendo seu vencimento em{" "}
+              <strong>{new Date(payment.dueDate + "T12:00:00").toLocaleDateString("pt-BR")}</strong>, do imóvel situado em{" "}
+              <strong>{propertyAddress}</strong>, após a apresentação dos comprovantes de depósito bancário e contas de água e luz do mês anterior pagos, sendo este vinculado ao{" "}
+              <strong>INSTRUMENTO PARTICULAR DE CONTRATO DE LOCAÇÃO PARA FIM RESIDENCIAL</strong>, assinado entre as partes em{" "}
+              <strong>{formattedStartDate}</strong>.
+            </p>
+
+            {/* Tabela de valores */}
           </div>
 
           <div className="border-t border-gray-300 pt-2">
