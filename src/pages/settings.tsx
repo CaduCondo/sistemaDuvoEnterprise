@@ -340,6 +340,51 @@ export default function Settings() {
     setIsLocationDialogOpen(true);
   };
 
+  const handleLocationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      if (editingLocation) {
+        await locationService.updateLocation(editingLocation.id, locationForm);
+        showAlert({
+          title: "Sucesso!",
+          description: "Local atualizado com sucesso.",
+          type: "success",
+        });
+      } else {
+        await locationService.createLocation(locationForm);
+        showAlert({
+          title: "Sucesso!",
+          description: "Local criado com sucesso.",
+          type: "success",
+        });
+      }
+      
+      setIsLocationDialogOpen(false);
+      setEditingLocation(null);
+      setLocationForm({
+        name: "",
+        street: "",
+        number: "",
+        complement: "",
+        neighborhood: "",
+        city: "",
+        state: "",
+        zip_code: "",
+        is_active: true,
+      });
+      
+      await fetchLocations();
+    } catch (error) {
+      console.error("Erro ao salvar local:", error);
+      showAlert({
+        title: "Erro",
+        description: "Erro ao salvar local.",
+        type: "error",
+      });
+    }
+  };
+
   const confirmDeleteLocation = async () => {
     if (!locationToDelete) return;
 
