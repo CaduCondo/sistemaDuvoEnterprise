@@ -190,12 +190,11 @@ export default function TenantsPage() {
           type: "success",
         });
         
-        // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays após fechar alert
-        // Timeout aumentado de 500ms → 1000ms para dar tempo do alert fechar
+        // ✅ CORREÇÃO CRÍTICA: Timeouts AUMENTADOS para 3000ms/5000ms
+        // AlertDialog leva tempo para fechar - timeouts curtos executam ANTES do fechamento
         setTimeout(() => {
-          console.log("🧹 [tenants] Executando limpeza de overlays (1000ms)...");
+          console.log("🧹 [tenants] Executando limpeza de overlays (3000ms)...");
           
-          // 1. Remover TODOS os overlays presos no DOM
           const overlays = document.querySelectorAll(
             '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
           );
@@ -206,24 +205,18 @@ export default function TenantsPage() {
             }
           });
 
-          // 2. Restaurar scroll e pointer-events no body
           document.body.style.overflow = "";
           document.body.style.pointerEvents = "";
           document.body.style.paddingRight = "";
-
-          // 3. Remover classes de modal que podem estar presas
           document.body.classList.remove("overflow-hidden", "pointer-events-none");
-
-          // 4. Garantir que data-radix-* attributes são removidos
           document.documentElement.removeAttribute("data-radix-scroll-lock");
           document.body.removeAttribute("data-radix-scroll-lock");
 
-          console.log("✅ [tenants] Overlays removidos e página desbloqueada (1000ms)");
-        }, 1000);
+          console.log("✅ [tenants] Overlays removidos e página desbloqueada (3000ms)");
+        }, 3000);
         
-        // ✅ FALLBACK: Segunda limpeza 2000ms depois (caso a primeira falhe)
         setTimeout(() => {
-          console.log("🧹 [tenants] FALLBACK - Segunda limpeza de overlays (2000ms)...");
+          console.log("🧹 [tenants] FALLBACK - Segunda limpeza de overlays (5000ms)...");
           
           const overlays = document.querySelectorAll(
             '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
@@ -242,8 +235,8 @@ export default function TenantsPage() {
           document.documentElement.removeAttribute("data-radix-scroll-lock");
           document.body.removeAttribute("data-radix-scroll-lock");
 
-          console.log("✅ [tenants] FALLBACK - Página desbloqueada (2000ms)");
-        }, 2000);
+          console.log("✅ [tenants] FALLBACK - Página desbloqueada (5000ms)");
+        }, 5000);
       }
     } else {
       success = await createTenant(data);
@@ -254,9 +247,8 @@ export default function TenantsPage() {
           type: "success",
         });
         
-        // ✅ Mesma limpeza para criar (1000ms + fallback 2000ms)
         setTimeout(() => {
-          console.log("🧹 [tenants] Limpeza após criar (1000ms)...");
+          console.log("🧹 [tenants] Limpeza após criar (3000ms)...");
           const overlays = document.querySelectorAll(
             '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
           );
@@ -273,11 +265,11 @@ export default function TenantsPage() {
           document.documentElement.removeAttribute("data-radix-scroll-lock");
           document.body.removeAttribute("data-radix-scroll-lock");
 
-          console.log("✅ [tenants] Overlays removidos após criar (1000ms)");
-        }, 1000);
+          console.log("✅ [tenants] Overlays removidos após criar (3000ms)");
+        }, 3000);
         
         setTimeout(() => {
-          console.log("🧹 [tenants] FALLBACK - Segunda limpeza após criar (2000ms)...");
+          console.log("🧹 [tenants] FALLBACK - Segunda limpeza após criar (5000ms)...");
           const overlays = document.querySelectorAll(
             '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
           );
@@ -294,8 +286,8 @@ export default function TenantsPage() {
           document.documentElement.removeAttribute("data-radix-scroll-lock");
           document.body.removeAttribute("data-radix-scroll-lock");
 
-          console.log("✅ [tenants] FALLBACK - Página desbloqueada após criar (2000ms)");
-        }, 2000);
+          console.log("✅ [tenants] FALLBACK - Página desbloqueada após criar (5000ms)");
+        }, 5000);
       }
     }
 

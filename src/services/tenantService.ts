@@ -16,9 +16,9 @@ function toDatabase(data: Partial<Tenant>): any {
   
   const dbData: any = {};
   
-  if (data.name !== undefined) dbData.name = data.name;
-  if (data.email !== undefined) dbData.email = data.email;
-  if (data.phone !== undefined) dbData.phone = data.phone;
+  if (data.name !== undefined && data.name !== "") dbData.name = data.name;
+  if (data.email !== undefined && data.email !== "") dbData.email = data.email;
+  if (data.phone !== undefined && data.phone !== "") dbData.phone = data.phone;
   
   // 🔥 MAPEAMENTO DE STATUS - banco só aceita: active, inactive, rented
   // Frontend usa "new" mas banco usa "active"
@@ -35,7 +35,7 @@ function toDatabase(data: Partial<Tenant>): any {
   
   if (data.rg !== undefined && data.rg !== "") dbData.rg = data.rg;
   
-  // ✅ NOVOS CAMPOS OPCIONAIS (verificar se existe antes de gravar)
+  // ✅ NOVOS CAMPOS OPCIONAIS (verificar se existe E não é vazio antes de gravar)
   if (data.occupation !== undefined && data.occupation !== "") {
     dbData.occupation = data.occupation;
   }
@@ -44,11 +44,11 @@ function toDatabase(data: Partial<Tenant>): any {
   } else if (data.maritalStatus !== undefined && data.maritalStatus !== "") {
     dbData.marital_status = data.maritalStatus;
   }
-  if (data.monthly_income !== undefined && data.monthly_income !== null) {
+  if (data.monthly_income !== undefined && data.monthly_income !== null && data.monthly_income !== 0) {
     dbData.monthly_income = typeof data.monthly_income === 'string' 
       ? parseFloat(data.monthly_income) 
       : data.monthly_income;
-  } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
+  } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null && data.monthlyIncome !== 0) {
     dbData.monthly_income = typeof data.monthlyIncome === 'string' 
       ? parseFloat(data.monthlyIncome) 
       : data.monthlyIncome;
@@ -98,9 +98,21 @@ function toDatabase(data: Partial<Tenant>): any {
     console.log("✅ [tenantService.toDatabase] Document genérico definido:", data.document);
   }
   
-  console.log("📤 [tenantService.toDatabase] Dados para banco:", dbData);
+  // ✅ VALIDAÇÃO FINAL: Remover QUALQUER campo com valor undefined, null ou string vazia
+  // Isso evita erro 400 por enviar campos inválidos ao banco
+  const cleanedData: any = {};
+  for (const key in dbData) {
+    const value = dbData[key];
+    // Manter apenas valores válidos: string não-vazia, número, boolean, null explícito
+    if (value !== undefined && value !== "") {
+      cleanedData[key] = value;
+    }
+  }
   
-  return dbData;
+  console.log("📤 [tenantService.toDatabase] Dados LIMPOS para banco:", cleanedData);
+  console.log("📤 [tenantService.toDatabase] Campos enviados:", Object.keys(cleanedData));
+  
+  return cleanedData;
 }
 
 function fromDatabase(data: any): Tenant {
