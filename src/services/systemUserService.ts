@@ -75,16 +75,28 @@ export async function updateUser(
     status?: string;
   }
 ) {
-  // ✅ Buscar valores antigos ANTES de atualizar
+  // ✅ CORREÇÃO: Remover 'status' da query - campo NÃO EXISTE na tabela system_users
+  // A tabela tem 'active' (boolean), NÃO 'status' (string)
   const { data: oldData } = await supabase
     .from("system_users")
-    .select("name, email, role, status")
+    .select("name, email, role")
     .eq("id", userId)
     .single();
 
+  // ✅ CORREÇÃO: Filtrar 'status' do objeto updates - converter para 'active' se necessário
+  const dbUpdates: any = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.email !== undefined) dbUpdates.email = updates.email;
+  if (updates.role !== undefined) dbUpdates.role = updates.role;
+  
+  // Se status foi passado, converter para active (boolean)
+  if (updates.status !== undefined) {
+    dbUpdates.active = updates.status === "active" || updates.status === "ativo";
+  }
+
   const { data, error } = await supabase
     .from("system_users")
-    .update(updates)
+    .update(dbUpdates)
     .eq("id", userId)
     .select()
     .single();
@@ -103,9 +115,6 @@ export async function updateUser(
     }
     if (oldData.role !== data.role) {
       changes.push(`role: de=${oldData.role} -> para=${data.role}`);
-    }
-    if (oldData.status !== data.status) {
-      changes.push(`status: de=${oldData.status} -> para=${data.status}`);
     }
 
     const changesSummary = changes.length > 0
