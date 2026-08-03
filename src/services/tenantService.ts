@@ -224,11 +224,12 @@ export async function createTenant(data: Partial<Tenant>): Promise<Tenant> {
   const result = await createSingle<any>(TABLE, dbData);
   const tenant = fromDatabase(result);
   
-  // ✅ Registrar log de auditoria
+  // ✅ NOVO FORMATO: Nome Inquilino no resumo
   await logAudit({
     action_type: "create",
     entity_type: "tenant",
     entity_id: tenant.id,
+    changes_summary: `Nome Inquilino: ${tenant.name}`,
     new_values: {
       name: tenant.name,
       email: tenant.email,
@@ -288,23 +289,53 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     console.log("✅ [updateTenant] UPDATE executado com SUCESSO!");
     console.log("✅ [updateTenant] Dados RETORNADOS do banco:", JSON.stringify(tenant, null, 2));
     
-    // ✅ Registrar log de auditoria
-    if (tenant) {
+    // ✅ NOVO FORMATO: Nome Inquilino + mudanças campo a campo
+    if (tenant && oldData) {
+      const changes: string[] = [];
+      
+      // Mapear status do banco para frontend antes de comparar
+      const statusMap: Record<string, string> = {
+        "active": "new",
+        "rented": "rented",
+        "inactive": "inactive"
+      };
+      
+      const oldStatus = statusMap[oldData.status] || oldData.status;
+      const newStatus = statusMap[tenant.status] || tenant.status;
+      
+      if (oldData.name !== tenant.name) {
+        changes.push(`name: de=${oldData.name} -> para=${tenant.name}`);
+      }
+      if (oldData.email !== tenant.email) {
+        changes.push(`email: de=${oldData.email || '-'} -> para=${tenant.email || '-'}`);
+      }
+      if (oldData.phone !== tenant.phone) {
+        changes.push(`phone: de=${oldData.phone || '-'} -> para=${tenant.phone || '-'}`);
+      }
+      if (oldStatus !== newStatus) {
+        changes.push(`status: de=${oldStatus} -> para=${newStatus}`);
+      }
+      
+      const changesSummary = changes.length > 0 
+        ? `Nome Inquilino: ${tenant.name}\n${changes.join('\n')}`
+        : `Nome Inquilino: ${tenant.name}`;
+      
       await logAudit({
         action_type: "update",
         entity_type: "tenant",
         entity_id: id,
+        changes_summary: changesSummary,
         old_values: oldData ? {
           name: oldData.name,
           email: oldData.email,
           phone: oldData.phone,
-          status: oldData.status,
+          status: oldStatus,
         } : undefined,
         new_values: {
           name: tenant.name,
           email: tenant.email,
           phone: tenant.phone,
-          status: tenant.status,
+          status: newStatus,
         },
       });
     }
@@ -402,12 +433,13 @@ export async function deleteTenant(id: string): Promise<void> {
 
   await deleteSingle(TABLE, id);
   
-  // ✅ Registrar log de auditoria
+  // ✅ NOVO FORMATO: Nome Inquilino no resumo
   if (tenantData) {
     await logAudit({
       action_type: "delete",
       entity_type: "tenant",
       entity_id: id,
+      changes_summary: `Nome Inquilino: ${tenantData.name}`,
       old_values: {
         name: tenantData.name,
         email: tenantData.email,
@@ -429,12 +461,13 @@ export const remove = async (id: string): Promise<void> => {
 
   if (error) throw error;
 
-  // ✅ Registrar log de auditoria
+  // ✅ NOVO FORMATO: Nome Inquilino no resumo
   if (tenantData) {
     await logAudit({
       action_type: "delete",
       entity_type: "tenant",
       entity_id: id,
+      changes_summary: `Nome Inquilino: ${tenantData.name}`,
       old_values: {
         name: tenantData.name,
         email: tenantData.email,

@@ -311,23 +311,22 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
 
   if (error) throw error;
 
-  // ✅ Registrar log de auditoria
-  console.log("🔍 [propertyService.create] Registrando log de auditoria...");
-  console.log("📋 Imóvel criado:", data);
-
+  // ✅ NOVO FORMATO: Local + Complemento no resumo
+  const locationName = data.locations?.name || "Local não informado";
+  const complement = data.complement || "Sem complemento";
+  
   await logAudit({
     action_type: "create",
     entity_type: "property",
     entity_id: data.id,
+    changes_summary: `Local: ${locationName} - Complemento: ${complement}`,
     new_values: {
-      location: data.locations?.name,
+      location: locationName,
       complement: data.complement,
       value: data.value,
       status: data.status,
     },
   });
-
-  console.log("✅ [propertyService.create] Log de auditoria registrado com sucesso");
 
   // Invalidate cache
   invalidateCache();
@@ -399,35 +398,12 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
 
   if (error) throw error;
 
-  // ✅ CORREÇÃO: Registrar TODOS os campos que foram alterados
+  // ✅ NOVO FORMATO: Local + Complemento + mudanças campo a campo
   if (oldData) {
-    const oldValues: any = {};
-    const newValues: any = {};
+    const locationName = data.locations?.name || "Local não informado";
+    const complement = data.complement || "Sem complemento";
+    const changes: string[] = [];
 
-    // Helper para formatar valores
-    const formatValue = (value: any, field: string): string => {
-      if (value === null || value === undefined) return "-";
-      
-      if (field === "value") {
-        // Formatar valor monetário
-        return new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format(value);
-      }
-      
-      if (typeof value === "boolean") {
-        return value ? "Sim" : "Não";
-      }
-      
-      if (typeof value === "number") {
-        return value.toString();
-      }
-      
-      return value.toString();
-    };
-
-    // Comparar e registrar apenas campos que mudaram
     const fieldsToCheck = [
       { old: oldData.locations?.name, new: data.locations?.name, key: "location", label: "Localização" },
       { old: oldData.complement, new: data.complement, key: "complement", label: "Complemento" },
@@ -443,34 +419,38 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
     ];
 
     for (const field of fieldsToCheck) {
-      // Comparar valores (considerar null == undefined como iguais)
       const oldVal = field.old ?? null;
       const newVal = field.new ?? null;
       
       if (oldVal !== newVal) {
-        oldValues[field.key] = formatValue(field.old, field.key);
-        newValues[field.key] = formatValue(field.new, field.key);
+        const oldStr = oldVal === null ? '-' : String(oldVal);
+        const newStr = newVal === null ? '-' : String(newVal);
+        changes.push(`${field.key}: de=${oldStr} -> para=${newStr}`);
       }
     }
 
-    console.log("🔍 [propertyService.update] Registrando log de auditoria...");
-    console.log("📋 Valores antigos formatados:", oldValues);
-    console.log("📋 Valores novos formatados:", newValues);
+    const changesSummary = changes.length > 0
+      ? `Local: ${locationName} - Complemento: ${complement}\n${changes.join('\n')}`
+      : `Local: ${locationName} - Complemento: ${complement}`;
 
-    // Apenas registrar se houve mudanças
-    if (Object.keys(oldValues).length > 0) {
-      await logAudit({
-        action_type: "update",
-        entity_type: "property",
-        entity_id: id,
-        old_values: oldValues,
-        new_values: newValues,
-      });
-
-      console.log("✅ [propertyService.update] Log de auditoria registrado com sucesso");
-    } else {
-      console.log("ℹ️ [propertyService.update] Nenhuma mudança detectada, log não registrado");
-    }
+    await logAudit({
+      action_type: "update",
+      entity_type: "property",
+      entity_id: id,
+      changes_summary: changesSummary,
+      old_values: {
+        location: oldData.locations?.name,
+        complement: oldData.complement,
+        value: oldData.value,
+        status: oldData.status,
+      },
+      new_values: {
+        location: data.locations?.name,
+        complement: data.complement,
+        value: data.value,
+        status: data.status,
+      },
+    });
   }
 
   // Invalidate cache
@@ -500,12 +480,16 @@ export const remove = async (id: string): Promise<void> => {
   const { error } = await supabase.from("properties").delete().eq("id", id);
   if (error) throw error;
 
-  // ✅ Registrar log de auditoria
+  // ✅ NOVO FORMATO: Local + Complemento no resumo
   if (property) {
+    const locationName = property.location || "Local não informado";
+    const complement = property.complement || "Sem complemento";
+    
     await logAudit({
       action_type: "delete",
       entity_type: "property",
       entity_id: id,
+      changes_summary: `Local: ${locationName} - Complemento: ${complement}`,
       old_values: {
         location: property.location,
         complement: property.complement,
