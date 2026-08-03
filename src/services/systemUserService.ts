@@ -8,6 +8,7 @@ import {
   getByField 
 } from "@/lib/supabaseHelpers";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "./auditService";
 
 const TABLE = "system_users";
 
@@ -28,66 +29,136 @@ export async function getUserByEmail(email: string): Promise<SystemUser | null> 
 export async function createUser(userData: {
   name: string;
   email: string;
-  phone?: string | null;
-  username?: string;
-  role: "admin" | "broker" | "financial";
+  role: string;
   password: string;
-  active?: boolean;
-  requires_password_change?: boolean;
   temporary_password?: boolean;
-}): Promise<SystemUser> {
-  // Converter password para password_hash
-  // TODO: Em produção, usar bcrypt.hash antes de salvar
-  const dbData = {
-    ...userData,
-    password_hash: userData.password, // TEMPORÁRIO: até bcrypt ser implementado
-    active: userData.active !== undefined ? userData.active : true,
-    requires_password_change: userData.requires_password_change || false,
-    temporary_password: userData.temporary_password || false,
-  };
-  
-  // Remover password do objeto (não existe mais no banco)
-  delete (dbData as any).password;
-  
-  return createSingle<SystemUser>(TABLE, dbData as any);
+}) {
+  const { data, error } = await supabase
+    .from("system_users")
+    .insert([
+      {
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        password_hash: userData.password,
+        temporary_password: userData.temporary_password || false,
+        requires_password_change: userData.temporary_password || false,
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // ✅ Log de auditoria
+  await logAudit({
+    action_type: "create",
+    entity_type: "user",
+    entity_id: data.id,
+    changes_summary: `Aba: Usuários\nNovo usuário cadastrado: ${data.name} (${data.email})`,
+    new_values: {
+      name: data.name,
+      email: data.email,
+      role: data.role,
+    },
+  });
+
+  return data;
 }
 
-export async function updateUser(id: string, user: Partial<SystemUser>): Promise<SystemUser> {
-  // Converter camelCase → snake_case para campos do banco
-  const dbUser: any = { ...user };
-  
-  // Mapear campos camelCase → snake_case
-  if (user.birthDate !== undefined) {
-    dbUser.birth_date = user.birthDate;
-    delete dbUser.birthDate;
+export async function updateUser(
+  userId: string,
+  updates: {
+    name?: string;
+    email?: string;
+    role?: string;
+    status?: string;
   }
-  
-  console.log("🔍 ===== DEBUG UPDATE USER =====");
-  console.log("🆔 User ID:", id);
-  console.log("📋 Dados recebidos (camelCase):", user);
-  console.log("📋 Dados convertidos (snake_case):", dbUser);
-  console.log("📞 Phone:", dbUser.phone);
-  console.log("🆔 CPF:", dbUser.cpf);
-  console.log("🆔 RG:", dbUser.rg);
-  console.log("🔍 ================================");
-  
-  try {
-    console.log("🚀 Chamando updateSingle...");
+) {
+  // ✅ Buscar valores antigos ANTES de atualizar
+  const { data: oldData } = await supabase
+    .from("system_users")
+    .select("name, email, role, status")
+    .eq("id", userId)
+    .single();
+
+  const { data, error } = await supabase
+    .from("system_users")
+    .update(updates)
+    .eq("id", userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // ✅ Log de auditoria com mudanças
+  if (oldData) {
+    const changes: string[] = [];
     
-    const updatedUser = await updateSingle<SystemUser>(TABLE, id, dbUser);
-    
-    console.log("✅ Update concluído com sucesso!");
-    console.log("📋 User atualizado:", updatedUser);
-    
-    return updatedUser;
-  } catch (error) {
-    console.error("❌ Erro ao atualizar usuário:", error);
-    throw error;
+    if (oldData.name !== data.name) {
+      changes.push(`name: de=${oldData.name} -> para=${data.name}`);
+    }
+    if (oldData.email !== data.email) {
+      changes.push(`email: de=${oldData.email} -> para=${data.email}`);
+    }
+    if (oldData.role !== data.role) {
+      changes.push(`role: de=${oldData.role} -> para=${data.role}`);
+    }
+    if (oldData.status !== data.status) {
+      changes.push(`status: de=${oldData.status} -> para=${data.status}`);
+    }
+
+    const changesSummary = changes.length > 0
+      ? `Aba: Usuários\nUsuário editado: ${data.name}\n${changes.join('\n')}`
+      : `Aba: Usuários\nUsuário editado: ${data.name}`;
+
+    await logAudit({
+      action_type: "update",
+      entity_type: "user",
+      entity_id: userId,
+      changes_summary: changesSummary,
+      old_values: {
+        name: oldData.name,
+        email: oldData.email,
+        role: oldData.role,
+      },
+      new_values: {
+        name: data.name,
+        email: data.email,
+        role: data.role,
+      },
+    });
   }
+
+  return data;
 }
 
-export async function deleteUser(id: string): Promise<void> {
-  return deleteSingle(TABLE, id);
+export async function deleteUser(userId: string) {
+  // ✅ Buscar dados ANTES de deletar
+  const { data: userData } = await supabase
+    .from("system_users")
+    .select("name, email, role")
+    .eq("id", userId)
+    .single();
+
+  const { error } = await supabase.from("system_users").delete().eq("id", userId);
+
+  if (error) throw error;
+
+  // ✅ Log de auditoria
+  if (userData) {
+    await logAudit({
+      action_type: "delete",
+      entity_type: "user",
+      entity_id: userId,
+      changes_summary: `Aba: Usuários\nUsuário excluído: ${userData.name} (${userData.email})`,
+      old_values: {
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+      },
+    });
+  }
 }
 
 export async function unlockUser(userId: string, active: boolean): Promise<void> {
