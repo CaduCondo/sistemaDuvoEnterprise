@@ -1,13 +1,16 @@
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Tipos de ação suportados pelo sistema de auditoria
+ */
 export type AuditActionType = 
-  | "create" 
+  | "create"
   | "update" 
-  | "delete" 
-  | "login" 
-  | "logout" 
+  | "delete"
+  | "login"
+  | "logout"
   | "password_change"
-  | "status_change";
+  | "payment";  // ✅ Novo tipo para quando um pagamento é recebido (status muda para paid)
 
 export type AuditEntityType = 
   | "property" 
