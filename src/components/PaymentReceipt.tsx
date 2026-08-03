@@ -36,6 +36,7 @@ export function PaymentReceipt({
   const printRef = useRef<HTMLDivElement>(null);
   const [paymentFromDB, setPaymentFromDB] = useState<any>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [locationData, setLocationData] = useState<any>(null);
 
   // 🔍 DEBUG CRÍTICO: Mostrar TODAS as props recebidas
   console.log("🔥 ===== PAYMENTRECEIPT PROPS DEBUG =====");
@@ -43,12 +44,45 @@ export function PaymentReceipt({
   console.log("🔍 tenant?.name:", tenant?.name);
   console.log("🔍 PROPERTY recebido:", JSON.stringify(property, null, 2));
   console.log("🔍 property?.location:", property?.location);
+  console.log("🔍 property?.locationId:", property?.locationId);
   console.log("🔍 property?.complement:", property?.complement);
   console.log("🔍 PAYMENT.PROPERTY:", JSON.stringify(payment.property, null, 2));
   console.log("🔍 payment.property?.location:", payment.property?.location);
   console.log("🔍 payment.tenant:", JSON.stringify(payment.tenant, null, 2));
   console.log("🔍 payment.tenant?.name:", payment.tenant?.name);
   console.log("🔥 =====================================");
+
+  // ✅ Buscar dados COMPLETOS do location (endereço, número, bairro, cidade, estado, CEP)
+  useEffect(() => {
+    const fetchLocationData = async () => {
+      if (!property?.locationId) {
+        console.warn("⚠️ property.locationId não disponível - não é possível buscar endereço completo");
+        return;
+      }
+      
+      console.log("🏠 Buscando dados completos do location:", property.locationId);
+      
+      try {
+        const { data, error } = await supabase
+          .from("locations")
+          .select("*")
+          .eq("id", property.locationId)
+          .maybeSingle();
+
+        if (error) {
+          console.error("❌ Erro ao buscar location:", error);
+          return;
+        }
+
+        console.log("✅ Location completo obtido:", JSON.stringify(data, null, 2));
+        setLocationData(data);
+      } catch (error) {
+        console.error("❌ Erro ao buscar location:", error);
+      }
+    };
+
+    fetchLocationData();
+  }, [property?.locationId]);
 
   useEffect(() => {
     const fetchPaymentDetails = async () => {
@@ -526,8 +560,9 @@ export function PaymentReceipt({
       }
     }
     
+    // ✅ CORREÇÃO: SEMPRE adicionar "e" entre milhares e centenas
     if (remainder > 0) {
-      if (result) result += ' ';
+      if (result) result += ' e '; // ← SEMPRE adiciona "e" aqui
       result += convertGroup(remainder);
     }
     
@@ -555,24 +590,79 @@ export function PaymentReceipt({
   // ✅ CORREÇÃO 2: Endereço completo do imóvel com complemento concatenado
   const getPropertyAddress = () => {
     console.log("🏠 [getPropertyAddress] Iniciando...");
+    console.log("🏠 [getPropertyAddress] locationData:", locationData);
     
-    if (!property && !payment.property) {
-      console.log("🏠 [getPropertyAddress] SEM property E SEM payment.property");
+    if (!locationData && !property && !payment.property) {
+      console.log("🏠 [getPropertyAddress] SEM locationData, property E payment.property");
       return "IMÓVEL NÃO INFORMADO";
     }
     
-    // Tentar pegar do payment.property primeiro (dados mapeados do hook)
-    const mappedProperty = payment.property;
-    console.log("🏠 [getPropertyAddress] payment.property:", mappedProperty);
+    // ✅ Se temos locationData (dados completos do banco), montar endereço completo
+    if (locationData) {
+      const address = locationData.address || "";
+      const number = locationData.number || "";
+      const complement = payment.property?.complement || property?.complement || "";
+      const neighborhood = locationData.neighborhood || "";
+      const city = locationData.city || "";
+      const state = locationData.state || "";
+      const zipCode = locationData.zip_code || "";
+      
+      console.log("🏠 [getPropertyAddress] Dados do location:");
+      console.log("   - address:", address);
+      console.log("   - number:", number);
+      console.log("   - complement:", complement);
+      console.log("   - neighborhood:", neighborhood);
+      console.log("   - city:", city);
+      console.log("   - state:", state);
+      console.log("   - zipCode:", zipCode);
+      
+      if (!address) {
+        console.log("🏠 [getPropertyAddress] address VAZIO no locationData");
+        return "IMÓVEL NÃO INFORMADO";
+      }
+      
+      // Formato: Rua Armando Barreto, 132, APTO 01 - Jardim Colombo, São Paulo - SP - CEP 05628-060
+      let fullAddress = `${address}`;
+      
+      if (number) {
+        fullAddress += `, ${number}`;
+      }
+      
+      // ✅ COMPLEMENTO logo após o número
+      if (complement) {
+        fullAddress += `, ${complement}`;
+      }
+      
+      // Bairro
+      if (neighborhood) {
+        fullAddress += ` - ${neighborhood}`;
+      }
+      
+      // Cidade
+      if (city) {
+        fullAddress += `, ${city}`;
+      }
+      
+      // Estado
+      if (state) {
+        fullAddress += ` - ${state}`;
+      }
+      
+      // CEP
+      if (zipCode) {
+        fullAddress += ` - CEP ${zipCode}`;
+      }
+      
+      console.log("🏠 [getPropertyAddress] Resultado COMPLETO:", fullAddress);
+      return fullAddress;
+    }
     
-    // Location pode ser:
-    // 1. String completa: "Rua X, 70 - Parque Assunção, Taboão da Serra - SP - CEP 06753-420"
-    // 2. Apenas bairro: "Parque Assunção"
-    const location = mappedProperty?.location || property?.location || "";
-    const complement = mappedProperty?.complement || property?.complement || "";
+    // Fallback: usar payment.property.location (apenas nome do bairro)
+    const location = payment.property?.location || property?.location || "";
+    const complement = payment.property?.complement || property?.complement || "";
     
-    console.log("🏠 [getPropertyAddress] location:", location);
-    console.log("🏠 [getPropertyAddress] complement:", complement);
+    console.log("🏠 [getPropertyAddress] FALLBACK - location:", location);
+    console.log("🏠 [getPropertyAddress] FALLBACK - complement:", complement);
     
     if (!location) {
       console.log("🏠 [getPropertyAddress] location VAZIO");
@@ -587,7 +677,7 @@ export function PaymentReceipt({
       if (complement) {
         const numberMatch = location.match(/(.*,\s*\d+)(.*)$/);
         if (numberMatch) {
-          const result = `${numberMatch[1]} - ${complement}${numberMatch[2]}`;
+          const result = `${numberMatch[1]}, ${complement}${numberMatch[2]}`;
           console.log("🏠 [getPropertyAddress] Resultado COM complement:", result);
           return result;
         }
