@@ -250,25 +250,90 @@ function formatValue(value: any): string {
  * Log de login bem-sucedido
  */
 export async function logLogin(userId: string, metadata?: Record<string, any>): Promise<void> {
-  await logAudit({
-    action_type: "login",
-    entity_type: "user",
-    entity_id: userId,
-    changes_summary: "Login realizado com sucesso",
-    metadata,
-  });
+  try {
+    // ✅ CORREÇÃO CRÍTICA: Verificar se já existe log de login RECENTE (últimas 2 horas)
+    // Isso evita logs repetitivos quando a sessão é renovada automaticamente
+    
+    const twoHoursAgo = new Date();
+    twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
+    
+    console.log("🔍 [logLogin] Verificando logs recentes de login...");
+    console.log("🔍 [logLogin] userId:", userId);
+    console.log("🔍 [logLogin] Buscando logs após:", twoHoursAgo.toISOString());
+    
+    const { data: recentLogs, error: checkError } = await supabase
+      .from("audit_logs")
+      .select("id, created_at")
+      .eq("user_id", userId)
+      .eq("action_type", "login")
+      .gte("created_at", twoHoursAgo.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1);
+    
+    if (checkError) {
+      console.warn("⚠️ [logLogin] Erro ao verificar logs recentes:", checkError);
+      // Continua e tenta registrar mesmo assim
+    }
+    
+    if (recentLogs && recentLogs.length > 0) {
+      const lastLoginLog = recentLogs[0];
+      const timeSinceLastLog = Date.now() - new Date(lastLoginLog.created_at).getTime();
+      const minutesAgo = Math.floor(timeSinceLastLog / 60000);
+      
+      console.log(`⏭️ [logLogin] Login já registrado há ${minutesAgo} minutos - PULANDO registro duplicado`);
+      console.log("⏭️ [logLogin] Último log ID:", lastLoginLog.id);
+      console.log("⏭️ [logLogin] Último log em:", lastLoginLog.created_at);
+      return; // ✅ NÃO registrar novamente
+    }
+    
+    console.log("✅ [logLogin] Nenhum log recente encontrado - registrando novo login");
+    
+    await logAudit({
+      action_type: "login",
+      entity_type: "user",
+      entity_id: userId,
+      changes_summary: "Login realizado com sucesso",
+      metadata,
+    });
+    
+    console.log("✅ [logLogin] Log de login registrado com sucesso");
+  } catch (error) {
+    console.error("❌ [logLogin] Erro ao processar log de login:", error);
+    // Não propagar o erro - log de auditoria não deve quebrar o login
+  }
 }
 
 /**
  * Log de logout
  */
 export async function logLogout(userId: string): Promise<void> {
-  await logAudit({
-    action_type: "logout",
-    entity_type: "user",
-    entity_id: userId,
-    changes_summary: "Logout realizado",
-  });
+  try {
+    // ✅ CORREÇÃO: Verificar se já existe log de logout RECENTE (última 1 hora)
+    const oneHourAgo = new Date();
+    oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+    
+    const { data: recentLogs } = await supabase
+      .from("audit_logs")
+      .select("id, created_at")
+      .eq("user_id", userId)
+      .eq("action_type", "logout")
+      .gte("created_at", oneHourAgo.toISOString())
+      .limit(1);
+    
+    if (recentLogs && recentLogs.length > 0) {
+      console.log("⏭️ [logLogout] Logout já registrado recentemente - PULANDO");
+      return; // ✅ NÃO registrar novamente
+    }
+    
+    await logAudit({
+      action_type: "logout",
+      entity_type: "user",
+      entity_id: userId,
+      changes_summary: "Logout realizado",
+    });
+  } catch (error) {
+    console.error("❌ [logLogout] Erro ao processar log de logout:", error);
+  }
 }
 
 /**
