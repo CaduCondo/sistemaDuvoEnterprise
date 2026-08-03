@@ -189,6 +189,33 @@ export default function TenantsPage() {
           description: "Inquilino atualizado com sucesso.",
           type: "success",
         });
+        
+        // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays após fechar alert
+        setTimeout(() => {
+          // 1. Remover TODOS os overlays presos no DOM
+          const overlays = document.querySelectorAll(
+            '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
+          );
+          overlays.forEach((overlay) => {
+            if (overlay.parentNode) {
+              overlay.parentNode.removeChild(overlay);
+            }
+          });
+
+          // 2. Restaurar scroll e pointer-events no body
+          document.body.style.overflow = "";
+          document.body.style.pointerEvents = "";
+          document.body.style.paddingRight = "";
+
+          // 3. Remover classes de modal que podem estar presas
+          document.body.classList.remove("overflow-hidden", "pointer-events-none");
+
+          // 4. Garantir que data-radix-* attributes são removidos
+          document.documentElement.removeAttribute("data-radix-scroll-lock");
+          document.body.removeAttribute("data-radix-scroll-lock");
+
+          console.log("✅ [tenants] Overlays removidos e página desbloqueada");
+        }, 500); // Aguardar alert fechar antes de limpar
       }
     } else {
       success = await createTenant(data);
@@ -198,6 +225,27 @@ export default function TenantsPage() {
           description: "Inquilino criado com sucesso.",
           type: "success",
         });
+        
+        // ✅ Mesma limpeza para criar
+        setTimeout(() => {
+          const overlays = document.querySelectorAll(
+            '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
+          );
+          overlays.forEach((overlay) => {
+            if (overlay.parentNode) {
+              overlay.parentNode.removeChild(overlay);
+            }
+          });
+
+          document.body.style.overflow = "";
+          document.body.style.pointerEvents = "";
+          document.body.style.paddingRight = "";
+          document.body.classList.remove("overflow-hidden", "pointer-events-none");
+          document.documentElement.removeAttribute("data-radix-scroll-lock");
+          document.body.removeAttribute("data-radix-scroll-lock");
+
+          console.log("✅ [tenants] Overlays removidos após criar");
+        }, 500);
       }
     }
 

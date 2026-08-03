@@ -227,21 +227,30 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("🔄 [tenantService.updateTenant] Atualizando inquilino:", id);
-    console.log("📥 [tenantService.updateTenant] Dados recebidos:", data);
+    console.log("\n🔥 ===== INÍCIO updateTenant =====");
+    console.log("🔍 [updateTenant] ID:", id);
+    console.log("🔍 [updateTenant] Dados RECEBIDOS do form:", JSON.stringify(data, null, 2));
     
     // ✅ Buscar valores antigos ANTES de atualizar para log de auditoria
     const { data: oldData } = await supabase
       .from("tenants")
-      .select("name, email, phone, status")
+      .select("name, email, phone, status, document, document_type, cpf")
       .eq("id", id)
       .single();
+    
+    console.log("🔍 [updateTenant] Valores ANTIGOS no banco:", JSON.stringify(oldData, null, 2));
     
     // ✅ CORREÇÃO: Usar toDatabase para garantir mapeamento correto
     const updateData = toDatabase(data);
     
-    console.log("📤 [tenantService.updateTenant] Dados para banco:", updateData);
+    console.log("🔍 [updateTenant] Dados APÓS toDatabase (ENVIADOS ao Supabase):", JSON.stringify(updateData, null, 2));
+    console.log("🔍 [updateTenant] Campos presentes:", Object.keys(updateData));
+    console.log("🔍 [updateTenant] Tem 'cnpj'?", 'cnpj' in updateData, "← Coluna NÃO EXISTE no banco!");
+    console.log("🔍 [updateTenant] Tem 'status'?", 'status' in updateData, "→", updateData.status);
+    console.log("🔍 [updateTenant] Tem 'document'?", 'document' in updateData, "→", updateData.document);
+    console.log("🔍 [updateTenant] Tem 'cpf'?", 'cpf' in updateData, "→", updateData.cpf);
 
+    console.log("\n📡 [updateTenant] Executando UPDATE no Supabase...");
     const { data: tenant, error } = await supabase
       .from("tenants")
       .update(updateData)
@@ -250,11 +259,17 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       .single();
 
     if (error) {
-      console.error("❌ [tenantService.updateTenant] Erro ao atualizar:", error);
+      console.error("❌ [updateTenant] ERRO DO SUPABASE:");
+      console.error("   - message:", error.message);
+      console.error("   - details:", error.details);
+      console.error("   - hint:", error.hint);
+      console.error("   - code:", error.code);
+      console.error("   - Erro completo:", JSON.stringify(error, null, 2));
       throw error;
     }
 
-    console.log("✅ [tenantService.updateTenant] Inquilino atualizado com sucesso");
+    console.log("✅ [updateTenant] UPDATE executado com SUCESSO!");
+    console.log("✅ [updateTenant] Dados RETORNADOS do banco:", JSON.stringify(tenant, null, 2));
     
     // ✅ Registrar log de auditoria
     if (tenant) {
@@ -277,9 +292,12 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       });
     }
     
+    console.log("🔥 ===== FIM updateTenant =====\n");
     return tenant ? fromDatabase(tenant) : null;
   } catch (error) {
-    console.error("❌ [tenantService.updateTenant] Erro:", error);
+    console.error("❌ [updateTenant] EXCEÇÃO CAPTURADA:");
+    console.error(error);
+    console.log("🔥 ===== FIM updateTenant (COM ERRO) =====\n");
     throw error;
   }
 };
