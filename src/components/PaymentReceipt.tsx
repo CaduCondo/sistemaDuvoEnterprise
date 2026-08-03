@@ -90,7 +90,7 @@ export function PaymentReceipt({
 
         console.log("✅ Location completo obtido com sucesso!");
         console.log("   - name:", data.name);
-        console.log("   - address:", data.address);
+        console.log("   - street:", data.street);
         console.log("   - number:", data.number);
         console.log("   - neighborhood:", data.neighborhood);
         console.log("   - city:", data.city);
@@ -690,7 +690,7 @@ export function PaymentReceipt({
     if (locationData) {
       console.log("🏠 ✅ locationData EXISTE - montando endereço completo");
       
-      const address = locationData.address || "";
+      const address = locationData.street || "";
       const number = locationData.number || "";
       const complement = payment.property?.complement || property?.complement || "";
       const neighborhood = locationData.neighborhood || "";
@@ -699,7 +699,7 @@ export function PaymentReceipt({
       const zipCode = locationData.zip_code || "";
       
       console.log("🏠 Extraindo campos do locationData:");
-      console.log("   - address:", address, "(vazio?", !address, ")");
+      console.log("   - street (usando como address):", address, "(vazio?", !address, ")");
       console.log("   - number:", number, "(vazio?", !number, ")");
       console.log("   - complement:", complement, "(vazio?", !complement, ")");
       console.log("   - neighborhood:", neighborhood, "(vazio?", !neighborhood, ")");
@@ -708,7 +708,7 @@ export function PaymentReceipt({
       console.log("   - zipCode:", zipCode, "(vazio?", !zipCode, ")");
       
       if (!address) {
-        console.log("❌ address VAZIO no locationData - retornando mensagem de erro");
+        console.log("❌ street VAZIO no locationData - retornando mensagem de erro");
         console.log("🏠 ===== FIM useMemo propertyAddress =====\n");
         return "IMÓVEL NÃO INFORMADO";
       }
