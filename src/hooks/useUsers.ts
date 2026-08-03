@@ -85,9 +85,12 @@ export function useUsers() {
         return false;
       }
 
-      await createUser({
-        ...userData,
-        active: true,
+      const newUser = await createUser({
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        password: userData.password || "mudar123",
+        temporary_password: userData.temporary_password,
       });
       
       showAlert({
