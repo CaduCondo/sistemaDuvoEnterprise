@@ -37,6 +37,19 @@ export function PaymentReceipt({
   const [paymentFromDB, setPaymentFromDB] = useState<any>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
+  // 🔍 DEBUG CRÍTICO: Mostrar TODAS as props recebidas
+  console.log("🔥 ===== PAYMENTRECEIPT PROPS DEBUG =====");
+  console.log("🔍 TENANT recebido:", JSON.stringify(tenant, null, 2));
+  console.log("🔍 tenant?.name:", tenant?.name);
+  console.log("🔍 PROPERTY recebido:", JSON.stringify(property, null, 2));
+  console.log("🔍 property?.location:", property?.location);
+  console.log("🔍 property?.complement:", property?.complement);
+  console.log("🔍 PAYMENT.PROPERTY:", JSON.stringify(payment.property, null, 2));
+  console.log("🔍 payment.property?.location:", payment.property?.location);
+  console.log("🔍 payment.tenant:", JSON.stringify(payment.tenant, null, 2));
+  console.log("🔍 payment.tenant?.name:", payment.tenant?.name);
+  console.log("🔥 =====================================");
+
   useEffect(() => {
     const fetchPaymentDetails = async () => {
       if (!payment.id) return;
@@ -531,35 +544,65 @@ export function PaymentReceipt({
   };
 
   // ✅ CORREÇÃO 1: Nome do inquilino (usando props)
-  const tenantName = tenant?.name || "LOCATÁRIO NÃO INFORMADO";
+  const tenantName = payment.tenant?.name || tenant?.name || "LOCATÁRIO NÃO INFORMADO";
+  
+  console.log("👤 [tenantName] VALOR FINAL:", tenantName);
+  console.log("👤 [tenantName] Fontes:", {
+    fromPaymentTenant: payment.tenant?.name,
+    fromPropTenant: tenant?.name,
+  });
 
   // ✅ CORREÇÃO 2: Endereço completo do imóvel com complemento concatenado
   const getPropertyAddress = () => {
-    if (!property) return "IMÓVEL NÃO INFORMADO";
+    console.log("🏠 [getPropertyAddress] Iniciando...");
     
-    // Usar payment.property.location se disponível (vem mapeado do hook)
-    const location = payment.property?.location || property.location || "";
-    const complement = payment.property?.complement || property.complement || "";
-    
-    if (!location) return "IMÓVEL NÃO INFORMADO";
-    
-    // Se location já é uma string completa (ex: "Parque Assunção")
-    // e temos complement, concatenar
-    let fullAddress = location;
-    
-    if (complement) {
-      // Verificar se location tem número no final (ex: "Rua X, 70")
-      // Se sim, inserir complement após o número
-      const numberMatch = location.match(/(.*,\s*\d+)(.*)$/);
-      if (numberMatch) {
-        fullAddress = `${numberMatch[1]} - ${complement}${numberMatch[2]}`;
-      } else {
-        // Caso contrário, adicionar complement no final
-        fullAddress = `${location} - ${complement}`;
-      }
+    if (!property && !payment.property) {
+      console.log("🏠 [getPropertyAddress] SEM property E SEM payment.property");
+      return "IMÓVEL NÃO INFORMADO";
     }
     
-    return fullAddress;
+    // Tentar pegar do payment.property primeiro (dados mapeados do hook)
+    const mappedProperty = payment.property;
+    console.log("🏠 [getPropertyAddress] payment.property:", mappedProperty);
+    
+    // Location pode ser:
+    // 1. String completa: "Rua X, 70 - Parque Assunção, Taboão da Serra - SP - CEP 06753-420"
+    // 2. Apenas bairro: "Parque Assunção"
+    const location = mappedProperty?.location || property?.location || "";
+    const complement = mappedProperty?.complement || property?.complement || "";
+    
+    console.log("🏠 [getPropertyAddress] location:", location);
+    console.log("🏠 [getPropertyAddress] complement:", complement);
+    
+    if (!location) {
+      console.log("🏠 [getPropertyAddress] location VAZIO");
+      return "IMÓVEL NÃO INFORMADO";
+    }
+    
+    // Se location já é uma string completa com CEP/estado (endereço completo)
+    if (location.includes("CEP") || location.includes(" - SP") || location.includes(",")) {
+      console.log("🏠 [getPropertyAddress] Location é endereço COMPLETO");
+      
+      // Se tem complement E location tem número, inserir complement após o número
+      if (complement) {
+        const numberMatch = location.match(/(.*,\s*\d+)(.*)$/);
+        if (numberMatch) {
+          const result = `${numberMatch[1]} - ${complement}${numberMatch[2]}`;
+          console.log("🏠 [getPropertyAddress] Resultado COM complement:", result);
+          return result;
+        }
+      }
+      
+      console.log("🏠 [getPropertyAddress] Resultado SEM complement:", location);
+      return location;
+    }
+    
+    // Se location é apenas bairro (ex: "Parque Assunção")
+    // Concatenar com complement se disponível
+    console.log("🏠 [getPropertyAddress] Location é apenas BAIRRO");
+    const result = complement ? `${location} - ${complement}` : location;
+    console.log("🏠 [getPropertyAddress] Resultado final:", result);
+    return result;
   };
 
   const propertyAddress = getPropertyAddress();
