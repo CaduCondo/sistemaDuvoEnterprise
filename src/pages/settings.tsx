@@ -1083,21 +1083,7 @@ export default function Settings() {
                         </CardTitle>
                         <CardDescription className="text-xs">
                           {location.address && (
-                            <div className="space-y-0.5">
-                              <div>{location.address}</div>
-                              {(location.neighborhood || location.city) && (
-                                <div>
-                                  {[location.neighborhood, location.city]
-                                    .filter(Boolean)
-                                    .join(" - ")}
-                                </div>
-                              )}
-                              {location.state && location.zip_code && (
-                                <div>
-                                  {location.state} · CEP {location.zip_code}
-                                </div>
-                              )}
-                            </div>
+                            <div>{location.address}</div>
                           )}
                         </CardDescription>
                       </CardHeader>
