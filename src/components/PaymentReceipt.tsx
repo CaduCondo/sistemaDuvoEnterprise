@@ -55,12 +55,17 @@ export function PaymentReceipt({
   // ✅ Buscar dados COMPLETOS do location (endereço, número, bairro, cidade, estado, CEP)
   useEffect(() => {
     const fetchLocationData = async () => {
+      console.log("\n🔥 ===== INÍCIO FETCH LOCATION DATA =====");
+      console.log("🔍 property:", JSON.stringify(property, null, 2));
+      console.log("🔍 property?.locationId:", property?.locationId);
+      
       if (!property?.locationId) {
-        console.warn("⚠️ property.locationId não disponível - não é possível buscar endereço completo");
+        console.warn("⚠️ property.locationId NÃO DISPONÍVEL - não é possível buscar endereço completo");
+        console.warn("⚠️ Isso significa que o endereço completo NÃO SERÁ EXIBIDO no recibo!");
         return;
       }
       
-      console.log("🏠 Buscando dados completos do location:", property.locationId);
+      console.log("🏠 ✅ property.locationId EXISTE! Buscando dados completos do location:", property.locationId);
       
       try {
         const { data, error } = await supabase
@@ -69,16 +74,36 @@ export function PaymentReceipt({
           .eq("id", property.locationId)
           .maybeSingle();
 
+        console.log("📡 Resposta do Supabase:");
+        console.log("   - error:", error);
+        console.log("   - data:", JSON.stringify(data, null, 2));
+
         if (error) {
-          console.error("❌ Erro ao buscar location:", error);
+          console.error("❌ ERRO ao buscar location:", error);
           return;
         }
 
-        console.log("✅ Location completo obtido:", JSON.stringify(data, null, 2));
+        if (!data) {
+          console.error("❌ Location NÃO ENCONTRADO no banco para ID:", property.locationId);
+          return;
+        }
+
+        console.log("✅ Location completo obtido com sucesso!");
+        console.log("   - name:", data.name);
+        console.log("   - address:", data.address);
+        console.log("   - number:", data.number);
+        console.log("   - neighborhood:", data.neighborhood);
+        console.log("   - city:", data.city);
+        console.log("   - state:", data.state);
+        console.log("   - zip_code:", data.zip_code);
+        
         setLocationData(data);
+        console.log("✅ setLocationData() executado - useMemo DEVE recalcular agora");
       } catch (error) {
-        console.error("❌ Erro ao buscar location:", error);
+        console.error("❌ EXCEÇÃO ao buscar location:", error);
       }
+      
+      console.log("🔥 ===== FIM FETCH LOCATION DATA =====\n");
     };
 
     fetchLocationData();
@@ -590,12 +615,17 @@ export function PaymentReceipt({
   // ✅ CORREÇÃO 2: Endereço completo do imóvel com complemento concatenado
   // Usar useMemo para recalcular quando locationData mudar
   const propertyAddress = useMemo(() => {
-    console.log("🏠 [propertyAddress useMemo] Recalculando endereço...");
-    console.log("🏠 [propertyAddress useMemo] locationData:", locationData);
+    console.log("\n🏠 ===== INÍCIO useMemo propertyAddress =====");
+    console.log("🏠 locationData:", locationData);
+    console.log("🏠 locationData é NULL?", locationData === null);
+    console.log("🏠 locationData é UNDEFINED?", locationData === undefined);
+    console.log("🏠 payment.property:", payment.property);
+    console.log("🏠 property:", property);
+    console.log("🏠 tenant:", tenant);
     
     // ✅ REGRA ESPECIAL: Se o local é "Outros", usar endereço do inquilino
     if (locationData && locationData.name && locationData.name.toLowerCase() === "outros") {
-      console.log("🏠 [propertyAddress] Local é OUTROS - usando endereço do inquilino");
+      console.log("🏠 ✅ Local é OUTROS - usando endereço do inquilino");
       
       const tenantAddress = tenant?.street || "";
       const tenantNumber = tenant?.number || "";
@@ -605,7 +635,17 @@ export function PaymentReceipt({
       const tenantState = tenant?.state || "";
       const tenantZipCode = tenant?.cep || "";
       
+      console.log("🏠 Dados do inquilino:");
+      console.log("   - street:", tenantAddress);
+      console.log("   - number:", tenantNumber);
+      console.log("   - complement:", tenantComplement);
+      console.log("   - neighborhood:", tenantNeighborhood);
+      console.log("   - city:", tenantCity);
+      console.log("   - state:", tenantState);
+      console.log("   - cep:", tenantZipCode);
+      
       if (!tenantAddress) {
+        console.log("❌ tenantAddress VAZIO - retornando mensagem de erro");
         return "ENDEREÇO DO INQUILINO NÃO INFORMADO";
       }
       
@@ -635,17 +675,21 @@ export function PaymentReceipt({
         fullAddress += ` - CEP ${tenantZipCode}`;
       }
       
-      console.log("🏠 [propertyAddress] Endereço do inquilino:", fullAddress);
+      console.log("🏠 ✅ Endereço do inquilino MONTADO:", fullAddress);
+      console.log("🏠 ===== FIM useMemo propertyAddress =====\n");
       return fullAddress;
     }
     
     if (!locationData && !property && !payment.property) {
-      console.log("🏠 [propertyAddress] SEM locationData, property E payment.property");
+      console.log("❌ SEM locationData, property E payment.property - retornando mensagem de erro");
+      console.log("🏠 ===== FIM useMemo propertyAddress =====\n");
       return "IMÓVEL NÃO INFORMADO";
     }
     
     // ✅ Se temos locationData (dados completos do banco), montar endereço completo
     if (locationData) {
+      console.log("🏠 ✅ locationData EXISTE - montando endereço completo");
+      
       const address = locationData.address || "";
       const number = locationData.number || "";
       const complement = payment.property?.complement || property?.complement || "";
@@ -654,91 +698,106 @@ export function PaymentReceipt({
       const state = locationData.state || "";
       const zipCode = locationData.zip_code || "";
       
-      console.log("🏠 [propertyAddress] Dados do location:");
-      console.log("   - address:", address);
-      console.log("   - number:", number);
-      console.log("   - complement:", complement);
-      console.log("   - neighborhood:", neighborhood);
-      console.log("   - city:", city);
-      console.log("   - state:", state);
-      console.log("   - zipCode:", zipCode);
+      console.log("🏠 Extraindo campos do locationData:");
+      console.log("   - address:", address, "(vazio?", !address, ")");
+      console.log("   - number:", number, "(vazio?", !number, ")");
+      console.log("   - complement:", complement, "(vazio?", !complement, ")");
+      console.log("   - neighborhood:", neighborhood, "(vazio?", !neighborhood, ")");
+      console.log("   - city:", city, "(vazio?", !city, ")");
+      console.log("   - state:", state, "(vazio?", !state, ")");
+      console.log("   - zipCode:", zipCode, "(vazio?", !zipCode, ")");
       
       if (!address) {
-        console.log("🏠 [propertyAddress] address VAZIO no locationData");
+        console.log("❌ address VAZIO no locationData - retornando mensagem de erro");
+        console.log("🏠 ===== FIM useMemo propertyAddress =====\n");
         return "IMÓVEL NÃO INFORMADO";
       }
       
       // Formato: Rua Armando Barreto, 132, APTO 01 - Jardim Colombo, São Paulo - SP - CEP 05628-060
       let fullAddress = `${address}`;
+      console.log("🏠 Montando endereço passo a passo:");
+      console.log("   1. Início:", fullAddress);
       
       if (number) {
         fullAddress += `, ${number}`;
+        console.log("   2. Após número:", fullAddress);
       }
       
       // ✅ COMPLEMENTO logo após o número
       if (complement) {
         fullAddress += `, ${complement}`;
+        console.log("   3. Após complemento:", fullAddress);
       }
       
       // Bairro
       if (neighborhood) {
         fullAddress += ` - ${neighborhood}`;
+        console.log("   4. Após bairro:", fullAddress);
       }
       
       // Cidade
       if (city) {
         fullAddress += `, ${city}`;
+        console.log("   5. Após cidade:", fullAddress);
       }
       
       // Estado
       if (state) {
         fullAddress += ` - ${state}`;
+        console.log("   6. Após estado:", fullAddress);
       }
       
       // CEP
       if (zipCode) {
         fullAddress += ` - CEP ${zipCode}`;
+        console.log("   7. Após CEP:", fullAddress);
       }
       
-      console.log("🏠 [propertyAddress] Resultado COMPLETO:", fullAddress);
+      console.log("🏠 ✅ Endereço COMPLETO MONTADO:", fullAddress);
+      console.log("🏠 ===== FIM useMemo propertyAddress =====\n");
       return fullAddress;
     }
     
     // Fallback: usar payment.property.location (apenas nome do bairro)
+    console.log("⚠️ FALLBACK - usando payment.property.location ou property.location");
     const location = payment.property?.location || property?.location || "";
     const complement = payment.property?.complement || property?.complement || "";
     
-    console.log("🏠 [propertyAddress] FALLBACK - location:", location);
-    console.log("🏠 [propertyAddress] FALLBACK - complement:", complement);
+    console.log("🏠 FALLBACK - location:", location);
+    console.log("🏠 FALLBACK - complement:", complement);
     
     if (!location) {
-      console.log("🏠 [propertyAddress] location VAZIO");
+      console.log("❌ location VAZIO no fallback - retornando mensagem de erro");
+      console.log("🏠 ===== FIM useMemo propertyAddress =====\n");
       return "IMÓVEL NÃO INFORMADO";
     }
     
     // Se location já é uma string completa com CEP/estado (endereço completo)
     if (location.includes("CEP") || location.includes(" - SP") || location.includes(",")) {
-      console.log("🏠 [propertyAddress] Location é endereço COMPLETO");
+      console.log("🏠 Location parece ser endereço COMPLETO");
       
       // Se tem complement E location tem número, inserir complement após o número
       if (complement) {
         const numberMatch = location.match(/(.*,\s*\d+)(.*)$/);
         if (numberMatch) {
           const result = `${numberMatch[1]}, ${complement}${numberMatch[2]}`;
-          console.log("🏠 [propertyAddress] Resultado COM complement:", result);
+          console.log("🏠 ✅ Endereço COM complement inserido:", result);
+          console.log("🏠 ===== FIM useMemo propertyAddress =====\n");
           return result;
         }
       }
       
-      console.log("🏠 [propertyAddress] Resultado SEM complement:", location);
+      console.log("🏠 ✅ Retornando location SEM modificação:", location);
+      console.log("🏠 ===== FIM useMemo propertyAddress =====\n");
       return location;
     }
     
     // Se location é apenas bairro (ex: "Parque Assunção")
     // Concatenar com complement se disponível
-    console.log("🏠 [propertyAddress] Location é apenas BAIRRO");
+    console.log("🏠 Location é apenas BAIRRO - concatenando com complement");
     const result = complement ? `${location} - ${complement}` : location;
-    console.log("🏠 [propertyAddress] Resultado final:", result);
+    console.log("🏠 ✅ Resultado final:", result);
+    console.log("🏠 ===== FIM useMemo propertyAddress =====\n");
     return result;
   }, [locationData, payment.property, property, tenant]);
 
