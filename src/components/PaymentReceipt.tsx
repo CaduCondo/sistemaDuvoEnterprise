@@ -588,12 +588,59 @@ export function PaymentReceipt({
   });
 
   // ✅ CORREÇÃO 2: Endereço completo do imóvel com complemento concatenado
-  const getPropertyAddress = () => {
-    console.log("🏠 [getPropertyAddress] Iniciando...");
-    console.log("🏠 [getPropertyAddress] locationData:", locationData);
+  // Usar useMemo para recalcular quando locationData mudar
+  const propertyAddress = useMemo(() => {
+    console.log("🏠 [propertyAddress useMemo] Recalculando endereço...");
+    console.log("🏠 [propertyAddress useMemo] locationData:", locationData);
+    
+    // ✅ REGRA ESPECIAL: Se o local é "Outros", usar endereço do inquilino
+    if (locationData && locationData.name && locationData.name.toLowerCase() === "outros") {
+      console.log("🏠 [propertyAddress] Local é OUTROS - usando endereço do inquilino");
+      
+      const tenantAddress = tenant?.address || "";
+      const tenantNumber = tenant?.number || "";
+      const tenantComplement = tenant?.complement || "";
+      const tenantNeighborhood = tenant?.neighborhood || "";
+      const tenantCity = tenant?.city || "";
+      const tenantState = tenant?.state || "";
+      const tenantZipCode = tenant?.zipCode || "";
+      
+      if (!tenantAddress) {
+        return "ENDEREÇO DO INQUILINO NÃO INFORMADO";
+      }
+      
+      let fullAddress = tenantAddress;
+      
+      if (tenantNumber) {
+        fullAddress += `, ${tenantNumber}`;
+      }
+      
+      if (tenantComplement) {
+        fullAddress += `, ${tenantComplement}`;
+      }
+      
+      if (tenantNeighborhood) {
+        fullAddress += ` - ${tenantNeighborhood}`;
+      }
+      
+      if (tenantCity) {
+        fullAddress += `, ${tenantCity}`;
+      }
+      
+      if (tenantState) {
+        fullAddress += ` - ${tenantState}`;
+      }
+      
+      if (tenantZipCode) {
+        fullAddress += ` - CEP ${tenantZipCode}`;
+      }
+      
+      console.log("🏠 [propertyAddress] Endereço do inquilino:", fullAddress);
+      return fullAddress;
+    }
     
     if (!locationData && !property && !payment.property) {
-      console.log("🏠 [getPropertyAddress] SEM locationData, property E payment.property");
+      console.log("🏠 [propertyAddress] SEM locationData, property E payment.property");
       return "IMÓVEL NÃO INFORMADO";
     }
     
@@ -607,7 +654,7 @@ export function PaymentReceipt({
       const state = locationData.state || "";
       const zipCode = locationData.zip_code || "";
       
-      console.log("🏠 [getPropertyAddress] Dados do location:");
+      console.log("🏠 [propertyAddress] Dados do location:");
       console.log("   - address:", address);
       console.log("   - number:", number);
       console.log("   - complement:", complement);
@@ -617,7 +664,7 @@ export function PaymentReceipt({
       console.log("   - zipCode:", zipCode);
       
       if (!address) {
-        console.log("🏠 [getPropertyAddress] address VAZIO no locationData");
+        console.log("🏠 [propertyAddress] address VAZIO no locationData");
         return "IMÓVEL NÃO INFORMADO";
       }
       
@@ -653,7 +700,7 @@ export function PaymentReceipt({
         fullAddress += ` - CEP ${zipCode}`;
       }
       
-      console.log("🏠 [getPropertyAddress] Resultado COMPLETO:", fullAddress);
+      console.log("🏠 [propertyAddress] Resultado COMPLETO:", fullAddress);
       return fullAddress;
     }
     
@@ -661,41 +708,39 @@ export function PaymentReceipt({
     const location = payment.property?.location || property?.location || "";
     const complement = payment.property?.complement || property?.complement || "";
     
-    console.log("🏠 [getPropertyAddress] FALLBACK - location:", location);
-    console.log("🏠 [getPropertyAddress] FALLBACK - complement:", complement);
+    console.log("🏠 [propertyAddress] FALLBACK - location:", location);
+    console.log("🏠 [propertyAddress] FALLBACK - complement:", complement);
     
     if (!location) {
-      console.log("🏠 [getPropertyAddress] location VAZIO");
+      console.log("🏠 [propertyAddress] location VAZIO");
       return "IMÓVEL NÃO INFORMADO";
     }
     
     // Se location já é uma string completa com CEP/estado (endereço completo)
     if (location.includes("CEP") || location.includes(" - SP") || location.includes(",")) {
-      console.log("🏠 [getPropertyAddress] Location é endereço COMPLETO");
+      console.log("🏠 [propertyAddress] Location é endereço COMPLETO");
       
       // Se tem complement E location tem número, inserir complement após o número
       if (complement) {
         const numberMatch = location.match(/(.*,\s*\d+)(.*)$/);
         if (numberMatch) {
           const result = `${numberMatch[1]}, ${complement}${numberMatch[2]}`;
-          console.log("🏠 [getPropertyAddress] Resultado COM complement:", result);
+          console.log("🏠 [propertyAddress] Resultado COM complement:", result);
           return result;
         }
       }
       
-      console.log("🏠 [getPropertyAddress] Resultado SEM complement:", location);
+      console.log("🏠 [propertyAddress] Resultado SEM complement:", location);
       return location;
     }
     
     // Se location é apenas bairro (ex: "Parque Assunção")
     // Concatenar com complement se disponível
-    console.log("🏠 [getPropertyAddress] Location é apenas BAIRRO");
+    console.log("🏠 [propertyAddress] Location é apenas BAIRRO");
     const result = complement ? `${location} - ${complement}` : location;
-    console.log("🏠 [getPropertyAddress] Resultado final:", result);
+    console.log("🏠 [propertyAddress] Resultado final:", result);
     return result;
-  };
-
-  const propertyAddress = getPropertyAddress();
+  }, [locationData, payment.property, property, tenant]);
 
   // ✅ CORREÇÃO 3: Data de início da locação
   const rentalStartDate = payment.rental?.startDate || rental?.startDate || null;
