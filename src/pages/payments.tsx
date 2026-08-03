@@ -271,13 +271,210 @@ export default function Payments() {
     setUiState(prev => ({ ...prev, paymentToCancel: paymentId }));
   }, []);
 
-  const handleViewReceipt = useCallback((payment: Payment) => {
-    setUiState(prev => ({
-      ...prev,
-      selectedPayment: payment,
-      showReceiptDialog: true,
-    }));
-  }, []);
+  const handleViewReceipt = useCallback(async (payment: Payment) => {
+    console.log("🔍 [handleViewReceipt] Iniciando busca de dados completos...");
+    console.log("🔍 [handleViewReceipt] Payment:", payment.id);
+    
+    try {
+      // 1. Buscar rental
+      const { data: rentalData, error: rentalError } = await supabase
+        .from("rentals")
+        .select("*")
+        .eq("id", payment.rentalId)
+        .single();
+        
+      if (rentalError) throw rentalError;
+      
+      if (!rentalData) {
+        showAlert({
+          title: "Erro",
+          description: "Locação não encontrada.",
+          type: "error",
+        });
+        return;
+      }
+      
+      console.log("✅ [handleViewReceipt] Rental encontrada:", rentalData.id);
+      
+      // 2. Buscar property COM location via JOIN
+      const { data: propertyData, error: propertyError } = await supabase
+        .from("properties")
+        .select(`
+          *,
+          locations:location_id (
+            id,
+            name,
+            street,
+            number,
+            complement,
+            neighborhood,
+            city,
+            state,
+            zip_code
+          )
+        `)
+        .eq("id", rentalData.property_id)
+        .single();
+        
+      if (propertyError) throw propertyError;
+      
+      if (!propertyData) {
+        showAlert({
+          title: "Erro",
+          description: "Imóvel não encontrado.",
+          type: "error",
+        });
+        return;
+      }
+      
+      console.log("✅ [handleViewReceipt] Property encontrada COM location:", propertyData.id);
+      console.log("🏠 [handleViewReceipt] Location data:", propertyData.locations);
+      
+      // 3. Buscar tenant
+      const { data: tenantData, error: tenantError } = await supabase
+        .from("tenants")
+        .select("*")
+        .eq("id", rentalData.tenant_id)
+        .single();
+        
+      if (tenantError) throw tenantError;
+      
+      if (!tenantData) {
+        showAlert({
+          title: "Erro",
+          description: "Inquilino não encontrado.",
+          type: "error",
+        });
+        return;
+      }
+      
+      console.log("✅ [handleViewReceipt] Tenant encontrado:", tenantData.name);
+      
+      // 4. Extrair location data
+      const locationData = propertyData.locations as any;
+      
+      // 5. Montar objetos completos no formato esperado
+      const rental: Rental = {
+        id: rentalData.id,
+        propertyId: rentalData.property_id,
+        property_id: rentalData.property_id,
+        tenantId: rentalData.tenant_id,
+        tenant_id: rentalData.tenant_id,
+        startDate: rentalData.start_date,
+        start_date: rentalData.start_date,
+        endDate: rentalData.end_date,
+        end_date: rentalData.end_date,
+        value: rentalData.rent_value || 0,
+        monthlyRent: rentalData.rent_value || 0,
+        monthly_rent: rentalData.rent_value || 0,
+        paymentDay: 10,
+        depositAmount: rentalData.security_deposit || rentalData.deposit_value || 0,
+        deposit_amount: rentalData.security_deposit || rentalData.deposit_value || 0,
+        security_deposit: rentalData.security_deposit || rentalData.deposit_value || 0,
+        status: (rentalData.status === "active" || rentalData.status === "ended" || rentalData.status === "terminated") 
+          ? rentalData.status 
+          : "active" as "active" | "ended" | "terminated",
+        isActive: rentalData.status === "active",
+        is_active: rentalData.status === "active",
+        attachments: [],
+        contractAttachments: [],
+        contract_attachments: [],
+        hasGarage: rentalData.has_garage || false,
+        has_garage: rentalData.has_garage || false,
+        garageValue: rentalData.garage_value || 0,
+        garage_value: rentalData.garage_value || 0,
+        hasPartnerBroker: false,
+        has_partner_broker: false,
+        installments: rentalData.deposit_installments || 24,
+        totalInstallments: rentalData.deposit_installments || 24,
+      };
+      
+      // 🔥 CRÍTICO: Property COM locationId E todos os campos
+      const property: Property = {
+        id: propertyData.id,
+        locationId: propertyData.location_id, // ← CRÍTICO para buscar location
+        location_id: propertyData.location_id,
+        location: locationData?.name || "",
+        propertyIdentifier: propertyData.property_identifier || "",
+        property_identifier: propertyData.property_identifier || "",
+        complement: propertyData.complement || "",
+        description: propertyData.description || "",
+        rooms: propertyData.rooms || 0,
+        bathrooms: propertyData.bathrooms || 0,
+        area: propertyData.area || 0,
+        value: propertyData.value || 0,
+        hasGarage: propertyData.has_garage || false,
+        has_garage: propertyData.has_garage || false,
+        hasFurniture: propertyData.has_furniture || false,
+        has_furniture: propertyData.has_furniture || false,
+        acceptsPets: propertyData.accepts_pets || false,
+        accepts_pets: propertyData.accepts_pets || false,
+        status: (propertyData.status === "available" || propertyData.status === "occupied" || propertyData.status === "unavailable")
+          ? propertyData.status
+          : "available" as "available" | "occupied" | "unavailable",
+        images: [],
+        createdAt: propertyData.created_at,
+        created_at: propertyData.created_at,
+        address: locationData?.street || "",
+        features: [],
+        type: "apartment",
+        monthlyRent: rentalData.rent_value || 0,
+        number: locationData?.number || propertyData.property_identifier || "",
+        neighborhood: locationData?.neighborhood || "",
+        city: locationData?.city || "",
+        state: locationData?.state || "",
+        zipCode: locationData?.zip_code || "",
+      };
+      
+      const tenant: Tenant = {
+        id: tenantData.id,
+        name: tenantData.name,
+        email: tenantData.email,
+        phone: tenantData.phone,
+        cpf: tenantData.cpf || tenantData.document || "",
+        rg: tenantData.rg || "",
+        street: tenantData.street || "",
+        number: tenantData.number || "",
+        complement: tenantData.complement || "",
+        neighborhood: tenantData.neighborhood || "",
+        city: tenantData.city || "",
+        state: tenantData.state || "",
+        cep: tenantData.cep || "",
+        createdAt: tenantData.created_at,
+        document: tenantData.document || tenantData.cpf || "",
+        status: (tenantData.status === "new" || tenantData.status === "inactive" || tenantData.status === "rented")
+          ? tenantData.status
+          : "new" as "new" | "inactive" | "rented",
+      };
+      
+      console.log("✅ [handleViewReceipt] Todos os dados montados - abrindo recibo");
+      console.log("🔍 [handleViewReceipt] property.locationId:", property.locationId);
+      console.log("🔍 [handleViewReceipt] tenant.name:", tenant.name);
+      
+      // 6. Criar payment completo COM property e tenant anexados
+      const completePayment: Payment = {
+        ...payment,
+        property,
+        tenant,
+        rental,
+      };
+      
+      // 7. Abrir recibo com dados completos
+      setUiState(prev => ({
+        ...prev,
+        selectedPayment: completePayment,
+        showReceiptDialog: true,
+      }));
+      
+    } catch (error) {
+      console.error("❌ [handleViewReceipt] Erro ao buscar dados:", error);
+      showAlert({
+        title: "Erro",
+        description: "Erro ao carregar dados do recebimento.",
+        type: "error",
+      });
+    }
+  }, [showAlert]);
 
   const handleManagePaymentSuccess = useCallback(async () => {
     const paymentId = uiState.selectedPaymentId;
@@ -999,8 +1196,8 @@ export default function Payments() {
         <PaymentReceipt
           payment={uiState.selectedPayment}
           rental={rentals.find(r => r.id === uiState.selectedPayment!.rentalId) as any}
-          property={getPropertyForPayment(uiState.selectedPayment) as any}
-          tenant={getTenantForPayment(uiState.selectedPayment) as any}
+          property={uiState.selectedPayment.property as any}
+          tenant={uiState.selectedPayment.tenant as any}
           onClose={() => {
             // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays ao fechar recibo
             
