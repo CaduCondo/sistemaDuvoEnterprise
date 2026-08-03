@@ -460,6 +460,76 @@ export function PaymentReceipt({
     }
   };
 
+  // ✅ Função para converter número em valor por extenso
+  const numberToWords = (value: number): string => {
+    const units = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+    const teens = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+    const tens = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+    const hundreds = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+    
+    const convertGroup = (num: number): string => {
+      if (num === 0) return '';
+      if (num === 100) return 'cem';
+      
+      const h = Math.floor(num / 100);
+      const t = Math.floor((num % 100) / 10);
+      const u = num % 10;
+      
+      let result = '';
+      
+      if (h > 0) result += hundreds[h];
+      
+      if (t === 1) {
+        if (result) result += ' e ';
+        result += teens[u];
+      } else {
+        if (t > 0) {
+          if (result) result += ' e ';
+          result += tens[t];
+        }
+        if (u > 0) {
+          if (result) result += ' e ';
+          result += units[u];
+        }
+      }
+      
+      return result;
+    };
+    
+    const reais = Math.floor(value);
+    const centavos = Math.round((value - reais) * 100);
+    
+    let result = '';
+    
+    // Milhares
+    const thousands = Math.floor(reais / 1000);
+    const remainder = reais % 1000;
+    
+    if (thousands > 0) {
+      if (thousands === 1) {
+        result += 'mil';
+      } else {
+        result += convertGroup(thousands) + ' mil';
+      }
+    }
+    
+    if (remainder > 0) {
+      if (result) result += ' ';
+      result += convertGroup(remainder);
+    }
+    
+    if (!result) result = 'zero';
+    
+    result += reais === 1 ? ' real' : ' reais';
+    
+    if (centavos > 0) {
+      result += ' e ' + convertGroup(centavos);
+      result += centavos === 1 ? ' centavo' : ' centavos';
+    }
+    
+    return result;
+  };
+
   // ✅ CORREÇÃO 1: Nome do inquilino (usando props)
   const tenantName = tenant?.name || "LOCATÁRIO NÃO INFORMADO";
 
@@ -467,29 +537,26 @@ export function PaymentReceipt({
   const getPropertyAddress = () => {
     if (!property) return "IMÓVEL NÃO INFORMADO";
     
-    const address = property.address || "";
-    const number = property.number || "";
-    const complement = property.complement || "";
-    const neighborhood = property.neighborhood || "";
-    const city = property.city || "";
-    const state = property.state || "";
-    const zipCode = property.zipCode || "";
+    // Usar payment.property.location se disponível (vem mapeado do hook)
+    const location = payment.property?.location || property.location || "";
+    const complement = payment.property?.complement || property.complement || "";
     
-    // Formato: Rua das Acácias, 70 - [COMPLEMENTO] - Parque Assunção, Taboão da Serra - SP - CEP 06753-420
-    let fullAddress = `${address}${number ? ', ' + number : ''}`;
+    if (!location) return "IMÓVEL NÃO INFORMADO";
+    
+    // Se location já é uma string completa (ex: "Parque Assunção")
+    // e temos complement, concatenar
+    let fullAddress = location;
     
     if (complement) {
-      fullAddress += ` - ${complement}`;
-    }
-    
-    fullAddress += ` - ${neighborhood}${city ? ', ' + city : ''}`;
-    
-    if (state) {
-      fullAddress += ` - ${state}`;
-    }
-    
-    if (zipCode) {
-      fullAddress += ` - CEP ${zipCode}`;
+      // Verificar se location tem número no final (ex: "Rua X, 70")
+      // Se sim, inserir complement após o número
+      const numberMatch = location.match(/(.*,\s*\d+)(.*)$/);
+      if (numberMatch) {
+        fullAddress = `${numberMatch[1]} - ${complement}${numberMatch[2]}`;
+      } else {
+        // Caso contrário, adicionar complement no final
+        fullAddress = `${location} - ${complement}`;
+      }
     }
     
     return fullAddress;
@@ -635,7 +702,8 @@ export function PaymentReceipt({
           <div className="space-y-4">
             <p className="text-justify leading-relaxed">
               Recebi dos Srs. <strong>{tenantName}</strong>, a importância de{" "}
-              <strong>{formatCurrency(totalAmount)}</strong>, proveniente ao depósito de aluguel referente ao mês de{" "}
+              <strong>{formatCurrency(totalAmount)}</strong>{" "}
+              (<strong>{numberToWords(totalAmount)}</strong>), proveniente ao depósito de aluguel referente ao mês de{" "}
               <strong>{referenceMonthName} de {payment.referenceYear}</strong>, tendo seu vencimento em{" "}
               <strong>{new Date(payment.dueDate + "T12:00:00").toLocaleDateString("pt-BR")}</strong>, do imóvel situado em{" "}
               <strong>{propertyAddress}</strong>, após a apresentação dos comprovantes de depósito bancário e contas de água e luz do mês anterior pagos, sendo este vinculado ao{" "}
