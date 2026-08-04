@@ -13,23 +13,36 @@ const TABLE = "tenants";
 
 function toDatabase(data: Partial<Tenant>): any {
   console.log("🔄 [tenantService.toDatabase] Dados recebidos:", data);
+  console.log("🔍 [tenantService.toDatabase] Campos recebidos (bruto):", Object.keys(data));
   
-  // ✅ CORREÇÃO CRÍTICA: Se recebeu APENAS status, enviar APENAS status mapeado
-  const receivedKeys = Object.keys(data);
-  console.log("🔍 [tenantService.toDatabase] Campos recebidos:", receivedKeys);
+  // ✅ CORREÇÃO CRÍTICA: Filtrar undefined/null ANTES de verificar quantidade de campos
+  const nonEmptyData: any = {};
+  for (const key in data) {
+    const value = data[key as keyof Tenant];
+    if (value !== undefined && value !== null) {
+      nonEmptyData[key] = value;
+    }
+  }
   
+  const receivedKeys = Object.keys(nonEmptyData);
+  console.log("🔍 [tenantService.toDatabase] Campos com valor:", receivedKeys);
+  
+  // ✅ ATALHO RÁPIDO: Se recebeu APENAS status, enviar APENAS status mapeado
   if (receivedKeys.length === 1 && receivedKeys[0] === 'status') {
-    console.log("⚡ [tenantService.toDatabase] APENAS status foi enviado - atalho rápido");
+    console.log("⚡ [tenantService.toDatabase] APENAS status foi enviado - atalho rápido ativado!");
     const statusMap: Record<string, string> = {
       "new": "active",
       "active": "active",
       "rented": "rented",
       "inactive": "inactive"
     };
-    const mappedStatus = statusMap[data.status!] || "active";
-    console.log(`📤 [tenantService.toDatabase] Status mapeado: ${data.status} → ${mappedStatus}`);
+    const mappedStatus = statusMap[nonEmptyData.status] || "active";
+    console.log(`📤 [tenantService.toDatabase] Status mapeado: ${nonEmptyData.status} → ${mappedStatus}`);
+    console.log(`✅ [tenantService.toDatabase] RETORNANDO: { status: "${mappedStatus}" }`);
     return { status: mappedStatus };
   }
+  
+  console.log("📝 [tenantService.toDatabase] Processamento normal (múltiplos campos ou campo diferente de status)");
   
   // ✅ LISTA DE CAMPOS VÁLIDOS DO SCHEMA 'tenants'
   const VALID_FIELDS = [
@@ -45,7 +58,7 @@ function toDatabase(data: Partial<Tenant>): any {
   if (data.email !== undefined && data.email !== "") dbData.email = data.email;
   if (data.phone !== undefined && data.phone !== "") dbData.phone = data.phone;
   
-  // ✅ STATUS - mapear "new" → "active" (banco não aceita "new")
+  // ✅ STATUS - SEMPRE mapear "new" → "active" (banco NÃO aceita "new")
   if (data.status !== undefined) {
     const statusMap: Record<string, string> = {
       "new": "active",
@@ -116,7 +129,7 @@ function toDatabase(data: Partial<Tenant>): any {
   if (data.city !== undefined && data.city !== "") dbData.city = data.city;
   if (data.state !== undefined && data.state !== "") dbData.state = data.state;
   
-  // ✅ VALIDAÇÃO FINAL: Remover APENAS undefined/null (manter strings vazias se foram enviadas)
+  // ✅ VALIDAÇÃO FINAL: Remover undefined/null + validar campos
   const cleanedData: any = {};
   for (const key in dbData) {
     const value = dbData[key];
