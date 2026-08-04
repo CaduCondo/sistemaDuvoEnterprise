@@ -23,7 +23,14 @@ function toDatabase(data: Partial<Tenant>): any {
   if (data.phone !== undefined && data.phone !== "") dbData.phone = data.phone;
   if (data.status !== undefined) dbData.status = data.status;
   if (data.rg !== undefined && data.rg !== "") dbData.rg = data.rg;
-  if (data.occupation !== undefined && data.occupation !== "") dbData.occupation = data.occupation;
+  if (data.occupation !== undefined && data.occupation !== "") {
+    // ✅ VALIDAÇÃO: occupation max 255 caracteres
+    const occupation = data.occupation.substring(0, 255);
+    dbData.occupation = occupation;
+    if (data.occupation.length > 255) {
+      console.warn(`⚠️ [toDatabase] occupation truncado de ${data.occupation.length} para 255 caracteres`);
+    }
+  }
   if (data.document !== undefined && data.document !== "") dbData.document = data.document;
   if (data.cpf !== undefined && data.cpf !== "") dbData.cpf = data.cpf;
   if (data.street !== undefined && data.street !== "") dbData.street = data.street;
@@ -35,9 +42,19 @@ function toDatabase(data: Partial<Tenant>): any {
   
   // CAMPOS COM MAPEAMENTO DE NOME
   if (data.marital_status !== undefined && data.marital_status !== "") {
-    dbData.marital_status = data.marital_status;
+    // ✅ VALIDAÇÃO: marital_status max 50 caracteres
+    const maritalStatus = data.marital_status.substring(0, 50);
+    dbData.marital_status = maritalStatus;
+    if (data.marital_status.length > 50) {
+      console.warn(`⚠️ [toDatabase] marital_status truncado de ${data.marital_status.length} para 50 caracteres`);
+    }
   } else if (data.maritalStatus !== undefined && data.maritalStatus !== "") {
-    dbData.marital_status = data.maritalStatus;
+    // ✅ VALIDAÇÃO: marital_status max 50 caracteres
+    const maritalStatus = data.maritalStatus.substring(0, 50);
+    dbData.marital_status = maritalStatus;
+    if (data.maritalStatus.length > 50) {
+      console.warn(`⚠️ [toDatabase] marital_status truncado de ${data.maritalStatus.length} para 50 caracteres`);
+    }
   }
   
   if (data.document_type !== undefined) {
@@ -50,15 +67,21 @@ function toDatabase(data: Partial<Tenant>): any {
     dbData.zip_code = data.cep;
   }
   
-  // MONTHLY_INCOME - garantir que seja número
+  // MONTHLY_INCOME - garantir que seja número com MÁXIMO 2 casas decimais
   if (data.monthly_income !== undefined && data.monthly_income !== null) {
-    dbData.monthly_income = typeof data.monthly_income === 'string' 
+    const rawValue = typeof data.monthly_income === 'string' 
       ? parseFloat(data.monthly_income) 
       : data.monthly_income;
+    // ✅ CRÍTICO: Arredondar para 2 casas decimais (banco é numeric(10,2))
+    dbData.monthly_income = Math.round(rawValue * 100) / 100;
+    console.log(`💰 [toDatabase] monthly_income: ${data.monthly_income} → ${dbData.monthly_income} (arredondado para 2 decimais)`);
   } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
-    dbData.monthly_income = typeof data.monthlyIncome === 'string' 
+    const rawValue = typeof data.monthlyIncome === 'string' 
       ? parseFloat(data.monthlyIncome) 
       : data.monthlyIncome;
+    // ✅ CRÍTICO: Arredondar para 2 casas decimais (banco é numeric(10,2))
+    dbData.monthly_income = Math.round(rawValue * 100) / 100;
+    console.log(`💰 [toDatabase] monthly_income: ${data.monthlyIncome} → ${dbData.monthly_income} (arredondado para 2 decimais)`);
   }
   
   console.log("📤 [tenantService.toDatabase] PAYLOAD FINAL:", JSON.stringify(dbData, null, 2));
