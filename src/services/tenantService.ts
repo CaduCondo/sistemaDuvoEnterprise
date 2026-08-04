@@ -14,42 +14,71 @@ const TABLE = "tenants";
 function toDatabase(data: Partial<Tenant>): any {
   console.log("🔄 [tenantService.toDatabase] Dados recebidos:", JSON.stringify(data, null, 2));
   
-  // ✅ ABORDAGEM ULTRA-SIMPLES: Criar objeto limpo com APENAS os campos que vieram do form
+  // ✅ ABORDAGEM RADICAL: Criar objeto APENAS com campos que TÊM valores REAIS
   const dbData: any = {};
   
-  // CAMPOS DIRETOS (sem mapeamento) - enviar exatamente como vieram
-  if (data.name !== undefined && data.name !== "") dbData.name = data.name;
-  if (data.email !== undefined && data.email !== "") dbData.email = data.email;
-  if (data.phone !== undefined && data.phone !== "") dbData.phone = data.phone;
-  if (data.status !== undefined) dbData.status = data.status;
-  if (data.rg !== undefined && data.rg !== "") dbData.rg = data.rg;
-  if (data.occupation !== undefined && data.occupation !== "") {
-    // ✅ VALIDAÇÃO: occupation max 255 caracteres
+  // ✅ CAMPOS OBRIGATÓRIOS - incluir SEMPRE (mesmo que vazios, pois são required)
+  if (data.name !== undefined) dbData.name = data.name;
+  if (data.email !== undefined) dbData.email = data.email;
+  if (data.phone !== undefined) dbData.phone = data.phone;
+  
+  // ✅ CAMPOS OPCIONAIS - incluir APENAS se tiverem valor REAL (não vazio)
+  if (data.status !== undefined && data.status !== "") {
+    dbData.status = data.status;
+  }
+  
+  if (data.rg !== undefined && data.rg !== null && data.rg !== "") {
+    dbData.rg = data.rg;
+  }
+  
+  if (data.occupation !== undefined && data.occupation !== null && data.occupation !== "") {
     const occupation = data.occupation.substring(0, 255);
     dbData.occupation = occupation;
     if (data.occupation.length > 255) {
       console.warn(`⚠️ [toDatabase] occupation truncado de ${data.occupation.length} para 255 caracteres`);
     }
   }
-  if (data.document !== undefined && data.document !== "") dbData.document = data.document;
-  if (data.cpf !== undefined && data.cpf !== "") dbData.cpf = data.cpf;
-  if (data.street !== undefined && data.street !== "") dbData.street = data.street;
-  if (data.number !== undefined && data.number !== "") dbData.number = data.number;
-  if (data.complement !== undefined && data.complement !== "") dbData.complement = data.complement;
-  if (data.neighborhood !== undefined && data.neighborhood !== "") dbData.neighborhood = data.neighborhood;
-  if (data.city !== undefined && data.city !== "") dbData.city = data.city;
-  if (data.state !== undefined && data.state !== "") dbData.state = data.state;
   
-  // CAMPOS COM MAPEAMENTO DE NOME
-  if (data.marital_status !== undefined && data.marital_status !== "") {
-    // ✅ VALIDAÇÃO: marital_status max 50 caracteres
+  if (data.document !== undefined && data.document !== null && data.document !== "") {
+    dbData.document = data.document;
+  }
+  
+  if (data.cpf !== undefined && data.cpf !== null && data.cpf !== "") {
+    dbData.cpf = data.cpf;
+  }
+  
+  if (data.street !== undefined && data.street !== null && data.street !== "") {
+    dbData.street = data.street;
+  }
+  
+  if (data.number !== undefined && data.number !== null && data.number !== "") {
+    dbData.number = data.number;
+  }
+  
+  if (data.complement !== undefined && data.complement !== null && data.complement !== "") {
+    dbData.complement = data.complement;
+  }
+  
+  if (data.neighborhood !== undefined && data.neighborhood !== null && data.neighborhood !== "") {
+    dbData.neighborhood = data.neighborhood;
+  }
+  
+  if (data.city !== undefined && data.city !== null && data.city !== "") {
+    dbData.city = data.city;
+  }
+  
+  if (data.state !== undefined && data.state !== null && data.state !== "") {
+    dbData.state = data.state;
+  }
+  
+  // MARITAL_STATUS com validação de tamanho
+  if (data.marital_status !== undefined && data.marital_status !== null && data.marital_status !== "") {
     const maritalStatus = data.marital_status.substring(0, 50);
     dbData.marital_status = maritalStatus;
     if (data.marital_status.length > 50) {
       console.warn(`⚠️ [toDatabase] marital_status truncado de ${data.marital_status.length} para 50 caracteres`);
     }
-  } else if (data.maritalStatus !== undefined && data.maritalStatus !== "") {
-    // ✅ VALIDAÇÃO: marital_status max 50 caracteres
+  } else if (data.maritalStatus !== undefined && data.maritalStatus !== null && data.maritalStatus !== "") {
     const maritalStatus = data.maritalStatus.substring(0, 50);
     dbData.marital_status = maritalStatus;
     if (data.maritalStatus.length > 50) {
@@ -57,31 +86,39 @@ function toDatabase(data: Partial<Tenant>): any {
     }
   }
   
-  if (data.document_type !== undefined) {
+  // DOCUMENT_TYPE - só enviar se tiver valor
+  if (data.document_type !== undefined && data.document_type !== null && data.document_type !== "") {
     dbData.document_type = data.document_type;
-  } else if (data.documentType !== undefined) {
+  } else if (data.documentType !== undefined && data.documentType !== null && data.documentType !== "") {
     dbData.document_type = data.documentType;
   }
   
-  if (data.cep !== undefined && data.cep !== "") {
+  // CEP → zip_code
+  if (data.cep !== undefined && data.cep !== null && data.cep !== "") {
     dbData.zip_code = data.cep;
   }
   
   // MONTHLY_INCOME - garantir que seja número com MÁXIMO 2 casas decimais
-  if (data.monthly_income !== undefined && data.monthly_income !== null) {
+  if (data.monthly_income !== undefined && data.monthly_income !== null && data.monthly_income !== 0) {
     const rawValue = typeof data.monthly_income === 'string' 
       ? parseFloat(data.monthly_income) 
       : data.monthly_income;
-    // ✅ CRÍTICO: Arredondar para 2 casas decimais (banco é numeric(10,2))
-    dbData.monthly_income = Math.round(rawValue * 100) / 100;
-    console.log(`💰 [toDatabase] monthly_income: ${data.monthly_income} → ${dbData.monthly_income} (arredondado para 2 decimais)`);
-  } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
+    
+    // ✅ Verificar se é um número válido
+    if (!isNaN(rawValue) && rawValue > 0) {
+      dbData.monthly_income = Math.round(rawValue * 100) / 100;
+      console.log(`💰 [toDatabase] monthly_income: ${data.monthly_income} → ${dbData.monthly_income} (arredondado para 2 decimais)`);
+    }
+  } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null && data.monthlyIncome !== 0) {
     const rawValue = typeof data.monthlyIncome === 'string' 
       ? parseFloat(data.monthlyIncome) 
       : data.monthlyIncome;
-    // ✅ CRÍTICO: Arredondar para 2 casas decimais (banco é numeric(10,2))
-    dbData.monthly_income = Math.round(rawValue * 100) / 100;
-    console.log(`💰 [toDatabase] monthly_income: ${data.monthlyIncome} → ${dbData.monthly_income} (arredondado para 2 decimais)`);
+    
+    // ✅ Verificar se é um número válido
+    if (!isNaN(rawValue) && rawValue > 0) {
+      dbData.monthly_income = Math.round(rawValue * 100) / 100;
+      console.log(`💰 [toDatabase] monthly_income: ${data.monthlyIncome} → ${dbData.monthly_income} (arredondado para 2 decimais)`);
+    }
   }
   
   console.log("📤 [tenantService.toDatabase] PAYLOAD FINAL:", JSON.stringify(dbData, null, 2));
