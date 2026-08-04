@@ -64,6 +64,24 @@ function toDatabase(data: Partial<Tenant>): any {
   console.log("📤 [tenantService.toDatabase] PAYLOAD FINAL:", JSON.stringify(dbData, null, 2));
   console.log("📤 [tenantService.toDatabase] Campos enviados:", Object.keys(dbData));
   
+  // ✅ LOG ULTRA-DETALHADO de cada campo
+  console.log("\n🔍 DETALHAMENTO DO PAYLOAD FINAL:");
+  for (const key in dbData) {
+    const value = dbData[key];
+    const valueType = typeof value;
+    
+    if (valueType === 'string') {
+      console.log(`  📤 "${key}": tipo=string, tamanho=${value.length}, valor="${value}"`);
+    } else if (valueType === 'number') {
+      console.log(`  📤 "${key}": tipo=number, valor=${value}`);
+    } else if (value === null) {
+      console.log(`  📤 "${key}": tipo=null, valor=null`);
+    } else {
+      console.log(`  📤 "${key}": tipo=${valueType}, valor=${JSON.stringify(value)}`);
+    }
+  }
+  console.log("🔍 FIM DO DETALHAMENTO\n");
+  
   return dbData;
 }
 
