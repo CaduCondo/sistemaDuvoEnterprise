@@ -23,7 +23,7 @@ function toDatabase(data: Partial<Tenant>): any {
   if (data.phone !== undefined) dbData.phone = data.phone;
   
   // ✅ CAMPOS OPCIONAIS - incluir APENAS se tiverem valor REAL (não vazio)
-  if (data.status !== undefined && data.status !== "") {
+  if (data.status !== undefined) {
     dbData.status = data.status;
   }
   
