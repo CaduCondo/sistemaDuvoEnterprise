@@ -27,19 +27,12 @@ function toDatabase(data: Partial<Tenant>): any {
   const receivedKeys = Object.keys(nonEmptyData);
   console.log("🔍 [tenantService.toDatabase] Campos com valor:", receivedKeys);
   
-  // ✅ ATALHO RÁPIDO: Se recebeu APENAS status, enviar APENAS status mapeado
+  // ✅ ATALHO RÁPIDO: Se recebeu APENAS status, enviar APENAS status (SEM mapeamento)
   if (receivedKeys.length === 1 && receivedKeys[0] === 'status') {
     console.log("⚡ [tenantService.toDatabase] APENAS status foi enviado - atalho rápido ativado!");
-    const statusMap: Record<string, string> = {
-      "new": "active",
-      "active": "active",
-      "rented": "rented",
-      "inactive": "inactive"
-    };
-    const mappedStatus = statusMap[nonEmptyData.status] || "active";
-    console.log(`📤 [tenantService.toDatabase] Status mapeado: ${nonEmptyData.status} → ${mappedStatus}`);
-    console.log(`✅ [tenantService.toDatabase] RETORNANDO: { status: "${mappedStatus}" }`);
-    return { status: mappedStatus };
+    console.log(`📤 [tenantService.toDatabase] Status: ${nonEmptyData.status} (enviando direto, SEM mapeamento)`);
+    console.log(`✅ [tenantService.toDatabase] RETORNANDO: { status: "${nonEmptyData.status}" }`);
+    return { status: nonEmptyData.status };
   }
   
   console.log("📝 [tenantService.toDatabase] Processamento normal (múltiplos campos ou campo diferente de status)");
@@ -58,16 +51,10 @@ function toDatabase(data: Partial<Tenant>): any {
   if (data.email !== undefined && data.email !== "") dbData.email = data.email;
   if (data.phone !== undefined && data.phone !== "") dbData.phone = data.phone;
   
-  // ✅ STATUS - SEMPRE mapear "new" → "active" (banco NÃO aceita "new")
+  // ✅ STATUS - ENVIAR DIRETO, SEM MAPEAMENTO (frontend e banco usam mesmos valores)
   if (data.status !== undefined) {
-    const statusMap: Record<string, string> = {
-      "new": "active",
-      "active": "active",
-      "rented": "rented",
-      "inactive": "inactive"
-    };
-    dbData.status = statusMap[data.status] || "active";
-    console.log(`📋 [tenantService.toDatabase] Status mapeado: ${data.status} → ${dbData.status}`);
+    dbData.status = data.status;
+    console.log(`📋 [tenantService.toDatabase] Status: ${data.status} (enviando direto)`);
   }
   
   // ✅ DOCUMENTOS
@@ -205,32 +192,32 @@ export async function getAllTenants(): Promise<Tenant[]> {
     const tenant = fromDatabase(data);
     const rentalStatuses = rentalsMap.get(tenant.id) || [];
     
-    // ✅ NOVA LÓGICA CORRIGIDA: 
+    // ✅ NOVA LÓGICA SIMPLIFICADA (sem mapeamento - frontend e banco usam mesmos valores):
     // 1. Se tem locação ativa → SEMPRE é "rented" (sobrescreve qualquer status manual)
-    // 2. Se NÃO tem locação ativa E status no banco é "rented" → converter para "new" (disponível)
-    // 3. Caso contrário → respeitar o status do banco
+    // 2. Se NÃO tem locação ativa E status no banco é "rented" → converter para "active" (disponível)
+    // 3. Caso contrário → respeitar o status do banco (active ou inactive)
     
-    let finalStatus: "new" | "rented" | "inactive";
+    let finalStatus: "active" | "rented" | "inactive";
     
     // REGRA 1: Se tem locação ativa, SEMPRE é "rented" (sobrescreve qualquer status manual)
     if (rentalStatuses.includes("active")) {
       finalStatus = "rented";
       console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'rented' (tem locação ativa - SOBRESCRITO)`);
     }
-    // REGRA 2: Se NÃO tem locação ativa MAS status no banco é "rented" → converter para "new" (disponível)
+    // REGRA 2: Se NÃO tem locação ativa MAS status no banco é "rented" → converter para "active" (disponível)
     else if (data.status === "rented" && !rentalStatuses.includes("active")) {
-      finalStatus = "new";
-      console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'new' (era 'rented' mas NÃO tem locação ativa - CORRIGIDO)`);
+      finalStatus = "active";
+      console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'active' (era 'rented' mas NÃO tem locação ativa - CORRIGIDO)`);
     }
     // REGRA 3: Respeitar status do banco para "inactive"
     else if (data.status === "inactive") {
       finalStatus = "inactive";
       console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'inactive' (respeitando banco)`);
     }
-    // REGRA 4: Caso contrário (status "active" no banco) → mostrar como "new"
+    // REGRA 4: Caso contrário (status "active" no banco) → manter "active"
     else {
-      finalStatus = "new";
-      console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'new' (respeitando banco)`);
+      finalStatus = "active";
+      console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'active' (respeitando banco)`);
     }
     
     return {
@@ -241,7 +228,7 @@ export async function getAllTenants(): Promise<Tenant[]> {
   
   const uniqueStatuses = [...new Set(result.map(t => t.status))];
   console.log(`✅ [tenantService] Status únicos encontrados:`, uniqueStatuses);
-  console.log(`📊 [tenantService] Resumo: ${result.filter(t => t.status === "new").length} novos, ${result.filter(t => t.status === "rented").length} locatários, ${result.filter(t => t.status === "inactive").length} inativos`);
+  console.log(`📊 [tenantService] Resumo: ${result.filter(t => t.status === "active").length} disponíveis, ${result.filter(t => t.status === "rented").length} locatários, ${result.filter(t => t.status === "inactive").length} inativos`);
   
   return result;
 }
@@ -359,15 +346,9 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     if (tenant && oldData) {
       const changes: string[] = [];
       
-      // Mapear status do banco para frontend antes de comparar
-      const statusMap: Record<string, string> = {
-        "active": "new",
-        "rented": "rented",
-        "inactive": "inactive"
-      };
-      
-      const oldStatus = statusMap[oldData.status] || oldData.status;
-      const newStatus = statusMap[tenant.status] || tenant.status;
+      // ✅ SEM MAPEAMENTO - frontend e banco usam mesmos valores
+      const oldStatus = oldData.status;
+      const newStatus = tenant.status;
       
       if (oldData.name !== tenant.name) {
         changes.push(`name: de=${oldData.name} -> para=${tenant.name}`);
@@ -472,7 +453,7 @@ export const update = async (
   // ✅ CORREÇÃO: Fazer cast do status para o tipo literal correto
   return {
     ...data,
-    status: data.status as "new" | "rented" | "inactive",
+    status: data.status as "active" | "rented" | "inactive",
   } as Tenant;
 };
 
@@ -585,7 +566,7 @@ export async function getActive(): Promise<Tenant[]> {
     (tenant: any) => !rentalsMap.has(tenant.id)
   );
   
-  console.log(`✅ [tenantService.getActive] ${newTenants.length} inquilinos com status "new" (nunca tiveram locações)`);
+  console.log(`✅ [tenantService.getActive] ${newTenants.length} inquilinos com status "active" (nunca tiveram locações)`);
   
   return newTenants as unknown as Tenant[];
 }

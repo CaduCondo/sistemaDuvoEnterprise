@@ -34,7 +34,7 @@ interface FormState {
   neighborhood: string;
   city: string;
   state: string;
-  status: "new" | "rented" | "inactive";
+  status: "active" | "rented" | "inactive";
 }
 
 const INITIAL_FORM_STATE: FormState = {
@@ -55,7 +55,7 @@ const INITIAL_FORM_STATE: FormState = {
   neighborhood: "",
   city: "",
   state: "",
-  status: "new",
+  status: "active",
 };
 
 const PersonalDataSection = memo(function PersonalDataSection({
@@ -248,7 +248,7 @@ const PersonalDataSection = memo(function PersonalDataSection({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="new">Novo</SelectItem>
+                <SelectItem value="active">Disponível</SelectItem>
                 <SelectItem value="rented">Locatário</SelectItem>
                 <SelectItem value="inactive">Inativo</SelectItem>
               </SelectContent>
@@ -414,7 +414,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         neighborhood: tenant.neighborhood || "",
         city: tenant.city || "",
         state: tenant.state || "",
-        status: tenant.status || "new",
+        status: tenant.status || "active",
       });
       setDocumentType(docType);
     } else {
@@ -521,7 +521,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
   }, []);
 
   const handleStatusChange = useCallback((value: string) => {
-    setFormData(prev => ({ ...prev, status: value as "new" | "rented" | "inactive" }));
+    setFormData(prev => ({ ...prev, status: value as "active" | "rented" | "inactive" }));
   }, []);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
@@ -557,7 +557,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         console.log(`🔄 [TenantFormDialog] Campo "phone" mudou: "${tenant.phone}" → "${formData.phone}"`);
       }
       
-      if (formData.status !== (tenant.status || "new")) {
+      if (formData.status !== (tenant.status || "active")) {
         newTenantData.status = formData.status;
         console.log(`🔄 [TenantFormDialog] Campo "status" mudou: "${tenant.status}" → "${formData.status}"`);
       }
@@ -660,7 +660,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         neighborhood: formData.neighborhood,
         city: formData.city,
         state: formData.state,
-        status: formData.status as "new" | "rented" | "inactive",
+        status: formData.status as "active" | "rented" | "inactive",
       };
     }
 
