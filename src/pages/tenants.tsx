@@ -17,17 +17,6 @@ import { useAlert } from "@/contexts/AlertContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpDialog } from "@/components/HelpDialog";
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
-  new: { label: "Novo", variant: "default" as const, className: "bg-green-500 text-white hover:bg-green-600" },
-  rented: { label: "Locatário", variant: "default" as const, className: "bg-blue-500 text-white hover:bg-blue-600" },
-  inactive: { label: "Inativo", variant: "destructive" as const, className: "bg-red-500 text-white hover:bg-red-600" },
-  active: { 
-    label: "Disponível", 
-    variant: "default" as const,
-    className: "bg-green-100 text-green-800 border-green-200" 
-  },
-};
-
 export default function TenantsPage() {
   const router = useRouter();
   const { showAlert } = useAlert();
@@ -227,6 +216,11 @@ export default function TenantsPage() {
   }, []);
 
   const getStatusBadge = useCallback((status: "active" | "rented" | "inactive") => {
+    // ✅ VALIDAÇÃO: Garantir que status seja válido
+    const validStatus = (status === "active" || status === "rented" || status === "inactive") 
+      ? status 
+      : "active";
+    
     const statusConfig = {
       active: { 
         label: "Disponível", 
@@ -245,7 +239,9 @@ export default function TenantsPage() {
       },
     };
 
-    const config = statusConfig[status] || statusConfig.active;
+    // ✅ GARANTIA: Sempre usar o status validado
+    const config = statusConfig[validStatus];
+    
     return (
       <Badge variant={config.variant} className={config.className}>
         {config.label}
