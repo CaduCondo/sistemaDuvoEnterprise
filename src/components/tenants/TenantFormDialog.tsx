@@ -532,31 +532,23 @@ export const TenantFormDialog = memo(function TenantFormDialog({
     console.log("🔍 [TenantFormDialog] Inquilino original:", tenant ? JSON.stringify(tenant, null, 2) : "null");
     console.log("🔍 [TenantFormDialog] FormData atual:", JSON.stringify(formData, null, 2));
 
-    // ✅ NOVO: Se está EDITANDO, enviar APENAS campos que mudaram
+    // ✅ NOVO: Se está EDITANDO, enviar SEMPRE campos obrigatórios + os que mudaram
     let newTenantData: any;
     
     if (tenant) {
-      // MODO EDIÇÃO: Comparar valores e enviar APENAS o que mudou
-      console.log("📝 [TenantFormDialog] Comparando campos para detectar mudanças...");
+      // MODO EDIÇÃO: SEMPRE incluir name, email, phone + outros campos que mudaram
+      console.log("📝 [TenantFormDialog] MODO EDIÇÃO - incluindo campos obrigatórios + campos que mudaram");
       
-      newTenantData = {};
+      newTenantData = {
+        // ✅ CAMPOS OBRIGATÓRIOS - SEMPRE incluir (mesmo que não tenham mudado)
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+      };
       
-      // Comparar cada campo
-      if (formData.name !== (tenant.name || "")) {
-        newTenantData.name = formData.name;
-        console.log(`🔄 [TenantFormDialog] Campo "name" mudou: "${tenant.name}" → "${formData.name}"`);
-      }
+      console.log("✅ [TenantFormDialog] Campos obrigatórios incluídos: name, email, phone");
       
-      if (formData.email !== (tenant.email || "")) {
-        newTenantData.email = formData.email;
-        console.log(`🔄 [TenantFormDialog] Campo "email" mudou: "${tenant.email}" → "${formData.email}"`);
-      }
-      
-      if (formData.phone !== (tenant.phone || "")) {
-        newTenantData.phone = formData.phone;
-        console.log(`🔄 [TenantFormDialog] Campo "phone" mudou: "${tenant.phone}" → "${formData.phone}"`);
-      }
-      
+      // ✅ CAMPOS OPCIONAIS - incluir apenas se mudaram
       if (formData.status !== (tenant.status || "active")) {
         newTenantData.status = formData.status;
         console.log(`🔄 [TenantFormDialog] Campo "status" mudou: "${tenant.status}" → "${formData.status}"`);
@@ -564,22 +556,22 @@ export const TenantFormDialog = memo(function TenantFormDialog({
       
       if (formData.cpf !== (tenant.cpf || "")) {
         newTenantData.cpf = formData.cpf;
-        console.log(`🔄 [TenantFormDialog] Campo "cpf" mudou: "${tenant.cpf}" → "${formData.cpf}"`);
+        console.log(`🔄 [TenantFormDialog] Campo "cpf" mudou`);
       }
       
       if (formData.cnpj !== (tenant.cnpj || "")) {
         newTenantData.cnpj = formData.cnpj;
-        console.log(`🔄 [TenantFormDialog] Campo "cnpj" mudou: "${tenant.cnpj}" → "${formData.cnpj}"`);
+        console.log(`🔄 [TenantFormDialog] Campo "cnpj" mudou`);
       }
       
       if (formData.rg !== (tenant.rg || "")) {
         newTenantData.rg = formData.rg;
-        console.log(`🔄 [TenantFormDialog] Campo "rg" mudou: "${tenant.rg}" → "${formData.rg}"`);
+        console.log(`🔄 [TenantFormDialog] Campo "rg" mudou`);
       }
       
       if (formData.occupation !== (tenant.occupation || "")) {
         newTenantData.occupation = formData.occupation;
-        console.log(`🔄 [TenantFormDialog] Campo "occupation" mudou: "${tenant.occupation}" → "${formData.occupation}"`);
+        console.log(`🔄 [TenantFormDialog] Campo "occupation" mudou`);
       }
       
       if (formData.maritalStatus !== (tenant.marital_status || tenant.maritalStatus || "")) {
@@ -596,10 +588,10 @@ export const TenantFormDialog = memo(function TenantFormDialog({
       
       if (documentType !== (tenant.document_type || tenant.documentType || "cpf")) {
         newTenantData.document_type = documentType;
-        console.log(`🔄 [TenantFormDialog] Campo "document_type" mudou: "${tenant.document_type}" → "${documentType}"`);
+        console.log(`🔄 [TenantFormDialog] Campo "document_type" mudou`);
       }
       
-      // Endereço
+      // Endereço - incluir se mudou
       if (formData.cep !== (tenant.cep || "")) {
         newTenantData.cep = formData.cep;
         console.log(`🔄 [TenantFormDialog] Campo "cep" mudou`);
@@ -635,7 +627,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         console.log(`🔄 [TenantFormDialog] Campo "state" mudou`);
       }
       
-      console.log(`📊 [TenantFormDialog] Total de campos que mudaram: ${Object.keys(newTenantData).length}`);
+      console.log(`📊 [TenantFormDialog] Total de campos no payload: ${Object.keys(newTenantData).length}`);
       console.log(`📤 [TenantFormDialog] Campos que serão enviados:`, Object.keys(newTenantData));
       
     } else {
