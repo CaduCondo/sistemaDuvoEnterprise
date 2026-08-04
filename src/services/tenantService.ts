@@ -27,15 +27,42 @@ function toDatabase(data: Partial<Tenant>): any {
   const receivedKeys = Object.keys(nonEmptyData);
   console.log("🔍 [tenantService.toDatabase] Campos com valor:", receivedKeys);
   
-  // ✅ ATALHO RÁPIDO: Se recebeu APENAS status, enviar APENAS status (SEM mapeamento)
-  if (receivedKeys.length === 1 && receivedKeys[0] === 'status') {
-    console.log("⚡ [tenantService.toDatabase] APENAS status foi enviado - atalho rápido ativado!");
-    console.log(`📤 [tenantService.toDatabase] Status: ${nonEmptyData.status} (enviando direto, SEM mapeamento)`);
-    console.log(`✅ [tenantService.toDatabase] RETORNANDO: { status: "${nonEmptyData.status}" }`);
-    return { status: nonEmptyData.status };
+  // ✅ ATALHOS RÁPIDOS: Se recebeu APENAS 1 campo simples, enviar direto (sem processamento complexo)
+  if (receivedKeys.length === 1) {
+    const singleKey = receivedKeys[0];
+    const singleValue = nonEmptyData[singleKey];
+    
+    // STATUS - enviar direto
+    if (singleKey === 'status') {
+      console.log("⚡ [tenantService.toDatabase] APENAS status - atalho rápido!");
+      console.log(`✅ [tenantService.toDatabase] RETORNANDO: { status: "${singleValue}" }`);
+      return { status: singleValue };
+    }
+    
+    // MONTHLY_INCOME - garantir que é número
+    if (singleKey === 'monthly_income') {
+      const numValue = typeof singleValue === 'string' ? parseFloat(singleValue) : singleValue;
+      console.log("⚡ [tenantService.toDatabase] APENAS monthly_income - atalho rápido!");
+      console.log(`✅ [tenantService.toDatabase] RETORNANDO: { monthly_income: ${numValue} }`);
+      return { monthly_income: numValue };
+    }
+    
+    // PHONE, EMAIL, OCCUPATION - enviar direto como string
+    if (['phone', 'email', 'occupation'].includes(singleKey)) {
+      console.log(`⚡ [tenantService.toDatabase] APENAS ${singleKey} - atalho rápido!`);
+      console.log(`✅ [tenantService.toDatabase] RETORNANDO: { ${singleKey}: "${singleValue}" }`);
+      return { [singleKey]: singleValue };
+    }
+    
+    // MARITAL_STATUS - mapear para marital_status
+    if (singleKey === 'maritalStatus') {
+      console.log("⚡ [tenantService.toDatabase] APENAS maritalStatus - atalho rápido!");
+      console.log(`✅ [tenantService.toDatabase] RETORNANDO: { marital_status: "${singleValue}" }`);
+      return { marital_status: singleValue };
+    }
   }
   
-  console.log("📝 [tenantService.toDatabase] Processamento normal (múltiplos campos ou campo diferente de status)");
+  console.log("📝 [tenantService.toDatabase] Processamento normal (múltiplos campos ou campo que requer processamento)");
   
   // ✅ LISTA DE CAMPOS VÁLIDOS DO SCHEMA 'tenants'
   const VALID_FIELDS = [
