@@ -12,234 +12,59 @@ import { logAudit } from "./auditService";
 const TABLE = "tenants";
 
 function toDatabase(data: Partial<Tenant>): any {
-  console.log("🔄 [tenantService.toDatabase] Dados recebidos:", data);
-  console.log("🔍 [tenantService.toDatabase] Campos recebidos (bruto):", Object.keys(data));
+  console.log("🔄 [tenantService.toDatabase] Dados recebidos:", JSON.stringify(data, null, 2));
   
-  // ✅ CORREÇÃO CRÍTICA: Filtrar undefined/null ANTES de verificar quantidade de campos
-  const nonEmptyData: any = {};
-  for (const key in data) {
-    const value = data[key as keyof Tenant];
-    if (value !== undefined && value !== null) {
-      nonEmptyData[key] = value;
-    }
-  }
-  
-  const receivedKeys = Object.keys(nonEmptyData);
-  console.log("🔍 [tenantService.toDatabase] Campos com valor:", receivedKeys);
-  
-  // ✅ ATALHOS RÁPIDOS: Se recebeu APENAS 1 campo simples, enviar direto (sem processamento complexo)
-  if (receivedKeys.length === 1) {
-    const singleKey = receivedKeys[0];
-    const singleValue = nonEmptyData[singleKey];
-    
-    // STATUS - enviar direto
-    if (singleKey === 'status') {
-      console.log("⚡ [tenantService.toDatabase] APENAS status - atalho rápido!");
-      console.log(`✅ [tenantService.toDatabase] RETORNANDO: { status: "${singleValue}" }`);
-      return { status: singleValue };
-    }
-    
-    // MONTHLY_INCOME - garantir que é número
-    if (singleKey === 'monthly_income') {
-      const numValue = typeof singleValue === 'string' ? parseFloat(singleValue) : singleValue;
-      console.log("⚡ [tenantService.toDatabase] APENAS monthly_income - atalho rápido!");
-      console.log(`✅ [tenantService.toDatabase] RETORNANDO: { monthly_income: ${numValue} }`);
-      return { monthly_income: numValue };
-    }
-    
-    // PHONE, EMAIL, OCCUPATION - enviar direto como string
-    if (['phone', 'email', 'occupation'].includes(singleKey)) {
-      console.log(`⚡ [tenantService.toDatabase] APENAS ${singleKey} - atalho rápido!`);
-      console.log(`✅ [tenantService.toDatabase] RETORNANDO: { ${singleKey}: "${singleValue}" }`);
-      return { [singleKey]: singleValue };
-    }
-    
-    // MARITAL_STATUS - mapear para marital_status
-    if (singleKey === 'maritalStatus') {
-      console.log("⚡ [tenantService.toDatabase] APENAS maritalStatus - atalho rápido!");
-      console.log(`✅ [tenantService.toDatabase] RETORNANDO: { marital_status: "${singleValue}" }`);
-      return { marital_status: singleValue };
-    }
-  }
-  
-  console.log("📝 [tenantService.toDatabase] Processamento normal (múltiplos campos ou campo que requer processamento)");
-  
-  // ✅ LISTA DE CAMPOS VÁLIDOS DO SCHEMA 'tenants'
-  const VALID_FIELDS = [
-    'name', 'email', 'phone', 'status', 'document', 'document_type', 'cpf',
-    'rg', 'occupation', 'marital_status', 'monthly_income',
-    'street', 'number', 'complement', 'neighborhood', 'city', 'state', 'zip_code'
-  ];
-  
+  // ✅ ABORDAGEM ULTRA-SIMPLES: Criar objeto limpo com APENAS os campos que vieram do form
   const dbData: any = {};
   
-  console.log("\n🔍 ===== INÍCIO DO PROCESSAMENTO DE CAMPOS =====");
+  // CAMPOS DIRETOS (sem mapeamento) - enviar exatamente como vieram
+  if (data.name !== undefined && data.name !== "") dbData.name = data.name;
+  if (data.email !== undefined && data.email !== "") dbData.email = data.email;
+  if (data.phone !== undefined && data.phone !== "") dbData.phone = data.phone;
+  if (data.status !== undefined) dbData.status = data.status;
+  if (data.rg !== undefined && data.rg !== "") dbData.rg = data.rg;
+  if (data.occupation !== undefined && data.occupation !== "") dbData.occupation = data.occupation;
+  if (data.document !== undefined && data.document !== "") dbData.document = data.document;
+  if (data.cpf !== undefined && data.cpf !== "") dbData.cpf = data.cpf;
+  if (data.street !== undefined && data.street !== "") dbData.street = data.street;
+  if (data.number !== undefined && data.number !== "") dbData.number = data.number;
+  if (data.complement !== undefined && data.complement !== "") dbData.complement = data.complement;
+  if (data.neighborhood !== undefined && data.neighborhood !== "") dbData.neighborhood = data.neighborhood;
+  if (data.city !== undefined && data.city !== "") dbData.city = data.city;
+  if (data.state !== undefined && data.state !== "") dbData.state = data.state;
   
-  // ✅ CAMPOS OBRIGATÓRIOS
-  if (data.name !== undefined && data.name !== "") {
-    dbData.name = data.name;
-    console.log(`✅ Campo "name": tipo=${typeof data.name}, valor="${data.name}"`);
-  }
-  if (data.email !== undefined && data.email !== "") {
-    dbData.email = data.email;
-    console.log(`✅ Campo "email": tipo=${typeof data.email}, valor="${data.email}"`);
-  }
-  if (data.phone !== undefined && data.phone !== "") {
-    dbData.phone = data.phone;
-    console.log(`✅ Campo "phone": tipo=${typeof data.phone}, valor="${data.phone}"`);
-  }
-  
-  // ✅ STATUS - ENVIAR DIRETO, SEM MAPEAMENTO (frontend e banco usam mesmos valores)
-  if (data.status !== undefined) {
-    dbData.status = data.status;
-    console.log(`✅ Campo "status": tipo=${typeof data.status}, valor="${data.status}"`);
-  }
-  
-  // ✅ DOCUMENTOS
-  if (data.rg !== undefined && data.rg !== "") {
-    dbData.rg = data.rg;
-    console.log(`✅ Campo "rg": tipo=${typeof data.rg}, valor="${data.rg}"`);
-  }
-  
-  const docType = data.documentType || data.document_type || "cpf";
-  if (data.documentType !== undefined || data.document_type !== undefined) {
-    dbData.document_type = docType;
-    console.log(`✅ Campo "document_type": tipo=${typeof docType}, valor="${docType}"`);
-  }
-  
-  if (docType === "cpf") {
-    const cpfValue = data.cpf || data.document || "";
-    if (cpfValue && cpfValue !== "") {
-      dbData.document = cpfValue;
-      dbData.cpf = cpfValue;
-      console.log(`✅ Campo "document" (CPF): tipo=${typeof cpfValue}, valor="${cpfValue}"`);
-      console.log(`✅ Campo "cpf": tipo=${typeof cpfValue}, valor="${cpfValue}"`);
-    }
-  } else if (docType === "cnpj") {
-    const cnpjValue = data.cnpj || data.document || "";
-    if (cnpjValue && cnpjValue !== "") {
-      dbData.document = cnpjValue;
-      dbData.cpf = null;
-      console.log(`✅ Campo "document" (CNPJ): tipo=${typeof cnpjValue}, valor="${cnpjValue}"`);
-      console.log(`✅ Campo "cpf": tipo=null, valor=null`);
-    }
-  } else if (data.document && data.document !== "") {
-    dbData.document = data.document;
-    const cleanDoc = data.document.replace(/\D/g, "");
-    dbData.document_type = cleanDoc.length === 11 ? "cpf" : "cnpj";
-    if (cleanDoc.length === 11) {
-      dbData.cpf = data.document;
-      console.log(`✅ Campo "document": tipo=${typeof data.document}, valor="${data.document}"`);
-      console.log(`✅ Campo "cpf": tipo=${typeof data.document}, valor="${data.document}"`);
-    } else {
-      dbData.cpf = null;
-      console.log(`✅ Campo "document": tipo=${typeof data.document}, valor="${data.document}"`);
-      console.log(`✅ Campo "cpf": tipo=null, valor=null`);
-    }
-  }
-  
-  // ✅ CAMPOS OPCIONAIS
-  if (data.occupation !== undefined && data.occupation !== "") {
-    dbData.occupation = data.occupation;
-    console.log(`✅ Campo "occupation": tipo=${typeof data.occupation}, valor="${data.occupation}"`);
-  }
-  
+  // CAMPOS COM MAPEAMENTO DE NOME
   if (data.marital_status !== undefined && data.marital_status !== "") {
     dbData.marital_status = data.marital_status;
-    console.log(`✅ Campo "marital_status" (de data.marital_status): tipo=${typeof data.marital_status}, valor="${data.marital_status}"`);
   } else if (data.maritalStatus !== undefined && data.maritalStatus !== "") {
     dbData.marital_status = data.maritalStatus;
-    console.log(`✅ Campo "marital_status" (de data.maritalStatus): tipo=${typeof data.maritalStatus}, valor="${data.maritalStatus}"`);
   }
   
-  if (data.monthly_income !== undefined && data.monthly_income !== null && data.monthly_income !== 0) {
-    const convertedValue = typeof data.monthly_income === 'string' 
-      ? parseFloat(data.monthly_income) 
-      : data.monthly_income;
-    dbData.monthly_income = convertedValue;
-    console.log(`✅ Campo "monthly_income" (de data.monthly_income): tipo_original=${typeof data.monthly_income}, valor_original=${data.monthly_income}, tipo_final=${typeof convertedValue}, valor_final=${convertedValue}`);
-  } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null && data.monthlyIncome !== 0) {
-    const convertedValue = typeof data.monthlyIncome === 'string' 
-      ? parseFloat(data.monthlyIncome) 
-      : data.monthlyIncome;
-    dbData.monthly_income = convertedValue;
-    console.log(`✅ Campo "monthly_income" (de data.monthlyIncome): tipo_original=${typeof data.monthlyIncome}, valor_original=${data.monthlyIncome}, tipo_final=${typeof convertedValue}, valor_final=${convertedValue}`);
+  if (data.document_type !== undefined) {
+    dbData.document_type = data.document_type;
+  } else if (data.documentType !== undefined) {
+    dbData.document_type = data.documentType;
   }
   
-  // ✅ ENDEREÇO
   if (data.cep !== undefined && data.cep !== "") {
     dbData.zip_code = data.cep;
-    console.log(`✅ Campo "zip_code" (de data.cep): tipo=${typeof data.cep}, valor="${data.cep}"`);
-  }
-  if (data.street !== undefined && data.street !== "") {
-    dbData.street = data.street;
-    console.log(`✅ Campo "street": tipo=${typeof data.street}, valor="${data.street}"`);
-  }
-  if (data.number !== undefined && data.number !== "") {
-    dbData.number = data.number;
-    console.log(`✅ Campo "number": tipo=${typeof data.number}, valor="${data.number}"`);
-  }
-  if (data.complement !== undefined && data.complement !== "") {
-    dbData.complement = data.complement;
-    console.log(`✅ Campo "complement": tipo=${typeof data.complement}, valor="${data.complement}"`);
-  }
-  if (data.neighborhood !== undefined && data.neighborhood !== "") {
-    dbData.neighborhood = data.neighborhood;
-    console.log(`✅ Campo "neighborhood": tipo=${typeof data.neighborhood}, valor="${data.neighborhood}"`);
-  }
-  if (data.city !== undefined && data.city !== "") {
-    dbData.city = data.city;
-    console.log(`✅ Campo "city": tipo=${typeof data.city}, valor="${data.city}"`);
-  }
-  if (data.state !== undefined && data.state !== "") {
-    dbData.state = data.state;
-    console.log(`✅ Campo "state": tipo=${typeof data.state}, valor="${data.state}"`);
   }
   
-  console.log("🔍 ===== FIM DO PROCESSAMENTO DE CAMPOS =====\n");
-  console.log(`📊 Total de campos em dbData ANTES da validação final: ${Object.keys(dbData).length}`);
-  console.log(`📊 Campos em dbData:`, Object.keys(dbData));
-  
-  // ✅ VALIDAÇÃO FINAL: Remover undefined/null + validar campos
-  console.log("\n🔍 ===== INÍCIO DA VALIDAÇÃO FINAL =====");
-  
-  const cleanedData: any = {};
-  for (const key in dbData) {
-    const value = dbData[key];
-    
-    console.log(`🔍 Validando campo "${key}": tipo=${typeof value}, valor=${JSON.stringify(value)}, válido?=${VALID_FIELDS.includes(key)}`);
-    
-    // Verificar se é um campo válido
-    if (!VALID_FIELDS.includes(key)) {
-      console.error(`❌ [tenantService.toDatabase] CAMPO INVÁLIDO: "${key}" - PULANDO`);
-      continue;
-    }
-    
-    // ✅ CRÍTICO: Permitir null explícito (para limpar cpf quando muda para cnpj)
-    if (value !== undefined) {
-      cleanedData[key] = value;
-      console.log(`✅ Campo "${key}" PASSOU na validação - INCLUÍDO no payload final`);
-    } else {
-      console.log(`⏭️ Campo "${key}" é undefined - PULANDO`);
-    }
+  // MONTHLY_INCOME - garantir que seja número
+  if (data.monthly_income !== undefined && data.monthly_income !== null) {
+    dbData.monthly_income = typeof data.monthly_income === 'string' 
+      ? parseFloat(data.monthly_income) 
+      : data.monthly_income;
+  } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
+    dbData.monthly_income = typeof data.monthlyIncome === 'string' 
+      ? parseFloat(data.monthlyIncome) 
+      : data.monthlyIncome;
   }
   
-  console.log("🔍 ===== FIM DA VALIDAÇÃO FINAL =====\n");
-  console.log(`📊 Total de campos em cleanedData APÓS validação: ${Object.keys(cleanedData).length}`);
-  console.log(`📊 Campos em cleanedData:`, Object.keys(cleanedData));
+  console.log("📤 [tenantService.toDatabase] PAYLOAD FINAL:", JSON.stringify(dbData, null, 2));
+  console.log("📤 [tenantService.toDatabase] Campos enviados:", Object.keys(dbData));
   
-  console.log("\n📤 ===== PAYLOAD FINAL =====");
-  console.log("📤 [tenantService.toDatabase] PAYLOAD FINAL:", JSON.stringify(cleanedData, null, 2));
-  
-  // ✅ LOG DETALHADO de CADA campo do payload final
-  console.log("\n📤 DETALHAMENTO DO PAYLOAD FINAL:");
-  for (const key in cleanedData) {
-    const value = cleanedData[key];
-    console.log(`📤 "${key}": tipo=${typeof value}, valor=${JSON.stringify(value)}`);
-  }
-  console.log("📤 ===== FIM DO PAYLOAD FINAL =====\n");
-  
-  return cleanedData;
+  return dbData;
 }
 
 function fromDatabase(data: any): Tenant {
