@@ -110,14 +110,35 @@ function toDatabase(data: Partial<Tenant>): any {
       continue; // ✅ PULAR campo inválido (não enviar ao banco)
     }
     
-    // Manter apenas valores válidos
-    if (value !== undefined && value !== "") {
-      cleanedData[key] = value;
+    // ✅ NOVA VALIDAÇÃO: Verificar tipo do valor
+    if (value === undefined || value === null) {
+      console.log(`⏭️ [tenantService.toDatabase] Campo "${key}" é undefined/null - PULANDO`);
+      continue; // ✅ CRÍTICO: NÃO enviar null ao banco - pode causar erro 400
     }
+    
+    if (value === "") {
+      console.log(`⏭️ [tenantService.toDatabase] Campo "${key}" é string vazia - PULANDO`);
+      continue;
+    }
+    
+    // ✅ Validar tipos específicos
+    if (key === 'monthly_income' && typeof value !== 'number') {
+      console.error(`❌ [tenantService.toDatabase] Campo "${key}" deve ser number, recebeu ${typeof value} - PULANDO`);
+      continue;
+    }
+    
+    if (key === 'status' && !['active', 'rented', 'inactive'].includes(value)) {
+      console.error(`❌ [tenantService.toDatabase] Status inválido "${value}" - valores aceitos: active, rented, inactive - PULANDO`);
+      continue;
+    }
+    
+    // Manter apenas valores válidos
+    cleanedData[key] = value;
   }
   
   console.log("📤 [tenantService.toDatabase] Dados LIMPOS para banco:", cleanedData);
   console.log("📤 [tenantService.toDatabase] Campos enviados:", Object.keys(cleanedData));
+  console.log("📤 [tenantService.toDatabase] Total de campos:", Object.keys(cleanedData).length);
   
   // ✅ VERIFICAÇÃO FINAL: Garantir que NENHUM campo inválido está no objeto
   const invalidFields = Object.keys(cleanedData).filter(k => !VALID_FIELDS.includes(k));
@@ -125,6 +146,26 @@ function toDatabase(data: Partial<Tenant>): any {
     console.error(`❌ [tenantService.toDatabase] ERRO CRÍTICO: Campos inválidos detectados após limpeza:`, invalidFields);
     throw new Error(`Campos inválidos detectados: ${invalidFields.join(', ')}`);
   }
+  
+  // ✅ VERIFICAÇÃO DE TIPOS: Garantir que todos os valores têm tipos corretos
+  for (const key in cleanedData) {
+    const value = cleanedData[key];
+    const valueType = typeof value;
+    
+    console.log(`🔍 [tenantService.toDatabase] Campo "${key}": tipo=${valueType}, valor=${JSON.stringify(value)}`);
+    
+    // ✅ CRÍTICO: Verificar se há algum valor problemático
+    if (value === undefined) {
+      console.error(`❌ [tenantService.toDatabase] ERRO: Campo "${key}" ainda é undefined após limpeza!`);
+      delete cleanedData[key];
+    }
+    if (value === null) {
+      console.error(`❌ [tenantService.toDatabase] ERRO: Campo "${key}" é null - REMOVENDO para evitar erro 400!`);
+      delete cleanedData[key];
+    }
+  }
+  
+  console.log("✅ [tenantService.toDatabase] PAYLOAD FINAL:", JSON.stringify(cleanedData, null, 2));
   
   return cleanedData;
 }
