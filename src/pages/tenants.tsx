@@ -21,6 +21,11 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   new: { label: "Novo", variant: "default" as const, className: "bg-green-500 text-white hover:bg-green-600" },
   rented: { label: "Locatário", variant: "default" as const, className: "bg-blue-500 text-white hover:bg-blue-600" },
   inactive: { label: "Inativo", variant: "destructive" as const, className: "bg-red-500 text-white hover:bg-red-600" },
+  active: { 
+    label: "Disponível", 
+    variant: "default" as const,
+    className: "bg-green-100 text-green-800 border-green-200" 
+  },
 };
 
 export default function TenantsPage() {
@@ -221,7 +226,25 @@ export default function TenantsPage() {
     }
   }, []);
 
-  const getStatusBadge = useCallback((status: string) => {
+  const getStatusBadge = useCallback((status: "active" | "rented" | "inactive") => {
+    const statusConfig = {
+      active: { 
+        label: "Disponível", 
+        variant: "default" as const,
+        className: "bg-green-100 text-green-800 border-green-200" 
+      },
+      rented: { 
+        label: "Locatário", 
+        variant: "default" as const,
+        className: "bg-blue-100 text-blue-800 border-blue-200" 
+      },
+      inactive: { 
+        label: "Inativo", 
+        variant: "secondary" as const,
+        className: "bg-gray-100 text-gray-800 border-gray-200" 
+      },
+    };
+
     const config = statusConfig[status] || statusConfig.active;
     return (
       <Badge variant={config.variant} className={config.className}>
