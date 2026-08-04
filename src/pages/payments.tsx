@@ -644,9 +644,9 @@ export default function Payments() {
                 rg: tenantData.rg || "",
                 createdAt: tenantData.created_at,
                 document: tenantData.document || tenantData.cpf || "",
-                status: (tenantData.status === "new" || tenantData.status === "inactive" || tenantData.status === "rented")
+                status: (tenantData.status === "active" || tenantData.status === "inactive" || tenantData.status === "rented")
                   ? tenantData.status
-                  : "new" as "new" | "inactive" | "rented",
+                  : "active" as "active" | "inactive" | "rented",
               };
               
               // ✅ CORREÇÃO: Aguardar mais um momento para garantir que tudo foi limpo
