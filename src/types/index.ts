@@ -159,7 +159,7 @@ export interface Tenant {
   neighborhood?: string;
   city?: string;
   state?: string;
-  status: "new" | "rented" | "inactive";
+  status: "active" | "rented" | "inactive";
   createdAt?: string;
   created_at?: string;
 }
