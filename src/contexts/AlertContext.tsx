@@ -39,45 +39,57 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleConfirm = () => {
-    hideAlert();
-  };
-
-  const hideAlert = useCallback(() => {
     setOpen(false);
     
-    // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays ao fechar
-    setTimeout(() => {
-      const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
-      overlays.forEach(overlay => {
-        if (overlay.parentNode) {
-          overlay.parentNode.removeChild(overlay);
-        }
-      });
-      
-      // Restaurar scroll e pointer-events no body
-      document.body.style.overflow = '';
-      document.body.style.pointerEvents = '';
-      document.body.style.paddingRight = '';
-      
-      // Remover classes de modal que podem estar presas
-      document.body.classList.remove('overflow-hidden', 'pointer-events-none');
-      
-      // Garantir que data-radix-* attributes são removidos
-      document.documentElement.removeAttribute('data-radix-scroll-lock');
-      document.body.removeAttribute('data-radix-scroll-lock');
-      
-      console.log('✅ [AlertContext] Overlays removidos e página desbloqueada');
-    }, 100);
-    
-    // Resetar callback após execução
+    // Executar callback se existir
     if (alertData.onConfirm) {
       alertData.onConfirm();
     }
-    setAlertData({
-      title: "",
-      description: "",
-      type: "info",
-    });
+  };
+
+  const handleOpenChange = useCallback((newOpen: boolean) => {
+    setOpen(newOpen);
+    
+    // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA quando o dialog FECHA
+    if (!newOpen) {
+      // Aguardar 300ms para o AlertDialog fechar completamente ANTES de limpar
+      setTimeout(() => {
+        console.log('🧹 [AlertContext] Iniciando limpeza de overlays...');
+        
+        const overlays = document.querySelectorAll(
+          '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]'
+        );
+        
+        console.log(`🧹 [AlertContext] ${overlays.length} overlays encontrados`);
+        
+        overlays.forEach(overlay => {
+          if (overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+          }
+        });
+        
+        // Restaurar scroll e pointer-events no body
+        document.body.style.overflow = '';
+        document.body.style.pointerEvents = '';
+        document.body.style.paddingRight = '';
+        
+        // Remover classes de modal que podem estar presas
+        document.body.classList.remove('overflow-hidden', 'pointer-events-none');
+        
+        // Garantir que data-radix-* attributes são removidos
+        document.documentElement.removeAttribute('data-radix-scroll-lock');
+        document.body.removeAttribute('data-radix-scroll-lock');
+        
+        console.log('✅ [AlertContext] Overlays removidos e página desbloqueada');
+      }, 300);
+      
+      // Resetar data
+      setAlertData({
+        title: "",
+        description: "",
+        type: "info",
+      });
+    }
   }, [alertData]);
 
   const getIcon = () => {
@@ -112,7 +124,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   return (
     <AlertContext.Provider value={{ showAlert }}>
       {children}
-      <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialog open={open} onOpenChange={handleOpenChange}>
         <AlertDialogContent className={`max-w-md ${getBorderColor()}`}>
           <AlertDialogHeader>
             <div className="flex items-center gap-3">

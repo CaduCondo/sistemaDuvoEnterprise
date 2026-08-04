@@ -14,14 +14,22 @@ const TABLE = "tenants";
 function toDatabase(data: Partial<Tenant>): any {
   console.log("🔄 [tenantService.toDatabase] Dados recebidos:", data);
   
+  // ✅ LISTA DE CAMPOS VÁLIDOS DO SCHEMA 'tenants'
+  // Apenas estes campos existem na tabela - qualquer outro campo = ERRO 400
+  const VALID_FIELDS = [
+    'name', 'email', 'phone', 'status', 'document', 'document_type', 'cpf',
+    'rg', 'occupation', 'marital_status', 'monthly_income',
+    'street', 'number', 'complement', 'neighborhood', 'city', 'state', 'zip_code'
+  ];
+  
   const dbData: any = {};
   
+  // ✅ CAMPOS OBRIGATÓRIOS
   if (data.name !== undefined && data.name !== "") dbData.name = data.name;
   if (data.email !== undefined && data.email !== "") dbData.email = data.email;
   if (data.phone !== undefined && data.phone !== "") dbData.phone = data.phone;
   
-  // 🔥 MAPEAMENTO DE STATUS - banco só aceita: active, inactive, rented
-  // Frontend usa "new" mas banco usa "active"
+  // ✅ STATUS - mapear "new" → "active" (banco não aceita "new")
   if (data.status !== undefined) {
     const statusMap: Record<string, string> = {
       "new": "active",
@@ -33,9 +41,36 @@ function toDatabase(data: Partial<Tenant>): any {
     console.log(`📋 [tenantService.toDatabase] Status mapeado: ${data.status} → ${dbData.status}`);
   }
   
+  // ✅ DOCUMENTOS
   if (data.rg !== undefined && data.rg !== "") dbData.rg = data.rg;
   
-  // ✅ NOVOS CAMPOS OPCIONAIS (verificar se existe E não é vazio antes de gravar)
+  const docType = data.documentType || data.document_type || "cpf";
+  dbData.document_type = docType;
+  
+  if (docType === "cpf") {
+    const cpfValue = data.cpf || data.document || "";
+    if (cpfValue && cpfValue !== "") {
+      dbData.document = cpfValue;
+      dbData.cpf = cpfValue;
+    }
+  } else if (docType === "cnpj") {
+    const cnpjValue = data.cnpj || data.document || "";
+    if (cnpjValue && cnpjValue !== "") {
+      dbData.document = cnpjValue;
+      dbData.cpf = null; // ✅ Limpar CPF quando for CNPJ
+    }
+  } else if (data.document && data.document !== "") {
+    dbData.document = data.document;
+    const cleanDoc = data.document.replace(/\D/g, "");
+    dbData.document_type = cleanDoc.length === 11 ? "cpf" : "cnpj";
+    if (cleanDoc.length === 11) {
+      dbData.cpf = data.document;
+    } else {
+      dbData.cpf = null;
+    }
+  }
+  
+  // ✅ CAMPOS OPCIONAIS
   if (data.occupation !== undefined && data.occupation !== "") {
     dbData.occupation = data.occupation;
   }
@@ -54,6 +89,7 @@ function toDatabase(data: Partial<Tenant>): any {
       : data.monthlyIncome;
   }
   
+  // ✅ ENDEREÇO
   if (data.cep !== undefined && data.cep !== "") dbData.zip_code = data.cep;
   if (data.street !== undefined && data.street !== "") dbData.street = data.street;
   if (data.number !== undefined && data.number !== "") dbData.number = data.number;
@@ -62,48 +98,19 @@ function toDatabase(data: Partial<Tenant>): any {
   if (data.city !== undefined && data.city !== "") dbData.city = data.city;
   if (data.state !== undefined && data.state !== "") dbData.state = data.state;
   
-  // Determinar tipo de documento
-  const docType = data.documentType || data.document_type || "cpf";
-  dbData.document_type = docType;
-  
-  console.log("📋 [tenantService.toDatabase] Tipo de documento:", docType);
-  console.log("📋 [tenantService.toDatabase] CPF:", data.cpf);
-  console.log("📋 [tenantService.toDatabase] CNPJ:", data.cnpj);
-  console.log("📋 [tenantService.toDatabase] Document:", data.document);
-  
-  // ✅ CORREÇÃO CRÍTICA: Gravar APENAS em 'document' e 'cpf', NUNCA em 'cnpj' (coluna não existe)
-  if (docType === "cpf") {
-    const cpfValue = data.cpf || data.document || "";
-    if (cpfValue && cpfValue !== "") {
-      dbData.document = cpfValue;
-      dbData.cpf = cpfValue;
-      console.log("✅ [tenantService.toDatabase] CPF definido:", cpfValue);
-    }
-  } else if (docType === "cnpj") {
-    const cnpjValue = data.cnpj || data.document || "";
-    if (cnpjValue && cnpjValue !== "") {
-      dbData.document = cnpjValue;  // ✅ Gravar CNPJ em 'document', NÃO em 'cnpj'
-      dbData.cpf = null;  // Limpar CPF quando for CNPJ
-      console.log("✅ [tenantService.toDatabase] CNPJ definido em 'document':", cnpjValue);
-    }
-  } else if (data.document && data.document !== "") {
-    dbData.document = data.document;
-    const cleanDoc = data.document.replace(/\D/g, "");
-    dbData.document_type = cleanDoc.length === 11 ? "cpf" : "cnpj";
-    if (cleanDoc.length === 11) {
-      dbData.cpf = data.document;
-    } else {
-      dbData.cpf = null;
-    }
-    console.log("✅ [tenantService.toDatabase] Document genérico definido:", data.document);
-  }
-  
-  // ✅ VALIDAÇÃO FINAL: Remover QUALQUER campo com valor undefined, null ou string vazia
-  // Isso evita erro 400 por enviar campos inválidos ao banco
+  // ✅ VALIDAÇÃO FINAL: Remover campos undefined/null/vazio + REJEITAR campos inválidos
   const cleanedData: any = {};
   for (const key in dbData) {
     const value = dbData[key];
-    // Manter apenas valores válidos: string não-vazia, número, boolean, null explícito
+    
+    // Verificar se é um campo válido
+    if (!VALID_FIELDS.includes(key)) {
+      console.error(`❌ [tenantService.toDatabase] CAMPO INVÁLIDO DETECTADO: "${key}" - este campo NÃO EXISTE no schema 'tenants'!`);
+      console.error(`❌ [tenantService.toDatabase] Campos válidos:`, VALID_FIELDS);
+      continue; // ✅ PULAR campo inválido (não enviar ao banco)
+    }
+    
+    // Manter apenas valores válidos
     if (value !== undefined && value !== "") {
       cleanedData[key] = value;
     }
@@ -111,6 +118,13 @@ function toDatabase(data: Partial<Tenant>): any {
   
   console.log("📤 [tenantService.toDatabase] Dados LIMPOS para banco:", cleanedData);
   console.log("📤 [tenantService.toDatabase] Campos enviados:", Object.keys(cleanedData));
+  
+  // ✅ VERIFICAÇÃO FINAL: Garantir que NENHUM campo inválido está no objeto
+  const invalidFields = Object.keys(cleanedData).filter(k => !VALID_FIELDS.includes(k));
+  if (invalidFields.length > 0) {
+    console.error(`❌ [tenantService.toDatabase] ERRO CRÍTICO: Campos inválidos detectados após limpeza:`, invalidFields);
+    throw new Error(`Campos inválidos detectados: ${invalidFields.join(', ')}`);
+  }
   
   return cleanedData;
 }
@@ -258,23 +272,44 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     
     console.log("🔍 [updateTenant] Valores ANTIGOS no banco:", JSON.stringify(oldData, null, 2));
     
-    // ✅ CORREÇÃO: Usar toDatabase para garantir mapeamento correto
-    const updateData = toDatabase(data);
+    let updateData: any;
+    
+    try {
+      // ✅ Usar toDatabase para garantir mapeamento correto
+      updateData = toDatabase(data);
+    } catch (validationError: any) {
+      console.error("❌ [updateTenant] ERRO NA VALIDAÇÃO toDatabase:");
+      console.error("   - message:", validationError.message);
+      console.error("   - Dados que causaram erro:", JSON.stringify(data, null, 2));
+      throw new Error(`Erro na validação de dados: ${validationError.message}`);
+    }
     
     console.log("🔍 [updateTenant] Dados APÓS toDatabase (ENVIADOS ao Supabase):", JSON.stringify(updateData, null, 2));
     console.log("🔍 [updateTenant] Campos presentes:", Object.keys(updateData));
-    console.log("🔍 [updateTenant] Tem 'cnpj'?", 'cnpj' in updateData, "← Coluna NÃO EXISTE no banco!");
-    console.log("🔍 [updateTenant] Tem 'status'?", 'status' in updateData, "→", updateData.status);
-    console.log("🔍 [updateTenant] Tem 'document'?", 'document' in updateData, "→", updateData.document);
-    console.log("🔍 [updateTenant] Tem 'cpf'?", 'cpf' in updateData, "→", updateData.cpf);
 
     console.log("\n📡 [updateTenant] Executando UPDATE no Supabase...");
-    const { data: tenant, error } = await supabase
-      .from("tenants")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .single();
+    
+    let tenant: any;
+    let error: any;
+    
+    try {
+      const result = await supabase
+        .from("tenants")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+      
+      tenant = result.data;
+      error = result.error;
+    } catch (supabaseError: any) {
+      console.error("❌ [updateTenant] EXCEÇÃO DO SUPABASE:");
+      console.error("   - Tipo:", typeof supabaseError);
+      console.error("   - Message:", supabaseError.message);
+      console.error("   - Stack:", supabaseError.stack);
+      console.error("   - Objeto completo:", JSON.stringify(supabaseError, null, 2));
+      throw supabaseError;
+    }
 
     if (error) {
       console.error("❌ [updateTenant] ERRO DO SUPABASE:");
@@ -283,6 +318,15 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       console.error("   - hint:", error.hint);
       console.error("   - code:", error.code);
       console.error("   - Erro completo:", JSON.stringify(error, null, 2));
+      console.error("\n🔍 [updateTenant] DADOS QUE CAUSARAM O ERRO:");
+      console.error("   - updateData enviado:", JSON.stringify(updateData, null, 2));
+      console.error("   - Campos enviados:", Object.keys(updateData));
+      
+      // ✅ Tentar identificar campo problemático
+      for (const key in updateData) {
+        console.error(`   - Campo "${key}": ${typeof updateData[key]} = ${JSON.stringify(updateData[key])}`);
+      }
+      
       throw error;
     }
 
@@ -342,9 +386,14 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     
     console.log("🔥 ===== FIM updateTenant =====\n");
     return tenant ? fromDatabase(tenant) : null;
-  } catch (error) {
-    console.error("❌ [updateTenant] EXCEÇÃO CAPTURADA:");
-    console.error(error);
+  } catch (error: any) {
+    console.error("❌ [updateTenant] EXCEÇÃO CAPTURADA NO NÍVEL MAIS ALTO:");
+    console.error("   - Tipo:", typeof error);
+    console.error("   - Message:", error.message);
+    console.error("   - Code:", error.code);
+    console.error("   - Details:", error.details);
+    console.error("   - Hint:", error.hint);
+    console.error("   - Stack:", error.stack);
     console.log("🔥 ===== FIM updateTenant (COM ERRO) =====\n");
     throw error;
   }

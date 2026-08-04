@@ -189,54 +189,6 @@ export default function TenantsPage() {
           description: "Inquilino atualizado com sucesso.",
           type: "success",
         });
-        
-        // ✅ CORREÇÃO CRÍTICA: Timeouts AUMENTADOS para 3000ms/5000ms
-        // AlertDialog leva tempo para fechar - timeouts curtos executam ANTES do fechamento
-        setTimeout(() => {
-          console.log("🧹 [tenants] Executando limpeza de overlays (3000ms)...");
-          
-          const overlays = document.querySelectorAll(
-            '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
-          );
-          console.log(`🧹 [tenants] ${overlays.length} overlays encontrados`);
-          overlays.forEach((overlay) => {
-            if (overlay.parentNode) {
-              overlay.parentNode.removeChild(overlay);
-            }
-          });
-
-          document.body.style.overflow = "";
-          document.body.style.pointerEvents = "";
-          document.body.style.paddingRight = "";
-          document.body.classList.remove("overflow-hidden", "pointer-events-none");
-          document.documentElement.removeAttribute("data-radix-scroll-lock");
-          document.body.removeAttribute("data-radix-scroll-lock");
-
-          console.log("✅ [tenants] Overlays removidos e página desbloqueada (3000ms)");
-        }, 3000);
-        
-        setTimeout(() => {
-          console.log("🧹 [tenants] FALLBACK - Segunda limpeza de overlays (5000ms)...");
-          
-          const overlays = document.querySelectorAll(
-            '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
-          );
-          console.log(`🧹 [tenants] FALLBACK - ${overlays.length} overlays encontrados`);
-          overlays.forEach((overlay) => {
-            if (overlay.parentNode) {
-              overlay.parentNode.removeChild(overlay);
-            }
-          });
-
-          document.body.style.overflow = "";
-          document.body.style.pointerEvents = "";
-          document.body.style.paddingRight = "";
-          document.body.classList.remove("overflow-hidden", "pointer-events-none");
-          document.documentElement.removeAttribute("data-radix-scroll-lock");
-          document.body.removeAttribute("data-radix-scroll-lock");
-
-          console.log("✅ [tenants] FALLBACK - Página desbloqueada (5000ms)");
-        }, 5000);
       }
     } else {
       success = await createTenant(data);
@@ -246,48 +198,6 @@ export default function TenantsPage() {
           description: "Inquilino criado com sucesso.",
           type: "success",
         });
-        
-        setTimeout(() => {
-          console.log("🧹 [tenants] Limpeza após criar (3000ms)...");
-          const overlays = document.querySelectorAll(
-            '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
-          );
-          overlays.forEach((overlay) => {
-            if (overlay.parentNode) {
-              overlay.parentNode.removeChild(overlay);
-            }
-          });
-
-          document.body.style.overflow = "";
-          document.body.style.pointerEvents = "";
-          document.body.style.paddingRight = "";
-          document.body.classList.remove("overflow-hidden", "pointer-events-none");
-          document.documentElement.removeAttribute("data-radix-scroll-lock");
-          document.body.removeAttribute("data-radix-scroll-lock");
-
-          console.log("✅ [tenants] Overlays removidos após criar (3000ms)");
-        }, 3000);
-        
-        setTimeout(() => {
-          console.log("🧹 [tenants] FALLBACK - Segunda limpeza após criar (5000ms)...");
-          const overlays = document.querySelectorAll(
-            '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
-          );
-          overlays.forEach((overlay) => {
-            if (overlay.parentNode) {
-              overlay.parentNode.removeChild(overlay);
-            }
-          });
-
-          document.body.style.overflow = "";
-          document.body.style.pointerEvents = "";
-          document.body.style.paddingRight = "";
-          document.body.classList.remove("overflow-hidden", "pointer-events-none");
-          document.documentElement.removeAttribute("data-radix-scroll-lock");
-          document.body.removeAttribute("data-radix-scroll-lock");
-
-          console.log("✅ [tenants] FALLBACK - Página desbloqueada após criar (5000ms)");
-        }, 5000);
       }
     }
 
