@@ -280,13 +280,19 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     console.log("🔍 [updateTenant] Dados RECEBIDOS do form:", JSON.stringify(data, null, 2));
     
     // ✅ Buscar valores antigos ANTES de atualizar para log de auditoria
-    const { data: oldData } = await supabase
+    const { data: oldData, error: selectOldError } = await supabase
       .from("tenants")
-      .select("name, email, phone, status, document, document_type, cpf")
+      .select("*")
       .eq("id", id)
       .single();
     
-    console.log("🔍 [updateTenant] Valores ANTIGOS no banco:", JSON.stringify(oldData, null, 2));
+    if (selectOldError) {
+      console.error("❌ [updateTenant] ERRO ao buscar dados ANTIGOS:", selectOldError);
+      throw selectOldError;
+    }
+    
+    console.log("🔍 [updateTenant] Valores ANTIGOS no banco (ANTES do update):");
+    console.log(JSON.stringify(oldData, null, 2));
     
     let updateData: any;
     
@@ -303,76 +309,90 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     console.log("🔍 [updateTenant] Dados APÓS toDatabase (ENVIADOS ao Supabase):", JSON.stringify(updateData, null, 2));
     console.log("🔍 [updateTenant] Campos presentes:", Object.keys(updateData));
 
-    console.log("\n📡 [updateTenant] Executando UPDATE no Supabase...");
+    console.log("\n📡 [updateTenant] Executando UPDATE no Supabase (SEM .select())...");
     
-    let tenant: any;
-    let error: any;
-    
-    try {
-      const result = await supabase
-        .from("tenants")
-        .update(updateData)
-        .eq("id", id)
-        .select()
-        .single();
-      
-      tenant = result.data;
-      error = result.error;
-    } catch (supabaseError: any) {
-      console.error("❌ [updateTenant] EXCEÇÃO DO SUPABASE:");
-      console.error("   - Tipo:", typeof supabaseError);
-      console.error("   - Message:", supabaseError.message);
-      console.error("   - Stack:", supabaseError.stack);
-      console.error("   - Objeto completo:", JSON.stringify(supabaseError, null, 2));
-      throw supabaseError;
-    }
+    // ✅ CORREÇÃO: Fazer UPDATE SEM .select() primeiro
+    const { error: updateError } = await supabase
+      .from("tenants")
+      .update(updateData)
+      .eq("id", id);
 
-    if (error) {
-      console.error("❌ [updateTenant] ERRO DO SUPABASE:");
-      console.error("   - message:", error.message);
-      console.error("   - details:", error.details);
-      console.error("   - hint:", error.hint);
-      console.error("   - code:", error.code);
-      console.error("   - Erro completo:", JSON.stringify(error, null, 2));
-      console.error("\n🔍 [updateTenant] DADOS QUE CAUSARAM O ERRO:");
-      console.error("   - updateData enviado:", JSON.stringify(updateData, null, 2));
-      console.error("   - Campos enviados:", Object.keys(updateData));
-      
-      // ✅ Tentar identificar campo problemático
-      for (const key in updateData) {
-        console.error(`   - Campo "${key}": ${typeof updateData[key]} = ${JSON.stringify(updateData[key])}`);
-      }
-      
-      throw error;
+    if (updateError) {
+      console.error("❌ [updateTenant] ERRO DO SUPABASE NO UPDATE:");
+      console.error("   - message:", updateError.message);
+      console.error("   - details:", updateError.details);
+      console.error("   - hint:", updateError.hint);
+      console.error("   - code:", updateError.code);
+      console.error("   - Erro completo:", JSON.stringify(updateError, null, 2));
+      throw updateError;
     }
 
     console.log("✅ [updateTenant] UPDATE executado com SUCESSO!");
-    console.log("✅ [updateTenant] Dados RETORNADOS do banco:", JSON.stringify(tenant, null, 2));
+    
+    // ✅ CRÍTICO: Aguardar 100ms para garantir que o banco commitou as mudanças
+    console.log("⏳ [updateTenant] Aguardando 100ms para garantir commit no banco...");
+    await new Promise(resolve => setTimeout(resolve, 100));
+    console.log("✅ [updateTenant] Aguardado 100ms - prosseguindo com SELECT...");
+    
+    // ✅ CRÍTICO: Fazer SELECT SEPARADO para buscar dados MAIS RECENTES
+    console.log("\n📡 [updateTenant] Buscando dados ATUALIZADOS do banco (SELECT separado)...");
+    const { data: updatedData, error: selectNewError } = await supabase
+      .from("tenants")
+      .select("*")
+      .eq("id", id)
+      .single();
+    
+    if (selectNewError) {
+      console.error("❌ [updateTenant] ERRO ao buscar dados ATUALIZADOS:", selectNewError);
+      throw selectNewError;
+    }
+    
+    console.log("✅ [updateTenant] Dados ATUALIZADOS buscados do banco (DEPOIS do update):");
+    console.log(JSON.stringify(updatedData, null, 2));
+    
+    // ✅ VALIDAÇÃO: Comparar valores ANTIGOS vs NOVOS
+    console.log("\n🔍 [updateTenant] COMPARAÇÃO ANTIGO vs NOVO:");
+    for (const key of Object.keys(updateData)) {
+      const oldValue = oldData[key];
+      const newValue = updatedData[key];
+      
+      if (oldValue !== newValue) {
+        console.log(`  ✅ Campo "${key}" FOI ATUALIZADO: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
+      } else {
+        console.warn(`  ⚠️ Campo "${key}" NÃO MUDOU: ${JSON.stringify(oldValue)} = ${JSON.stringify(newValue)}`);
+      }
+    }
     
     // ✅ NOVO FORMATO: Nome Inquilino + mudanças campo a campo
-    if (tenant && oldData) {
+    if (updatedData && oldData) {
       const changes: string[] = [];
       
       // ✅ SEM MAPEAMENTO - frontend e banco usam mesmos valores
       const oldStatus = oldData.status;
-      const newStatus = tenant.status;
+      const newStatus = updatedData.status;
       
-      if (oldData.name !== tenant.name) {
-        changes.push(`name: de=${oldData.name} -> para=${tenant.name}`);
+      if (oldData.name !== updatedData.name) {
+        changes.push(`name: de=${oldData.name} -> para=${updatedData.name}`);
       }
-      if (oldData.email !== tenant.email) {
-        changes.push(`email: de=${oldData.email || '-'} -> para=${tenant.email || '-'}`);
+      if (oldData.email !== updatedData.email) {
+        changes.push(`email: de=${oldData.email || '-'} -> para=${updatedData.email || '-'}`);
       }
-      if (oldData.phone !== tenant.phone) {
-        changes.push(`phone: de=${oldData.phone || '-'} -> para=${tenant.phone || '-'}`);
+      if (oldData.phone !== updatedData.phone) {
+        changes.push(`phone: de=${oldData.phone || '-'} -> para=${updatedData.phone || '-'}`);
       }
       if (oldStatus !== newStatus) {
         changes.push(`status: de=${oldStatus} -> para=${newStatus}`);
       }
+      if (oldData.monthly_income !== updatedData.monthly_income) {
+        changes.push(`monthly_income: de=${oldData.monthly_income || '-'} -> para=${updatedData.monthly_income || '-'}`);
+      }
+      if (oldData.marital_status !== updatedData.marital_status) {
+        changes.push(`marital_status: de=${oldData.marital_status || '-'} -> para=${updatedData.marital_status || '-'}`);
+      }
       
       const changesSummary = changes.length > 0 
-        ? `Nome Inquilino: ${tenant.name}\n${changes.join('\n')}`
-        : `Nome Inquilino: ${tenant.name}`;
+        ? `Nome Inquilino: ${updatedData.name}\n${changes.join('\n')}`
+        : `Nome Inquilino: ${updatedData.name}`;
       
       await logAudit({
         action_type: "update",
@@ -386,16 +406,16 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
           status: oldStatus,
         } : undefined,
         new_values: {
-          name: tenant.name,
-          email: tenant.email,
-          phone: tenant.phone,
+          name: updatedData.name,
+          email: updatedData.email,
+          phone: updatedData.phone,
           status: newStatus,
         },
       });
     }
     
     console.log("🔥 ===== FIM updateTenant =====\n");
-    return tenant ? fromDatabase(tenant) : null;
+    return updatedData ? fromDatabase(updatedData) : null;
   } catch (error: any) {
     console.error("❌ [updateTenant] EXCEÇÃO CAPTURADA NO NÍVEL MAIS ALTO:");
     console.error("   - Tipo:", typeof error);
