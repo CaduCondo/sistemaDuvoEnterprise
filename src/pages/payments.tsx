@@ -427,24 +427,11 @@ export default function Payments() {
       };
       
       const tenant: Tenant = {
-        id: tenantData.id,
-        name: tenantData.name,
-        email: tenantData.email,
-        phone: tenantData.phone,
-        cpf: tenantData.cpf || tenantData.document || "",
-        rg: tenantData.rg || "",
-        street: tenantData.street || "",
-        number: tenantData.number || "",
-        complement: tenantData.complement || "",
-        neighborhood: tenantData.neighborhood || "",
-        city: tenantData.city || "",
-        state: tenantData.state || "",
-        cep: tenantData.zip_code || "",
-        createdAt: tenantData.created_at,
-        document: tenantData.document || tenantData.cpf || "",
-        status: (tenantData.status === "new" || tenantData.status === "inactive" || tenantData.status === "rented")
-          ? tenantData.status
-          : "new" as "new" | "inactive" | "rented",
+        id: payment.tenant?.id || "",
+        name: payment.tenant?.name || "",
+        email: payment.tenant?.email || "",
+        phone: payment.tenant?.phone || "",
+        status: (payment.tenant?.status || "active") as "active" | "rented" | "inactive",
       };
       
       console.log("✅ [handleViewReceipt] Todos os dados montados - abrindo recibo");
