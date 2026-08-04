@@ -177,22 +177,8 @@ export default function TenantsPage() {
     
     if (selectedTenant) {
       success = await updateTenant(selectedTenant.id, data);
-      if (success) {
-        showAlert({
-          title: "Sucesso!",
-          description: "Inquilino atualizado com sucesso.",
-          type: "success",
-        });
-      }
     } else {
       success = await createTenant(data);
-      if (success) {
-        showAlert({
-          title: "Sucesso!",
-          description: "Inquilino criado com sucesso.",
-          type: "success",
-        });
-      }
     }
 
     if (success) {
@@ -203,7 +189,7 @@ export default function TenantsPage() {
       });
     }
     return success;
-  }, [dialogState, createTenant, updateTenant, showAlert]);
+  }, [dialogState, createTenant, updateTenant]);
 
   const handleDialogClose = useCallback((open: boolean) => {
     if (!open) {

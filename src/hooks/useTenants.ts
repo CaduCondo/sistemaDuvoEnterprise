@@ -54,8 +54,13 @@ export function useTenants() {
           title: "Sucesso!",
           description: "Inquilino criado com sucesso.",
           type: "success",
+          onConfirm: async () => {
+            // ✅ CRÍTICO: Recarregar dados DEPOIS que o usuário clica OK
+            console.log("🔄 [useTenants] Recarregando dados após confirmação do alert...");
+            await loadData();
+            console.log("✅ [useTenants] Dados recarregados com sucesso!");
+          },
         });
-        await loadData();
         return true;
       } catch (error) {
         showAlert({
@@ -77,8 +82,13 @@ export function useTenants() {
           title: "Sucesso!",
           description: "Inquilino atualizado com sucesso.",
           type: "success",
+          onConfirm: async () => {
+            // ✅ CRÍTICO: Recarregar dados DEPOIS que o usuário clica OK
+            console.log("🔄 [useTenants] Recarregando dados após confirmação do alert...");
+            await loadData();
+            console.log("✅ [useTenants] Dados recarregados com sucesso!");
+          },
         });
-        await loadData();
         return true;
       } catch (error) {
         showAlert({
@@ -100,8 +110,13 @@ export function useTenants() {
           title: "Sucesso!",
           description: "Inquilino removido com sucesso.",
           type: "success",
+          onConfirm: async () => {
+            // ✅ CRÍTICO: Recarregar dados DEPOIS que o usuário clica OK
+            console.log("🔄 [useTenants] Recarregando dados após confirmação do alert...");
+            await loadData();
+            console.log("✅ [useTenants] Dados recarregados com sucesso!");
+          },
         });
-        await loadData();
       } catch (error) {
         showAlert({
           title: "Erro",
