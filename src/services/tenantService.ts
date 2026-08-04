@@ -14,8 +14,24 @@ const TABLE = "tenants";
 function toDatabase(data: Partial<Tenant>): any {
   console.log("🔄 [tenantService.toDatabase] Dados recebidos:", data);
   
+  // ✅ CORREÇÃO CRÍTICA: Se recebeu APENAS status, enviar APENAS status mapeado
+  const receivedKeys = Object.keys(data);
+  console.log("🔍 [tenantService.toDatabase] Campos recebidos:", receivedKeys);
+  
+  if (receivedKeys.length === 1 && receivedKeys[0] === 'status') {
+    console.log("⚡ [tenantService.toDatabase] APENAS status foi enviado - atalho rápido");
+    const statusMap: Record<string, string> = {
+      "new": "active",
+      "active": "active",
+      "rented": "rented",
+      "inactive": "inactive"
+    };
+    const mappedStatus = statusMap[data.status!] || "active";
+    console.log(`📤 [tenantService.toDatabase] Status mapeado: ${data.status} → ${mappedStatus}`);
+    return { status: mappedStatus };
+  }
+  
   // ✅ LISTA DE CAMPOS VÁLIDOS DO SCHEMA 'tenants'
-  // Apenas estes campos existem na tabela - qualquer outro campo = ERRO 400
   const VALID_FIELDS = [
     'name', 'email', 'phone', 'status', 'document', 'document_type', 'cpf',
     'rg', 'occupation', 'marital_status', 'monthly_income',
@@ -45,7 +61,9 @@ function toDatabase(data: Partial<Tenant>): any {
   if (data.rg !== undefined && data.rg !== "") dbData.rg = data.rg;
   
   const docType = data.documentType || data.document_type || "cpf";
-  dbData.document_type = docType;
+  if (data.documentType !== undefined || data.document_type !== undefined) {
+    dbData.document_type = docType;
+  }
   
   if (docType === "cpf") {
     const cpfValue = data.cpf || data.document || "";
@@ -57,7 +75,7 @@ function toDatabase(data: Partial<Tenant>): any {
     const cnpjValue = data.cnpj || data.document || "";
     if (cnpjValue && cnpjValue !== "") {
       dbData.document = cnpjValue;
-      dbData.cpf = null; // ✅ Limpar CPF quando for CNPJ
+      dbData.cpf = null;
     }
   } else if (data.document && data.document !== "") {
     dbData.document = data.document;
@@ -98,74 +116,24 @@ function toDatabase(data: Partial<Tenant>): any {
   if (data.city !== undefined && data.city !== "") dbData.city = data.city;
   if (data.state !== undefined && data.state !== "") dbData.state = data.state;
   
-  // ✅ VALIDAÇÃO FINAL: Remover campos undefined/null/vazio + REJEITAR campos inválidos
+  // ✅ VALIDAÇÃO FINAL: Remover APENAS undefined/null (manter strings vazias se foram enviadas)
   const cleanedData: any = {};
   for (const key in dbData) {
     const value = dbData[key];
     
     // Verificar se é um campo válido
     if (!VALID_FIELDS.includes(key)) {
-      console.error(`❌ [tenantService.toDatabase] CAMPO INVÁLIDO DETECTADO: "${key}" - este campo NÃO EXISTE no schema 'tenants'!`);
-      console.error(`❌ [tenantService.toDatabase] Campos válidos:`, VALID_FIELDS);
-      continue; // ✅ PULAR campo inválido (não enviar ao banco)
-    }
-    
-    // ✅ NOVA VALIDAÇÃO: Verificar tipo do valor
-    if (value === undefined || value === null) {
-      console.log(`⏭️ [tenantService.toDatabase] Campo "${key}" é undefined/null - PULANDO`);
-      continue; // ✅ CRÍTICO: NÃO enviar null ao banco - pode causar erro 400
-    }
-    
-    if (value === "") {
-      console.log(`⏭️ [tenantService.toDatabase] Campo "${key}" é string vazia - PULANDO`);
+      console.error(`❌ [tenantService.toDatabase] CAMPO INVÁLIDO: "${key}" - PULANDO`);
       continue;
     }
     
-    // ✅ Validar tipos específicos
-    if (key === 'monthly_income' && typeof value !== 'number') {
-      console.error(`❌ [tenantService.toDatabase] Campo "${key}" deve ser number, recebeu ${typeof value} - PULANDO`);
-      continue;
-    }
-    
-    if (key === 'status' && !['active', 'rented', 'inactive'].includes(value)) {
-      console.error(`❌ [tenantService.toDatabase] Status inválido "${value}" - valores aceitos: active, rented, inactive - PULANDO`);
-      continue;
-    }
-    
-    // Manter apenas valores válidos
-    cleanedData[key] = value;
-  }
-  
-  console.log("📤 [tenantService.toDatabase] Dados LIMPOS para banco:", cleanedData);
-  console.log("📤 [tenantService.toDatabase] Campos enviados:", Object.keys(cleanedData));
-  console.log("📤 [tenantService.toDatabase] Total de campos:", Object.keys(cleanedData).length);
-  
-  // ✅ VERIFICAÇÃO FINAL: Garantir que NENHUM campo inválido está no objeto
-  const invalidFields = Object.keys(cleanedData).filter(k => !VALID_FIELDS.includes(k));
-  if (invalidFields.length > 0) {
-    console.error(`❌ [tenantService.toDatabase] ERRO CRÍTICO: Campos inválidos detectados após limpeza:`, invalidFields);
-    throw new Error(`Campos inválidos detectados: ${invalidFields.join(', ')}`);
-  }
-  
-  // ✅ VERIFICAÇÃO DE TIPOS: Garantir que todos os valores têm tipos corretos
-  for (const key in cleanedData) {
-    const value = cleanedData[key];
-    const valueType = typeof value;
-    
-    console.log(`🔍 [tenantService.toDatabase] Campo "${key}": tipo=${valueType}, valor=${JSON.stringify(value)}`);
-    
-    // ✅ CRÍTICO: Verificar se há algum valor problemático
-    if (value === undefined) {
-      console.error(`❌ [tenantService.toDatabase] ERRO: Campo "${key}" ainda é undefined após limpeza!`);
-      delete cleanedData[key];
-    }
-    if (value === null) {
-      console.error(`❌ [tenantService.toDatabase] ERRO: Campo "${key}" é null - REMOVENDO para evitar erro 400!`);
-      delete cleanedData[key];
+    // ✅ CRÍTICO: Permitir null explícito (para limpar cpf quando muda para cnpj)
+    if (value !== undefined) {
+      cleanedData[key] = value;
     }
   }
   
-  console.log("✅ [tenantService.toDatabase] PAYLOAD FINAL:", JSON.stringify(cleanedData, null, 2));
+  console.log("📤 [tenantService.toDatabase] PAYLOAD FINAL:", JSON.stringify(cleanedData, null, 2));
   
   return cleanedData;
 }

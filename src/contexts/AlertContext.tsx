@@ -50,123 +50,87 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const handleOpenChange = useCallback((newOpen: boolean) => {
     setOpen(newOpen);
     
-    // ✅ CORREÇÃO CRÍTICA: Limpeza quando o dialog FECHA
+    // ✅ LIMPEZA IMEDIATA E AGRESSIVA quando o dialog FECHA
     if (!newOpen) {
-      // ✅ LIMPEZA IMEDIATA (0ms) - executar ASSIM QUE começar a fechar
-      const cleanupOverlays = () => {
-        console.log('🧹 [AlertContext] Iniciando limpeza de overlays...');
+      console.log('🧹 [AlertContext] Dialog fechando - limpeza IMEDIATA');
+      
+      // ✅ CRÍTICO: Forçar pointer-events: auto IMEDIATAMENTE via CSS !important
+      const forceClickable = () => {
+        // Criar estilo !important para forçar cliques
+        let style = document.getElementById('force-clickable');
+        if (!style) {
+          style = document.createElement('style');
+          style.id = 'force-clickable';
+          document.head.appendChild(style);
+        }
         
-        // ✅ CRÍTICO: NÃO remover o AlertDialog que está fechando - remover apenas outros overlays
-        const currentAlertDialog = document.querySelector('[role="alertdialog"]');
+        style.textContent = `
+          html, html *, body, body *, 
+          [data-radix-scroll-lock],
+          [data-state="open"],
+          [data-state="closed"] {
+            pointer-events: auto !important;
+            overflow: visible !important;
+          }
+        `;
+        
+        console.log('✅ [AlertContext] Estilo !important aplicado');
+      };
+      
+      // Aplicar IMEDIATAMENTE
+      forceClickable();
+      
+      // Limpar overlays após 100ms (garantir que dialog começou a fechar)
+      setTimeout(() => {
+        console.log('🧹 [AlertContext] Limpando overlays (100ms)...');
         
         const overlays = document.querySelectorAll(
-          '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]'
+          '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0'
         );
         
         console.log(`🧹 [AlertContext] ${overlays.length} overlays encontrados`);
         
         overlays.forEach(overlay => {
-          // ✅ NÃO remover o AlertDialog que está fechando e seus overlays diretos
-          if (overlay !== currentAlertDialog && 
-              !currentAlertDialog?.contains(overlay) &&
-              overlay.parentNode) {
-            console.log('🧹 [AlertContext] Removendo overlay:', overlay.className);
+          if (overlay.parentNode) {
             overlay.parentNode.removeChild(overlay);
           }
         });
         
-        // ✅ CRÍTICO: Forçar pointer-events: auto IMEDIATAMENTE em TUDO
+        // Restaurar body
         document.body.style.overflow = '';
         document.body.style.pointerEvents = 'auto';
         document.body.style.paddingRight = '';
-        
-        // Forçar pointer-events em TODOS os elementos
         document.documentElement.style.pointerEvents = 'auto';
         
-        // Forçar pointer-events: auto em todos os filhos diretos do body
-        const bodyChildren = document.body.children;
-        for (let i = 0; i < bodyChildren.length; i++) {
-          const child = bodyChildren[i] as HTMLElement;
-          child.style.pointerEvents = 'auto';
-        }
-        
-        // Remover classes de modal que podem estar presas
+        // Remover classes
         document.body.classList.remove('overflow-hidden', 'pointer-events-none');
         
-        // Garantir que data-radix-* attributes são removidos
+        // Remover atributos
         document.documentElement.removeAttribute('data-radix-scroll-lock');
         document.body.removeAttribute('data-radix-scroll-lock');
         
-        // Remover aria-hidden de TODOS os elementos EXCETO o AlertDialog que está fechando
+        // Remover aria-hidden
         const hiddenElements = document.querySelectorAll('[aria-hidden="true"]');
-        hiddenElements.forEach(el => {
-          if (el !== currentAlertDialog && !currentAlertDialog?.contains(el)) {
-            el.removeAttribute('aria-hidden');
-          }
-        });
+        hiddenElements.forEach(el => el.removeAttribute('aria-hidden'));
         
-        console.log('✅ [AlertContext] Limpeza concluída');
-      };
+        console.log('✅ [AlertContext] Limpeza concluída (100ms)');
+      }, 100);
       
-      // LIMPEZA 1: IMEDIATA (0ms)
-      cleanupOverlays();
-      
-      // LIMPEZA 2: FALLBACK 300ms (AlertDialog já deve ter fechado)
+      // Fallback final após 500ms
       setTimeout(() => {
-        console.log('🧹 [AlertContext] FALLBACK 300ms - Segunda limpeza...');
-        cleanupOverlays();
-        
-        // ✅ CRÍTICO: Forçar pointer-events com !important via CSS
-        const style = document.createElement('style');
-        style.id = 'force-pointer-events';
-        style.textContent = `
-          body, body *, html, html * {
-            pointer-events: auto !important;
-          }
-        `;
-        
-        // Remover estilo antigo se existir
-        const oldStyle = document.getElementById('force-pointer-events');
-        if (oldStyle) oldStyle.remove();
-        
-        document.head.appendChild(style);
-        
-        console.log('✅ [AlertContext] Pointer-events forçado com !important');
-        
-        // Remover após 2 segundos
-        setTimeout(() => {
-          const forceStyle = document.getElementById('force-pointer-events');
-          if (forceStyle) forceStyle.remove();
-          console.log('✅ [AlertContext] Estilo !important removido');
-        }, 2000);
-      }, 300);
-      
-      // LIMPEZA 3: FALLBACK FINAL 1000ms (garantia máxima)
-      setTimeout(() => {
-        console.log('🧹 [AlertContext] FALLBACK 1000ms - Limpeza final...');
+        console.log('🧹 [AlertContext] FALLBACK FINAL (500ms)...');
+        forceClickable();
         
         // Remover TODOS os overlays sem exceção
-        const allOverlays = document.querySelectorAll(
-          '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]'
-        );
-        
+        const allOverlays = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
         allOverlays.forEach(overlay => {
           if (overlay.parentNode) {
             overlay.parentNode.removeChild(overlay);
           }
         });
         
-        // Forçar limpeza de TODOS os atributos problemáticos
-        document.body.style.overflow = '';
-        document.body.style.pointerEvents = 'auto';
-        document.body.style.paddingRight = '';
-        document.documentElement.style.pointerEvents = 'auto';
-        document.body.classList.remove('overflow-hidden', 'pointer-events-none');
-        document.documentElement.removeAttribute('data-radix-scroll-lock');
-        document.body.removeAttribute('data-radix-scroll-lock');
-        
-        console.log('✅ [AlertContext] Limpeza final concluída');
-      }, 1000);
+        console.log('✅ [AlertContext] FALLBACK FINAL concluído');
+      }, 500);
       
       // Resetar data
       setAlertData({
