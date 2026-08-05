@@ -294,204 +294,123 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== INÍCIO updateTenant (VIA RPC JSONB) =====");
-    console.log("🔍 [updateTenant] ID:", id);
-    console.log("🔍 [updateTenant] Dados RECEBIDOS:", JSON.stringify(data, null, 2));
+    console.log("\n🔥 ===== updateTenant (ULTRA-SIMPLES - SEM RPC) =====");
+    console.log("🔍 ID:", id);
+    console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
     
-    // ✅ VALIDAÇÃO: Email único
+    // ✅ Email único
     if (data.email) {
-      const { data: existingTenant, error: emailCheckError } = await supabase
+      const { data: existing } = await supabase
         .from("tenants")
-        .select("id, email")
+        .select("id")
         .eq("email", data.email)
         .neq("id", id)
         .maybeSingle();
       
-      if (emailCheckError) {
-        console.error("❌ [updateTenant] Erro ao verificar email:", emailCheckError);
-        throw emailCheckError;
-      }
-      
-      if (existingTenant) {
-        console.error("❌ [updateTenant] Email já existe:", existingTenant.id);
+      if (existing) {
         throw new Error("EMAIL_ALREADY_EXISTS");
       }
     }
     
-    // ✅ Buscar valores antigos
-    const { data: oldData, error: selectOldError } = await supabase
+    // ✅ Buscar dados antigos
+    const { data: old } = await supabase
       .from("tenants")
       .select("*")
       .eq("id", id)
       .single();
     
-    if (selectOldError) {
-      console.error("❌ [updateTenant] ERRO ao buscar dados ANTIGOS:", selectOldError);
-      throw selectOldError;
-    }
+    if (!old) throw new Error("Inquilino não encontrado");
     
-    console.log("🔍 [updateTenant] Valores ANTIGOS:");
-    console.log(JSON.stringify(oldData, null, 2));
-    
-    // ✅ CONSTRUIR PAYLOAD JSONB - TODOS OS CAMPOS
-    const jsonbPayload: any = {
-      name: data.name || oldData.name,
-      email: data.email || oldData.email,
-      phone: data.phone || oldData.phone,
-      cpf: data.cpf !== undefined ? (data.cpf || null) : (oldData.cpf || null),
-      rg: data.rg !== undefined ? (data.rg || null) : (oldData.rg || null),
-      occupation: data.occupation !== undefined ? (data.occupation || null) : (oldData.occupation || null),
-      marital_status: data.marital_status !== undefined 
-        ? (data.marital_status || null) 
-        : (data.maritalStatus !== undefined ? (data.maritalStatus || null) : (oldData.marital_status || null)),
-      document_type: data.document_type !== undefined 
-        ? (data.document_type || null) 
-        : (data.documentType !== undefined ? (data.documentType || null) : (oldData.document_type || null)),
-      zip_code: data.cep !== undefined ? (data.cep || null) : (oldData.zip_code || null),
-      street: data.street !== undefined ? (data.street || null) : (oldData.street || null),
-      number: data.number !== undefined ? (data.number || null) : (oldData.number || null),
-      complement: data.complement !== undefined ? (data.complement || null) : (oldData.complement || null),
-      neighborhood: data.neighborhood !== undefined ? (data.neighborhood || null) : (oldData.neighborhood || null),
-      city: data.city !== undefined ? (data.city || null) : (oldData.city || null),
-      state: data.state !== undefined ? (data.state || null) : (oldData.state || null),
-      status: data.status || oldData.status,
+    // ✅ PAYLOAD COMPLETO - TODOS OS CAMPOS SEMPRE
+    const payload: any = {
+      name: data.name || old.name,
+      email: data.email || old.email,
+      phone: data.phone || old.phone,
+      cpf: data.cpf !== undefined ? data.cpf : old.cpf,
+      rg: data.rg !== undefined ? data.rg : old.rg,
+      occupation: data.occupation !== undefined ? data.occupation : old.occupation,
+      document: data.cpf || data.cnpj || old.document,
+      marital_status: data.marital_status !== undefined ? data.marital_status : (data.maritalStatus !== undefined ? data.maritalStatus : old.marital_status),
+      document_type: data.document_type !== undefined ? data.document_type : (data.documentType !== undefined ? data.documentType : old.document_type),
+      zip_code: data.cep !== undefined ? data.cep : old.zip_code,
+      street: data.street !== undefined ? data.street : old.street,
+      number: data.number !== undefined ? data.number : old.number,
+      complement: data.complement !== undefined ? data.complement : old.complement,
+      neighborhood: data.neighborhood !== undefined ? data.neighborhood : old.neighborhood,
+      city: data.city !== undefined ? data.city : old.city,
+      state: data.state !== undefined ? data.state : old.state,
+      status: data.status || old.status,
+      updated_at: new Date().toISOString(),
     };
     
-    // DOCUMENT
-    const finalDocType = jsonbPayload.document_type || oldData.document_type || 'cpf';
-    if (finalDocType === 'cpf') {
-      jsonbPayload.document = jsonbPayload.cpf || oldData.cpf || null;
-    } else {
-      jsonbPayload.document = data.cnpj || oldData.document || null;
-    }
-    
-    // MONTHLY_INCOME
+    // Monthly income
     if (data.monthly_income !== undefined && data.monthly_income !== null) {
-      const rawValue = typeof data.monthly_income === 'string' 
-        ? parseFloat(data.monthly_income) 
-        : data.monthly_income;
-      jsonbPayload.monthly_income = !isNaN(rawValue) && rawValue > 0 
-        ? Math.round(rawValue * 100) / 100 
-        : null;
+      const raw = typeof data.monthly_income === 'string' ? parseFloat(data.monthly_income) : data.monthly_income;
+      payload.monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
     } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
-      const rawValue = typeof data.monthlyIncome === 'string' 
-        ? parseFloat(data.monthlyIncome) 
-        : data.monthlyIncome;
-      jsonbPayload.monthly_income = !isNaN(rawValue) && rawValue > 0 
-        ? Math.round(rawValue * 100) / 100 
-        : null;
+      const raw = typeof data.monthlyIncome === 'string' ? parseFloat(data.monthlyIncome) : data.monthlyIncome;
+      payload.monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
     } else {
-      jsonbPayload.monthly_income = oldData.monthly_income || null;
+      payload.monthly_income = old.monthly_income;
     }
     
-    console.log("\n📤 [updateTenant] PAYLOAD JSONB:");
-    console.log(JSON.stringify(jsonbPayload, null, 2));
+    console.log("\n📤 PAYLOAD (TODOS OS CAMPOS):");
+    console.log(JSON.stringify(payload, null, 2));
 
-    console.log("\n📡 [updateTenant] Executando RPC update_tenant_direct()...");
-    
-    // ✅ CHAMAR RPC que executa UPDATE direto com SECURITY DEFINER
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('update_tenant_direct', {
-      p_tenant_id: id,
-      p_data: jsonbPayload
-    });
+    // ✅ UPDATE DIRETO
+    const { data: updated, error } = await supabase
+      .from("tenants")
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .single();
 
-    if (rpcError) {
-      console.error("❌ [updateTenant] ERRO AO EXECUTAR RPC:");
-      console.error("   - message:", rpcError.message);
-      console.error("   - details:", rpcError.details);
-      console.error("   - hint:", rpcError.hint);
-      console.error("   - code:", rpcError.code);
-      throw rpcError;
-    }
+    if (error) throw error;
 
-    console.log("✅ [updateTenant] RPC executada com SUCESSO!");
-    console.log("✅ [updateTenant] Dados retornados pela RPC:");
-    console.log(JSON.stringify(rpcResult, null, 2));
+    console.log("✅ UPDATE OK!");
+    console.log("✅ Retorno:", JSON.stringify(updated, null, 2));
     
-    const updatedData = rpcResult as any;
+    // ✅ VERIFICAR se salvou
+    await new Promise(r => setTimeout(r, 300));
     
-    if (!updatedData) {
-      console.error("❌ [updateTenant] RPC retornou NULL!");
-      throw new Error("Falha ao atualizar inquilino");
-    }
+    const { data: check } = await supabase
+      .from("tenants")
+      .select("*")
+      .eq("id", id)
+      .single();
     
-    // COMPARAÇÃO
-    console.log("\n🔍 [updateTenant] VERIFICAÇÃO:");
-    let allFieldsSaved = true;
-    
-    for (const key of Object.keys(jsonbPayload)) {
-      const sentValue = jsonbPayload[key];
-      const savedValue = updatedData[key];
-      
-      if (JSON.stringify(sentValue) !== JSON.stringify(savedValue)) {
-        allFieldsSaved = false;
-        console.error(`  ❌ Campo "${key}": enviado=${JSON.stringify(sentValue)} vs salvo=${JSON.stringify(savedValue)}`);
+    console.log("\n🔍 VERIFICAÇÃO (SELECT após 300ms):");
+    let ok = true;
+    for (const k of Object.keys(payload)) {
+      if (k === 'updated_at') continue;
+      if (JSON.stringify(payload[k]) !== JSON.stringify(check[k])) {
+        ok = false;
+        console.error(`❌ ${k}: enviado=${JSON.stringify(payload[k])} vs banco=${JSON.stringify(check[k])}`);
       } else {
-        console.log(`  ✅ Campo "${key}": ${JSON.stringify(savedValue)}`);
+        console.log(`✅ ${k}: OK`);
       }
     }
     
-    if (allFieldsSaved) {
-      console.log("\n✅✅✅ TODOS OS CAMPOS FORAM SALVOS! ✅✅✅");
+    if (ok) {
+      console.log("\n✅✅✅ TODOS OS CAMPOS SALVOS! ✅✅✅");
     } else {
-      console.error("\n❌❌❌ ALGUNS CAMPOS NÃO FORAM SALVOS! ❌❌❌");
+      console.error("\n❌❌❌ CAMPOS NÃO SALVOS! ❌❌❌");
     }
     
-    // Log de auditoria
-    if (updatedData && oldData) {
-      const changes: string[] = [];
-      
-      if (oldData.name !== updatedData.name) {
-        changes.push(`name: de=${oldData.name} -> para=${updatedData.name}`);
-      }
-      if (oldData.email !== updatedData.email) {
-        changes.push(`email: de=${oldData.email || '-'} -> para=${updatedData.email || '-'}`);
-      }
-      if (oldData.phone !== updatedData.phone) {
-        changes.push(`phone: de=${oldData.phone || '-'} -> para=${updatedData.phone || '-'}`);
-      }
-      if (oldData.status !== updatedData.status) {
-        changes.push(`status: de=${oldData.status} -> para=${updatedData.status}`);
-      }
-      if (oldData.monthly_income !== updatedData.monthly_income) {
-        changes.push(`monthly_income: de=${oldData.monthly_income || '-'} -> para=${updatedData.monthly_income || '-'}`);
-      }
-      if (oldData.marital_status !== updatedData.marital_status) {
-        changes.push(`marital_status: de=${oldData.marital_status || '-'} -> para=${updatedData.marital_status || '-'}`);
-      }
-      
-      const changesSummary = changes.length > 0 
-        ? `Nome Inquilino: ${updatedData.name}\n${changes.join('\n')}`
-        : `Nome Inquilino: ${updatedData.name}`;
-      
-      await logAudit({
-        action_type: "update",
-        entity_type: "tenant",
-        entity_id: id,
-        changes_summary: changesSummary,
-        old_values: oldData ? {
-          name: oldData.name,
-          email: oldData.email,
-          phone: oldData.phone,
-          status: oldData.status,
-        } : undefined,
-        new_values: {
-          name: updatedData.name,
-          email: updatedData.email,
-          phone: updatedData.phone,
-          status: updatedData.status,
-        },
-      });
-    }
+    // Log auditoria
+    await logAudit({
+      action_type: "update",
+      entity_type: "tenant",
+      entity_id: id,
+      changes_summary: `Nome Inquilino: ${check.name}`,
+      old_values: { name: old.name, email: old.email, phone: old.phone, status: old.status },
+      new_values: { name: check.name, email: check.email, phone: check.phone, status: check.status },
+    });
     
-    console.log("🔥 ===== FIM updateTenant =====\n");
-    return updatedData ? fromDatabase(updatedData) : null;
+    console.log("🔥 FIM updateTenant\n");
+    return check ? fromDatabase(check) : null;
   } catch (error: any) {
-    console.error("❌ [updateTenant] EXCEÇÃO:");
-    console.error("   - Message:", error.message);
-    console.error("   - Code:", error.code);
-    console.error("   - Stack:", error.stack);
-    console.log("🔥 ===== FIM updateTenant (COM ERRO) =====\n");
+    console.error("❌ ERRO:", error.message);
     throw error;
   }
 };
