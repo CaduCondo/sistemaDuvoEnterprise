@@ -250,6 +250,25 @@ export async function getTenantById(id: string): Promise<Tenant> {
 export const getById = getTenantById;
 
 export async function createTenant(data: Partial<Tenant>): Promise<Tenant> {
+  // ✅ VALIDAÇÃO: Email único
+  if (data.email) {
+    const { data: existingTenant, error: emailCheckError } = await supabase
+      .from("tenants")
+      .select("id, email")
+      .eq("email", data.email)
+      .maybeSingle();
+    
+    if (emailCheckError) {
+      console.error("❌ [createTenant] Erro ao verificar email único:", emailCheckError);
+      throw emailCheckError;
+    }
+    
+    if (existingTenant) {
+      console.error("❌ [createTenant] Email já existe:", existingTenant.id);
+      throw new Error("EMAIL_ALREADY_EXISTS");
+    }
+  }
+  
   const dbData = toDatabase(data);
   const result = await createSingle<any>(TABLE, dbData);
   const tenant = fromDatabase(result);
@@ -275,9 +294,29 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== INÍCIO updateTenant (USANDO FUNÇÃO PL/pgSQL) =====");
+    console.log("\n🔥 ===== INÍCIO updateTenant (VERSÃO ULTRA-SIMPLES) =====");
     console.log("🔍 [updateTenant] ID:", id);
-    console.log("🔍 [updateTenant] Dados RECEBIDOS do form:", JSON.stringify(data, null, 2));
+    console.log("🔍 [updateTenant] Dados RECEBIDOS:", JSON.stringify(data, null, 2));
+    
+    // ✅ VALIDAÇÃO: Email único (se email foi alterado)
+    if (data.email) {
+      const { data: existingTenant, error: emailCheckError } = await supabase
+        .from("tenants")
+        .select("id, email")
+        .eq("email", data.email)
+        .neq("id", id)
+        .maybeSingle();
+      
+      if (emailCheckError) {
+        console.error("❌ [updateTenant] Erro ao verificar email único:", emailCheckError);
+        throw emailCheckError;
+      }
+      
+      if (existingTenant) {
+        console.error("❌ [updateTenant] Email já existe em outro inquilino:", existingTenant.id);
+        throw new Error("EMAIL_ALREADY_EXISTS");
+      }
+    }
     
     // ✅ Buscar valores antigos ANTES de atualizar
     const { data: oldData, error: selectOldError } = await supabase
@@ -291,33 +330,35 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       throw selectOldError;
     }
     
-    console.log("🔍 [updateTenant] Valores ANTIGOS no banco (ANTES do update):");
+    console.log("🔍 [updateTenant] Valores ANTIGOS:");
     console.log(JSON.stringify(oldData, null, 2));
     
-    // ✅ PREPARAR PARÂMETROS PARA A FUNÇÃO PL/pgSQL
-    const params: any = {
-      p_id: id,
-      p_name: data.name,
-      p_email: data.email,
-      p_phone: data.phone,
-      p_cpf: data.cpf !== undefined ? (data.cpf || null) : undefined,
-      p_rg: data.rg !== undefined ? (data.rg || null) : undefined,
-      p_occupation: data.occupation !== undefined ? (data.occupation || null) : undefined,
-      p_document: data.document !== undefined ? (data.document || null) : undefined,
-      p_marital_status: data.marital_status !== undefined 
+    // ✅ CONSTRUIR PAYLOAD DIRETO - TODOS OS CAMPOS (não apenas os que mudaram)
+    const payload: any = {
+      // CAMPOS OBRIGATÓRIOS
+      name: data.name || oldData.name,
+      email: data.email || oldData.email,
+      phone: data.phone || oldData.phone,
+      
+      // CAMPOS OPCIONAIS - usar novo valor OU valor antigo OU null
+      cpf: data.cpf !== undefined ? (data.cpf || null) : (oldData.cpf || null),
+      rg: data.rg !== undefined ? (data.rg || null) : (oldData.rg || null),
+      occupation: data.occupation !== undefined ? (data.occupation || null) : (oldData.occupation || null),
+      document: data.document !== undefined ? (data.document || null) : (oldData.document || null),
+      marital_status: data.marital_status !== undefined 
         ? (data.marital_status || null) 
-        : (data.maritalStatus !== undefined ? (data.maritalStatus || null) : undefined),
-      p_document_type: data.document_type !== undefined 
+        : (data.maritalStatus !== undefined ? (data.maritalStatus || null) : (oldData.marital_status || null)),
+      document_type: data.document_type !== undefined 
         ? (data.document_type || null) 
-        : (data.documentType !== undefined ? (data.documentType || null) : undefined),
-      p_zip_code: data.cep !== undefined ? (data.cep || null) : undefined,
-      p_street: data.street !== undefined ? (data.street || null) : undefined,
-      p_number: data.number !== undefined ? (data.number || null) : undefined,
-      p_complement: data.complement !== undefined ? (data.complement || null) : undefined,
-      p_neighborhood: data.neighborhood !== undefined ? (data.neighborhood || null) : undefined,
-      p_city: data.city !== undefined ? (data.city || null) : undefined,
-      p_state: data.state !== undefined ? (data.state || null) : undefined,
-      p_status: data.status,
+        : (data.documentType !== undefined ? (data.documentType || null) : (oldData.document_type || null)),
+      zip_code: data.cep !== undefined ? (data.cep || null) : (oldData.zip_code || null),
+      street: data.street !== undefined ? (data.street || null) : (oldData.street || null),
+      number: data.number !== undefined ? (data.number || null) : (oldData.number || null),
+      complement: data.complement !== undefined ? (data.complement || null) : (oldData.complement || null),
+      neighborhood: data.neighborhood !== undefined ? (data.neighborhood || null) : (oldData.neighborhood || null),
+      city: data.city !== undefined ? (data.city || null) : (oldData.city || null),
+      state: data.state !== undefined ? (data.state || null) : (oldData.state || null),
+      status: data.status || oldData.status,
     };
     
     // MONTHLY_INCOME - garantir número com 2 decimais
@@ -325,126 +366,67 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       const rawValue = typeof data.monthly_income === 'string' 
         ? parseFloat(data.monthly_income) 
         : data.monthly_income;
-      params.p_monthly_income = !isNaN(rawValue) && rawValue > 0 
+      payload.monthly_income = !isNaN(rawValue) && rawValue > 0 
         ? Math.round(rawValue * 100) / 100 
         : null;
     } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
       const rawValue = typeof data.monthlyIncome === 'string' 
         ? parseFloat(data.monthlyIncome) 
         : data.monthlyIncome;
-      params.p_monthly_income = !isNaN(rawValue) && rawValue > 0 
+      payload.monthly_income = !isNaN(rawValue) && rawValue > 0 
         ? Math.round(rawValue * 100) / 100 
         : null;
+    } else {
+      payload.monthly_income = oldData.monthly_income || null;
     }
     
-    // Remover parâmetros undefined (manter apenas null e valores reais)
-    Object.keys(params).forEach(key => {
-      if (params[key] === undefined) {
-        delete params[key];
-      }
-    });
-    
-    console.log("\n📤 [updateTenant] PARÂMETROS PARA A FUNÇÃO PL/pgSQL:");
-    console.log(JSON.stringify(params, null, 2));
-    console.log("📤 [updateTenant] Parâmetros enviados:", Object.keys(params));
-    
-    console.log("\n📡 [updateTenant] Executando função update_tenant_force() com SECURITY DEFINER...");
-    
-    // ✅ CHAMAR FUNÇÃO PL/pgSQL que FORÇA o UPDATE
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('update_tenant_force', params);
+    console.log("\n📤 [updateTenant] PAYLOAD COMPLETO (TODOS OS CAMPOS):");
+    console.log(JSON.stringify(payload, null, 2));
+    console.log("📤 [updateTenant] Total de campos:", Object.keys(payload).length);
 
-    if (rpcError) {
-      console.error("❌ [updateTenant] ERRO AO EXECUTAR FUNÇÃO PL/pgSQL:");
-      console.error("   - message:", rpcError.message);
-      console.error("   - details:", rpcError.details);
-      console.error("   - hint:", rpcError.hint);
-      console.error("   - code:", rpcError.code);
-      throw rpcError;
-    }
-
-    console.log("✅ [updateTenant] Função PL/pgSQL executada com SUCESSO!");
-    console.log("📤 Resultado da função:", JSON.stringify(rpcResult, null, 2));
+    console.log("\n📡 [updateTenant] Executando UPDATE via Supabase client...");
     
-    // Aguardar um pouco para garantir commit
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // SELECT para buscar dados atualizados
-    console.log("\n📡 [updateTenant] Buscando dados ATUALIZADOS do banco...");
-    const { data: updatedData, error: selectNewError } = await supabase
+    // ✅ UPDATE com TODOS os campos
+    const { data: updatedData, error: updateError } = await supabase
       .from("tenants")
-      .select("*")
+      .update(payload)
       .eq("id", id)
+      .select()
       .single();
-    
-    if (selectNewError) {
-      console.error("❌ [updateTenant] ERRO ao buscar dados ATUALIZADOS:", selectNewError);
-      throw selectNewError;
+
+    if (updateError) {
+      console.error("❌ [updateTenant] ERRO DO SUPABASE:");
+      console.error("   - message:", updateError.message);
+      console.error("   - details:", updateError.details);
+      console.error("   - hint:", updateError.hint);
+      console.error("   - code:", updateError.code);
+      throw updateError;
     }
-    
-    console.log("✅ [updateTenant] Dados ATUALIZADOS buscados do banco:");
+
+    console.log("✅ [updateTenant] UPDATE executado com SUCESSO!");
+    console.log("✅ [updateTenant] Dados retornados do banco:");
     console.log(JSON.stringify(updatedData, null, 2));
     
     // COMPARAÇÃO campo por campo
-    console.log("\n🔍 [updateTenant] COMPARAÇÃO ANTIGO vs NOVO:");
+    console.log("\n🔍 [updateTenant] VERIFICAÇÃO:");
+    let allFieldsSaved = true;
     
-    let changedCount = 0;
-    let unchangedCount = 0;
-    const changedFields: string[] = [];
-    const unchangedFields: string[] = [];
-    
-    // Mapear parâmetros de volta para nomes de coluna do banco
-    const paramToColumn: Record<string, string> = {
-      p_name: 'name',
-      p_email: 'email',
-      p_phone: 'phone',
-      p_cpf: 'cpf',
-      p_rg: 'rg',
-      p_occupation: 'occupation',
-      p_document: 'document',
-      p_marital_status: 'marital_status',
-      p_monthly_income: 'monthly_income',
-      p_document_type: 'document_type',
-      p_zip_code: 'zip_code',
-      p_street: 'street',
-      p_number: 'number',
-      p_complement: 'complement',
-      p_neighborhood: 'neighborhood',
-      p_city: 'city',
-      p_state: 'state',
-      p_status: 'status',
-    };
-    
-    for (const paramKey of Object.keys(params)) {
-      if (paramKey === 'p_id') continue; // Pular o ID
+    for (const key of Object.keys(payload)) {
+      const sentValue = payload[key];
+      const savedValue = updatedData[key];
       
-      const columnName = paramToColumn[paramKey];
-      if (!columnName) continue;
-      
-      const oldValue = oldData[columnName];
-      const newValue = updatedData[columnName];
-      
-      if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
-        changedCount++;
-        changedFields.push(columnName);
-        console.log(`  ✅ Campo "${columnName}" FOI ATUALIZADO: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
+      if (JSON.stringify(sentValue) !== JSON.stringify(savedValue)) {
+        allFieldsSaved = false;
+        console.error(`  ❌ Campo "${key}" NÃO FOI SALVO: enviado=${JSON.stringify(sentValue)} mas banco retornou=${JSON.stringify(savedValue)}`);
       } else {
-        unchangedCount++;
-        unchangedFields.push(columnName);
-        console.warn(`  ⚠️ Campo "${columnName}" NÃO MUDOU: ${JSON.stringify(oldValue)} = ${JSON.stringify(newValue)}`);
+        console.log(`  ✅ Campo "${key}" salvo: ${JSON.stringify(savedValue)}`);
       }
     }
     
-    console.log(`\n📊 [updateTenant] RESUMO DA ATUALIZAÇÃO:`);
-    console.log(`  ✅ Campos enviados para a função: ${Object.keys(params).length - 1}`); // -1 para excluir p_id
-    console.log(`  ✅ Campos que MUDARAM no banco: ${changedCount}`);
-    console.log(`  ⚠️ Campos que NÃO MUDARAM: ${unchangedCount}`);
-    
-    if (changedCount > 0) {
-      console.log(`  ✅ Campos ATUALIZADOS: ${changedFields.join(', ')}`);
-    }
-    
-    if (unchangedCount > 0) {
-      console.warn(`  ⚠️ Campos NÃO MUDARAM: ${unchangedFields.join(', ')}`);
+    if (allFieldsSaved) {
+      console.log("\n✅✅✅ TODOS OS CAMPOS FORAM SALVOS COM SUCESSO! ✅✅✅");
+    } else {
+      console.error("\n❌❌❌ ALGUNS CAMPOS NÃO FORAM SALVOS! ❌❌❌");
     }
     
     // Log de auditoria
@@ -494,13 +476,12 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       });
     }
     
-    console.log("🔥 ===== FIM updateTenant (USANDO FUNÇÃO PL/pgSQL) =====\n");
+    console.log("🔥 ===== FIM updateTenant =====\n");
     return updatedData ? fromDatabase(updatedData) : null;
   } catch (error: any) {
-    console.error("❌ [updateTenant] EXCEÇÃO CAPTURADA:");
+    console.error("❌ [updateTenant] EXCEÇÃO:");
     console.error("   - Message:", error.message);
     console.error("   - Code:", error.code);
-    console.error("   - Details:", error.details);
     console.error("   - Stack:", error.stack);
     console.log("🔥 ===== FIM updateTenant (COM ERRO) =====\n");
     throw error;
