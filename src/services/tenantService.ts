@@ -317,7 +317,15 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     console.log("✅ RPC EXECUTADA COM SUCESSO!");
     console.log("✅ Resultado retornado:", JSON.stringify(result, null, 2));
     
-    const updated = result as any;
+    // ✅ CORREÇÃO: RPC retorna ARRAY (RETURNS TABLE), pegar o primeiro elemento
+    const updated = Array.isArray(result) && result.length > 0 ? result[0] : null;
+    
+    if (!updated) {
+      console.error("❌ RPC retornou vazio ou null!");
+      throw new Error("Erro ao atualizar inquilino - nenhum registro retornado");
+    }
+    
+    console.log("✅ Registro atualizado:", JSON.stringify(updated, null, 2));
     
     // ✅ VERIFICAÇÃO campo por campo
     console.log("\n🔍 VERIFICAÇÃO (PARÂMETROS vs RESULTADO):");

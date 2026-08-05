@@ -1444,7 +1444,29 @@ export type Database = {
           p_street: string
           p_zip_code: string
         }
-        Returns: Json
+        Returns: {
+          city: string
+          complement: string
+          cpf: string
+          created_at: string
+          document: string
+          document_type: string
+          email: string
+          id: string
+          marital_status: string
+          monthly_income: number
+          name: string
+          neighborhood: string
+          number: string
+          occupation: string
+          phone: string
+          rg: string
+          state: string
+          status: string
+          street: string
+          updated_at: string
+          zip_code: string
+        }[]
       }
       update_tenant_force: {
         Args: {
