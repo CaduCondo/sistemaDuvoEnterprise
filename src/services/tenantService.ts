@@ -268,7 +268,7 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       neighborhood: data.neighborhood !== undefined ? data.neighborhood : old.neighborhood,
       city: data.city !== undefined ? data.city : old.city,
       state: data.state !== undefined ? data.state : old.state,
-      status: data.status || old.status,
+      status: (data.status || old.status) as "active" | "rented" | "inactive",
     };
     
     console.log("🔄 Dados MESCLADOS (novo + antigo):", JSON.stringify(merged, null, 2));
