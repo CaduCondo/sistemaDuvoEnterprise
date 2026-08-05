@@ -371,14 +371,52 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       console.error("\n❌❌❌ ALGUNS CAMPOS NÃO FORAM SALVOS! ❌❌❌");
     }
     
-    // Log auditoria
+    // Log auditoria - INCLUIR TODOS OS CAMPOS
     await logAudit({
       action_type: "update",
       entity_type: "tenant",
       entity_id: id,
       changes_summary: `Nome Inquilino: ${updated.name}`,
-      old_values: { name: old.name, email: old.email, phone: old.phone, status: old.status },
-      new_values: { name: updated.name, email: updated.email, phone: updated.phone, status: updated.status },
+      old_values: {
+        name: old.name,
+        email: old.email,
+        phone: old.phone,
+        cpf: old.cpf,
+        rg: old.rg,
+        occupation: old.occupation,
+        marital_status: old.marital_status,
+        monthly_income: old.monthly_income,
+        document: old.document,
+        document_type: old.document_type,
+        zip_code: old.zip_code,
+        street: old.street,
+        number: old.number,
+        complement: old.complement,
+        neighborhood: old.neighborhood,
+        city: old.city,
+        state: old.state,
+        status: old.status,
+      },
+      new_values: {
+        name: updated.name,
+        email: updated.email,
+        phone: updated.phone,
+        cpf: updated.cpf,
+        rg: updated.rg,
+        occupation: updated.occupation,
+        marital_status: updated.marital_status,
+        monthly_income: updated.monthly_income,
+        document: updated.document,
+        document_type: updated.document_type,
+        zip_code: updated.zip_code,
+        street: updated.street,
+        number: updated.number,
+        complement: updated.complement,
+        neighborhood: updated.neighborhood,
+        city: updated.city,
+        state: updated.state,
+        status: updated.status,
+      },
     });
     
     console.log("🔥 FIM updateTenant\n");
