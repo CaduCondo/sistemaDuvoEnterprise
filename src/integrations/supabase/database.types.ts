@@ -1445,6 +1445,10 @@ export type Database = {
           value: number
         }[]
       }
+      update_tenant_direct: {
+        Args: { p_data: Json; p_tenant_id: string }
+        Returns: Json
+      }
       update_tenant_force: {
         Args: {
           p_city?: string
