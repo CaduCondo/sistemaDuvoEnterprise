@@ -372,11 +372,73 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     }
     
     // Log auditoria - INCLUIR TODOS OS CAMPOS
+    // Construir changes_summary detalhado com TODOS os campos alterados
+    const changes: string[] = [];
+    
+    if (old.name !== updated.name) {
+      changes.push(`Nome: "${old.name}" → "${updated.name}"`);
+    }
+    if (old.email !== updated.email) {
+      changes.push(`E-mail: "${old.email}" → "${updated.email}"`);
+    }
+    if (old.phone !== updated.phone) {
+      changes.push(`Telefone: "${old.phone}" → "${updated.phone}"`);
+    }
+    if (old.cpf !== updated.cpf) {
+      changes.push(`CPF: "${old.cpf || '-'}" → "${updated.cpf || '-'}"`);
+    }
+    if (old.rg !== updated.rg) {
+      changes.push(`RG: "${old.rg || '-'}" → "${updated.rg || '-'}"`);
+    }
+    if (old.occupation !== updated.occupation) {
+      changes.push(`Ocupação: "${old.occupation || '-'}" → "${updated.occupation || '-'}"`);
+    }
+    if (old.marital_status !== updated.marital_status) {
+      changes.push(`Estado Civil: "${old.marital_status || '-'}" → "${updated.marital_status || '-'}"`);
+    }
+    if (old.monthly_income !== updated.monthly_income) {
+      changes.push(`Renda Mensal: ${old.monthly_income || 0} → ${updated.monthly_income || 0}`);
+    }
+    if (old.document !== updated.document) {
+      changes.push(`Documento: "${old.document || '-'}" → "${updated.document || '-'}"`);
+    }
+    if (old.document_type !== updated.document_type) {
+      changes.push(`Tipo Documento: "${old.document_type || '-'}" → "${updated.document_type || '-'}"`);
+    }
+    if (old.zip_code !== updated.zip_code) {
+      changes.push(`CEP: "${old.zip_code || '-'}" → "${updated.zip_code || '-'}"`);
+    }
+    if (old.street !== updated.street) {
+      changes.push(`Rua: "${old.street || '-'}" → "${updated.street || '-'}"`);
+    }
+    if (old.number !== updated.number) {
+      changes.push(`Número: "${old.number || '-'}" → "${updated.number || '-'}"`);
+    }
+    if (old.complement !== updated.complement) {
+      changes.push(`Complemento: "${old.complement || '-'}" → "${updated.complement || '-'}"`);
+    }
+    if (old.neighborhood !== updated.neighborhood) {
+      changes.push(`Bairro: "${old.neighborhood || '-'}" → "${updated.neighborhood || '-'}"`);
+    }
+    if (old.city !== updated.city) {
+      changes.push(`Cidade: "${old.city || '-'}" → "${updated.city || '-'}"`);
+    }
+    if (old.state !== updated.state) {
+      changes.push(`Estado: "${old.state || '-'}" → "${updated.state || '-'}"`);
+    }
+    if (old.status !== updated.status) {
+      changes.push(`Status: "${old.status}" → "${updated.status}"`);
+    }
+    
+    const changesSummary = changes.length > 0 
+      ? `Inquilino: ${updated.name}\n\nCampos alterados:\n${changes.join('\n')}`
+      : `Inquilino: ${updated.name} (sem alterações)`;
+    
     await logAudit({
       action_type: "update",
       entity_type: "tenant",
       entity_id: id,
-      changes_summary: `Nome Inquilino: ${updated.name}`,
+      changes_summary: changesSummary,
       old_values: {
         name: old.name,
         email: old.email,
