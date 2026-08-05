@@ -220,7 +220,7 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== updateTenant (ULTRA-SIMPLES - SEM RPC) =====");
+    console.log("\n🔥 ===== updateTenant (VIA RPC SQL PURO) =====");
     console.log("🔍 ID:", id);
     console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
     
@@ -274,49 +274,101 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     console.log("🔄 Dados MESCLADOS (novo + antigo):", JSON.stringify(merged, null, 2));
     
     // ✅ Converter para formato do banco
-    const payload = toDatabase(merged);
+    const dbData = toDatabase(merged);
     
-    // ✅ Adicionar updated_at
-    payload.updated_at = new Date().toISOString();
+    console.log("\n📤 DADOS CONVERTIDOS (toDatabase):");
+    console.log(JSON.stringify(dbData, null, 2));
     
-    console.log("\n📤 PAYLOAD FINAL para UPDATE:");
-    console.log(JSON.stringify(payload, null, 2));
-    console.log("📤 Total de campos:", Object.keys(payload).length);
+    // ✅ PREPARAR PARÂMETROS para RPC (todos os campos individuais)
+    const params = {
+      p_id: id,
+      p_name: dbData.name || "",
+      p_email: dbData.email || "",
+      p_phone: dbData.phone || "",
+      p_cpf: dbData.cpf || "",
+      p_rg: dbData.rg || "",
+      p_occupation: dbData.occupation || "",
+      p_document: dbData.document || "",
+      p_marital_status: dbData.marital_status || "",
+      p_monthly_income: dbData.monthly_income || 0,
+      p_document_type: dbData.document_type || "cpf",
+      p_zip_code: dbData.zip_code || "",
+      p_street: dbData.street || "",
+      p_number: dbData.number || "",
+      p_complement: dbData.complement || "",
+      p_neighborhood: dbData.neighborhood || "",
+      p_city: dbData.city || "",
+      p_state: dbData.state || "",
+      p_status: dbData.status || "active",
+    };
+    
+    console.log("\n📤 PARÂMETROS RPC:");
+    console.log(JSON.stringify(params, null, 2));
 
-    // ✅ UPDATE DIRETO via Supabase client
-    const { data: updated, error } = await supabase
-      .from("tenants")
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
+    // ✅ CHAMAR RPC que faz UPDATE via SQL puro
+    console.log("\n📡 Executando RPC update_tenant_complete()...");
+    const { data: result, error } = await supabase.rpc('update_tenant_complete', params);
 
     if (error) {
-      console.error("❌ ERRO DO SUPABASE:", error);
+      console.error("❌ ERRO RPC:", error);
       throw error;
     }
 
-    console.log("✅ UPDATE EXECUTADO COM SUCESSO!");
-    console.log("✅ Dados retornados:", JSON.stringify(updated, null, 2));
+    console.log("✅ RPC EXECUTADA COM SUCESSO!");
+    console.log("✅ Resultado retornado:", JSON.stringify(result, null, 2));
+    
+    const updated = result as any;
     
     // ✅ VERIFICAÇÃO campo por campo
-    console.log("\n🔍 VERIFICAÇÃO (PAYLOAD vs RETORNO):");
+    console.log("\n🔍 VERIFICAÇÃO (PARÂMETROS vs RESULTADO):");
     let allOk = true;
-    for (const key of Object.keys(payload)) {
-      if (key === 'updated_at') continue;
+    
+    const fieldMap: Record<string, string> = {
+      p_name: 'name',
+      p_email: 'email',
+      p_phone: 'phone',
+      p_cpf: 'cpf',
+      p_rg: 'rg',
+      p_occupation: 'occupation',
+      p_document: 'document',
+      p_marital_status: 'marital_status',
+      p_monthly_income: 'monthly_income',
+      p_document_type: 'document_type',
+      p_zip_code: 'zip_code',
+      p_street: 'street',
+      p_number: 'number',
+      p_complement: 'complement',
+      p_neighborhood: 'neighborhood',
+      p_city: 'city',
+      p_state: 'state',
+      p_status: 'status',
+    };
+    
+    for (const paramKey in params) {
+      if (paramKey === 'p_id') continue;
       
-      if (JSON.stringify(payload[key]) !== JSON.stringify(updated[key])) {
+      const dbField = fieldMap[paramKey];
+      if (!dbField) continue;
+      
+      const sent = params[paramKey as keyof typeof params];
+      const returned = updated[dbField];
+      
+      // Comparar tratando "" e null como equivalentes
+      const sentNorm = sent === "" ? null : sent;
+      const returnedNorm = returned === "" ? null : returned;
+      
+      if (JSON.stringify(sentNorm) !== JSON.stringify(returnedNorm)) {
         allOk = false;
-        console.error(`❌ ${key}: enviado=${JSON.stringify(payload[key])} vs retornado=${JSON.stringify(updated[key])}`);
+        console.error(`❌ ${dbField}: enviado=${JSON.stringify(sent)} vs retornado=${JSON.stringify(returned)}`);
       } else {
-        console.log(`✅ ${key}: OK`);
+        console.log(`✅ ${dbField}: OK`);
       }
     }
     
     if (allOk) {
-      console.log("\n✅✅✅ TODOS OS CAMPOS CORRETOS NO RETORNO! ✅✅✅");
+      console.log("\n✅✅✅ TODOS OS CAMPOS FORAM SALVOS CORRETAMENTE! ✅✅✅");
     } else {
-      console.error("\n❌❌❌ ALGUNS CAMPOS DIFERENTES NO RETORNO! ❌❌❌");
+      console.error("\n❌❌❌ ALGUNS CAMPOS NÃO FORAM SALVOS! ❌❌❌");
     }
     
     // Log auditoria
