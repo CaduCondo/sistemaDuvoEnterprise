@@ -357,6 +357,17 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       status: data.status || oldData.status,
     };
     
+    // ✅ ADICIONAR CAMPO DOCUMENT (pode estar faltando e causando o problema!)
+    // document deve receber o valor do cpf OU cnpj dependendo do document_type
+    const finalDocType = payload.document_type || oldData.document_type || 'cpf';
+    if (finalDocType === 'cpf') {
+      payload.document = payload.cpf || oldData.cpf || null;
+    } else {
+      payload.document = data.cnpj || oldData.document || null;
+    }
+    
+    console.log(`📋 [updateTenant] Campo 'document' definido: ${payload.document} (baseado em document_type=${finalDocType})`);
+    
     // MONTHLY_INCOME
     if (data.monthly_income !== undefined && data.monthly_income !== null) {
       const rawValue = typeof data.monthly_income === 'string' 
