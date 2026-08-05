@@ -294,11 +294,11 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== INÍCIO updateTenant (USANDO FUNÇÃO FORCE) =====");
+    console.log("\n🔥 ===== INÍCIO updateTenant (ULTRA-SIMPLES) =====");
     console.log("🔍 [updateTenant] ID:", id);
     console.log("🔍 [updateTenant] Dados RECEBIDOS:", JSON.stringify(data, null, 2));
     
-    // ✅ VALIDAÇÃO: Email único (se email foi alterado)
+    // ✅ VALIDAÇÃO: Email único
     if (data.email) {
       const { data: existingTenant, error: emailCheckError } = await supabase
         .from("tenants")
@@ -308,17 +308,17 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
         .maybeSingle();
       
       if (emailCheckError) {
-        console.error("❌ [updateTenant] Erro ao verificar email único:", emailCheckError);
+        console.error("❌ [updateTenant] Erro ao verificar email:", emailCheckError);
         throw emailCheckError;
       }
       
       if (existingTenant) {
-        console.error("❌ [updateTenant] Email já existe em outro inquilino:", existingTenant.id);
+        console.error("❌ [updateTenant] Email já existe:", existingTenant.id);
         throw new Error("EMAIL_ALREADY_EXISTS");
       }
     }
     
-    // ✅ Buscar valores antigos ANTES de atualizar
+    // ✅ Buscar valores antigos ANTES
     const { data: oldData, error: selectOldError } = await supabase
       .from("tenants")
       .select("*")
@@ -330,156 +330,176 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       throw selectOldError;
     }
     
-    console.log("🔍 [updateTenant] Valores ANTIGOS:");
+    console.log("🔍 [updateTenant] Valores ANTIGOS no banco:");
     console.log(JSON.stringify(oldData, null, 2));
     
-    // ✅ CONSTRUIR PAYLOAD - usar novos valores OU valores antigos
-    const payload = {
-      p_id: id,
-      p_name: data.name || oldData.name,
-      p_email: data.email || oldData.email,
-      p_phone: data.phone || oldData.phone,
-      p_cpf: data.cpf !== undefined ? (data.cpf || null) : (oldData.cpf || null),
-      p_rg: data.rg !== undefined ? (data.rg || null) : (oldData.rg || null),
-      p_occupation: data.occupation !== undefined ? (data.occupation || null) : (oldData.occupation || null),
-      p_marital_status: data.marital_status !== undefined 
+    // ✅ CONSTRUIR PAYLOAD ULTRA-SIMPLES - TODOS OS CAMPOS
+    const payload: any = {
+      name: data.name || oldData.name,
+      email: data.email || oldData.email,
+      phone: data.phone || oldData.phone,
+      cpf: data.cpf !== undefined ? (data.cpf || null) : (oldData.cpf || null),
+      rg: data.rg !== undefined ? (data.rg || null) : (oldData.rg || null),
+      occupation: data.occupation !== undefined ? (data.occupation || null) : (oldData.occupation || null),
+      marital_status: data.marital_status !== undefined 
         ? (data.marital_status || null) 
         : (data.maritalStatus !== undefined ? (data.maritalStatus || null) : (oldData.marital_status || null)),
-      p_document_type: data.document_type !== undefined 
+      document_type: data.document_type !== undefined 
         ? (data.document_type || null) 
         : (data.documentType !== undefined ? (data.documentType || null) : (oldData.document_type || null)),
-      p_zip_code: data.cep !== undefined ? (data.cep || null) : (oldData.zip_code || null),
-      p_street: data.street !== undefined ? (data.street || null) : (oldData.street || null),
-      p_number: data.number !== undefined ? (data.number || null) : (oldData.number || null),
-      p_complement: data.complement !== undefined ? (data.complement || null) : (oldData.complement || null),
-      p_neighborhood: data.neighborhood !== undefined ? (data.neighborhood || null) : (oldData.neighborhood || null),
-      p_city: data.city !== undefined ? (data.city || null) : (oldData.city || null),
-      p_state: data.state !== undefined ? (data.state || null) : (oldData.state || null),
-      p_status: data.status || oldData.status,
-      p_monthly_income: null, // Vai ser setado abaixo
+      zip_code: data.cep !== undefined ? (data.cep || null) : (oldData.zip_code || null),
+      street: data.street !== undefined ? (data.street || null) : (oldData.street || null),
+      number: data.number !== undefined ? (data.number || null) : (oldData.number || null),
+      complement: data.complement !== undefined ? (data.complement || null) : (oldData.complement || null),
+      neighborhood: data.neighborhood !== undefined ? (data.neighborhood || null) : (oldData.neighborhood || null),
+      city: data.city !== undefined ? (data.city || null) : (oldData.city || null),
+      state: data.state !== undefined ? (data.state || null) : (oldData.state || null),
+      status: data.status || oldData.status,
     };
     
-    // MONTHLY_INCOME - garantir número com 2 decimais
+    // MONTHLY_INCOME
     if (data.monthly_income !== undefined && data.monthly_income !== null) {
       const rawValue = typeof data.monthly_income === 'string' 
         ? parseFloat(data.monthly_income) 
         : data.monthly_income;
-      payload.p_monthly_income = !isNaN(rawValue) && rawValue > 0 
+      payload.monthly_income = !isNaN(rawValue) && rawValue > 0 
         ? Math.round(rawValue * 100) / 100 
         : null;
     } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
       const rawValue = typeof data.monthlyIncome === 'string' 
         ? parseFloat(data.monthlyIncome) 
         : data.monthlyIncome;
-      payload.p_monthly_income = !isNaN(rawValue) && rawValue > 0 
+      payload.monthly_income = !isNaN(rawValue) && rawValue > 0 
         ? Math.round(rawValue * 100) / 100 
         : null;
     } else {
-      payload.p_monthly_income = oldData.monthly_income || null;
+      payload.monthly_income = oldData.monthly_income || null;
     }
     
-    console.log("\n📤 [updateTenant] PAYLOAD PARA FUNÇÃO FORCE:");
+    // Adicionar updated_at manualmente
+    payload.updated_at = new Date().toISOString();
+    
+    console.log("\n📤 [updateTenant] PAYLOAD COMPLETO (TODOS OS CAMPOS):");
     console.log(JSON.stringify(payload, null, 2));
+    console.log("📤 [updateTenant] Total de campos:", Object.keys(payload).length);
 
-    console.log("\n📡 [updateTenant] Executando função force_update_tenant() com SECURITY DEFINER...");
+    console.log("\n📡 [updateTenant] Executando UPDATE DIRETO via Supabase...");
     
-    // ✅ CHAMAR FUNÇÃO PL/pgSQL que FORÇA o UPDATE
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('force_update_tenant', payload);
+    // ✅ UPDATE DIRETO - com .select() para pegar o resultado
+    const { data: updatedData, error: updateError } = await supabase
+      .from("tenants")
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .single();
 
-    if (rpcError) {
-      console.error("❌ [updateTenant] ERRO AO EXECUTAR FUNÇÃO FORCE:");
-      console.error("   - message:", rpcError.message);
-      console.error("   - details:", rpcError.details);
-      console.error("   - hint:", rpcError.hint);
-      console.error("   - code:", rpcError.code);
-      throw rpcError;
+    if (updateError) {
+      console.error("❌ [updateTenant] ERRO DO SUPABASE:");
+      console.error("   - message:", updateError.message);
+      console.error("   - details:", updateError.details);
+      console.error("   - hint:", updateError.hint);
+      console.error("   - code:", updateError.code);
+      throw updateError;
     }
 
-    console.log("✅ [updateTenant] Função FORCE executada com SUCESSO!");
-    console.log("📤 Resultado retornado pela função:");
-    console.log(JSON.stringify(rpcResult, null, 2));
+    console.log("✅ [updateTenant] UPDATE executado com SUCESSO!");
+    console.log("✅ [updateTenant] Dados RETORNADOS do UPDATE:");
+    console.log(JSON.stringify(updatedData, null, 2));
     
-    // O resultado JÁ é o registro atualizado em JSON
-    const updatedData = rpcResult as any;
+    // COMPARAÇÃO campo por campo - PAYLOAD vs RETORNO
+    console.log("\n🔍 [updateTenant] COMPARAÇÃO (PAYLOAD vs RETORNO DO UPDATE):");
+    let allFieldsMatch = true;
     
-    if (!updatedData) {
-      console.error("❌ [updateTenant] Função retornou NULL - inquilino não encontrado!");
-      throw new Error("Inquilino não encontrado");
-    }
-    
-    // COMPARAÇÃO campo por campo
-    console.log("\n🔍 [updateTenant] VERIFICAÇÃO:");
-    let allFieldsSaved = true;
-    
-    const fieldMapping: Record<string, string> = {
-      p_name: 'name',
-      p_email: 'email',
-      p_phone: 'phone',
-      p_cpf: 'cpf',
-      p_rg: 'rg',
-      p_occupation: 'occupation',
-      p_marital_status: 'marital_status',
-      p_monthly_income: 'monthly_income',
-      p_document_type: 'document_type',
-      p_zip_code: 'zip_code',
-      p_street: 'street',
-      p_number: 'number',
-      p_complement: 'complement',
-      p_neighborhood: 'neighborhood',
-      p_city: 'city',
-      p_state: 'state',
-      p_status: 'status',
-    };
-    
-    for (const paramKey in payload) {
-      if (paramKey === 'p_id') continue;
+    for (const key of Object.keys(payload)) {
+      if (key === 'updated_at') continue; // Pular updated_at
       
-      const columnName = fieldMapping[paramKey];
-      if (!columnName) continue;
+      const sentValue = payload[key];
+      const returnedValue = updatedData[key];
       
-      const sentValue = payload[paramKey as keyof typeof payload];
-      const savedValue = updatedData[columnName];
-      
-      if (JSON.stringify(sentValue) !== JSON.stringify(savedValue)) {
-        allFieldsSaved = false;
-        console.error(`  ❌ Campo "${columnName}" NÃO FOI SALVO: enviado=${JSON.stringify(sentValue)} mas banco retornou=${JSON.stringify(savedValue)}`);
+      if (JSON.stringify(sentValue) !== JSON.stringify(returnedValue)) {
+        allFieldsMatch = false;
+        console.error(`  ❌ Campo "${key}" DIFERENTE: enviado=${JSON.stringify(sentValue)} vs retornado=${JSON.stringify(returnedValue)}`);
       } else {
-        console.log(`  ✅ Campo "${columnName}" salvo: ${JSON.stringify(savedValue)}`);
+        console.log(`  ✅ Campo "${key}" OK: ${JSON.stringify(returnedValue)}`);
       }
     }
     
-    if (allFieldsSaved) {
-      console.log("\n✅✅✅ TODOS OS CAMPOS FORAM SALVOS COM SUCESSO! ✅✅✅");
+    if (allFieldsMatch) {
+      console.log("\n✅✅✅ TODOS OS CAMPOS DO UPDATE ESTÃO CORRETOS NO RETORNO! ✅✅✅");
     } else {
-      console.error("\n❌❌❌ ALGUNS CAMPOS NÃO FORAM SALVOS! ❌❌❌");
+      console.error("\n❌❌❌ ALGUNS CAMPOS ESTÃO DIFERENTES NO RETORNO DO UPDATE! ❌❌❌");
+    }
+    
+    // ESPERAR 500ms e BUSCAR NOVAMENTE para verificar se os dados foram PERSISTIDOS
+    console.log("\n⏳ [updateTenant] Aguardando 500ms para verificar persistência...");
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    console.log("\n📡 [updateTenant] Buscando dados PERSISTIDOS no banco (SELECT separado)...");
+    const { data: persistedData, error: selectError } = await supabase
+      .from("tenants")
+      .select("*")
+      .eq("id", id)
+      .single();
+    
+    if (selectError) {
+      console.error("❌ [updateTenant] ERRO ao buscar dados persistidos:", selectError);
+      throw selectError;
+    }
+    
+    console.log("✅ [updateTenant] Dados PERSISTIDOS no banco:");
+    console.log(JSON.stringify(persistedData, null, 2));
+    
+    // COMPARAÇÃO campo por campo - PAYLOAD vs PERSISTIDO
+    console.log("\n🔍 [updateTenant] COMPARAÇÃO CRÍTICA (PAYLOAD vs PERSISTIDO):");
+    let allFieldsPersisted = true;
+    
+    for (const key of Object.keys(payload)) {
+      if (key === 'updated_at') continue;
+      
+      const sentValue = payload[key];
+      const persistedValue = persistedData[key];
+      
+      if (JSON.stringify(sentValue) !== JSON.stringify(persistedValue)) {
+        allFieldsPersisted = false;
+        console.error(`  ❌ Campo "${key}" NÃO PERSISTIU: enviado=${JSON.stringify(sentValue)} vs banco=${JSON.stringify(persistedValue)}`);
+      } else {
+        console.log(`  ✅ Campo "${key}" PERSISTIDO: ${JSON.stringify(persistedValue)}`);
+      }
+    }
+    
+    if (allFieldsPersisted) {
+      console.log("\n✅✅✅ TODOS OS CAMPOS FORAM PERSISTIDOS CORRETAMENTE! ✅✅✅");
+    } else {
+      console.error("\n❌❌❌ ALGUNS CAMPOS NÃO FORAM PERSISTIDOS! ❌❌❌");
+      console.error("🚨 Isso significa que algo no BANCO está REVERTENDO as mudanças DEPOIS do UPDATE!");
     }
     
     // Log de auditoria
-    if (updatedData && oldData) {
+    if (persistedData && oldData) {
       const changes: string[] = [];
       
-      if (oldData.name !== updatedData.name) {
-        changes.push(`name: de=${oldData.name} -> para=${updatedData.name}`);
+      if (oldData.name !== persistedData.name) {
+        changes.push(`name: de=${oldData.name} -> para=${persistedData.name}`);
       }
-      if (oldData.email !== updatedData.email) {
-        changes.push(`email: de=${oldData.email || '-'} -> para=${updatedData.email || '-'}`);
+      if (oldData.email !== persistedData.email) {
+        changes.push(`email: de=${oldData.email || '-'} -> para=${persistedData.email || '-'}`);
       }
-      if (oldData.phone !== updatedData.phone) {
-        changes.push(`phone: de=${oldData.phone || '-'} -> para=${updatedData.phone || '-'}`);
+      if (oldData.phone !== persistedData.phone) {
+        changes.push(`phone: de=${oldData.phone || '-'} -> para=${persistedData.phone || '-'}`);
       }
-      if (oldData.status !== updatedData.status) {
-        changes.push(`status: de=${oldData.status} -> para=${updatedData.status}`);
+      if (oldData.status !== persistedData.status) {
+        changes.push(`status: de=${oldData.status} -> para=${persistedData.status}`);
       }
-      if (oldData.monthly_income !== updatedData.monthly_income) {
-        changes.push(`monthly_income: de=${oldData.monthly_income || '-'} -> para=${updatedData.monthly_income || '-'}`);
+      if (oldData.monthly_income !== persistedData.monthly_income) {
+        changes.push(`monthly_income: de=${oldData.monthly_income || '-'} -> para=${persistedData.monthly_income || '-'}`);
       }
-      if (oldData.marital_status !== updatedData.marital_status) {
-        changes.push(`marital_status: de=${oldData.marital_status || '-'} -> para=${updatedData.marital_status || '-'}`);
+      if (oldData.marital_status !== persistedData.marital_status) {
+        changes.push(`marital_status: de=${oldData.marital_status || '-'} -> para=${persistedData.marital_status || '-'}`);
       }
       
       const changesSummary = changes.length > 0 
-        ? `Nome Inquilino: ${updatedData.name}\n${changes.join('\n')}`
-        : `Nome Inquilino: ${updatedData.name}`;
+        ? `Nome Inquilino: ${persistedData.name}\n${changes.join('\n')}`
+        : `Nome Inquilino: ${persistedData.name}`;
       
       await logAudit({
         action_type: "update",
@@ -493,16 +513,16 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
           status: oldData.status,
         } : undefined,
         new_values: {
-          name: updatedData.name,
-          email: updatedData.email,
-          phone: updatedData.phone,
-          status: updatedData.status,
+          name: persistedData.name,
+          email: persistedData.email,
+          phone: persistedData.phone,
+          status: persistedData.status,
         },
       });
     }
     
     console.log("🔥 ===== FIM updateTenant =====\n");
-    return updatedData ? fromDatabase(updatedData) : null;
+    return persistedData ? fromDatabase(persistedData) : null;
   } catch (error: any) {
     console.error("❌ [updateTenant] EXCEÇÃO:");
     console.error("   - Message:", error.message);
