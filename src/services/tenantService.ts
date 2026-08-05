@@ -14,133 +14,48 @@ const TABLE = "tenants";
 function toDatabase(data: Partial<Tenant>): any {
   console.log("🔄 [tenantService.toDatabase] Dados recebidos:", JSON.stringify(data, null, 2));
   
-  // ✅ ABORDAGEM RADICAL: Criar objeto APENAS com campos que TÊM valores REAIS
-  const dbData: any = {};
-  
-  // ✅ CAMPOS OBRIGATÓRIOS - incluir SEMPRE (mesmo que vazios, pois são required)
-  if (data.name !== undefined) dbData.name = data.name;
-  if (data.email !== undefined) dbData.email = data.email;
-  if (data.phone !== undefined) dbData.phone = data.phone;
-  
-  // ✅ CAMPOS OPCIONAIS - incluir APENAS se tiverem valor REAL (não vazio)
-  if (data.status !== undefined) {
-    dbData.status = data.status;
-  }
-  
-  if (data.rg !== undefined && data.rg !== null && data.rg !== "") {
-    dbData.rg = data.rg;
-  }
-  
-  if (data.occupation !== undefined && data.occupation !== null && data.occupation !== "") {
-    const occupation = data.occupation.substring(0, 255);
-    dbData.occupation = occupation;
-    if (data.occupation.length > 255) {
-      console.warn(`⚠️ [toDatabase] occupation truncado de ${data.occupation.length} para 255 caracteres`);
-    }
-  }
-  
-  if (data.document !== undefined && data.document !== null && data.document !== "") {
-    dbData.document = data.document;
-  }
-  
-  if (data.cpf !== undefined && data.cpf !== null && data.cpf !== "") {
-    dbData.cpf = data.cpf;
-  }
-  
-  if (data.street !== undefined && data.street !== null && data.street !== "") {
-    dbData.street = data.street;
-  }
-  
-  if (data.number !== undefined && data.number !== null && data.number !== "") {
-    dbData.number = data.number;
-  }
-  
-  if (data.complement !== undefined && data.complement !== null && data.complement !== "") {
-    dbData.complement = data.complement;
-  }
-  
-  if (data.neighborhood !== undefined && data.neighborhood !== null && data.neighborhood !== "") {
-    dbData.neighborhood = data.neighborhood;
-  }
-  
-  if (data.city !== undefined && data.city !== null && data.city !== "") {
-    dbData.city = data.city;
-  }
-  
-  if (data.state !== undefined && data.state !== null && data.state !== "") {
-    dbData.state = data.state;
-  }
-  
-  // MARITAL_STATUS com validação de tamanho
-  if (data.marital_status !== undefined && data.marital_status !== null && data.marital_status !== "") {
-    const maritalStatus = data.marital_status.substring(0, 50);
-    dbData.marital_status = maritalStatus;
-    if (data.marital_status.length > 50) {
-      console.warn(`⚠️ [toDatabase] marital_status truncado de ${data.marital_status.length} para 50 caracteres`);
-    }
-  } else if (data.maritalStatus !== undefined && data.maritalStatus !== null && data.maritalStatus !== "") {
-    const maritalStatus = data.maritalStatus.substring(0, 50);
-    dbData.marital_status = maritalStatus;
-    if (data.maritalStatus.length > 50) {
-      console.warn(`⚠️ [toDatabase] marital_status truncado de ${data.maritalStatus.length} para 50 caracteres`);
-    }
-  }
-  
-  // DOCUMENT_TYPE - só enviar se tiver valor
-  if (data.document_type !== undefined && data.document_type !== null && data.document_type !== "") {
-    dbData.document_type = data.document_type;
-  } else if (data.documentType !== undefined && data.documentType !== null && data.documentType !== "") {
-    dbData.document_type = data.documentType;
-  }
-  
-  // CEP → zip_code
-  if (data.cep !== undefined && data.cep !== null && data.cep !== "") {
-    dbData.zip_code = data.cep;
-  }
-  
-  // MONTHLY_INCOME - garantir que seja número com MÁXIMO 2 casas decimais
-  if (data.monthly_income !== undefined && data.monthly_income !== null && data.monthly_income !== 0) {
-    const rawValue = typeof data.monthly_income === 'string' 
-      ? parseFloat(data.monthly_income) 
-      : data.monthly_income;
+  // ✅ ULTRA-SIMPLES: Criar objeto com TODOS os campos SEMPRE
+  const dbData: any = {
+    // CAMPOS OBRIGATÓRIOS
+    name: data.name || "",
+    email: data.email || "",
+    phone: data.phone || "",
+    status: data.status || "active",
     
-    // ✅ Verificar se é um número válido
-    if (!isNaN(rawValue) && rawValue > 0) {
-      dbData.monthly_income = Math.round(rawValue * 100) / 100;
-      console.log(`💰 [toDatabase] monthly_income: ${data.monthly_income} → ${dbData.monthly_income} (arredondado para 2 decimais)`);
-    }
-  } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null && data.monthlyIncome !== 0) {
-    const rawValue = typeof data.monthlyIncome === 'string' 
-      ? parseFloat(data.monthlyIncome) 
-      : data.monthlyIncome;
-    
-    // ✅ Verificar se é um número válido
-    if (!isNaN(rawValue) && rawValue > 0) {
-      dbData.monthly_income = Math.round(rawValue * 100) / 100;
-      console.log(`💰 [toDatabase] monthly_income: ${data.monthlyIncome} → ${dbData.monthly_income} (arredondado para 2 decimais)`);
-    }
+    // CAMPOS OPCIONAIS - null se vazio
+    cpf: data.cpf || null,
+    rg: data.rg || null,
+    occupation: data.occupation || null,
+    marital_status: data.marital_status || data.maritalStatus || null,
+    monthly_income: null, // Vai ser calculado abaixo
+    document_type: data.document_type || data.documentType || "cpf",
+    zip_code: data.cep || null,
+    street: data.street || null,
+    number: data.number || null,
+    complement: data.complement || null,
+    neighborhood: data.neighborhood || null,
+    city: data.city || null,
+    state: data.state || null,
+  };
+  
+  // ✅ CAMPO DOCUMENT - baseado no document_type
+  if (dbData.document_type === "cpf") {
+    dbData.document = data.cpf || null;
+  } else {
+    dbData.document = data.cnpj || null;
+  }
+  
+  // ✅ MONTHLY_INCOME
+  if (data.monthly_income !== undefined && data.monthly_income !== null) {
+    const raw = typeof data.monthly_income === 'string' ? parseFloat(data.monthly_income) : data.monthly_income;
+    dbData.monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
+  } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
+    const raw = typeof data.monthlyIncome === 'string' ? parseFloat(data.monthlyIncome) : data.monthlyIncome;
+    dbData.monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
   }
   
   console.log("📤 [tenantService.toDatabase] PAYLOAD FINAL:", JSON.stringify(dbData, null, 2));
-  console.log("📤 [tenantService.toDatabase] Campos enviados:", Object.keys(dbData));
-  
-  // ✅ LOG ULTRA-DETALHADO de cada campo
-  console.log("\n🔍 DETALHAMENTO DO PAYLOAD FINAL:");
-  for (const key in dbData) {
-    const value = dbData[key];
-    const valueType = typeof value;
-    
-    if (valueType === 'string') {
-      console.log(`  📤 "${key}": tipo=string, tamanho=${value.length}, valor="${value}"`);
-    } else if (valueType === 'number') {
-      console.log(`  📤 "${key}": tipo=number, valor=${value}`);
-    } else if (value === null) {
-      console.log(`  📤 "${key}": tipo=null, valor=null`);
-    } else {
-      console.log(`  📤 "${key}": tipo=${valueType}, valor=${JSON.stringify(value)}`);
-    }
-  }
-  console.log("🔍 FIM DO DETALHAMENTO\n");
+  console.log("📤 [tenantService.toDatabase] Campos incluídos:", Object.keys(dbData).length);
   
   return dbData;
 }
@@ -250,6 +165,9 @@ export async function getTenantById(id: string): Promise<Tenant> {
 export const getById = getTenantById;
 
 export async function createTenant(data: Partial<Tenant>): Promise<Tenant> {
+  console.log("\n🔥 ===== createTenant =====");
+  console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
+  
   // ✅ VALIDAÇÃO: Email único
   if (data.email) {
     const { data: existingTenant, error: emailCheckError } = await supabase
@@ -269,11 +187,18 @@ export async function createTenant(data: Partial<Tenant>): Promise<Tenant> {
     }
   }
   
+  // ✅ Converter para formato do banco
   const dbData = toDatabase(data);
+  
+  console.log("\n📤 PAYLOAD para INSERT:");
+  console.log(JSON.stringify(dbData, null, 2));
+  
   const result = await createSingle<any>(TABLE, dbData);
   const tenant = fromDatabase(result);
   
-  // ✅ NOVO FORMATO: Nome Inquilino no resumo
+  console.log("✅ Inquilino criado:", JSON.stringify(tenant, null, 2));
+  
+  // ✅ Log de auditoria
   await logAudit({
     action_type: "create",
     entity_type: "tenant",
@@ -287,6 +212,7 @@ export async function createTenant(data: Partial<Tenant>): Promise<Tenant> {
     },
   });
   
+  console.log("🔥 FIM createTenant\n");
   return tenant;
 }
 
@@ -294,7 +220,7 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== updateTenant =====");
+    console.log("\n🔥 ===== updateTenant (ULTRA-SIMPLES - SEM RPC) =====");
     console.log("🔍 ID:", id);
     console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
     
@@ -321,56 +247,77 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     
     if (!old) throw new Error("Inquilino não encontrado");
     
-    console.log("🔍 Dados antigos:", JSON.stringify(old, null, 2));
+    console.log("🔍 Dados antigos no banco:", JSON.stringify(old, null, 2));
     
-    // ✅ SIMPLIFICADO: SEMPRE enviar TODOS os campos (novo OU antigo, mas NUNCA undefined/null sem fallback)
-    const params: any = {
-      p_tenant_id: id,
-      p_name: data.name || old.name || "",
-      p_email: data.email || old.email || "",
-      p_phone: data.phone || old.phone || "",
-      p_cpf: data.cpf || old.cpf || "",
-      p_rg: data.rg || old.rg || "",
-      p_occupation: data.occupation || old.occupation || "",
-      p_document: data.cpf || data.cnpj || old.document || "",
-      p_marital_status: data.marital_status || data.maritalStatus || old.marital_status || "",
-      p_document_type: data.document_type || data.documentType || old.document_type || "cpf",
-      p_zip_code: data.cep || old.zip_code || "",
-      p_street: data.street || old.street || "",
-      p_number: data.number || old.number || "",
-      p_complement: data.complement || old.complement || "",
-      p_neighborhood: data.neighborhood || old.neighborhood || "",
-      p_city: data.city || old.city || "",
-      p_state: data.state || old.state || "",
-      p_status: data.status || old.status || "active",
+    // ✅ MESCLAR: novos dados sobrescrevem antigos
+    const merged: Partial<Tenant> = {
+      name: data.name || old.name,
+      email: data.email || old.email,
+      phone: data.phone || old.phone,
+      cpf: data.cpf !== undefined ? data.cpf : old.cpf,
+      cnpj: data.cnpj !== undefined ? data.cnpj : old.document_type === "cnpj" ? old.document : null,
+      rg: data.rg !== undefined ? data.rg : old.rg,
+      occupation: data.occupation !== undefined ? data.occupation : old.occupation,
+      marital_status: data.marital_status !== undefined ? data.marital_status : (data.maritalStatus !== undefined ? data.maritalStatus : old.marital_status),
+      monthly_income: data.monthly_income !== undefined ? data.monthly_income : (data.monthlyIncome !== undefined ? data.monthlyIncome : old.monthly_income),
+      document_type: data.document_type !== undefined ? data.document_type : (data.documentType !== undefined ? data.documentType : old.document_type),
+      cep: data.cep !== undefined ? data.cep : old.zip_code,
+      street: data.street !== undefined ? data.street : old.street,
+      number: data.number !== undefined ? data.number : old.number,
+      complement: data.complement !== undefined ? data.complement : old.complement,
+      neighborhood: data.neighborhood !== undefined ? data.neighborhood : old.neighborhood,
+      city: data.city !== undefined ? data.city : old.city,
+      state: data.state !== undefined ? data.state : old.state,
+      status: data.status || old.status,
     };
     
-    // Monthly income
-    if (data.monthly_income !== undefined && data.monthly_income !== null) {
-      const raw = typeof data.monthly_income === 'string' ? parseFloat(data.monthly_income) : data.monthly_income;
-      params.p_monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : 0;
-    } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
-      const raw = typeof data.monthlyIncome === 'string' ? parseFloat(data.monthlyIncome) : data.monthlyIncome;
-      params.p_monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : 0;
-    } else {
-      params.p_monthly_income = old.monthly_income || 0;
-    }
+    console.log("🔄 Dados MESCLADOS (novo + antigo):", JSON.stringify(merged, null, 2));
     
-    console.log("\n📤 PARÂMETROS:");
-    console.log(JSON.stringify(params, null, 2));
+    // ✅ Converter para formato do banco
+    const payload = toDatabase(merged);
+    
+    // ✅ Adicionar updated_at
+    payload.updated_at = new Date().toISOString();
+    
+    console.log("\n📤 PAYLOAD FINAL para UPDATE:");
+    console.log(JSON.stringify(payload, null, 2));
+    console.log("📤 Total de campos:", Object.keys(payload).length);
 
-    // ✅ CHAMAR RPC
-    const { data: result, error } = await supabase.rpc('update_tenant_raw', params);
+    // ✅ UPDATE DIRETO via Supabase client
+    const { data: updated, error } = await supabase
+      .from("tenants")
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .single();
 
     if (error) {
-      console.error("❌ ERRO:", error);
+      console.error("❌ ERRO DO SUPABASE:", error);
       throw error;
     }
 
-    console.log("✅ SUCESSO!");
-    console.log("✅ Resultado:", JSON.stringify(result, null, 2));
+    console.log("✅ UPDATE EXECUTADO COM SUCESSO!");
+    console.log("✅ Dados retornados:", JSON.stringify(updated, null, 2));
     
-    const updated = result as any;
+    // ✅ VERIFICAÇÃO campo por campo
+    console.log("\n🔍 VERIFICAÇÃO (PAYLOAD vs RETORNO):");
+    let allOk = true;
+    for (const key of Object.keys(payload)) {
+      if (key === 'updated_at') continue;
+      
+      if (JSON.stringify(payload[key]) !== JSON.stringify(updated[key])) {
+        allOk = false;
+        console.error(`❌ ${key}: enviado=${JSON.stringify(payload[key])} vs retornado=${JSON.stringify(updated[key])}`);
+      } else {
+        console.log(`✅ ${key}: OK`);
+      }
+    }
+    
+    if (allOk) {
+      console.log("\n✅✅✅ TODOS OS CAMPOS CORRETOS NO RETORNO! ✅✅✅");
+    } else {
+      console.error("\n❌❌❌ ALGUNS CAMPOS DIFERENTES NO RETORNO! ❌❌❌");
+    }
     
     // Log auditoria
     await logAudit({
