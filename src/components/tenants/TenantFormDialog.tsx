@@ -600,138 +600,34 @@ export const TenantFormDialog = memo(function TenantFormDialog({
       return;
     }
 
-    console.log("\n🔥 ===== INÍCIO TenantFormDialog.handleSubmit =====");
-    console.log("🔍 [TenantFormDialog] Modo:", tenant ? "EDITAR" : "CRIAR");
-    console.log("🔍 [TenantFormDialog] Inquilino original:", tenant ? JSON.stringify(tenant, null, 2) : "null");
-    console.log("🔍 [TenantFormDialog] FormData atual:", JSON.stringify(formData, null, 2));
+    console.log("\n🔥 ===== TenantFormDialog.handleSubmit =====");
+    console.log("🔍 Modo:", tenant ? "EDITAR" : "CRIAR");
 
-    // ✅ NOVO: Se está EDITANDO, enviar SEMPRE campos obrigatórios + os que mudaram
-    let newTenantData: any;
-    
-    if (tenant) {
-      // MODO EDIÇÃO: SEMPRE incluir name, email, phone + outros campos que mudaram
-      console.log("📝 [TenantFormDialog] MODO EDIÇÃO - incluindo campos obrigatórios + campos que mudaram");
-      
-      newTenantData = {
-        // ✅ CAMPOS OBRIGATÓRIOS - SEMPRE incluir (mesmo que não tenham mudado)
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-      };
-      
-      console.log("✅ [TenantFormDialog] Campos obrigatórios incluídos: name, email, phone");
-      
-      // ✅ CAMPOS OPCIONAIS - incluir apenas se mudaram
-      if (formData.status !== (tenant.status || "active")) {
-        newTenantData.status = formData.status;
-        console.log(`🔄 [TenantFormDialog] Campo "status" mudou: "${tenant.status}" → "${formData.status}"`);
-      }
-      
-      if (formData.cpf !== (tenant.cpf || "")) {
-        newTenantData.cpf = formData.cpf;
-        console.log(`🔄 [TenantFormDialog] Campo "cpf" mudou`);
-      }
-      
-      if (formData.cnpj !== (tenant.cnpj || "")) {
-        newTenantData.cnpj = formData.cnpj;
-        console.log(`🔄 [TenantFormDialog] Campo "cnpj" mudou`);
-      }
-      
-      if (formData.rg !== (tenant.rg || "")) {
-        newTenantData.rg = formData.rg;
-        console.log(`🔄 [TenantFormDialog] Campo "rg" mudou`);
-      }
-      
-      if (formData.occupation !== (tenant.occupation || "")) {
-        newTenantData.occupation = formData.occupation;
-        console.log(`🔄 [TenantFormDialog] Campo "occupation" mudou`);
-      }
-      
-      if (formData.maritalStatus !== (tenant.marital_status || tenant.maritalStatus || "")) {
-        newTenantData.marital_status = formData.maritalStatus;
-        console.log(`🔄 [TenantFormDialog] Campo "marital_status" mudou`);
-      }
-      
-      const currentIncome = formData.monthlyIncome ? parseMoneyMaskToNumber(formData.monthlyIncome) : null;
-      const oldIncome = tenant.monthly_income || tenant.monthlyIncome || null;
-      if (currentIncome !== oldIncome) {
-        newTenantData.monthly_income = currentIncome;
-        console.log(`🔄 [TenantFormDialog] Campo "monthly_income" mudou: "${oldIncome}" → "${currentIncome}"`);
-      }
-      
-      if (documentType !== (tenant.document_type || tenant.documentType || "cpf")) {
-        newTenantData.document_type = documentType;
-        console.log(`🔄 [TenantFormDialog] Campo "document_type" mudou`);
-      }
-      
-      // Endereço - incluir se mudou
-      if (formData.cep !== (tenant.cep || "")) {
-        newTenantData.cep = formData.cep;
-        console.log(`🔄 [TenantFormDialog] Campo "cep" mudou`);
-      }
-      
-      if (formData.street !== (tenant.street || "")) {
-        newTenantData.street = formData.street;
-        console.log(`🔄 [TenantFormDialog] Campo "street" mudou`);
-      }
-      
-      if (formData.number !== (tenant.number || "")) {
-        newTenantData.number = formData.number;
-        console.log(`🔄 [TenantFormDialog] Campo "number" mudou`);
-      }
-      
-      if (formData.complement !== (tenant.complement || "")) {
-        newTenantData.complement = formData.complement;
-        console.log(`🔄 [TenantFormDialog] Campo "complement" mudou`);
-      }
-      
-      if (formData.neighborhood !== (tenant.neighborhood || "")) {
-        newTenantData.neighborhood = formData.neighborhood;
-        console.log(`🔄 [TenantFormDialog] Campo "neighborhood" mudou`);
-      }
-      
-      if (formData.city !== (tenant.city || "")) {
-        newTenantData.city = formData.city;
-        console.log(`🔄 [TenantFormDialog] Campo "city" mudou`);
-      }
-      
-      if (formData.state !== (tenant.state || "")) {
-        newTenantData.state = formData.state;
-        console.log(`🔄 [TenantFormDialog] Campo "state" mudou`);
-      }
-      
-      console.log(`📊 [TenantFormDialog] Total de campos no payload: ${Object.keys(newTenantData).length}`);
-      console.log(`📤 [TenantFormDialog] Campos que serão enviados:`, Object.keys(newTenantData));
-      
-    } else {
-      // MODO CRIAÇÃO: Enviar todos os campos
-      console.log("📝 [TenantFormDialog] Modo CRIAÇÃO - enviando todos os campos");
-      
-      newTenantData = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        cpf: formData.cpf,
-        cnpj: formData.cnpj,
-        rg: formData.rg,
-        occupation: formData.occupation,
-        marital_status: formData.maritalStatus,
-        monthly_income: formData.monthlyIncome ? parseMoneyMaskToNumber(formData.monthlyIncome) : null,
-        document_type: documentType,
-        cep: formData.cep,
-        street: formData.street,
-        number: formData.number,
-        complement: formData.complement,
-        neighborhood: formData.neighborhood,
-        city: formData.city,
-        state: formData.state,
-        status: formData.status as "active" | "rented" | "inactive",
-      };
-    }
+    // ✅ SIMPLIFICADO: SEMPRE enviar TODOS os campos (EDIÇÃO ou CRIAÇÃO)
+    const newTenantData: any = {
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      cpf: formData.cpf,
+      cnpj: formData.cnpj,
+      rg: formData.rg,
+      occupation: formData.occupation,
+      marital_status: formData.maritalStatus,
+      monthly_income: formData.monthlyIncome ? parseMoneyMaskToNumber(formData.monthlyIncome) : null,
+      document_type: documentType,
+      cep: formData.cep,
+      street: formData.street,
+      number: formData.number,
+      complement: formData.complement,
+      neighborhood: formData.neighborhood,
+      city: formData.city,
+      state: formData.state,
+      status: formData.status,
+    };
 
-    console.log("📤 [TenantFormDialog] Dados FINAIS que serão enviados ao tenantService:");
+    console.log("📤 Dados que serão enviados:");
     console.log(JSON.stringify(newTenantData, null, 2));
-    console.log("🔥 ===== FIM TenantFormDialog.handleSubmit =====\n");
+    console.log("🔥 ===== FIM handleSubmit =====\n");
 
     try {
       const success = await onSave(newTenantData);
@@ -744,7 +640,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         setEmailError("E-mail existente, informe outro e-mail");
       }
     }
-  }, [formData, documentType, tenant, onSave, onOpenChange, emailError]);
+  }, [formData, documentType, onSave, onOpenChange, emailError]);
 
   const handleEdit = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

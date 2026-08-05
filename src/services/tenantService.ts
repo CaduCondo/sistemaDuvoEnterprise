@@ -294,7 +294,7 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== updateTenant (VIA RPC SQL DIRETO) =====");
+    console.log("\n🔥 ===== updateTenant =====");
     console.log("🔍 ID:", id);
     console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
     
@@ -321,77 +321,56 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     
     if (!old) throw new Error("Inquilino não encontrado");
     
-    // ✅ Preparar parâmetros para RPC
+    console.log("🔍 Dados antigos:", JSON.stringify(old, null, 2));
+    
+    // ✅ SIMPLIFICADO: SEMPRE enviar TODOS os campos (novo OU antigo, mas NUNCA undefined/null sem fallback)
     const params: any = {
       p_tenant_id: id,
-      p_name: data.name || old.name,
-      p_email: data.email || old.email,
-      p_phone: data.phone || old.phone,
-      p_cpf: data.cpf !== undefined ? data.cpf : old.cpf,
-      p_rg: data.rg !== undefined ? data.rg : old.rg,
-      p_occupation: data.occupation !== undefined ? data.occupation : old.occupation,
-      p_document: data.cpf || data.cnpj || old.document,
-      p_marital_status: data.marital_status !== undefined ? data.marital_status : (data.maritalStatus !== undefined ? data.maritalStatus : old.marital_status),
-      p_document_type: data.document_type !== undefined ? data.document_type : (data.documentType !== undefined ? data.documentType : old.document_type),
-      p_zip_code: data.cep !== undefined ? data.cep : old.zip_code,
-      p_street: data.street !== undefined ? data.street : old.street,
-      p_number: data.number !== undefined ? data.number : old.number,
-      p_complement: data.complement !== undefined ? data.complement : old.complement,
-      p_neighborhood: data.neighborhood !== undefined ? data.neighborhood : old.neighborhood,
-      p_city: data.city !== undefined ? data.city : old.city,
-      p_state: data.state !== undefined ? data.state : old.state,
-      p_status: data.status || old.status,
+      p_name: data.name || old.name || "",
+      p_email: data.email || old.email || "",
+      p_phone: data.phone || old.phone || "",
+      p_cpf: data.cpf || old.cpf || "",
+      p_rg: data.rg || old.rg || "",
+      p_occupation: data.occupation || old.occupation || "",
+      p_document: data.cpf || data.cnpj || old.document || "",
+      p_marital_status: data.marital_status || data.maritalStatus || old.marital_status || "",
+      p_document_type: data.document_type || data.documentType || old.document_type || "cpf",
+      p_zip_code: data.cep || old.zip_code || "",
+      p_street: data.street || old.street || "",
+      p_number: data.number || old.number || "",
+      p_complement: data.complement || old.complement || "",
+      p_neighborhood: data.neighborhood || old.neighborhood || "",
+      p_city: data.city || old.city || "",
+      p_state: data.state || old.state || "",
+      p_status: data.status || old.status || "active",
     };
     
     // Monthly income
     if (data.monthly_income !== undefined && data.monthly_income !== null) {
       const raw = typeof data.monthly_income === 'string' ? parseFloat(data.monthly_income) : data.monthly_income;
-      params.p_monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
+      params.p_monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : 0;
     } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
       const raw = typeof data.monthlyIncome === 'string' ? parseFloat(data.monthlyIncome) : data.monthlyIncome;
-      params.p_monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
+      params.p_monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : 0;
     } else {
-      params.p_monthly_income = old.monthly_income;
+      params.p_monthly_income = old.monthly_income || 0;
     }
     
-    console.log("\n📤 PARÂMETROS RPC:");
+    console.log("\n📤 PARÂMETROS:");
     console.log(JSON.stringify(params, null, 2));
 
-    // ✅ CHAMAR RPC que executa SQL direto
+    // ✅ CHAMAR RPC
     const { data: result, error } = await supabase.rpc('update_tenant_raw', params);
 
     if (error) {
-      console.error("❌ ERRO RPC:", error);
+      console.error("❌ ERRO:", error);
       throw error;
     }
 
-    console.log("✅ RPC OK!");
+    console.log("✅ SUCESSO!");
     console.log("✅ Resultado:", JSON.stringify(result, null, 2));
     
     const updated = result as any;
-    
-    // Verificar
-    console.log("\n🔍 VERIFICAÇÃO:");
-    let ok = true;
-    for (const key in params) {
-      if (key === 'p_tenant_id') continue;
-      const dbKey = key.replace('p_', '');
-      const sent = params[key];
-      const saved = updated[dbKey];
-      
-      if (JSON.stringify(sent) !== JSON.stringify(saved)) {
-        ok = false;
-        console.error(`❌ ${dbKey}: enviado=${JSON.stringify(sent)} vs salvo=${JSON.stringify(saved)}`);
-      } else {
-        console.log(`✅ ${dbKey}: OK`);
-      }
-    }
-    
-    if (ok) {
-      console.log("\n✅✅✅ TODOS OS CAMPOS SALVOS! ✅✅✅");
-    } else {
-      console.error("\n❌❌❌ CAMPOS NÃO SALVOS! ❌❌❌");
-    }
     
     // Log auditoria
     await logAudit({
