@@ -62,12 +62,21 @@ export function useTenants() {
           },
         });
         return true;
-      } catch (error) {
-        showAlert({
-          title: "Erro",
-          description: "Não foi possível criar o inquilino.",
-          type: "error",
-        });
+      } catch (error: any) {
+        // ✅ Tratar erro de email duplicado
+        if (error.message === "EMAIL_ALREADY_EXISTS") {
+          showAlert({
+            title: "E-mail já cadastrado",
+            description: "Já existe um inquilino cadastrado com este e-mail. Por favor, utilize outro e-mail.",
+            type: "error",
+          });
+        } else {
+          showAlert({
+            title: "Erro",
+            description: "Não foi possível criar o inquilino.",
+            type: "error",
+          });
+        }
         return false;
       }
     },
@@ -90,12 +99,21 @@ export function useTenants() {
           },
         });
         return true;
-      } catch (error) {
-        showAlert({
-          title: "Erro",
-          description: "Não foi possível atualizar o inquilino.",
-          type: "error",
-        });
+      } catch (error: any) {
+        // ✅ Tratar erro de email duplicado
+        if (error.message === "EMAIL_ALREADY_EXISTS") {
+          showAlert({
+            title: "E-mail já cadastrado",
+            description: "Já existe um inquilino cadastrado com este e-mail. Por favor, utilize outro e-mail.",
+            type: "error",
+          });
+        } else {
+          showAlert({
+            title: "Erro",
+            description: "Não foi possível atualizar o inquilino.",
+            type: "error",
+          });
+        }
         return false;
       }
     },

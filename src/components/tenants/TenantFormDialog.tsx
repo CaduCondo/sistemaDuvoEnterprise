@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tenant } from "@/types";
 import { applyCpfMask, applyCnpjMask, applyPhoneMask, applyRgMask, applyCepMask, fetchAddressByCEP, applyMoneyMask, formatMoneyForDisplay, parseMoneyMaskToNumber } from "@/lib/masks";
 import { Pencil, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TenantFormDialogProps {
   open: boolean;
@@ -73,6 +74,8 @@ const PersonalDataSection = memo(function PersonalDataSection({
   occupation,
   maritalStatus,
   monthlyIncome,
+  emailError,
+  checkingEmail,
 }: {
   formData: FormState;
   documentType: "cpf" | "cnpj";
@@ -88,6 +91,8 @@ const PersonalDataSection = memo(function PersonalDataSection({
   occupation?: string;
   maritalStatus?: string;
   monthlyIncome?: string;
+  emailError?: string;
+  checkingEmail?: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -176,16 +181,24 @@ const PersonalDataSection = memo(function PersonalDataSection({
 
         <div className="space-y-2">
           <Label htmlFor="tenant-email" className="text-sm font-medium">E-mail *</Label>
-          <Input
-            id="tenant-email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => onFieldChange("email", e.target.value)}
-            placeholder="email@exemplo.com"
-            required
-            disabled={!isEditing}
-            className="h-11 sm:h-10 text-sm mobile-input"
-          />
+          <div className="relative">
+            <Input
+              id="tenant-email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => onFieldChange("email", e.target.value)}
+              placeholder="email@exemplo.com"
+              required
+              disabled={!isEditing}
+              className={`h-11 sm:h-10 text-sm mobile-input ${emailError ? "border-red-500" : ""}`}
+            />
+            {checkingEmail && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
+          {emailError && (
+            <p className="text-sm text-red-600 font-medium">{emailError}</p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -382,11 +395,15 @@ export const TenantFormDialog = memo(function TenantFormDialog({
   const [documentType, setDocumentType] = useState<"cpf" | "cnpj">("cpf");
   const [loadingCep, setLoadingCep] = useState(false);
   const [formData, setFormData] = useState<FormState>(INITIAL_FORM_STATE);
+  const [emailError, setEmailError] = useState<string>("");
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   useEffect(() => {
     if (!open) return;
 
     setIsEditing(!isViewMode);
+    setEmailError(""); // ✅ Limpar erro de email ao abrir dialog
+    setCheckingEmail(false);
 
     if (tenant) {
       const rawDocType = tenant.document_type || tenant.documentType;
@@ -425,7 +442,57 @@ export const TenantFormDialog = memo(function TenantFormDialog({
 
   const handleFieldChange = useCallback((field: keyof FormState, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  }, []);
+    
+    // ✅ Validação de email único
+    if (field === "email") {
+      setEmailError("");
+      
+      // Limpar validação anterior
+      if (value.trim() === "") {
+        setCheckingEmail(false);
+        return;
+      }
+      
+      // Validar formato básico
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        setCheckingEmail(false);
+        return;
+      }
+      
+      // Verificar se email já existe (debounce de 500ms)
+      setCheckingEmail(true);
+      
+      const timeoutId = setTimeout(async () => {
+        try {
+          const { data: existingTenant, error: emailCheckError } = await supabase
+            .from("tenants")
+            .select("id, email")
+            .eq("email", value)
+            .maybeSingle();
+          
+          if (emailCheckError) {
+            console.error("❌ Erro ao verificar email:", emailCheckError);
+            setCheckingEmail(false);
+            return;
+          }
+          
+          // Se encontrou outro inquilino com esse email (e não é o mesmo que está editando)
+          if (existingTenant && existingTenant.id !== tenant?.id) {
+            setEmailError("E-mail existente, informe outro e-mail");
+          } else {
+            setEmailError("");
+          }
+        } catch (error) {
+          console.error("❌ Erro ao verificar email:", error);
+        } finally {
+          setCheckingEmail(false);
+        }
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [tenant?.id]);
 
   const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const masked = applyPhoneMask(e.target.value);
@@ -526,6 +593,12 @@ export const TenantFormDialog = memo(function TenantFormDialog({
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // ✅ BLOQUEAR ENVIO se houver erro de email
+    if (emailError) {
+      console.warn("⚠️ [TenantFormDialog] Bloqueando envio - email já existe");
+      return;
+    }
 
     console.log("\n🔥 ===== INÍCIO TenantFormDialog.handleSubmit =====");
     console.log("🔍 [TenantFormDialog] Modo:", tenant ? "EDITAR" : "CRIAR");
@@ -660,11 +733,18 @@ export const TenantFormDialog = memo(function TenantFormDialog({
     console.log(JSON.stringify(newTenantData, null, 2));
     console.log("🔥 ===== FIM TenantFormDialog.handleSubmit =====\n");
 
-    const success = await onSave(newTenantData);
-    if (success) {
-      onOpenChange(false);
+    try {
+      const success = await onSave(newTenantData);
+      if (success) {
+        onOpenChange(false);
+      }
+    } catch (error: any) {
+      // ✅ Tratar erro de email duplicado do backend
+      if (error.message === "EMAIL_ALREADY_EXISTS") {
+        setEmailError("E-mail existente, informe outro e-mail");
+      }
     }
-  }, [formData, documentType, tenant, onSave, onOpenChange]);
+  }, [formData, documentType, tenant, onSave, onOpenChange, emailError]);
 
   const handleEdit = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -704,6 +784,8 @@ export const TenantFormDialog = memo(function TenantFormDialog({
             occupation={formData.occupation}
             maritalStatus={formData.maritalStatus}
             monthlyIncome={formData.monthlyIncome}
+            emailError={emailError}
+            checkingEmail={checkingEmail}
           />
 
           <AddressSection
