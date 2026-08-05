@@ -294,7 +294,7 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== updateTenant (ULTRA-SIMPLES - SEM RPC) =====");
+    console.log("\n🔥 ===== updateTenant (VIA RPC SQL DIRETO) =====");
     console.log("🔍 ID:", id);
     console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
     
@@ -321,73 +321,69 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     
     if (!old) throw new Error("Inquilino não encontrado");
     
-    // ✅ PAYLOAD COMPLETO - TODOS OS CAMPOS SEMPRE
-    const payload: any = {
-      name: data.name || old.name,
-      email: data.email || old.email,
-      phone: data.phone || old.phone,
-      cpf: data.cpf !== undefined ? data.cpf : old.cpf,
-      rg: data.rg !== undefined ? data.rg : old.rg,
-      occupation: data.occupation !== undefined ? data.occupation : old.occupation,
-      document: data.cpf || data.cnpj || old.document,
-      marital_status: data.marital_status !== undefined ? data.marital_status : (data.maritalStatus !== undefined ? data.maritalStatus : old.marital_status),
-      document_type: data.document_type !== undefined ? data.document_type : (data.documentType !== undefined ? data.documentType : old.document_type),
-      zip_code: data.cep !== undefined ? data.cep : old.zip_code,
-      street: data.street !== undefined ? data.street : old.street,
-      number: data.number !== undefined ? data.number : old.number,
-      complement: data.complement !== undefined ? data.complement : old.complement,
-      neighborhood: data.neighborhood !== undefined ? data.neighborhood : old.neighborhood,
-      city: data.city !== undefined ? data.city : old.city,
-      state: data.state !== undefined ? data.state : old.state,
-      status: data.status || old.status,
-      updated_at: new Date().toISOString(),
+    // ✅ Preparar parâmetros para RPC
+    const params: any = {
+      p_tenant_id: id,
+      p_name: data.name || old.name,
+      p_email: data.email || old.email,
+      p_phone: data.phone || old.phone,
+      p_cpf: data.cpf !== undefined ? data.cpf : old.cpf,
+      p_rg: data.rg !== undefined ? data.rg : old.rg,
+      p_occupation: data.occupation !== undefined ? data.occupation : old.occupation,
+      p_document: data.cpf || data.cnpj || old.document,
+      p_marital_status: data.marital_status !== undefined ? data.marital_status : (data.maritalStatus !== undefined ? data.maritalStatus : old.marital_status),
+      p_document_type: data.document_type !== undefined ? data.document_type : (data.documentType !== undefined ? data.documentType : old.document_type),
+      p_zip_code: data.cep !== undefined ? data.cep : old.zip_code,
+      p_street: data.street !== undefined ? data.street : old.street,
+      p_number: data.number !== undefined ? data.number : old.number,
+      p_complement: data.complement !== undefined ? data.complement : old.complement,
+      p_neighborhood: data.neighborhood !== undefined ? data.neighborhood : old.neighborhood,
+      p_city: data.city !== undefined ? data.city : old.city,
+      p_state: data.state !== undefined ? data.state : old.state,
+      p_status: data.status || old.status,
     };
     
     // Monthly income
     if (data.monthly_income !== undefined && data.monthly_income !== null) {
       const raw = typeof data.monthly_income === 'string' ? parseFloat(data.monthly_income) : data.monthly_income;
-      payload.monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
+      params.p_monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
     } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
       const raw = typeof data.monthlyIncome === 'string' ? parseFloat(data.monthlyIncome) : data.monthlyIncome;
-      payload.monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
+      params.p_monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
     } else {
-      payload.monthly_income = old.monthly_income;
+      params.p_monthly_income = old.monthly_income;
     }
     
-    console.log("\n📤 PAYLOAD (TODOS OS CAMPOS):");
-    console.log(JSON.stringify(payload, null, 2));
+    console.log("\n📤 PARÂMETROS RPC:");
+    console.log(JSON.stringify(params, null, 2));
 
-    // ✅ UPDATE DIRETO
-    const { data: updated, error } = await supabase
-      .from("tenants")
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
+    // ✅ CHAMAR RPC que executa SQL direto
+    const { data: result, error } = await supabase.rpc('update_tenant_raw', params);
 
-    if (error) throw error;
+    if (error) {
+      console.error("❌ ERRO RPC:", error);
+      throw error;
+    }
 
-    console.log("✅ UPDATE OK!");
-    console.log("✅ Retorno:", JSON.stringify(updated, null, 2));
+    console.log("✅ RPC OK!");
+    console.log("✅ Resultado:", JSON.stringify(result, null, 2));
     
-    // ✅ VERIFICAR se salvou
-    await new Promise(r => setTimeout(r, 300));
+    const updated = result as any;
     
-    const { data: check } = await supabase
-      .from("tenants")
-      .select("*")
-      .eq("id", id)
-      .single();
-    
-    console.log("\n🔍 VERIFICAÇÃO (SELECT após 300ms):");
+    // Verificar
+    console.log("\n🔍 VERIFICAÇÃO:");
     let ok = true;
-    for (const k of Object.keys(payload)) {
-      if (k === 'updated_at') continue;
-      if (JSON.stringify(payload[k]) !== JSON.stringify(check[k])) {
+    for (const key in params) {
+      if (key === 'p_tenant_id') continue;
+      const dbKey = key.replace('p_', '');
+      const sent = params[key];
+      const saved = updated[dbKey];
+      
+      if (JSON.stringify(sent) !== JSON.stringify(saved)) {
         ok = false;
-        console.error(`❌ ${k}: enviado=${JSON.stringify(payload[k])} vs banco=${JSON.stringify(check[k])}`);
+        console.error(`❌ ${dbKey}: enviado=${JSON.stringify(sent)} vs salvo=${JSON.stringify(saved)}`);
       } else {
-        console.log(`✅ ${k}: OK`);
+        console.log(`✅ ${dbKey}: OK`);
       }
     }
     
@@ -402,13 +398,13 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       action_type: "update",
       entity_type: "tenant",
       entity_id: id,
-      changes_summary: `Nome Inquilino: ${check.name}`,
+      changes_summary: `Nome Inquilino: ${updated.name}`,
       old_values: { name: old.name, email: old.email, phone: old.phone, status: old.status },
-      new_values: { name: check.name, email: check.email, phone: check.phone, status: check.status },
+      new_values: { name: updated.name, email: updated.email, phone: updated.phone, status: updated.status },
     });
     
     console.log("🔥 FIM updateTenant\n");
-    return check ? fromDatabase(check) : null;
+    return updated ? fromDatabase(updated) : null;
   } catch (error: any) {
     console.error("❌ ERRO:", error.message);
     throw error;
