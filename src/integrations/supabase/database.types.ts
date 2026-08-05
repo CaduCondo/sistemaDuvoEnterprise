@@ -1474,6 +1474,30 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_tenant_with_verification: {
+        Args: {
+          p_city: string
+          p_complement: string
+          p_cpf: string
+          p_document: string
+          p_document_type: string
+          p_email: string
+          p_id: string
+          p_marital_status: string
+          p_monthly_income: number
+          p_name: string
+          p_neighborhood: string
+          p_number: string
+          p_occupation: string
+          p_phone: string
+          p_rg: string
+          p_state: string
+          p_status: string
+          p_street: string
+          p_zip_code: string
+        }
+        Returns: Json
+      }
       user_has_location_access: {
         Args: { p_location_id: string; p_user_id: string }
         Returns: boolean

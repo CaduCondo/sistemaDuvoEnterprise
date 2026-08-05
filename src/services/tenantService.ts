@@ -114,29 +114,20 @@ export async function getAllTenants(): Promise<Tenant[]> {
     const tenant = fromDatabase(data);
     const rentalStatuses = rentalsMap.get(tenant.id) || [];
     
-    // ✅ NOVA LÓGICA SIMPLIFICADA (sem mapeamento - frontend e banco usam mesmos valores):
-    // 1. Se tem locação ativa → SEMPRE é "rented" (sobrescreve qualquer status manual)
-    // 2. Se NÃO tem locação ativa E status no banco é "rented" → converter para "active" (disponível)
-    // 3. Caso contrário → respeitar o status do banco (active ou inactive)
-    
     let finalStatus: "active" | "rented" | "inactive";
     
-    // REGRA 1: Se tem locação ativa, SEMPRE é "rented" (sobrescreve qualquer status manual)
     if (rentalStatuses.includes("active")) {
       finalStatus = "rented";
       console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'rented' (tem locação ativa - SOBRESCRITO)`);
     }
-    // REGRA 2: Se NÃO tem locação ativa MAS status no banco é "rented" → converter para "active" (disponível)
     else if (data.status === "rented" && !rentalStatuses.includes("active")) {
       finalStatus = "active";
       console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'active' (era 'rented' mas NÃO tem locação ativa - CORRIGIDO)`);
     }
-    // REGRA 3: Respeitar status do banco para "inactive"
     else if (data.status === "inactive") {
       finalStatus = "inactive";
       console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'inactive' (respeitando banco)`);
     }
-    // REGRA 4: Caso contrário (status "active" no banco) → manter "active"
     else {
       finalStatus = "active";
       console.log(`📌 [tenantService] Inquilino ${tenant.name}: status 'active' (respeitando banco)`);
@@ -220,7 +211,7 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== updateTenant (UPDATE DIRETO - IGUAL À CRIAÇÃO) =====");
+    console.log("\n🔥 ===== updateTenant (COM VERIFICAÇÃO PÓS-COMMIT) =====");
     console.log("🔍 ID:", id);
     console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
     
@@ -273,92 +264,53 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     
     console.log("🔄 Dados MESCLADOS (novo + antigo):", JSON.stringify(merged, null, 2));
     
-    // ✅ Converter para formato do banco (IGUAL À CRIAÇÃO)
+    // ✅ Converter para formato do banco
     const dbData = toDatabase(merged);
     
-    // ✅ Adicionar updated_at
-    dbData.updated_at = new Date().toISOString();
-    
-    console.log("\n📤 PAYLOAD FINAL para UPDATE:");
+    console.log("\n📤 PAYLOAD para RPC:");
     console.log(JSON.stringify(dbData, null, 2));
-    console.log("📤 Total de campos:", Object.keys(dbData).length);
 
-    // ✅ UPDATE DIRETO via Supabase client (IGUAL À CRIAÇÃO que FUNCIONA)
-    console.log("\n📡 Executando UPDATE direto via Supabase client...");
-    const { data: updated, error: updateError } = await supabase
-      .from("tenants")
-      .update(dbData)
-      .eq("id", id)
-      .select()
-      .single();
+    // ✅ CHAMAR RPC COM VERIFICAÇÃO PÓS-COMMIT
+    console.log("\n📡 Executando RPC com verificação pós-commit...");
+    const { data: result, error: rpcError } = await supabase.rpc('update_tenant_with_verification', {
+      p_id: id,
+      p_name: dbData.name,
+      p_email: dbData.email,
+      p_phone: dbData.phone,
+      p_cpf: dbData.cpf,
+      p_rg: dbData.rg,
+      p_occupation: dbData.occupation,
+      p_document: dbData.document,
+      p_marital_status: dbData.marital_status,
+      p_monthly_income: dbData.monthly_income,
+      p_document_type: dbData.document_type,
+      p_zip_code: dbData.zip_code,
+      p_street: dbData.street,
+      p_number: dbData.number,
+      p_complement: dbData.complement,
+      p_neighborhood: dbData.neighborhood,
+      p_city: dbData.city,
+      p_state: dbData.state,
+      p_status: dbData.status,
+    });
 
-    if (updateError) {
-      console.error("❌ ERRO DO SUPABASE:", updateError);
-      throw updateError;
+    if (rpcError) {
+      console.error("❌ ERRO RPC:", rpcError);
+      throw new Error(`Erro ao atualizar: ${rpcError.message}`);
     }
 
-    console.log("✅ UPDATE EXECUTADO COM SUCESSO!");
-    console.log("✅ Dados retornados pelo UPDATE:", JSON.stringify(updated, null, 2));
+    console.log("✅ RPC EXECUTADA COM SUCESSO!");
+    console.log("✅ Resultado:", JSON.stringify(result, null, 2));
     
-    // ✅ VERIFICAÇÃO campo por campo
-    console.log("\n🔍 VERIFICAÇÃO (PAYLOAD vs RETORNO):");
-    let allOk = true;
-    for (const key of Object.keys(dbData)) {
-      if (key === 'updated_at') continue;
-      
-      if (JSON.stringify(dbData[key]) !== JSON.stringify(updated[key])) {
-        allOk = false;
-        console.error(`❌ ${key}: enviado=${JSON.stringify(dbData[key])} vs retornado=${JSON.stringify(updated[key])}`);
-      } else {
-        console.log(`✅ ${key}: OK`);
-      }
+    // ✅ Extrair dados verificados do resultado
+    const persisted = (result as any).data;
+    
+    if (!persisted) {
+      throw new Error("Nenhum dado retornado pela função de atualização");
     }
     
-    if (allOk) {
-      console.log("\n✅✅✅ TODOS OS CAMPOS CORRETOS NO RETORNO! ✅✅✅");
-    } else {
-      console.error("\n❌❌❌ ALGUNS CAMPOS DIFERENTES NO RETORNO! ❌❌❌");
-    }
-    
-    // ✅ AGUARDAR e VERIFICAR PERSISTÊNCIA (igual ao que fazíamos antes)
-    console.log("\n⏳ Aguardando 300ms para verificar persistência...");
-    await new Promise(r => setTimeout(r, 300));
-    
-    console.log("📡 Buscando dados PERSISTIDOS no banco (SELECT separado)...");
-    const { data: persisted, error: selectError } = await supabase
-      .from("tenants")
-      .select("*")
-      .eq("id", id)
-      .single();
-    
-    if (selectError) {
-      console.error("❌ ERRO ao buscar dados persistidos:", selectError);
-      throw selectError;
-    }
-    
-    console.log("✅ Dados PERSISTIDOS no banco:");
+    console.log("✅ Dados VERIFICADOS e PERSISTIDOS no banco:");
     console.log(JSON.stringify(persisted, null, 2));
-    
-    // ✅ VERIFICAÇÃO CRÍTICA (PAYLOAD vs PERSISTIDO)
-    console.log("\n🔍 VERIFICAÇÃO CRÍTICA (PAYLOAD vs PERSISTIDO):");
-    let allPersisted = true;
-    for (const key of Object.keys(dbData)) {
-      if (key === 'updated_at') continue;
-      
-      if (JSON.stringify(dbData[key]) !== JSON.stringify(persisted[key])) {
-        allPersisted = false;
-        console.error(`❌ ${key}: enviado=${JSON.stringify(dbData[key])} vs persistido=${JSON.stringify(persisted[key])}`);
-      } else {
-        console.log(`✅ ${key}: PERSISTIDO OK`);
-      }
-    }
-    
-    if (allPersisted) {
-      console.log("\n✅✅✅ TODOS OS CAMPOS FORAM PERSISTIDOS CORRETAMENTE! ✅✅✅");
-    } else {
-      console.error("\n❌❌❌ ALGUNS CAMPOS NÃO FORAM PERSISTIDOS! ❌❌❌");
-      console.error("🚨 Isso significa que algo no BANCO está REVERTENDO as mudanças!");
-    }
     
     // Log auditoria - INCLUIR TODOS OS CAMPOS
     const changes: string[] = [];
@@ -469,6 +421,7 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       },
     });
     
+    console.log("✅✅✅ ATUALIZAÇÃO COMPLETA E VERIFICADA! ✅✅✅");
     console.log("🔥 FIM updateTenant\n");
     return persisted ? fromDatabase(persisted) : null;
   } catch (error: any) {
@@ -481,7 +434,6 @@ export const update = async (
   id: string,
   tenant: Partial<Omit<Tenant, "id" | "createdAt">>
 ): Promise<Tenant> => {
-  // ✅ Buscar valores antigos ANTES de atualizar
   const { data: oldData } = await supabase
     .from("tenants")
     .select("name, email, phone, status")
@@ -506,7 +458,6 @@ export const update = async (
 
   if (error) throw error;
 
-  // ✅ Registrar log de auditoria
   await logAudit({
     action_type: "update",
     entity_type: "tenant",
@@ -525,7 +476,6 @@ export const update = async (
     },
   });
 
-  // ✅ CORREÇÃO: Fazer cast do status para o tipo literal correto
   return {
     ...data,
     status: data.status as "active" | "rented" | "inactive",
@@ -551,7 +501,6 @@ export async function deleteTenant(id: string): Promise<void> {
     );
   }
 
-  // ✅ Buscar dados ANTES de deletar para log de auditoria
   const { data: tenantData } = await supabase
     .from("tenants")
     .select("name, email, phone")
@@ -560,7 +509,6 @@ export async function deleteTenant(id: string): Promise<void> {
 
   await deleteSingle(TABLE, id);
   
-  // ✅ NOVO FORMATO: Nome Inquilino no resumo
   if (tenantData) {
     await logAudit({
       action_type: "delete",
@@ -577,7 +525,6 @@ export async function deleteTenant(id: string): Promise<void> {
 }
 
 export const remove = async (id: string): Promise<void> => {
-  // ✅ Buscar dados ANTES de deletar
   const { data: tenantData } = await supabase
     .from("tenants")
     .select("name, email, phone")
@@ -588,7 +535,6 @@ export const remove = async (id: string): Promise<void> => {
 
   if (error) throw error;
 
-  // ✅ NOVO FORMATO: Nome Inquilino no resumo
   if (tenantData) {
     await logAudit({
       action_type: "delete",
