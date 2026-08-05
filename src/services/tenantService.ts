@@ -352,15 +352,33 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     
     // ✅ VALIDAÇÃO: Comparar valores ANTIGOS vs NOVOS
     console.log("\n🔍 [updateTenant] COMPARAÇÃO ANTIGO vs NOVO:");
+    
+    let changedCount = 0;
+    let unchangedCount = 0;
+    
     for (const key of Object.keys(updateData)) {
       const oldValue = oldData[key];
       const newValue = updatedData[key];
       
       if (oldValue !== newValue) {
+        changedCount++;
         console.log(`  ✅ Campo "${key}" FOI ATUALIZADO: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
       } else {
+        unchangedCount++;
         console.warn(`  ⚠️ Campo "${key}" NÃO MUDOU: ${JSON.stringify(oldValue)} = ${JSON.stringify(newValue)}`);
       }
+    }
+    
+    console.log(`\n📊 [updateTenant] RESUMO DA ATUALIZAÇÃO:`);
+    console.log(`  ✅ Campos enviados no payload: ${Object.keys(updateData).length}`);
+    console.log(`  ✅ Campos que MUDARAM no banco: ${changedCount}`);
+    console.log(`  ⚠️ Campos que NÃO MUDARAM: ${unchangedCount}`);
+    
+    if (unchangedCount > 0 && unchangedCount === Object.keys(updateData).length - Object.keys(updateData).filter(k => k === 'name' || k === 'email' || k === 'phone').length) {
+      console.error(`\n❌❌❌ ALERTA CRÍTICO: CAMPOS OPCIONAIS NÃO FORAM SALVOS! ❌❌❌`);
+      console.error(`  🚨 Apenas campos obrigatórios (name, email, phone) foram salvos!`);
+      console.error(`  🚨 Campos opcionais foram IGNORADOS pelo banco!`);
+      console.error(`  🚨 Possível causa: RLS policies conflitantes ou triggers revertendo mudanças!`);
     }
     
     // ✅ NOVO FORMATO: Nome Inquilino + mudanças campo a campo
