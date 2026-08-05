@@ -275,7 +275,7 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== INÍCIO updateTenant (VERSÃO SIMPLIFICADA) =====");
+    console.log("\n🔥 ===== INÍCIO updateTenant (USANDO FUNÇÃO PL/pgSQL) =====");
     console.log("🔍 [updateTenant] ID:", id);
     console.log("🔍 [updateTenant] Dados RECEBIDOS do form:", JSON.stringify(data, null, 2));
     
@@ -294,141 +294,79 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     console.log("🔍 [updateTenant] Valores ANTIGOS no banco (ANTES do update):");
     console.log(JSON.stringify(oldData, null, 2));
     
-    // ✅ CONSTRUIR PAYLOAD DIRETO - SEM toDatabase()
-    const rawPayload: any = {};
-    
-    // CAMPOS OBRIGATÓRIOS
-    if (data.name !== undefined) rawPayload.name = data.name;
-    if (data.email !== undefined) rawPayload.email = data.email;
-    if (data.phone !== undefined) rawPayload.phone = data.phone;
-    
-    // CAMPOS OPCIONAIS - enviar NULL para campos vazios
-    if (data.cpf !== undefined) {
-      rawPayload.cpf = data.cpf || null;
-    }
-    
-    if (data.rg !== undefined) {
-      rawPayload.rg = data.rg || null;
-    }
-    
-    if (data.occupation !== undefined) {
-      rawPayload.occupation = data.occupation || null;
-    }
-    
-    if (data.document !== undefined) {
-      rawPayload.document = data.document || null;
-    }
-    
-    // MARITAL_STATUS
-    if (data.marital_status !== undefined) {
-      rawPayload.marital_status = data.marital_status || null;
-    } else if (data.maritalStatus !== undefined) {
-      rawPayload.marital_status = data.maritalStatus || null;
-    }
+    // ✅ PREPARAR PARÂMETROS PARA A FUNÇÃO PL/pgSQL
+    const params: any = {
+      p_id: id,
+      p_name: data.name,
+      p_email: data.email,
+      p_phone: data.phone,
+      p_cpf: data.cpf !== undefined ? (data.cpf || null) : undefined,
+      p_rg: data.rg !== undefined ? (data.rg || null) : undefined,
+      p_occupation: data.occupation !== undefined ? (data.occupation || null) : undefined,
+      p_document: data.document !== undefined ? (data.document || null) : undefined,
+      p_marital_status: data.marital_status !== undefined 
+        ? (data.marital_status || null) 
+        : (data.maritalStatus !== undefined ? (data.maritalStatus || null) : undefined),
+      p_document_type: data.document_type !== undefined 
+        ? (data.document_type || null) 
+        : (data.documentType !== undefined ? (data.documentType || null) : undefined),
+      p_zip_code: data.cep !== undefined ? (data.cep || null) : undefined,
+      p_street: data.street !== undefined ? (data.street || null) : undefined,
+      p_number: data.number !== undefined ? (data.number || null) : undefined,
+      p_complement: data.complement !== undefined ? (data.complement || null) : undefined,
+      p_neighborhood: data.neighborhood !== undefined ? (data.neighborhood || null) : undefined,
+      p_city: data.city !== undefined ? (data.city || null) : undefined,
+      p_state: data.state !== undefined ? (data.state || null) : undefined,
+      p_status: data.status,
+    };
     
     // MONTHLY_INCOME - garantir número com 2 decimais
     if (data.monthly_income !== undefined && data.monthly_income !== null) {
       const rawValue = typeof data.monthly_income === 'string' 
         ? parseFloat(data.monthly_income) 
         : data.monthly_income;
-      rawPayload.monthly_income = !isNaN(rawValue) && rawValue > 0 
+      params.p_monthly_income = !isNaN(rawValue) && rawValue > 0 
         ? Math.round(rawValue * 100) / 100 
         : null;
     } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
       const rawValue = typeof data.monthlyIncome === 'string' 
         ? parseFloat(data.monthlyIncome) 
         : data.monthlyIncome;
-      rawPayload.monthly_income = !isNaN(rawValue) && rawValue > 0 
+      params.p_monthly_income = !isNaN(rawValue) && rawValue > 0 
         ? Math.round(rawValue * 100) / 100 
         : null;
     }
     
-    // DOCUMENT_TYPE
-    if (data.document_type !== undefined) {
-      rawPayload.document_type = data.document_type || null;
-    } else if (data.documentType !== undefined) {
-      rawPayload.document_type = data.documentType || null;
-    }
-    
-    // ENDEREÇO
-    if (data.cep !== undefined) {
-      rawPayload.zip_code = data.cep || null;
-    }
-    
-    if (data.street !== undefined) {
-      rawPayload.street = data.street || null;
-    }
-    
-    if (data.number !== undefined) {
-      rawPayload.number = data.number || null;
-    }
-    
-    if (data.complement !== undefined) {
-      rawPayload.complement = data.complement || null;
-    }
-    
-    if (data.neighborhood !== undefined) {
-      rawPayload.neighborhood = data.neighborhood || null;
-    }
-    
-    if (data.city !== undefined) {
-      rawPayload.city = data.city || null;
-    }
-    
-    if (data.state !== undefined) {
-      rawPayload.state = data.state || null;
-    }
-    
-    // STATUS
-    if (data.status !== undefined) {
-      rawPayload.status = data.status;
-    }
-    
-    console.log("\n📤 [updateTenant] PAYLOAD RAW (DIRETO, sem toDatabase()):");
-    console.log(JSON.stringify(rawPayload, null, 2));
-    console.log("📤 [updateTenant] Campos no payload:", Object.keys(rawPayload));
-    
-    // LOG DETALHADO de cada campo
-    console.log("\n🔍 DETALHAMENTO DO PAYLOAD:");
-    for (const key in rawPayload) {
-      const value = rawPayload[key];
-      const valueType = typeof value;
-      
-      if (valueType === 'string') {
-        console.log(`  📤 "${key}": tipo=string, tamanho=${value.length}, valor="${value}"`);
-      } else if (valueType === 'number') {
-        console.log(`  📤 "${key}": tipo=number, valor=${value}`);
-      } else if (value === null) {
-        console.log(`  📤 "${key}": tipo=null, valor=null`);
-      } else {
-        console.log(`  📤 "${key}": tipo=${valueType}, valor=${JSON.stringify(value)}`);
+    // Remover parâmetros undefined (manter apenas null e valores reais)
+    Object.keys(params).forEach(key => {
+      if (params[key] === undefined) {
+        delete params[key];
       }
-    }
-    console.log("🔍 FIM DO DETALHAMENTO\n");
-
-    console.log("\n📡 [updateTenant] Executando UPDATE via Supabase client...");
+    });
     
-    // ✅ UPDATE via Supabase client
-    const { error: updateError } = await supabase
-      .from("tenants")
-      .update(rawPayload)
-      .eq("id", id);
+    console.log("\n📤 [updateTenant] PARÂMETROS PARA A FUNÇÃO PL/pgSQL:");
+    console.log(JSON.stringify(params, null, 2));
+    console.log("📤 [updateTenant] Parâmetros enviados:", Object.keys(params));
+    
+    console.log("\n📡 [updateTenant] Executando função update_tenant_force() com SECURITY DEFINER...");
+    
+    // ✅ CHAMAR FUNÇÃO PL/pgSQL que FORÇA o UPDATE
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('update_tenant_force', params);
 
-    if (updateError) {
-      console.error("❌ [updateTenant] ERRO DO SUPABASE NO UPDATE:");
-      console.error("   - message:", updateError.message);
-      console.error("   - details:", updateError.details);
-      console.error("   - hint:", updateError.hint);
-      console.error("   - code:", updateError.code);
-      console.error("   - Erro completo:", JSON.stringify(updateError, null, 2));
-      throw updateError;
+    if (rpcError) {
+      console.error("❌ [updateTenant] ERRO AO EXECUTAR FUNÇÃO PL/pgSQL:");
+      console.error("   - message:", rpcError.message);
+      console.error("   - details:", rpcError.details);
+      console.error("   - hint:", rpcError.hint);
+      console.error("   - code:", rpcError.code);
+      throw rpcError;
     }
 
-    console.log("✅ [updateTenant] UPDATE executado com SUCESSO (sem erro retornado)!");
+    console.log("✅ [updateTenant] Função PL/pgSQL executada com SUCESSO!");
+    console.log("📤 Resultado da função:", JSON.stringify(rpcResult, null, 2));
     
-    // Aguardar commit
-    console.log("⏳ [updateTenant] Aguardando 300ms para garantir commit no banco...");
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Aguardar um pouco para garantir commit
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // SELECT para buscar dados atualizados
     console.log("\n📡 [updateTenant] Buscando dados ATUALIZADOS do banco...");
@@ -451,35 +389,62 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     
     let changedCount = 0;
     let unchangedCount = 0;
+    const changedFields: string[] = [];
     const unchangedFields: string[] = [];
     
-    for (const key of Object.keys(rawPayload)) {
-      const oldValue = oldData[key];
-      const newValue = updatedData[key];
+    // Mapear parâmetros de volta para nomes de coluna do banco
+    const paramToColumn: Record<string, string> = {
+      p_name: 'name',
+      p_email: 'email',
+      p_phone: 'phone',
+      p_cpf: 'cpf',
+      p_rg: 'rg',
+      p_occupation: 'occupation',
+      p_document: 'document',
+      p_marital_status: 'marital_status',
+      p_monthly_income: 'monthly_income',
+      p_document_type: 'document_type',
+      p_zip_code: 'zip_code',
+      p_street: 'street',
+      p_number: 'number',
+      p_complement: 'complement',
+      p_neighborhood: 'neighborhood',
+      p_city: 'city',
+      p_state: 'state',
+      p_status: 'status',
+    };
+    
+    for (const paramKey of Object.keys(params)) {
+      if (paramKey === 'p_id') continue; // Pular o ID
+      
+      const columnName = paramToColumn[paramKey];
+      if (!columnName) continue;
+      
+      const oldValue = oldData[columnName];
+      const newValue = updatedData[columnName];
       
       if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
         changedCount++;
-        console.log(`  ✅ Campo "${key}" FOI ATUALIZADO: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
+        changedFields.push(columnName);
+        console.log(`  ✅ Campo "${columnName}" FOI ATUALIZADO: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
       } else {
         unchangedCount++;
-        unchangedFields.push(key);
-        console.warn(`  ⚠️ Campo "${key}" NÃO MUDOU: ${JSON.stringify(oldValue)} = ${JSON.stringify(newValue)}`);
+        unchangedFields.push(columnName);
+        console.warn(`  ⚠️ Campo "${columnName}" NÃO MUDOU: ${JSON.stringify(oldValue)} = ${JSON.stringify(newValue)}`);
       }
     }
     
     console.log(`\n📊 [updateTenant] RESUMO DA ATUALIZAÇÃO:`);
-    console.log(`  ✅ Campos enviados no payload: ${Object.keys(rawPayload).length}`);
+    console.log(`  ✅ Campos enviados para a função: ${Object.keys(params).length - 1}`); // -1 para excluir p_id
     console.log(`  ✅ Campos que MUDARAM no banco: ${changedCount}`);
     console.log(`  ⚠️ Campos que NÃO MUDARAM: ${unchangedCount}`);
     
+    if (changedCount > 0) {
+      console.log(`  ✅ Campos ATUALIZADOS: ${changedFields.join(', ')}`);
+    }
+    
     if (unchangedCount > 0) {
-      console.error(`\n❌❌❌ ALERTA CRÍTICO: ${unchangedCount} CAMPOS NÃO FORAM SALVOS! ❌❌❌`);
-      console.error(`  🚨 Campos que NÃO mudaram: ${unchangedFields.join(', ')}`);
-      console.error(`  🚨 Possíveis causas:`);
-      console.error(`     1. A tabela 'tenants' pode ser uma VIEW (não uma tabela real)`);
-      console.error(`     2. Há um INSTEAD OF trigger interceptando o UPDATE`);
-      console.error(`     3. Permissões de coluna no banco estão bloqueando alguns campos`);
-      console.error(`     4. RLS policies ainda estão ativas (mesmo após DISABLE)`);
+      console.warn(`  ⚠️ Campos NÃO MUDARAM: ${unchangedFields.join(', ')}`);
     }
     
     // Log de auditoria
@@ -529,7 +494,7 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       });
     }
     
-    console.log("🔥 ===== FIM updateTenant (VERSÃO SIMPLIFICADA) =====\n");
+    console.log("🔥 ===== FIM updateTenant (USANDO FUNÇÃO PL/pgSQL) =====\n");
     return updatedData ? fromDatabase(updatedData) : null;
   } catch (error: any) {
     console.error("❌ [updateTenant] EXCEÇÃO CAPTURADA:");
