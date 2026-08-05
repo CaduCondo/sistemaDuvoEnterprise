@@ -275,7 +275,7 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== INÍCIO updateTenant (SQL RAW DIRETO) =====");
+    console.log("\n🔥 ===== INÍCIO updateTenant (VERSÃO SIMPLIFICADA) =====");
     console.log("🔍 [updateTenant] ID:", id);
     console.log("🔍 [updateTenant] Dados RECEBIDOS do form:", JSON.stringify(data, null, 2));
     
@@ -294,195 +294,141 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     console.log("🔍 [updateTenant] Valores ANTIGOS no banco (ANTES do update):");
     console.log(JSON.stringify(oldData, null, 2));
     
-    // ✅ CONSTRUIR SQL RAW - conjunto de SET com valores escapados
-    const setClauses: string[] = [];
-    const params: any = {};
+    // ✅ CONSTRUIR PAYLOAD DIRETO - SEM toDatabase()
+    const rawPayload: any = {};
     
     // CAMPOS OBRIGATÓRIOS
-    if (data.name !== undefined) {
-      setClauses.push(`name = '${data.name.replace(/'/g, "''")}'`);
-      params.name = data.name;
-    }
-    if (data.email !== undefined) {
-      setClauses.push(`email = '${data.email.replace(/'/g, "''")}'`);
-      params.email = data.email;
-    }
-    if (data.phone !== undefined) {
-      setClauses.push(`phone = '${data.phone.replace(/'/g, "''")}'`);
-      params.phone = data.phone;
-    }
+    if (data.name !== undefined) rawPayload.name = data.name;
+    if (data.email !== undefined) rawPayload.email = data.email;
+    if (data.phone !== undefined) rawPayload.phone = data.phone;
     
-    // CAMPOS OPCIONAIS
+    // CAMPOS OPCIONAIS - enviar NULL para campos vazios
     if (data.cpf !== undefined) {
-      const value = data.cpf || null;
-      setClauses.push(value ? `cpf = '${value.replace(/'/g, "''")}'` : `cpf = NULL`);
-      params.cpf = value;
+      rawPayload.cpf = data.cpf || null;
     }
     
     if (data.rg !== undefined) {
-      const value = data.rg || null;
-      setClauses.push(value ? `rg = '${value.replace(/'/g, "''")}'` : `rg = NULL`);
-      params.rg = value;
+      rawPayload.rg = data.rg || null;
     }
     
     if (data.occupation !== undefined) {
-      const value = data.occupation || null;
-      setClauses.push(value ? `occupation = '${value.replace(/'/g, "''")}'` : `occupation = NULL`);
-      params.occupation = value;
+      rawPayload.occupation = data.occupation || null;
     }
     
     if (data.document !== undefined) {
-      const value = data.document || null;
-      setClauses.push(value ? `document = '${value.replace(/'/g, "''")}'` : `document = NULL`);
-      params.document = value;
+      rawPayload.document = data.document || null;
     }
     
     // MARITAL_STATUS
     if (data.marital_status !== undefined) {
-      const value = data.marital_status || null;
-      setClauses.push(value ? `marital_status = '${value.replace(/'/g, "''")}'` : `marital_status = NULL`);
-      params.marital_status = value;
+      rawPayload.marital_status = data.marital_status || null;
     } else if (data.maritalStatus !== undefined) {
-      const value = data.maritalStatus || null;
-      setClauses.push(value ? `marital_status = '${value.replace(/'/g, "''")}'` : `marital_status = NULL`);
-      params.marital_status = value;
+      rawPayload.marital_status = data.maritalStatus || null;
     }
     
-    // MONTHLY_INCOME
+    // MONTHLY_INCOME - garantir número com 2 decimais
     if (data.monthly_income !== undefined && data.monthly_income !== null) {
       const rawValue = typeof data.monthly_income === 'string' 
         ? parseFloat(data.monthly_income) 
         : data.monthly_income;
-      const value = !isNaN(rawValue) && rawValue > 0 
+      rawPayload.monthly_income = !isNaN(rawValue) && rawValue > 0 
         ? Math.round(rawValue * 100) / 100 
         : null;
-      setClauses.push(value !== null ? `monthly_income = ${value}` : `monthly_income = NULL`);
-      params.monthly_income = value;
     } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
       const rawValue = typeof data.monthlyIncome === 'string' 
         ? parseFloat(data.monthlyIncome) 
         : data.monthlyIncome;
-      const value = !isNaN(rawValue) && rawValue > 0 
+      rawPayload.monthly_income = !isNaN(rawValue) && rawValue > 0 
         ? Math.round(rawValue * 100) / 100 
         : null;
-      setClauses.push(value !== null ? `monthly_income = ${value}` : `monthly_income = NULL`);
-      params.monthly_income = value;
     }
     
     // DOCUMENT_TYPE
     if (data.document_type !== undefined) {
-      const value = data.document_type || null;
-      setClauses.push(value ? `document_type = '${value.replace(/'/g, "''")}'` : `document_type = NULL`);
-      params.document_type = value;
+      rawPayload.document_type = data.document_type || null;
     } else if (data.documentType !== undefined) {
-      const value = data.documentType || null;
-      setClauses.push(value ? `document_type = '${value.replace(/'/g, "''")}'` : `document_type = NULL`);
-      params.document_type = value;
+      rawPayload.document_type = data.documentType || null;
     }
     
     // ENDEREÇO
     if (data.cep !== undefined) {
-      const value = data.cep || null;
-      setClauses.push(value ? `zip_code = '${value.replace(/'/g, "''")}'` : `zip_code = NULL`);
-      params.zip_code = value;
+      rawPayload.zip_code = data.cep || null;
     }
     
     if (data.street !== undefined) {
-      const value = data.street || null;
-      setClauses.push(value ? `street = '${value.replace(/'/g, "''")}'` : `street = NULL`);
-      params.street = value;
+      rawPayload.street = data.street || null;
     }
     
     if (data.number !== undefined) {
-      const value = data.number || null;
-      setClauses.push(value ? `number = '${value.replace(/'/g, "''")}'` : `number = NULL`);
-      params.number = value;
+      rawPayload.number = data.number || null;
     }
     
     if (data.complement !== undefined) {
-      const value = data.complement || null;
-      setClauses.push(value ? `complement = '${value.replace(/'/g, "''")}'` : `complement = NULL`);
-      params.complement = value;
+      rawPayload.complement = data.complement || null;
     }
     
     if (data.neighborhood !== undefined) {
-      const value = data.neighborhood || null;
-      setClauses.push(value ? `neighborhood = '${value.replace(/'/g, "''")}'` : `neighborhood = NULL`);
-      params.neighborhood = value;
+      rawPayload.neighborhood = data.neighborhood || null;
     }
     
     if (data.city !== undefined) {
-      const value = data.city || null;
-      setClauses.push(value ? `city = '${value.replace(/'/g, "''")}'` : `city = NULL`);
-      params.city = value;
+      rawPayload.city = data.city || null;
     }
     
     if (data.state !== undefined) {
-      const value = data.state || null;
-      setClauses.push(value ? `state = '${value.replace(/'/g, "''")}'` : `state = NULL`);
-      params.state = value;
+      rawPayload.state = data.state || null;
     }
     
     // STATUS
     if (data.status !== undefined) {
-      setClauses.push(`status = '${data.status}'`);
-      params.status = data.status;
+      rawPayload.status = data.status;
     }
     
-    // Adicionar updated_at
-    setClauses.push(`updated_at = NOW()`);
+    console.log("\n📤 [updateTenant] PAYLOAD RAW (DIRETO, sem toDatabase()):");
+    console.log(JSON.stringify(rawPayload, null, 2));
+    console.log("📤 [updateTenant] Campos no payload:", Object.keys(rawPayload));
     
-    console.log("\n📤 [updateTenant] PAYLOAD PARAMS:");
-    console.log(JSON.stringify(params, null, 2));
-    console.log("📤 [updateTenant] Campos no payload:", Object.keys(params));
-    
-    // CONSTRUIR SQL
-    const sqlQuery = `
-      UPDATE tenants 
-      SET ${setClauses.join(', ')}
-      WHERE id = '${id}'
-      RETURNING *;
-    `;
-    
-    console.log("\n📡 [updateTenant] SQL RAW QUE SERÁ EXECUTADO:");
-    console.log(sqlQuery);
-
-    console.log("\n📡 [updateTenant] Executando SQL RAW via rpc...");
-    
-    // Executar SQL RAW via rpc
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('exec_sql', {
-      sql_query: sqlQuery
-    }) as any;
-
-    if (rpcError) {
-      console.error("❌ [updateTenant] ERRO AO EXECUTAR SQL RAW via rpc:", rpcError);
-      console.error("   Tentando executar via Supabase client como fallback...");
+    // LOG DETALHADO de cada campo
+    console.log("\n🔍 DETALHAMENTO DO PAYLOAD:");
+    for (const key in rawPayload) {
+      const value = rawPayload[key];
+      const valueType = typeof value;
       
-      // FALLBACK: usar Supabase client normal
-      const rawPayload: any = {};
-      for (const key in params) {
-        rawPayload[key] = params[key];
+      if (valueType === 'string') {
+        console.log(`  📤 "${key}": tipo=string, tamanho=${value.length}, valor="${value}"`);
+      } else if (valueType === 'number') {
+        console.log(`  📤 "${key}": tipo=number, valor=${value}`);
+      } else if (value === null) {
+        console.log(`  📤 "${key}": tipo=null, valor=null`);
+      } else {
+        console.log(`  📤 "${key}": tipo=${valueType}, valor=${JSON.stringify(value)}`);
       }
-      
-      const { error: updateError } = await supabase
-        .from("tenants")
-        .update(rawPayload)
-        .eq("id", id);
-      
-      if (updateError) {
-        console.error("❌ [updateTenant] ERRO DO SUPABASE NO UPDATE (FALLBACK):", updateError);
-        throw updateError;
-      }
-    } else {
-      console.log("✅ [updateTenant] SQL RAW executado via rpc!");
-      console.log("📤 Resultado rpc:", JSON.stringify(rpcResult, null, 2));
+    }
+    console.log("🔍 FIM DO DETALHAMENTO\n");
+
+    console.log("\n📡 [updateTenant] Executando UPDATE via Supabase client...");
+    
+    // ✅ UPDATE via Supabase client
+    const { error: updateError } = await supabase
+      .from("tenants")
+      .update(rawPayload)
+      .eq("id", id);
+
+    if (updateError) {
+      console.error("❌ [updateTenant] ERRO DO SUPABASE NO UPDATE:");
+      console.error("   - message:", updateError.message);
+      console.error("   - details:", updateError.details);
+      console.error("   - hint:", updateError.hint);
+      console.error("   - code:", updateError.code);
+      console.error("   - Erro completo:", JSON.stringify(updateError, null, 2));
+      throw updateError;
     }
 
-    console.log("✅ [updateTenant] UPDATE executado com SUCESSO!");
+    console.log("✅ [updateTenant] UPDATE executado com SUCESSO (sem erro retornado)!");
     
     // Aguardar commit
-    console.log("⏳ [updateTenant] Aguardando 200ms para garantir commit no banco...");
-    await new Promise(resolve => setTimeout(resolve, 200));
+    console.log("⏳ [updateTenant] Aguardando 300ms para garantir commit no banco...");
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     // SELECT para buscar dados atualizados
     console.log("\n📡 [updateTenant] Buscando dados ATUALIZADOS do banco...");
@@ -507,29 +453,33 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     let unchangedCount = 0;
     const unchangedFields: string[] = [];
     
-    for (const key of Object.keys(params)) {
-      const dbKey = key === 'cep' ? 'zip_code' : key;
-      const oldValue = oldData[dbKey];
-      const newValue = updatedData[dbKey];
+    for (const key of Object.keys(rawPayload)) {
+      const oldValue = oldData[key];
+      const newValue = updatedData[key];
       
       if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
         changedCount++;
-        console.log(`  ✅ Campo "${dbKey}" FOI ATUALIZADO: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
+        console.log(`  ✅ Campo "${key}" FOI ATUALIZADO: ${JSON.stringify(oldValue)} → ${JSON.stringify(newValue)}`);
       } else {
         unchangedCount++;
-        unchangedFields.push(dbKey);
-        console.warn(`  ⚠️ Campo "${dbKey}" NÃO MUDOU: ${JSON.stringify(oldValue)} = ${JSON.stringify(newValue)}`);
+        unchangedFields.push(key);
+        console.warn(`  ⚠️ Campo "${key}" NÃO MUDOU: ${JSON.stringify(oldValue)} = ${JSON.stringify(newValue)}`);
       }
     }
     
     console.log(`\n📊 [updateTenant] RESUMO DA ATUALIZAÇÃO:`);
-    console.log(`  ✅ Campos enviados no payload: ${Object.keys(params).length}`);
+    console.log(`  ✅ Campos enviados no payload: ${Object.keys(rawPayload).length}`);
     console.log(`  ✅ Campos que MUDARAM no banco: ${changedCount}`);
     console.log(`  ⚠️ Campos que NÃO MUDARAM: ${unchangedCount}`);
     
     if (unchangedCount > 0) {
       console.error(`\n❌❌❌ ALERTA CRÍTICO: ${unchangedCount} CAMPOS NÃO FORAM SALVOS! ❌❌❌`);
       console.error(`  🚨 Campos que NÃO mudaram: ${unchangedFields.join(', ')}`);
+      console.error(`  🚨 Possíveis causas:`);
+      console.error(`     1. A tabela 'tenants' pode ser uma VIEW (não uma tabela real)`);
+      console.error(`     2. Há um INSTEAD OF trigger interceptando o UPDATE`);
+      console.error(`     3. Permissões de coluna no banco estão bloqueando alguns campos`);
+      console.error(`     4. RLS policies ainda estão ativas (mesmo após DISABLE)`);
     }
     
     // Log de auditoria
@@ -579,7 +529,7 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       });
     }
     
-    console.log("🔥 ===== FIM updateTenant (SQL RAW DIRETO) =====\n");
+    console.log("🔥 ===== FIM updateTenant (VERSÃO SIMPLIFICADA) =====\n");
     return updatedData ? fromDatabase(updatedData) : null;
   } catch (error: any) {
     console.error("❌ [updateTenant] EXCEÇÃO CAPTURADA:");
