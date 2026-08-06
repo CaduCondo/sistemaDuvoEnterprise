@@ -12,6 +12,27 @@ Sistema completo de gestão de locações de imóveis com controle de pagamentos
 
 ---
 
+## 🆕 Últimas Atualizações (2026-08-06)
+
+### Sistema de Alertas Centralizados
+- ✅ Todos os alertas agora aparecem no meio da tela (não mais no rodapé)
+- ✅ AlertContext implementado para gerenciamento global
+- ✅ Migração completa dos componentes principais
+
+### Reativação de Locações Encerradas
+- ✅ Editar data fim de locação encerrada reativa automaticamente o contrato
+- ✅ Recria pagamentos faltantes até a nova data fim
+- ✅ Ajusta último pagamento anterior (de proporcional para valor cheio)
+- ✅ Calcula novo último pagamento proporcional baseado na nova data
+
+### Funções SQL Avançadas
+- ✅ `update_tenant_guaranteed()` - Atualização com verificação campo por campo
+- ✅ `manual_update_tenant()` - Função SQL para testes manuais
+- ✅ Verificação de persistência de dados antes de retornar sucesso
+- ✅ Garantia de integridade em operações críticas
+
+---
+
 ## 📖 Documentação Principal
 
 ### 1. [REGRAS_DE_NEGOCIO.md](./REGRAS_DE_NEGOCIO.md) 🇧🇷
@@ -26,6 +47,9 @@ Sistema completo de gestão de locações de imóveis com controle de pagamentos
 - Pagamentos e cauções
 - Financeiro e relatórios
 - Workflows completos
+- **NOVO:** Sistema de alertas centralizados
+- **NOVO:** Reativação de locações encerradas
+- **NOVO:** Funções SQL com verificação
 
 ---
 
@@ -43,6 +67,9 @@ Sistema completo de gestão de locações de imóveis com controle de pagamentos
 - Administrative fees
 - Broker commissions
 - Permissions and security
+- **NEW:** Centralized alert system
+- **NEW:** Rental reactivation logic
+- **NEW:** SQL functions with verification
 
 ---
 
@@ -60,6 +87,7 @@ Sistema completo de gestão de locações de imóveis com controle de pagamentos
 - Políticas de acesso
 - Views úteis
 - Consultas SQL comuns
+- **NEW:** Funções SQL personalizadas (update_tenant_guaranteed, manual_update_tenant)
 
 ---
 
@@ -79,6 +107,8 @@ Sistema completo de gestão de locações de imóveis com controle de pagamentos
 - Integrações externas (IGPM)
 - Tipos TypeScript completos
 - Exemplos de uso
+- **NEW:** AlertContext API
+- **NEW:** Funções SQL de atualização com verificação
 
 ---
 
@@ -171,7 +201,7 @@ npm run dev
 │   ├── 📁 pages/           # Páginas Next.js (Page Router)
 │   ├── 📁 services/        # Serviços de API
 │   ├── 📁 hooks/           # Custom hooks
-│   ├── 📁 contexts/        # Context providers
+│   ├── 📁 contexts/        # Context providers (Auth, Theme, Alert)
 │   ├── 📁 lib/             # Utilitários
 │   ├── 📁 types/           # Tipos TypeScript
 │   └── 📁 styles/          # Estilos globais
@@ -197,6 +227,9 @@ npm run dev
 | Deploy em produção | [DEPLOYMENT.md](./DEPLOYMENT.md) |
 | Contribuir código | [CONTRIBUTING.md](./CONTRIBUTING.md) |
 | Executar testes | [e2e/README.md](../e2e/README.md) |
+| Sistema de alertas | [REGRAS_DE_NEGOCIO.md](./REGRAS_DE_NEGOCIO.md) |
+| Reativação de locações | [REGRAS_DE_NEGOCIO.md](./REGRAS_DE_NEGOCIO.md) |
+| Funções SQL | [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) |
 
 ---
 
@@ -213,10 +246,14 @@ npm run dev
 
 ## 📝 Notas de Atualização
 
-**Última atualização:** 2026-07-24  
-**Versão:** 2.1
+**Última atualização:** 2026-08-06  
+**Versão:** 2.2
 
 **Mudanças recentes:**
+- ✅ Sistema de alertas centralizados implementado
+- ✅ Reativação de locações encerradas com recriação de pagamentos
+- ✅ Funções SQL com verificação de persistência (update_tenant_guaranteed)
+- ✅ Função SQL para testes manuais (manual_update_tenant)
 - ✅ Sistema de cauções documentado (deposit_installments)
 - ✅ Edição inline de comissões e valores
 - ✅ Campo returned_deposit_amount para contratos cancelados

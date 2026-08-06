@@ -128,9 +128,11 @@ Sistema desenvolvido em **Next.js 15** com **TypeScript** e **Supabase** para ge
 
 ### 👥 Gestão de Inquilinos
 - ✅ Cadastro com documentos pessoais
+- ✅ Campos adicionais: Profissão, Estado Civil, Renda Mensal
 - ✅ Histórico de locações
 - ✅ Controle de inadimplência
 - ✅ Dados de contato e emergência
+- ✅ Função SQL de atualização com verificação de persistência
 
 ### 📝 Gestão de Locações
 - ✅ Criação de contratos com cálculo automático
@@ -140,6 +142,7 @@ Sistema desenvolvido em **Next.js 15** com **TypeScript** e **Supabase** para ge
 - ✅ Corretor parceiro (comissão)
 - ✅ Rescisão de contrato com cálculo proporcional
 - ✅ Renovação de contratos
+- ✅ Reativação de locações encerradas com recriação de pagamentos
 
 ### 💰 Gestão Financeira
 - ✅ Controle de recebimentos com status (pago, pendente, atrasado)
@@ -149,6 +152,7 @@ Sistema desenvolvido em **Next.js 15** com **TypeScript** e **Supabase** para ge
 - ✅ Despesas de localização
 - ✅ Isenção de taxa administrativa
 - ✅ Geração de recibos em PDF
+- ✅ Alertas centralizados (exibidos no meio da tela)
 
 ### 📊 Dashboard e Relatórios
 - ✅ Visão financeira em tempo real
@@ -163,6 +167,7 @@ Sistema desenvolvido em **Next.js 15** com **TypeScript** e **Supabase** para ge
 - ✅ Permissões por localização
 - ✅ Row Level Security (RLS) no banco de dados
 - ✅ Logs de auditoria
+- ✅ Funções SQL com verificação de persistência de dados
 
 ---
 
@@ -181,11 +186,13 @@ Sistema desenvolvido em **Next.js 15** com **TypeScript** e **Supabase** para ge
 - **Supabase** - Backend completo (Database, Auth, Storage)
 - **PostgreSQL** - Banco de dados relacional
 - **Row Level Security (RLS)** - Segurança em nível de linha
+- **SQL Functions** - Funções personalizadas com verificação de dados
 
 ### Ferramentas
 - **ESLint** - Linting de código
 - **Prettier** - Formatação de código
 - **PM2** - Gerenciador de processos
+- **Playwright** - Testes E2E
 
 ---
 
@@ -232,6 +239,7 @@ Execute as migrations na pasta `supabase/migrations/` no Supabase Dashboard:
 1. Acesse **SQL Editor** no Supabase Dashboard
 2. Execute os arquivos de migration em ordem cronológica
 3. Verifique se todas as tabelas foram criadas corretamente
+4. Execute as funções SQL personalizadas (update_tenant_guaranteed, manual_update_tenant)
 
 ### 5. Inicie o servidor de desenvolvimento
 
@@ -292,18 +300,17 @@ gerenciador-locacoes/
 │   │   ├── payments/      # Componentes de pagamentos
 │   │   ├── financial/     # Componentes financeiros
 │   │   └── settings/      # Componentes de configurações
-│   ├── contexts/          # Contextos React (Auth, Theme)
+│   ├── contexts/          # Contextos React (Auth, Theme, Alert)
 │   ├── hooks/             # Custom hooks
 │   ├── integrations/      # Integrações (Supabase)
 │   ├── lib/               # Utilitários e helpers
 │   ├── pages/             # Páginas Next.js (Pages Router)
 │   │   ├── api/          # API Routes
-│   │   ├── admin/        # Páginas administrativas
-│   │   ├── locations/    # Páginas de localizações
-│   │   ├── payments/     # Páginas de pagamentos
-│   │   ├── properties/   # Páginas de propriedades
-│   │   ├── rentals/      # Páginas de locações
-│   │   └── tenants/      # Páginas de inquilinos
+│   │   ├── dashboard/    # Dashboard
+│   │   ├── properties/   # Gestão de propriedades
+│   │   ├── tenants/      # Gestão de inquilinos
+│   │   ├── rentals/      # Gestão de locações
+│   │   └── payments/     # Gestão de pagamentos
 │   ├── services/          # Serviços de API (backend)
 │   ├── styles/            # Estilos globais
 │   └── types/             # Definições de tipos TypeScript
@@ -312,7 +319,7 @@ gerenciador-locacoes/
 │   └── migrations/        # SQL migrations
 ├── public/                # Arquivos estáticos
 ├── docs/                  # Documentação
-└── uploads/               # Uploads locais (dev)
+└── e2e/                   # Testes E2E (Playwright)
 ```
 
 ---
@@ -333,6 +340,13 @@ npm run lint         # Verifica código com ESLint
 ```bash
 # Gerar tipos TypeScript do banco
 npm run supabase:generate-types
+```
+
+### Testes
+
+```bash
+npm run test:e2e     # Executa testes E2E
+npm run test:e2e:ci  # Testes E2E em modo headless
 ```
 
 ### Produção
@@ -367,6 +381,27 @@ npm run start        # Servidor de produção
 - ✅ **Sanitização de uploads** de arquivos
 - ✅ **Bloqueio temporário** após múltiplas tentativas falhas
 - ✅ **Emails de notificação** para ações críticas
+- ✅ **Funções SQL** com verificação de persistência de dados
+
+---
+
+## 🆕 Novidades (2026-08-06)
+
+### Sistema de Alertas Centralizados
+- ✅ Alertas exibidos no meio da tela (não mais no rodapé)
+- ✅ AlertContext para gerenciamento global
+- ✅ Componentes migrados: Properties, Tenants, Rentals, Payments
+
+### Reativação de Locações
+- ✅ Editar data fim de locação encerrada reativa automaticamente
+- ✅ Recria pagamentos faltantes até nova data fim
+- ✅ Ajusta último pagamento anterior (de proporcional para cheio)
+- ✅ Calcula novo último pagamento proporcional
+
+### Funções SQL Avançadas
+- ✅ `update_tenant_guaranteed()` - Atualização com verificação campo por campo
+- ✅ `manual_update_tenant()` - Função SQL para testes diretos no dashboard
+- ✅ Verificação de persistência antes de retornar sucesso
 
 ---
 
@@ -408,5 +443,5 @@ Desenvolvido com ❤️ usando:
 
 ---
 
-**Versão**: 1.0.0  
-**Última atualização**: 12 de Fevereiro de 2026
+**Versão**: 1.1.0  
+**Última atualização**: 06 de Agosto de 2026
