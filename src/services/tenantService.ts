@@ -211,7 +211,7 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== updateTenant (COM VERIFICAÇÃO PÓS-COMMIT) =====");
+    console.log("\n🔥 ===== updateTenant (UPDATE DIRETO + VERIFICAÇÃO REAL) =====");
     console.log("🔍 ID:", id);
     console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
     
@@ -229,16 +229,19 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       }
     }
     
-    // ✅ Buscar dados antigos para log de auditoria
-    const { data: old } = await supabase
+    // ✅ Buscar dados antigos
+    const { data: old, error: oldError } = await supabase
       .from("tenants")
       .select("*")
       .eq("id", id)
       .single();
     
-    if (!old) throw new Error("Inquilino não encontrado");
+    if (oldError || !old) {
+      console.error("❌ Erro ao buscar dados antigos:", oldError);
+      throw new Error("Inquilino não encontrado");
+    }
     
-    console.log("🔍 Dados antigos no banco:", JSON.stringify(old, null, 2));
+    console.log("🔍 Dados ANTIGOS no banco:", JSON.stringify(old, null, 2));
     
     // ✅ MESCLAR: novos dados sobrescrevem antigos
     const merged: Partial<Tenant> = {
@@ -262,117 +265,106 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       status: (data.status || old.status) as "active" | "rented" | "inactive",
     };
     
-    console.log("🔄 Dados MESCLADOS (novo + antigo):", JSON.stringify(merged, null, 2));
+    console.log("🔄 Dados MESCLADOS:", JSON.stringify(merged, null, 2));
     
     // ✅ Converter para formato do banco
     const dbData = toDatabase(merged);
+    dbData.updated_at = new Date().toISOString();
     
-    console.log("\n📤 PAYLOAD para RPC:");
+    console.log("\n📤 PAYLOAD FINAL para UPDATE:");
     console.log(JSON.stringify(dbData, null, 2));
 
-    // ✅ CHAMAR RPC COM VERIFICAÇÃO PÓS-COMMIT
-    console.log("\n📡 Executando RPC com verificação pós-commit...");
-    const { data: result, error: rpcError } = await supabase.rpc('update_tenant_with_verification', {
-      p_id: id,
-      p_name: dbData.name,
-      p_email: dbData.email,
-      p_phone: dbData.phone,
-      p_cpf: dbData.cpf,
-      p_rg: dbData.rg,
-      p_occupation: dbData.occupation,
-      p_document: dbData.document,
-      p_marital_status: dbData.marital_status,
-      p_monthly_income: dbData.monthly_income,
-      p_document_type: dbData.document_type,
-      p_zip_code: dbData.zip_code,
-      p_street: dbData.street,
-      p_number: dbData.number,
-      p_complement: dbData.complement,
-      p_neighborhood: dbData.neighborhood,
-      p_city: dbData.city,
-      p_state: dbData.state,
-      p_status: dbData.status,
-    });
+    // ✅ UPDATE DIRETO via Supabase client
+    console.log("\n📡 Executando UPDATE direto...");
+    const { data: updated, error: updateError } = await supabase
+      .from("tenants")
+      .update(dbData)
+      .eq("id", id)
+      .select()
+      .single();
 
-    if (rpcError) {
-      console.error("❌ ERRO RPC:", rpcError);
-      throw new Error(`Erro ao atualizar: ${rpcError.message}`);
+    if (updateError) {
+      console.error("❌ ERRO NO UPDATE:", updateError);
+      throw updateError;
     }
 
-    console.log("✅ RPC EXECUTADA COM SUCESSO!");
-    console.log("✅ Resultado:", JSON.stringify(result, null, 2));
+    console.log("✅ UPDATE executado!");
+    console.log("✅ Dados retornados pelo UPDATE:", JSON.stringify(updated, null, 2));
     
-    // ✅ Extrair dados verificados do resultado
-    const persisted = (result as any).data;
+    // ✅ AGUARDAR 1 segundo e VERIFICAR PERSISTÊNCIA REAL
+    console.log("\n⏳ Aguardando 1 segundo para verificar persistência...");
+    await new Promise(r => setTimeout(r, 1000));
     
-    if (!persisted) {
-      throw new Error("Nenhum dado retornado pela função de atualização");
+    console.log("📡 Buscando dados REAIS do banco (SELECT separado)...");
+    const { data: verified, error: verifyError } = await supabase
+      .from("tenants")
+      .select("*")
+      .eq("id", id)
+      .single();
+    
+    if (verifyError || !verified) {
+      console.error("❌ ERRO ao verificar persistência:", verifyError);
+      throw new Error("Erro ao verificar dados salvos");
     }
     
-    console.log("✅ Dados VERIFICADOS e PERSISTIDOS no banco:");
-    console.log(JSON.stringify(persisted, null, 2));
+    console.log("✅ Dados VERIFICADOS no banco:", JSON.stringify(verified, null, 2));
     
-    // Log auditoria - INCLUIR TODOS OS CAMPOS
+    // ✅ COMPARAR campo por campo (PAYLOAD vs VERIFICADO)
+    console.log("\n🔍 VERIFICAÇÃO CRÍTICA (PAYLOAD vs BANCO REAL):");
+    const errors: string[] = [];
+    
+    for (const key of Object.keys(dbData)) {
+      if (key === 'updated_at') continue;
+      
+      const sent = dbData[key];
+      const persisted = verified[key];
+      
+      // Normalizar null vs "" vs undefined
+      const sentNorm = (sent === "" || sent === null || sent === undefined) ? null : sent;
+      const persistedNorm = (persisted === "" || persisted === null || persisted === undefined) ? null : persisted;
+      
+      if (JSON.stringify(sentNorm) !== JSON.stringify(persistedNorm)) {
+        errors.push(`❌ ${key}: enviado=${JSON.stringify(sent)} vs banco=${JSON.stringify(persisted)}`);
+        console.error(`❌ ${key}: enviado=${JSON.stringify(sent)} vs banco=${JSON.stringify(persisted)}`);
+      } else {
+        console.log(`✅ ${key}: OK`);
+      }
+    }
+    
+    if (errors.length > 0) {
+      console.error("\n❌❌❌ DADOS NÃO FORAM PERSISTIDOS CORRETAMENTE! ❌❌❌");
+      console.error("Erros encontrados:");
+      errors.forEach(err => console.error(err));
+      throw new Error(`Dados não foram salvos corretamente:\n${errors.join('\n')}`);
+    }
+    
+    console.log("\n✅✅✅ TODOS OS CAMPOS FORAM PERSISTIDOS CORRETAMENTE! ✅✅✅");
+    
+    // Log auditoria - TODOS OS CAMPOS
     const changes: string[] = [];
     
-    if (old.name !== persisted.name) {
-      changes.push(`Nome: "${old.name}" → "${persisted.name}"`);
-    }
-    if (old.email !== persisted.email) {
-      changes.push(`E-mail: "${old.email}" → "${persisted.email}"`);
-    }
-    if (old.phone !== persisted.phone) {
-      changes.push(`Telefone: "${old.phone}" → "${persisted.phone}"`);
-    }
-    if (old.cpf !== persisted.cpf) {
-      changes.push(`CPF: "${old.cpf || '-'}" → "${persisted.cpf || '-'}"`);
-    }
-    if (old.rg !== persisted.rg) {
-      changes.push(`RG: "${old.rg || '-'}" → "${persisted.rg || '-'}"`);
-    }
-    if (old.occupation !== persisted.occupation) {
-      changes.push(`Ocupação: "${old.occupation || '-'}" → "${persisted.occupation || '-'}"`);
-    }
-    if (old.marital_status !== persisted.marital_status) {
-      changes.push(`Estado Civil: "${old.marital_status || '-'}" → "${persisted.marital_status || '-'}"`);
-    }
-    if (old.monthly_income !== persisted.monthly_income) {
-      changes.push(`Renda Mensal: ${old.monthly_income || 0} → ${persisted.monthly_income || 0}`);
-    }
-    if (old.document !== persisted.document) {
-      changes.push(`Documento: "${old.document || '-'}" → "${persisted.document || '-'}"`);
-    }
-    if (old.document_type !== persisted.document_type) {
-      changes.push(`Tipo Documento: "${old.document_type || '-'}" → "${persisted.document_type || '-'}"`);
-    }
-    if (old.zip_code !== persisted.zip_code) {
-      changes.push(`CEP: "${old.zip_code || '-'}" → "${persisted.zip_code || '-'}"`);
-    }
-    if (old.street !== persisted.street) {
-      changes.push(`Rua: "${old.street || '-'}" → "${persisted.street || '-'}"`);
-    }
-    if (old.number !== persisted.number) {
-      changes.push(`Número: "${old.number || '-'}" → "${persisted.number || '-'}"`);
-    }
-    if (old.complement !== persisted.complement) {
-      changes.push(`Complemento: "${old.complement || '-'}" → "${persisted.complement || '-'}"`);
-    }
-    if (old.neighborhood !== persisted.neighborhood) {
-      changes.push(`Bairro: "${old.neighborhood || '-'}" → "${persisted.neighborhood || '-'}"`);
-    }
-    if (old.city !== persisted.city) {
-      changes.push(`Cidade: "${old.city || '-'}" → "${persisted.city || '-'}"`);
-    }
-    if (old.state !== persisted.state) {
-      changes.push(`Estado: "${old.state || '-'}" → "${persisted.state || '-'}"`);
-    }
-    if (old.status !== persisted.status) {
-      changes.push(`Status: "${old.status}" → "${persisted.status}"`);
-    }
+    if (old.name !== verified.name) changes.push(`Nome: "${old.name}" → "${verified.name}"`);
+    if (old.email !== verified.email) changes.push(`E-mail: "${old.email}" → "${verified.email}"`);
+    if (old.phone !== verified.phone) changes.push(`Telefone: "${old.phone}" → "${verified.phone}"`);
+    if (old.cpf !== verified.cpf) changes.push(`CPF: "${old.cpf || '-'}" → "${verified.cpf || '-'}"`);
+    if (old.rg !== verified.rg) changes.push(`RG: "${old.rg || '-'}" → "${verified.rg || '-'}"`);
+    if (old.occupation !== verified.occupation) changes.push(`Ocupação: "${old.occupation || '-'}" → "${verified.occupation || '-'}"`);
+    if (old.marital_status !== verified.marital_status) changes.push(`Estado Civil: "${old.marital_status || '-'}" → "${verified.marital_status || '-'}"`);
+    if (old.monthly_income !== verified.monthly_income) changes.push(`Renda Mensal: ${old.monthly_income || 0} → ${verified.monthly_income || 0}`);
+    if (old.document !== verified.document) changes.push(`Documento: "${old.document || '-'}" → "${verified.document || '-'}"`);
+    if (old.document_type !== verified.document_type) changes.push(`Tipo Documento: "${old.document_type || '-'}" → "${verified.document_type || '-'}"`);
+    if (old.zip_code !== verified.zip_code) changes.push(`CEP: "${old.zip_code || '-'}" → "${verified.zip_code || '-'}"`);
+    if (old.street !== verified.street) changes.push(`Rua: "${old.street || '-'}" → "${verified.street || '-'}"`);
+    if (old.number !== verified.number) changes.push(`Número: "${old.number || '-'}" → "${verified.number || '-'}"`);
+    if (old.complement !== verified.complement) changes.push(`Complemento: "${old.complement || '-'}" → "${verified.complement || '-'}"`);
+    if (old.neighborhood !== verified.neighborhood) changes.push(`Bairro: "${old.neighborhood || '-'}" → "${verified.neighborhood || '-'}"`);
+    if (old.city !== verified.city) changes.push(`Cidade: "${old.city || '-'}" → "${verified.city || '-'}"`);
+    if (old.state !== verified.state) changes.push(`Estado: "${old.state || '-'}" → "${verified.state || '-'}"`);
+    if (old.status !== verified.status) changes.push(`Status: "${old.status}" → "${verified.status}"`);
     
     const changesSummary = changes.length > 0 
-      ? `Inquilino: ${persisted.name}\n\nCampos alterados:\n${changes.join('\n')}`
-      : `Inquilino: ${persisted.name} (sem alterações)`;
+      ? `Inquilino: ${verified.name}\n\nCampos alterados:\n${changes.join('\n')}`
+      : `Inquilino: ${verified.name} (sem alterações)`;
     
     await logAudit({
       action_type: "update",
@@ -400,30 +392,29 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
         status: old.status,
       },
       new_values: {
-        name: persisted.name,
-        email: persisted.email,
-        phone: persisted.phone,
-        cpf: persisted.cpf,
-        rg: persisted.rg,
-        occupation: persisted.occupation,
-        marital_status: persisted.marital_status,
-        monthly_income: persisted.monthly_income,
-        document: persisted.document,
-        document_type: persisted.document_type,
-        zip_code: persisted.zip_code,
-        street: persisted.street,
-        number: persisted.number,
-        complement: persisted.complement,
-        neighborhood: persisted.neighborhood,
-        city: persisted.city,
-        state: persisted.state,
-        status: persisted.status,
+        name: verified.name,
+        email: verified.email,
+        phone: verified.phone,
+        cpf: verified.cpf,
+        rg: verified.rg,
+        occupation: verified.occupation,
+        marital_status: verified.marital_status,
+        monthly_income: verified.monthly_income,
+        document: verified.document,
+        document_type: verified.document_type,
+        zip_code: verified.zip_code,
+        street: verified.street,
+        number: verified.number,
+        complement: verified.complement,
+        neighborhood: verified.neighborhood,
+        city: verified.city,
+        state: verified.state,
+        status: verified.status,
       },
     });
     
-    console.log("✅✅✅ ATUALIZAÇÃO COMPLETA E VERIFICADA! ✅✅✅");
     console.log("🔥 FIM updateTenant\n");
-    return persisted ? fromDatabase(persisted) : null;
+    return verified ? fromDatabase(verified) : null;
   } catch (error: any) {
     console.error("❌ ERRO:", error.message);
     throw error;
