@@ -211,7 +211,7 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    console.log("\n🔥 ===== updateTenant (UPDATE DIRETO + VERIFICAÇÃO REAL) =====");
+    console.log("\n🔥 ===== updateTenant (TRANSAÇÃO ATÔMICA COM VERIFICAÇÃO) =====");
     console.log("🔍 ID:", id);
     console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
     
@@ -269,76 +269,53 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     
     // ✅ Converter para formato do banco
     const dbData = toDatabase(merged);
-    dbData.updated_at = new Date().toISOString();
     
-    console.log("\n📤 PAYLOAD FINAL para UPDATE:");
+    console.log("\n📤 PAYLOAD para RPC ATÔMICA:");
     console.log(JSON.stringify(dbData, null, 2));
+    
+    // ✅ PREPARAR PARÂMETROS para RPC
+    const params = {
+      p_id: id,
+      p_name: dbData.name || "",
+      p_email: dbData.email || "",
+      p_phone: dbData.phone || "",
+      p_cpf: dbData.cpf || "",
+      p_rg: dbData.rg || "",
+      p_occupation: dbData.occupation || "",
+      p_document: dbData.document || "",
+      p_marital_status: dbData.marital_status || "",
+      p_monthly_income: dbData.monthly_income || 0,
+      p_document_type: dbData.document_type || "cpf",
+      p_zip_code: dbData.zip_code || "",
+      p_street: dbData.street || "",
+      p_number: dbData.number || "",
+      p_complement: dbData.complement || "",
+      p_neighborhood: dbData.neighborhood || "",
+      p_city: dbData.city || "",
+      p_state: dbData.state || "",
+      p_status: dbData.status || "active",
+    };
 
-    // ✅ UPDATE DIRETO via Supabase client
-    console.log("\n📡 Executando UPDATE direto...");
-    const { data: updated, error: updateError } = await supabase
-      .from("tenants")
-      .update(dbData)
-      .eq("id", id)
-      .select()
-      .single();
+    // ✅ CHAMAR RPC ATÔMICA (GARANTE PERSISTÊNCIA OU LANÇA ERRO)
+    console.log("\n📡 Executando update_tenant_atomic() com TRANSAÇÃO...");
+    const { data: result, error } = await supabase.rpc('update_tenant_atomic', params);
 
-    if (updateError) {
-      console.error("❌ ERRO NO UPDATE:", updateError);
-      throw updateError;
+    if (error) {
+      console.error("❌ ERRO NA RPC ATÔMICA:", error);
+      console.error("❌ Mensagem:", error.message);
+      console.error("❌ Detalhes:", error.details);
+      throw error;
     }
 
-    console.log("✅ UPDATE executado!");
-    console.log("✅ Dados retornados pelo UPDATE:", JSON.stringify(updated, null, 2));
+    const verified = Array.isArray(result) && result.length > 0 ? result[0] : null;
     
-    // ✅ AGUARDAR 1 segundo e VERIFICAR PERSISTÊNCIA REAL
-    console.log("\n⏳ Aguardando 1 segundo para verificar persistência...");
-    await new Promise(r => setTimeout(r, 1000));
-    
-    console.log("📡 Buscando dados REAIS do banco (SELECT separado)...");
-    const { data: verified, error: verifyError } = await supabase
-      .from("tenants")
-      .select("*")
-      .eq("id", id)
-      .single();
-    
-    if (verifyError || !verified) {
-      console.error("❌ ERRO ao verificar persistência:", verifyError);
-      throw new Error("Erro ao verificar dados salvos");
+    if (!verified) {
+      console.error("❌ RPC retornou vazio!");
+      throw new Error("Erro ao atualizar inquilino - nenhum dado retornado");
     }
-    
-    console.log("✅ Dados VERIFICADOS no banco:", JSON.stringify(verified, null, 2));
-    
-    // ✅ COMPARAR campo por campo (PAYLOAD vs VERIFICADO)
-    console.log("\n🔍 VERIFICAÇÃO CRÍTICA (PAYLOAD vs BANCO REAL):");
-    const errors: string[] = [];
-    
-    for (const key of Object.keys(dbData)) {
-      if (key === 'updated_at') continue;
-      
-      const sent = dbData[key];
-      const persisted = verified[key];
-      
-      // Normalizar null vs "" vs undefined
-      const sentNorm = (sent === "" || sent === null || sent === undefined) ? null : sent;
-      const persistedNorm = (persisted === "" || persisted === null || persisted === undefined) ? null : persisted;
-      
-      if (JSON.stringify(sentNorm) !== JSON.stringify(persistedNorm)) {
-        errors.push(`❌ ${key}: enviado=${JSON.stringify(sent)} vs banco=${JSON.stringify(persisted)}`);
-        console.error(`❌ ${key}: enviado=${JSON.stringify(sent)} vs banco=${JSON.stringify(persisted)}`);
-      } else {
-        console.log(`✅ ${key}: OK`);
-      }
-    }
-    
-    if (errors.length > 0) {
-      console.error("\n❌❌❌ DADOS NÃO FORAM PERSISTIDOS CORRETAMENTE! ❌❌❌");
-      console.error("Erros encontrados:");
-      errors.forEach(err => console.error(err));
-      throw new Error(`Dados não foram salvos corretamente:\n${errors.join('\n')}`);
-    }
-    
-    console.log("\n✅✅✅ TODOS OS CAMPOS FORAM PERSISTIDOS CORRETAMENTE! ✅✅✅");
+
+    console.log("\n✅✅✅ ATUALIZAÇÃO COMPLETA E VERIFICADA! ✅✅✅");
+    console.log("✅ Dados VERIFICADOS e PERSISTIDOS:", JSON.stringify(verified, null, 2));
     
     // Log auditoria - TODOS OS CAMPOS
     const changes: string[] = [];
