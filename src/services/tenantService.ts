@@ -211,6 +211,9 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
+    // 🚨🚨🚨 LOG ÓBVIO PARA PROVAR QUE O CÓDIGO NOVO CHEGOU 🚨🚨🚨
+    console.log("%c🚨🚨🚨 CÓDIGO NOVO - VERSÃO 2.0 - SE VOCÊ VÊ ISSO, O CACHE FOI LIMPO! 🚨🚨🚨", "color: #00FF00; font-size: 20px; font-weight: bold;");
+    
     console.log("\n🔥 ===== updateTenant (TRANSAÇÃO ATÔMICA COM VERIFICAÇÃO) =====");
     console.log("🔍 ID:", id);
     console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
