@@ -211,10 +211,12 @@ export const create = createTenant;
 
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
-    // 🚨🚨🚨 LOG ÓBVIO PARA PROVAR QUE O CÓDIGO NOVO CHEGOU 🚨🚨🚨
-    console.log("%c🚨🚨🚨 CÓDIGO NOVO - VERSÃO 2.0 - SE VOCÊ VÊ ISSO, O CACHE FOI LIMPO! 🚨🚨🚨", "color: #00FF00; font-size: 20px; font-weight: bold;");
+    // 🚨🚨🚨 MENSAGEM GIGANTE PARA PROVAR QUE O CÓDIGO NOVO ESTÁ RODANDO 🚨🚨🚨
+    console.log("%c═══════════════════════════════════════════════════════", "color: #00FF00; font-size: 24px; font-weight: bold; background: #000000; padding: 10px;");
+    console.log("%c🚨 CÓDIGO NOVO VERSÃO 3.0 - UPDATE GARANTIDO 🚨", "color: #00FF00; font-size: 24px; font-weight: bold; background: #000000; padding: 10px;");
+    console.log("%c═══════════════════════════════════════════════════════", "color: #00FF00; font-size: 24px; font-weight: bold; background: #000000; padding: 10px;");
     
-    console.log("\n🔥 ===== updateTenant (TRANSAÇÃO ATÔMICA COM VERIFICAÇÃO) =====");
+    console.log("\n🔥 ===== updateTenant (VERIFICAÇÃO GARANTIDA) =====");
     console.log("🔍 ID:", id);
     console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
     
@@ -273,7 +275,7 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     // ✅ Converter para formato do banco
     const dbData = toDatabase(merged);
     
-    console.log("\n📤 PAYLOAD para RPC ATÔMICA:");
+    console.log("\n📤 PAYLOAD para RPC:");
     console.log(JSON.stringify(dbData, null, 2));
     
     // ✅ PREPARAR PARÂMETROS para RPC
@@ -299,14 +301,22 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
       p_status: dbData.status || "active",
     };
 
-    // ✅ CHAMAR RPC ATÔMICA (GARANTE PERSISTÊNCIA OU LANÇA ERRO)
-    console.log("\n📡 Executando update_tenant_atomic() com TRANSAÇÃO...");
-    const { data: result, error } = await supabase.rpc('update_tenant_atomic', params);
+    // ✅ CHAMAR RPC COM VERIFICAÇÃO GARANTIDA
+    console.log("\n📡 Executando update_tenant_guaranteed()...");
+    console.log("📡 Esta função VERIFICA campo por campo e lança ERRO se algo não persistir");
+    const { data: result, error } = await supabase.rpc('update_tenant_guaranteed', params);
 
     if (error) {
-      console.error("❌ ERRO NA RPC ATÔMICA:", error);
+      console.error("❌ ERRO NA RPC:", error);
       console.error("❌ Mensagem:", error.message);
       console.error("❌ Detalhes:", error.details);
+      
+      // ✅ Se o erro contém "VERIFICAÇÃO FALHOU", significa que os campos não persistiram
+      if (error.message && error.message.includes('VERIFICAÇÃO FALHOU')) {
+        console.error("🚨🚨🚨 ALERTA: CAMPOS NÃO FORAM PERSISTIDOS! 🚨🚨🚨");
+        console.error("🚨 Detalhes:", error.message);
+      }
+      
       throw error;
     }
 
@@ -318,7 +328,8 @@ export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<T
     }
 
     console.log("\n✅✅✅ ATUALIZAÇÃO COMPLETA E VERIFICADA! ✅✅✅");
-    console.log("✅ Dados VERIFICADOS e PERSISTIDOS:", JSON.stringify(verified, null, 2));
+    console.log("✅ TODOS os campos foram verificados campo por campo pela função SQL");
+    console.log("✅ Dados VERIFICADOS:", JSON.stringify(verified, null, 2));
     
     // Log auditoria - TODOS OS CAMPOS
     const changes: string[] = [];
