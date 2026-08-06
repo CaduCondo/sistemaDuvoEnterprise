@@ -1393,3 +1393,180 @@ const correctedDeposit = deposit * (1 + accumulatedIGPM / 100);
 - [Documentação de API](API_DOCUMENTATION.md)
 - [Esquema do Banco de Dados](DATABASE_SCHEMA.md)
 - [Guia de Deploy](DEPLOYMENT.md)
+
+---
+
+## 🔔 Sistema de Alertas Centralizados
+
+### Descrição
+
+Todos os alertas de sucesso, erro, aviso e informação são exibidos no **centro da tela** através de diálogos modais.
+
+### Características
+
+- ✅ **Posição:** Centro da tela (não mais no rodapé)
+- ✅ **Tipos:** Success (verde), Error (vermelho), Warning (amarelo), Info (azul)
+- ✅ **Título e Mensagem:** Personalizáveis
+- ✅ **Fechamento:** Automático após 5 segundos ou manual via botão
+- ✅ **Backdrop:** Escurece o fundo para destacar o alerta
+
+### Componentes Migrados
+
+Os seguintes componentes já utilizam o AlertContext:
+
+- ✅ Properties (Propriedades)
+- ✅ Tenants (Inquilinos)
+- ✅ Rentals (Locações)
+- ✅ Payments (Pagamentos)
+- ✅ Todos os formulários
+
+### Implementação
+
+**Antes (Toast no rodapé):**
+```typescript
+toast({
+  title: "Sucesso",
+  description: "Dados salvos"
+});
+```
+
+**Depois (Alerta centralizado):**
+```typescript
+import { useAlert } from "@/contexts/AlertContext";
+
+const { showAlert } = useAlert();
+
+showAlert({
+  title: "Sucesso!",
+  message: "Dados salvos com sucesso",
+  type: "success"
+});
+```
+
+### Quando Usar
+
+- ✅ **Success:** Operação concluída com sucesso (criar, atualizar, deletar)
+- ✅ **Error:** Erro ao executar operação
+- ✅ **Warning:** Aviso importante para o usuário
+- ✅ **Info:** Informação relevante
+
+---
+
+## 🔄 Reativação de Locações Encerradas
+
+### Descrição
+
+Permite reativar uma locação que foi encerrada editando a data fim do contrato para uma data futura.
+
+### Quando Ocorre
+
+**Cenário:**
+1. Locação foi encerrada (manualmente ou por rescisão)
+2. Status: `is_active = false`
+3. Admin/Broker edita a locação
+4. Altera data fim para uma data futura (maior que data atual)
+5. Sistema detecta reativação necessária
+
+### Processo Automático
+
+**O sistema executa:**
+
+1. ✅ **Identifica último pagamento existente**
+2. ✅ **Ajusta último pagamento anterior:**
+   - Se estava proporcional → converte para valor cheio
+   - Motivo: Ele não é mais o último, é um pagamento do meio
+3. ✅ **Recria pagamentos faltantes:**
+   - Do próximo mês até a nova data fim
+   - Respeita todas as regras de criação
+   - Aplica taxa administrativa
+   - Inclui valor de garagem (se houver)
+4. ✅ **Calcula novo último pagamento:**
+   - Valor proporcional baseado na nova data fim
+   - Se data fim é fim do mês → valor cheio
+   - Se data fim é meio do mês → valor proporcional
+5. ✅ **Marca locação como ativa:** `is_active = true`
+
+### Exemplo Prático
+
+**Situação Inicial:**
+- Locação encerrada em 31/03/2026
+- Pagamentos existentes: janeiro, fevereiro, março (proporcional)
+- Status: `is_active = false`
+
+**Ação do Usuário:**
+- Edita data fim para 31/12/2026
+
+**Sistema Executa:**
+
+1. **Pagamento de março/2026:**
+   - Era proporcional (R$ 500,00 por 15 dias)
+   - Ajustado para valor cheio (R$ 1.000,00)
+   
+2. **Novos pagamentos criados:**
+   - Abril/2026: R$ 1.000,00
+   - Maio/2026: R$ 1.000,00
+   - Junho/2026: R$ 1.000,00
+   - ...
+   - Novembro/2026: R$ 1.000,00
+   - Dezembro/2026: R$ 1.000,00 (valor cheio pois termina em 31/12)
+   
+3. **Status da locação:**
+   - Mudado para `is_active = true`
+
+### Regras de Validação
+
+- ✅ Só funciona para locações com `is_active = false`
+- ✅ Nova data fim deve ser maior que data atual
+- ✅ Nova data fim deve ser maior que data de início
+- ✅ Respeita dia de vencimento configurado
+- ✅ Aplica todas as regras de cálculo de pagamentos
+
+### Cálculo de Dias Proporcionais
+
+**Para o novo último pagamento:**
+
+```typescript
+// Se data fim não é último dia do mês
+const diasNoMes = getDaysInMonth(endDate);
+const diaFim = getDate(endDate);
+
+if (diaFim < diasNoMes) {
+  // Pagamento proporcional
+  valorProporcional = (valorCheio / diasNoMes) * diaFim;
+}
+```
+
+**Exemplo:**
+- Data fim: 15/12/2026
+- Valor mensal: R$ 1.000,00
+- Dias no mês: 31
+- **Valor proporcional:** (R$ 1.000,00 / 31) × 15 = R$ 483,87
+
+### Visualização no Sistema
+
+**Após reativação, o usuário vê:**
+
+1. ✅ Alerta de sucesso: "Locação reativada com sucesso!"
+2. ✅ Lista de pagamentos atualizada
+3. ✅ Status da locação: "Ativo"
+4. ✅ Novos pagamentos visíveis na página de pagamentos
+
+### Integração com Outros Módulos
+
+**Efeitos em outros módulos:**
+
+1. **Propriedade:**
+   - Status volta para "Ocupado" automaticamente
+   
+2. **Inquilino:**
+   - Status volta para "Locatário" automaticamente
+   
+3. **Dashboard:**
+   - Métricas são recalculadas
+   - Contratos ativos aumenta em 1
+   - Taxa de ocupação é recalculada
+
+4. **Financeiro:**
+   - Novos pagamentos aparecem no relatório
+   - Receita esperada é recalculada
+   - KPIs são atualizados

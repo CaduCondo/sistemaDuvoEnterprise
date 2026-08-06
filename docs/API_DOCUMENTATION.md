@@ -1830,3 +1830,284 @@ console.log("Locação criada:", rental);
 - [Regras de Negócio](BUSINESS_RULES.md)
 - [Esquema do Banco de Dados](DATABASE_SCHEMA.md)
 - [Guia de Deploy](DEPLOYMENT.md)
+
+---
+
+## 🎨 AlertContext API
+
+### Localização
+`src/contexts/AlertContext.tsx`
+
+### Descrição
+Context global para gerenciar alertas centralizados exibidos no meio da tela.
+
+### Hook: useAlert
+
+```typescript
+const { showAlert } = useAlert();
+```
+
+### Método: showAlert
+
+```typescript
+function showAlert(options: {
+  title: string;
+  message: string;
+  type: "success" | "error" | "warning" | "info";
+}): void
+```
+
+**Parâmetros:**
+- `title` (string) - Título do alerta
+- `message` (string) - Mensagem do alerta
+- `type` (string) - Tipo do alerta (success, error, warning, info)
+
+**Exemplo:**
+```typescript
+import { useAlert } from "@/contexts/AlertContext";
+
+function MyComponent() {
+  const { showAlert } = useAlert();
+  
+  const handleSave = async () => {
+    try {
+      await saveData();
+      showAlert({
+        title: "Sucesso!",
+        message: "Dados salvos com sucesso",
+        type: "success"
+      });
+    } catch (error) {
+      showAlert({
+        title: "Erro",
+        message: error.message,
+        type: "error"
+      });
+    }
+  };
+  
+  return <button onClick={handleSave}>Salvar</button>;
+}
+```
+
+### Características
+
+- ✅ Alertas exibidos no centro da tela
+- ✅ Substituem os toasts do rodapé
+- ✅ Fechamento automático ou manual
+- ✅ Suporte a título e mensagem personalizados
+- ✅ 4 tipos visuais (success, error, warning, info)
+
+---
+
+## 🔄 Funções SQL com Verificação
+
+### update_tenant_guaranteed()
+
+**Localização:** Banco de dados Supabase (função SQL)
+
+**Descrição:** Atualiza inquilino com verificação campo por campo para garantir persistência
+
+**Parâmetros:**
+```sql
+p_id UUID,
+p_name TEXT,
+p_email TEXT,
+p_phone TEXT,
+p_cpf TEXT,
+p_rg TEXT,
+p_occupation TEXT,
+p_document TEXT,
+p_marital_status TEXT,
+p_monthly_income NUMERIC,
+p_document_type TEXT,
+p_zip_code TEXT,
+p_street TEXT,
+p_number TEXT,
+p_complement TEXT,
+p_neighborhood TEXT,
+p_city TEXT,
+p_state TEXT,
+p_status TEXT
+```
+
+**Retorno:** Record do inquilino atualizado
+
+**Processo:**
+1. Executa UPDATE com todos os campos
+2. Busca o registro atualizado
+3. Verifica campo por campo se valores foram persistidos
+4. Se algum campo não persistiu → lança ERRO com detalhes
+5. Se todos persistiram → retorna o registro verificado
+
+**Uso via Supabase RPC:**
+```typescript
+const { data, error } = await supabase.rpc('update_tenant_guaranteed', {
+  p_id: tenantId,
+  p_name: "João Silva",
+  p_email: "joao@email.com",
+  p_phone: "(11) 98765-4321",
+  p_cpf: "123.456.789-00",
+  p_rg: "12.345.678-9",
+  p_occupation: "Engenheiro",
+  p_document: "",
+  p_marital_status: "casado",
+  p_monthly_income: 5500.00,
+  p_document_type: "cpf",
+  p_zip_code: "01310-100",
+  p_street: "Av. Paulista",
+  p_number: "1000",
+  p_complement: "Apto 101",
+  p_neighborhood: "Bela Vista",
+  p_city: "São Paulo",
+  p_state: "SP",
+  p_status: "active"
+});
+
+if (error) {
+  console.error("Erro na atualização:", error.message);
+  // Error contém detalhes de quais campos não foram persistidos
+}
+```
+
+**Tratamento de Erros:**
+```typescript
+// Se a função detectar que campos não foram persistidos:
+{
+  code: "P0001",
+  message: "VERIFICAÇÃO FALHOU: Campo 'occupation' não foi persistido. Esperado='Engenheiro', Obtido='Analista'"
+}
+```
+
+---
+
+### manual_update_tenant()
+
+**Localização:** Banco de dados Supabase (função SQL)
+
+**Descrição:** Função SQL para atualização manual via Supabase Dashboard (útil para testes e debugging)
+
+**Parâmetros:**
+```sql
+tenant_id UUID,
+new_name TEXT DEFAULT NULL,
+new_email TEXT DEFAULT NULL,
+new_phone TEXT DEFAULT NULL,
+new_cpf TEXT DEFAULT NULL,
+new_rg TEXT DEFAULT NULL,
+new_occupation TEXT DEFAULT NULL,
+new_marital_status TEXT DEFAULT NULL,
+new_monthly_income NUMERIC DEFAULT NULL,
+new_zip_code TEXT DEFAULT NULL,
+new_street TEXT DEFAULT NULL,
+new_number TEXT DEFAULT NULL,
+new_complement TEXT DEFAULT NULL,
+new_neighborhood TEXT DEFAULT NULL,
+new_city TEXT DEFAULT NULL,
+new_state TEXT DEFAULT NULL
+```
+
+**Retorno:** Record do inquilino atualizado com NOTICE de verificação
+
+**Uso via SQL Editor:**
+```sql
+-- Atualizar apenas campos específicos
+SELECT * FROM manual_update_tenant(
+  tenant_id := '072672d3-889c-4be4-be92-850a546c860c'::uuid,
+  new_occupation := 'Engenheiro de Software',
+  new_monthly_income := 8000.00
+);
+
+-- Atualizar múltiplos campos
+SELECT * FROM manual_update_tenant(
+  tenant_id := '072672d3-889c-4be4-be92-850a546c860c'::uuid,
+  new_name := 'João Silva Santos',
+  new_phone := '(11) 99999-8888',
+  new_occupation := 'Arquiteto',
+  new_marital_status := 'casado',
+  new_monthly_income := 7500.00,
+  new_city := 'São Paulo',
+  new_state := 'SP'
+);
+```
+
+**NOTICE Output:**
+```
+NOTICE: 🔍 Dados ANTIGOS:
+NOTICE: {"name":"João Silva","occupation":"Analista","monthly_income":5000}
+
+NOTICE: ✅ UPDATE executado com sucesso!
+
+NOTICE: 🔍 Dados NOVOS (verificados):
+NOTICE: {"name":"João Silva Santos","occupation":"Arquiteto","monthly_income":7500}
+
+NOTICE: ✅ TODOS OS CAMPOS FORAM PERSISTIDOS CORRETAMENTE!
+```
+
+**Características:**
+- ✅ Campos NULL são ignorados (mantém valor atual)
+- ✅ Apenas campos informados são atualizados
+- ✅ Verificação de persistência em tempo real
+- ✅ NOTICE detalhado para debugging
+- ✅ Útil para testes manuais no Supabase Dashboard
+
+---
+
+## 🔄 Reativação de Locações
+
+### reactivateRental()
+
+**Localização:** `src/services/rentalService.ts`
+
+**Descrição:** Reativa locação encerrada ao editar data fim, recriando pagamentos faltantes
+
+**Parâmetros:**
+```typescript
+async function reactivateRental(
+  rentalId: string,
+  newEndDate: string
+): Promise<void>
+```
+
+**Processo:**
+
+1. **Verifica se locação está encerrada** (`is_active = false`)
+2. **Compara nova data fim com data atual**
+3. **Se nova data fim > data atual:**
+   - Busca último pagamento existente
+   - Se último pagamento estava proporcional → ajusta para valor cheio
+   - Recria pagamentos faltantes até nova data fim
+   - Calcula novo último pagamento proporcional
+   - Marca locação como ativa novamente
+
+**Exemplo:**
+```typescript
+import { reactivateRental } from "@/services/rentalService";
+
+// Locação encerrada em 31/03/2026
+// Usuário edita data fim para 31/12/2026
+
+await reactivateRental("rental-123", "2026-12-31");
+
+// Sistema:
+// 1. Ajusta pagamento de março/2026 (era proporcional, agora é cheio)
+// 2. Recria pagamentos: abril, maio, junho... dezembro/2026
+// 3. Último pagamento (dezembro) fica proporcional
+// 4. Marca locação como ativa
+```
+
+**Regras de Negócio:**
+- ✅ Só funciona para locações encerradas
+- ✅ Nova data fim deve ser maior que data atual
+- ✅ Respeita todas as regras de criação de pagamentos
+- ✅ Calcula dias proporcionais para último pagamento
+- ✅ Aplica taxa administrativa conforme configuração
+- ✅ Inclui valor de garagem se houver
+
+**Chamada Automática:**
+```typescript
+// No updateRental() do rentalService
+if (!oldRental.is_active && newEndDate > today) {
+  await reactivateRental(rentalId, newEndDate);
+}
+```
