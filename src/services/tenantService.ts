@@ -209,6 +209,13 @@ export async function createTenant(data: Partial<Tenant>): Promise<Tenant> {
 
 export const create = createTenant;
 
+/**
+ * @deprecated NÃO UTILIZADA. A função `update()` (mais abaixo neste arquivo) é a que
+ * está de fato conectada ao formulário de edição via useTenants.ts.
+ * Esta função depende da RPC `update_tenant_guaranteed`, que existe no banco mas não
+ * está versionada em nenhuma migration deste repositório - por isso foi abandonada.
+ * Mantida apenas para referência histórica. Pode ser removida com segurança.
+ */
 export const updateTenant = async (id: string, data: Partial<Tenant>): Promise<Tenant | null> => {
   try {
     // 🚨🚨🚨 MENSAGEM GIGANTE PARA PROVAR QUE O CÓDIGO NOVO ESTÁ RODANDO 🚨🚨🚨
@@ -416,29 +423,55 @@ export const update = async (
   id: string,
   tenant: Partial<Omit<Tenant, "id" | "createdAt">>
 ): Promise<Tenant> => {
+  console.log("\n🔥 ===== tenantService.update =====");
+  console.log("🔍 ID:", id);
+  console.log("🔍 Dados recebidos:", JSON.stringify(tenant, null, 2));
+
+  // ✅ Email único (ignorando o próprio registro)
+  if (tenant.email) {
+    const { data: existing, error: emailCheckError } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("email", tenant.email)
+      .neq("id", id)
+      .maybeSingle();
+
+    if (emailCheckError) {
+      console.error("❌ [update] Erro ao verificar email único:", emailCheckError);
+      throw emailCheckError;
+    }
+
+    if (existing) {
+      throw new Error("EMAIL_ALREADY_EXISTS");
+    }
+  }
+
   const { data: oldData } = await supabase
     .from("tenants")
-    .select("name, email, phone, status")
+    .select("*")
     .eq("id", id)
     .single();
 
-  const updateData: any = {};
+  // ✅ Converter para o formato do banco - envia TODOS os campos recebidos
+  // (o formulário sempre envia o objeto completo, então isso cobre 100% dos campos)
+  const dbData = toDatabase(tenant);
 
-  if (tenant.name !== undefined) updateData.name = tenant.name;
-  if (tenant.email !== undefined) updateData.email = tenant.email;
-  if (tenant.phone !== undefined) updateData.phone = tenant.phone;
-  if (tenant.cpf !== undefined) updateData.cpf = tenant.cpf;
-  if (tenant.rg !== undefined) updateData.rg = tenant.rg;
-  if (tenant.status !== undefined) updateData.status = tenant.status;
+  console.log("📤 [update] PAYLOAD para UPDATE direto na tabela:");
+  console.log(JSON.stringify(dbData, null, 2));
 
   const { data, error } = await supabase
     .from("tenants")
-    .update(updateData)
+    .update(dbData)
     .eq("id", id)
-    .select()
+    .select("*")
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("❌ [update] Erro no UPDATE:", error);
+    throw error;
+  }
+
+  console.log("✅ [update] Dados retornados pelo banco após UPDATE:", JSON.stringify(data, null, 2));
 
   await logAudit({
     action_type: "update",
@@ -448,20 +481,24 @@ export const update = async (
       name: oldData.name,
       email: oldData.email,
       phone: oldData.phone,
+      occupation: oldData.occupation,
+      marital_status: oldData.marital_status,
+      monthly_income: oldData.monthly_income,
       status: oldData.status,
     } : undefined,
     new_values: {
       name: data.name,
       email: data.email,
       phone: data.phone,
+      occupation: data.occupation,
+      marital_status: data.marital_status,
+      monthly_income: data.monthly_income,
       status: data.status,
     },
   });
 
-  return {
-    ...data,
-    status: data.status as "active" | "rented" | "inactive",
-  } as Tenant;
+  console.log("🔥 FIM tenantService.update\n");
+  return fromDatabase(data);
 };
 
 export async function deleteTenant(id: string): Promise<void> {
