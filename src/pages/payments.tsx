@@ -637,14 +637,25 @@ export default function Payments() {
               
               // ✅ CORREÇÃO: Aguardar mais um momento para garantir que tudo foi limpo
               await new Promise(resolve => setTimeout(resolve, 150));
-              
+
+              // 🔥 CORREÇÃO CRÍTICA: anexar property/tenant/rental ao payment antes de abrir
+              // o recibo - eles eram buscados mas nunca eram anexados, por isso o recibo
+              // (e o compartilhamento via WhatsApp) mostrava "LOCATÁRIO NÃO INFORMADO" e
+              // "IMÓVEL NÃO INFORMADO".
+              const completePayment: Payment = {
+                ...payment,
+                property,
+                tenant,
+                rental,
+              };
+
               // Abrir o recibo com os dados completos
               setUiState(prev => ({
                 ...prev,
-                selectedPayment: payment,
+                selectedPayment: completePayment,
                 showReceiptDialog: true,
               }));
-              
+
               return;
             }
           }
@@ -1174,7 +1185,7 @@ export default function Payments() {
       {uiState.showReceiptDialog && uiState.selectedPayment && (
         <PaymentReceipt
           payment={uiState.selectedPayment}
-          rental={rentals.find(r => r.id === uiState.selectedPayment!.rentalId) as any}
+          rental={(uiState.selectedPayment.rental || rentals.find(r => r.id === uiState.selectedPayment!.rentalId)) as any}
           property={uiState.selectedPayment.property as any}
           tenant={uiState.selectedPayment.tenant as any}
           onClose={() => {
