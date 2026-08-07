@@ -33,14 +33,24 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     type: "info",
   });
 
+  // ✅ CAUSA RAIZ DO "TRAVAMENTO": este AlertDialog (Radix) e o Dialog do formulário
+  // (ex: TenantFormDialog) são primitivas Radix independentes. Quando o Dialog do
+  // formulário ainda está aberto no instante em que este AlertDialog abre, o Radix
+  // "lembra" o body como bloqueado (pointer-events/scroll-lock) para restaurar depois.
+  // Se o Dialog do formulário fechar ENQUANTO o AlertDialog ainda está aberto, e só
+  // depois o usuário fechar o AlertDialog, o Radix restaura o body para o estado
+  // "bloqueado" errado - deixando a página travada (nada clicável) até um F5.
+  // A correção real é nunca deixar os dois modais abertos ao mesmo tempo: damos um
+  // pequeno delay para o Dialog anterior terminar de fechar (animação ~200ms) antes
+  // de abrir este.
   const showAlert = useCallback((options: AlertOptions) => {
     setAlertData(options);
-    setOpen(true);
+    setTimeout(() => setOpen(true), 250);
   }, []);
 
   const handleConfirm = () => {
     setOpen(false);
-    
+
     // Executar callback se existir
     if (alertData.onConfirm) {
       alertData.onConfirm();
@@ -49,124 +59,19 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
 
   const handleOpenChange = useCallback((newOpen: boolean) => {
     setOpen(newOpen);
-    
-    // ✅ LIMPEZA ULTRA-AGRESSIVA quando o dialog FECHA
+
     if (!newOpen) {
-      console.log('🧹 [AlertContext] Dialog fechando - LIMPEZA ULTRA-AGRESSIVA');
-      
-      // ✅ FUNÇÃO: Forçar pointer-events: auto em TUDO
-      const forceClickable = () => {
-        console.log('🔧 [AlertContext] Forçando pointer-events: auto...');
-        
-        // Criar/atualizar estilo !important
-        let style = document.getElementById('force-clickable');
-        if (!style) {
-          style = document.createElement('style');
-          style.id = 'force-clickable';
-          document.head.appendChild(style);
+      // ✅ Rede de segurança leve (sem remover nós do DOM - isso quebra o React):
+      // se por algum motivo o Radix não restaurar o body a tempo, garante que a
+      // página continue interativa.
+      setTimeout(() => {
+        if (document.querySelectorAll('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').length === 0) {
+          document.body.style.pointerEvents = '';
+          document.body.style.overflow = '';
+          document.body.removeAttribute('data-scroll-locked');
         }
-        
-        style.textContent = `
-          html, html *, 
-          body, body *, 
-          #__next, #__next *,
-          [data-radix-scroll-lock],
-          [data-state="open"],
-          [data-state="closed"],
-          div, span, button, a, input, textarea, select {
-            pointer-events: auto !important;
-            overflow: visible !important;
-          }
-        `;
-        
-        // Forçar diretamente no body e html
-        document.body.style.cssText = 'pointer-events: auto !important; overflow: visible !important;';
-        document.documentElement.style.cssText = 'pointer-events: auto !important; overflow: visible !important;';
-        
-        console.log('✅ [AlertContext] Pointer-events forçado com !important');
-      };
-      
-      // ✅ FUNÇÃO: Remover overlays
-      const removeOverlays = () => {
-        console.log('🧹 [AlertContext] Removendo overlays...');
-        
-        const overlays = document.querySelectorAll(
-          '[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]'
-        );
-        
-        console.log(`🧹 [AlertContext] ${overlays.length} overlays encontrados`);
-        
-        overlays.forEach(overlay => {
-          if (overlay.parentNode) {
-            try {
-              overlay.parentNode.removeChild(overlay);
-            } catch (e) {
-              console.warn('⚠️ Erro ao remover overlay:', e);
-            }
-          }
-        });
-        
-        // Limpar atributos problemáticos
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-        document.body.classList.remove('overflow-hidden', 'pointer-events-none');
-        document.documentElement.removeAttribute('data-radix-scroll-lock');
-        document.body.removeAttribute('data-radix-scroll-lock');
-        
-        // Remover aria-hidden
-        const hiddenElements = document.querySelectorAll('[aria-hidden="true"]');
-        hiddenElements.forEach(el => {
-          try {
-            el.removeAttribute('aria-hidden');
-          } catch (e) {
-            console.warn('⚠️ Erro ao remover aria-hidden:', e);
-          }
-        });
-        
-        console.log('✅ [AlertContext] Overlays removidos');
-      };
-      
-      // ✅ APLICAR IMEDIATAMENTE (0ms)
-      forceClickable();
-      removeOverlays();
-      
-      // ✅ FALLBACK 1: 50ms
-      setTimeout(() => {
-        console.log('🔧 [AlertContext] FALLBACK 50ms');
-        forceClickable();
-        removeOverlays();
-      }, 50);
-      
-      // ✅ FALLBACK 2: 150ms
-      setTimeout(() => {
-        console.log('🔧 [AlertContext] FALLBACK 150ms');
-        forceClickable();
-        removeOverlays();
-      }, 150);
-      
-      // ✅ FALLBACK 3: 300ms
-      setTimeout(() => {
-        console.log('🔧 [AlertContext] FALLBACK 300ms');
-        forceClickable();
-        removeOverlays();
-      }, 300);
-      
-      // ✅ FALLBACK FINAL: 600ms
-      setTimeout(() => {
-        console.log('🔧 [AlertContext] FALLBACK FINAL 600ms');
-        forceClickable();
-        removeOverlays();
-        
-        // Remover o estilo !important após 2 segundos
-        setTimeout(() => {
-          const style = document.getElementById('force-clickable');
-          if (style) {
-            style.remove();
-            console.log('✅ [AlertContext] Estilo !important removido');
-          }
-        }, 2000);
-      }, 600);
-      
+      }, 100);
+
       // Resetar data
       setAlertData({
         title: "",
