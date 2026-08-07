@@ -131,31 +131,17 @@ export default function Payments() {
   }, [payments]);
 
   // Helpers memoizados
+  // ✅ CORREÇÃO: os arrays `rentals`/`properties`/`tenants` retornados por usePayments()
+  // nunca são preenchidos (o hook só faz setPayments). Os dados de imóvel/inquilino já
+  // vêm embutidos em cada payment (payment.property / payment.tenant), então é isso que
+  // deve ser usado - não uma busca em arrays sempre vazios.
   const getPropertyForPayment = useCallback((payment: Payment) => {
-    console.log(`🔎 [getPropertyForPayment] Payment ID: ${payment.id}`);
-    console.log(`   - payment.property existe?`, !!payment.property);
-    if (payment.property) {
-      console.log(`   - payment.property.location:`, payment.property.location);
-      console.log(`   - payment.property.complement:`, payment.property.complement);
-    }
-    
-    const rental = rentals.find(r => r.id === payment.rentalId);
-    if (!rental) return null;
-    return properties.find(p => p.id === rental.propertyId) || null;
-  }, [rentals, properties]);
+    return payment.property || null;
+  }, []);
 
   const getTenantForPayment = useCallback((payment: Payment) => {
-    console.log(`🔎 [getTenantForPayment] Payment ID: ${payment.id}`);
-    console.log(`   - payment.tenant existe?`, !!payment.tenant);
-    if (payment.tenant) {
-      console.log(`   - payment.tenant.name:`, payment.tenant.name);
-      console.log(`   - payment.tenant.phone:`, payment.tenant.phone);
-    }
-    
-    const rental = rentals.find(r => r.id === payment.rentalId);
-    if (!rental) return null;
-    return tenants.find(t => t.id === rental.tenantId) || null;
-  }, [rentals, tenants]);
+    return payment.tenant || null;
+  }, []);
 
   const getPaymentInstallment = useCallback((payment: Payment) => {
     // ✅ CORREÇÃO: Se não tiver installment, assumir parcela única (1/1) para pagamentos de aluguel
@@ -686,17 +672,23 @@ export default function Payments() {
   const { pendingPayments, paidPayments } = useMemo(() => {
     const filterBySearch = (p: Payment) => {
       if (!debouncedSearchQuery) return true;
-      
+
       const query = debouncedSearchQuery.toLowerCase();
-      const rental = rentals.find(r => r.id === p.rentalId);
-      const property = rental ? properties.find(prop => prop.id === rental.propertyId) : null;
-      const tenant = rental ? tenants.find(t => t.id === rental.tenantId) : null;
+      const property = p.property;
+      const tenant = p.tenant;
 
-      const propertyAddress = property ? 
-        `${property.address} ${property.number} ${property.complement || ''}`.toLowerCase() : "";
-      const tenantName = tenant ? tenant.name.toLowerCase() : "";
+      // ✅ Busca por Local, Complemento e Inquilino - os mesmos campos exibidos na tabela
+      const searchableText = [
+        property?.location,
+        property?.complement,
+        property?.propertyIdentifier,
+        tenant?.name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
 
-      return propertyAddress.includes(query) || tenantName.includes(query);
+      return searchableText.includes(query);
     };
 
     // 🔍 LOG: Mostrar TODOS os payments antes de filtrar por status
