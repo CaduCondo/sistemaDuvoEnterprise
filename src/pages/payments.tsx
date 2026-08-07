@@ -1189,38 +1189,22 @@ export default function Payments() {
           property={uiState.selectedPayment.property as any}
           tenant={uiState.selectedPayment.tenant as any}
           onClose={() => {
-            // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays ao fechar recibo
-            
-            // 1. Limpar estado do UI
+            // ✅ CORREÇÃO: sem remoção manual de nós do DOM (isso desincroniza o React
+            // e pode travar a página). Só limpeza segura de estilos do body.
             setUiState(prev => ({
               ...prev,
               showReceiptDialog: false,
               selectedPayment: null,
-              selectedPaymentId: null, // ✅ Garantir que nenhum modal de edição fica aberto
+              selectedPaymentId: null,
             }));
-            
-            // 2. Remover manualmente TODOS os overlays presos no DOM
+
             setTimeout(() => {
-              const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"]');
-              overlays.forEach(overlay => {
-                if (overlay.parentNode) {
-                  overlay.parentNode.removeChild(overlay);
-                }
-              });
-              
-              // 3. Restaurar scroll e pointer-events no body
-              document.body.style.overflow = '';
-              document.body.style.pointerEvents = '';
-              document.body.style.paddingRight = '';
-              
-              // 4. Remover classes de modal que podem estar presas
-              document.body.classList.remove('overflow-hidden', 'pointer-events-none');
-              
-              // 5. Garantir que data-radix-* attributes são removidos
-              document.documentElement.removeAttribute('data-radix-scroll-lock');
-              document.body.removeAttribute('data-radix-scroll-lock');
-              
-              console.log('✅ Overlays removidos e página desbloqueada');
+              if (document.querySelectorAll('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').length === 0) {
+                document.body.style.overflow = '';
+                document.body.style.pointerEvents = '';
+                document.body.style.paddingRight = '';
+                document.body.removeAttribute('data-scroll-locked');
+              }
             }, 100);
           }}
         />

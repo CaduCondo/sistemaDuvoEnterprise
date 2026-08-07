@@ -28,24 +28,33 @@ export function RentalAttachmentsDialog({ rentalId, attachments = [], onAttachme
     setUploading(true);
 
     try {
+      // ✅ CORREÇÃO: /api/upload gravava no disco local do servidor, que não persiste
+      // em produção (Vercel). Agora sobe para o Supabase Storage, como já funciona no
+      // recebimento de aluguel (ManagePaymentForm.tsx).
       const uploadPromises = Array.from(files).map(async (file) => {
-        const formData = new FormData();
-        formData.append("file", file);
+        const extension = file.name.split(".").pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
+        const filePath = `rental-attachments/${fileName}`;
 
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
+        const { error: uploadError } = await supabase.storage
+          .from("uploads")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
 
-        if (!response.ok) {
-          throw new Error("Erro ao fazer upload do arquivo");
+        if (uploadError) {
+          throw uploadError;
         }
 
-        const data = await response.json();
+        const { data: { publicUrl } } = supabase.storage
+          .from("uploads")
+          .getPublicUrl(filePath);
+
         return {
           id: crypto.randomUUID(),
           name: file.name,
-          url: data.url,
+          url: publicUrl,
           type: file.type,
           category,
           uploadedAt: new Date().toISOString(),

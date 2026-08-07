@@ -109,7 +109,25 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         return null;
       }
 
-      return data;
+      // ✅ CORREÇÃO: mapear para o formato DepositInstallment (a coluna no banco é
+      // "installment_total", mas o tipo usado no app é "total_installments").
+      return {
+        id: data.id,
+        rental_id: data.rental_id,
+        installment_number: data.installment_number,
+        total_installments: data.installment_total,
+        amount: data.amount,
+        due_date: data.due_date,
+        payment_date: data.payment_date,
+        paid_amount: data.paid_amount || 0,
+        payment_method: data.payment_method,
+        pix_code: data.pix_code,
+        status: data.status,
+        notes: data.notes,
+        attachments: Array.isArray(data.attachments) ? data.attachments : [],
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
     } catch (err) {
       console.error("Erro ao buscar parcela:", err);
       return null;
@@ -407,13 +425,15 @@ export const RentalFormDialog = memo(function RentalFormDialog({
           location: selectedLocation,
         });
 
+        // ✅ CORREÇÃO: não abrir a tela de Contrato ao mesmo tempo que o alerta de
+        // sucesso - os dois modais sobrepostos faziam o clique em "OK" fechar os dois
+        // juntos. Agora o Contrato só abre depois que o usuário confirma o alerta.
         showAlert({
           title: "Sucesso!",
           description: "Locação criada com sucesso.",
           type: "success",
+          onConfirm: () => setShowContract(true),
         });
-
-        setShowContract(true);
       } else {
         console.log("🔄 [RentalFormDialog] EDITANDO locação:", rental.id);
         console.log("📦 [RentalFormDialog] Dados sendo enviados:", commonData);
@@ -456,13 +476,14 @@ export const RentalFormDialog = memo(function RentalFormDialog({
           location: locations.find((loc) => loc.id === propertySelected.locationId),
         });
 
+        // ✅ CORREÇÃO: mesma correção do fluxo de criação - abrir o Contrato só
+        // depois do usuário confirmar o alerta de sucesso.
         showAlert({
           title: "Sucesso!",
           description: "Locação atualizada com sucesso.",
           type: "success",
+          onConfirm: () => setShowContract(true),
         });
-
-        setShowContract(true);
       }
     } catch (error: any) {
       console.error("❌ ERRO GERAL:", error);
@@ -484,37 +505,21 @@ export const RentalFormDialog = memo(function RentalFormDialog({
   ]);
 
   const handleCloseDialog = useCallback(() => {
-    // ✅ CORREÇÃO CRÍTICA: Limpeza AGRESSIVA de overlays ao fechar
-    
-    // 1. Fechar o dialog
+    // ✅ CORREÇÃO: removida a remoção manual de nós do DOM (overlay.parentNode.removeChild)
+    // - isso desincroniza a árvore virtual do React com o DOM real e pode travar a
+    // página (mesma causa raiz do travamento que corrigimos em Inquilinos). Mantém
+    // apenas a limpeza segura de estilos/atributos do body.
     onOpenChange(false);
-    
-    // 2. Resetar formulário
     resetForm();
     setShowContract(false);
-    
-    // 3. Remover manualmente TODOS os overlays presos no DOM
+
     setTimeout(() => {
-      const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
-      overlays.forEach(overlay => {
-        if (overlay.parentNode) {
-          overlay.parentNode.removeChild(overlay);
-        }
-      });
-      
-      // 4. Restaurar scroll e pointer-events no body
-      document.body.style.overflow = '';
-      document.body.style.pointerEvents = '';
-      document.body.style.paddingRight = '';
-      
-      // 5. Remover classes de modal que podem estar presas
-      document.body.classList.remove('overflow-hidden', 'pointer-events-none');
-      
-      // 6. Garantir que data-radix-* attributes são removidos
-      document.documentElement.removeAttribute('data-radix-scroll-lock');
-      document.body.removeAttribute('data-radix-scroll-lock');
-      
-      console.log('✅ [RentalFormDialog] Overlays removidos e página desbloqueada');
+      if (document.querySelectorAll('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').length === 0) {
+        document.body.style.overflow = '';
+        document.body.style.pointerEvents = '';
+        document.body.style.paddingRight = '';
+        document.body.removeAttribute('data-scroll-locked');
+      }
     }, 100);
   }, [onOpenChange, resetForm]);
 
@@ -1174,6 +1179,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         <DepositPaymentDialog
           open={paymentDialogOpen}
           onOpenChange={setPaymentDialogOpen}
+          installment={loadedInstallment}
           rental={rental}
           onSuccess={() => {
             setPaymentDialogOpen(false);

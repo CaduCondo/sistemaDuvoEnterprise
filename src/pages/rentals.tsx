@@ -1283,20 +1283,15 @@ export default function RentalsPage() {
             setPaymentCounts(null);
             setDeleteStep(1);
             setDeleteChoices({ pending: false, paid: false });
-            // ✅ CORREÇÃO: Limpeza agressiva de overlays
+            // ✅ CORREÇÃO: sem remoção manual de nós do DOM (desincroniza o React e
+            // pode travar a página) - só limpeza segura de estilos do body.
             setTimeout(() => {
-              const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
-              overlays.forEach(overlay => {
-                if (overlay.parentNode) {
-                  overlay.parentNode.removeChild(overlay);
-                }
-              });
-              document.body.style.overflow = '';
-              document.body.style.pointerEvents = '';
-              document.body.style.paddingRight = '';
-              document.body.classList.remove('overflow-hidden', 'pointer-events-none');
-              document.documentElement.removeAttribute('data-radix-scroll-lock');
-              document.body.removeAttribute('data-radix-scroll-lock');
+              if (document.querySelectorAll('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').length === 0) {
+                document.body.style.overflow = '';
+                document.body.style.pointerEvents = '';
+                document.body.style.paddingRight = '';
+                document.body.removeAttribute('data-scroll-locked');
+              }
             }, 100);
           }
         }}
@@ -1346,20 +1341,15 @@ export default function RentalsPage() {
             setPaymentCounts(null);
             setDeleteStep(1);
             setDeleteChoices({ pending: false, paid: false });
-            // ✅ CORREÇÃO: Limpeza agressiva de overlays
+            // ✅ CORREÇÃO: sem remoção manual de nós do DOM (desincroniza o React e
+            // pode travar a página) - só limpeza segura de estilos do body.
             setTimeout(() => {
-              const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
-              overlays.forEach(overlay => {
-                if (overlay.parentNode) {
-                  overlay.parentNode.removeChild(overlay);
-                }
-              });
-              document.body.style.overflow = '';
-              document.body.style.pointerEvents = '';
-              document.body.style.paddingRight = '';
-              document.body.classList.remove('overflow-hidden', 'pointer-events-none');
-              document.documentElement.removeAttribute('data-radix-scroll-lock');
-              document.body.removeAttribute('data-radix-scroll-lock');
+              if (document.querySelectorAll('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').length === 0) {
+                document.body.style.overflow = '';
+                document.body.style.pointerEvents = '';
+                document.body.style.paddingRight = '';
+                document.body.removeAttribute('data-scroll-locked');
+              }
             }, 100);
           }
         }}
@@ -1415,20 +1405,15 @@ export default function RentalsPage() {
             setPaymentCounts(null);
             setDeleteStep(1);
             setDeleteChoices({ pending: false, paid: false });
-            // ✅ CORREÇÃO: Limpeza agressiva de overlays
+            // ✅ CORREÇÃO: sem remoção manual de nós do DOM (desincroniza o React e
+            // pode travar a página) - só limpeza segura de estilos do body.
             setTimeout(() => {
-              const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
-              overlays.forEach(overlay => {
-                if (overlay.parentNode) {
-                  overlay.parentNode.removeChild(overlay);
-                }
-              });
-              document.body.style.overflow = '';
-              document.body.style.pointerEvents = '';
-              document.body.style.paddingRight = '';
-              document.body.classList.remove('overflow-hidden', 'pointer-events-none');
-              document.documentElement.removeAttribute('data-radix-scroll-lock');
-              document.body.removeAttribute('data-radix-scroll-lock');
+              if (document.querySelectorAll('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').length === 0) {
+                document.body.style.overflow = '';
+                document.body.style.pointerEvents = '';
+                document.body.style.paddingRight = '';
+                document.body.removeAttribute('data-scroll-locked');
+              }
             }, 100);
           }
         }}
@@ -1477,20 +1462,14 @@ export default function RentalsPage() {
       <AlertDialog open={!!rentalToRenew} onOpenChange={(open) => {
         if (!open) {
           setRentalToRenew(null);
-          // ✅ CORREÇÃO: Limpeza agressiva de overlays
+          // ✅ CORREÇÃO: sem remoção manual de nós do DOM - só limpeza segura de estilos.
           setTimeout(() => {
-            const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-alert-dialog-overlay], .fixed.inset-0, [role="dialog"], [role="alertdialog"]');
-            overlays.forEach(overlay => {
-              if (overlay.parentNode) {
-                overlay.parentNode.removeChild(overlay);
-              }
-            });
-            document.body.style.overflow = '';
-            document.body.style.pointerEvents = '';
-            document.body.style.paddingRight = '';
-            document.body.classList.remove('overflow-hidden', 'pointer-events-none');
-            document.documentElement.removeAttribute('data-radix-scroll-lock');
-            document.body.removeAttribute('data-radix-scroll-lock');
+            if (document.querySelectorAll('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').length === 0) {
+              document.body.style.overflow = '';
+              document.body.style.pointerEvents = '';
+              document.body.style.paddingRight = '';
+              document.body.removeAttribute('data-scroll-locked');
+            }
           }, 100);
         }
       }}>
