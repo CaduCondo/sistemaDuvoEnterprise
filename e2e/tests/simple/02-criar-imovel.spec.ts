@@ -1,62 +1,63 @@
 import { test, expect } from '@playwright/test';
+import { LoginPage } from '../../pages/LoginPage';
+import { DatabaseHelper } from '../../helpers/database.helper';
+import TEST_CONFIG from '../../config/test.config';
 
 /**
  * Teste 2: Criar imóvel
  * Criar um imóvel simples e validar que aparece na lista
+ *
+ * ⚠️ Corrigido em 2026-08: rota "/login" e credenciais "admin@softgen.ai"
+ * não existem mais; campos do formulário ("#property-identifier",
+ * "#property-location-select") não correspondem ao formulário real
+ * (src/components/properties/PropertyFormDialog.tsx). Selectors alinhados
+ * com e2e/step-definitions/properties.steps.ts, já validados contra a UI.
  */
 test.describe('02. Criar Imóvel', () => {
-  
+  let createdPropertyId: string | undefined;
+
   test.beforeEach(async ({ page }) => {
-    // Fazer login antes de cada teste
-    await page.goto('http://localhost:3000/login');
-    await page.fill('input[type="email"]', 'admin@softgen.ai');
-    await page.fill('input[type="password"]', 'Softgen@2025');
-    await page.click('button[type="submit"]');
+    const loginPage = new LoginPage(page);
+    const { email, password } = TEST_CONFIG.users.admin;
+
+    await loginPage.goto();
+    await loginPage.login(email, password);
     await page.waitForURL('**/dashboard', { timeout: 10000 });
-  });
-  
-  test('Deve criar um imóvel com sucesso', async ({ page }) => {
-    // Navegar para página de imóveis
-    await page.click('a[href="/properties"]');
+
+    await page.getByRole('link', { name: /imóveis/i }).click();
     await page.waitForURL('**/properties');
-    
-    // Aguardar a página carregar completamente
     await page.waitForLoadState('networkidle');
-    
-    // Gerar identificador único para este teste
-    const timestamp = Date.now();
-    const identifier = `TESTE-${timestamp}`;
-    
-    // Clicar no botão "Novo Imóvel"
-    await page.click('button:has-text("Novo Imóvel")');
-    
-    // Aguardar o dialog abrir
-    await page.waitForSelector('[role="dialog"]', { timeout: 5000 });
-    
-    // Preencher formulário básico
-    await page.fill('#property-identifier', identifier);
-    
-    // Selecionar primeiro local disponível
-    await page.click('#property-location-select');
-    await page.waitForTimeout(500);
-    const firstOption = page.locator('[role="option"]').first();
-    await firstOption.click();
-    
-    // Preencher outros campos obrigatórios
-    await page.fill('#property-complement', `APTO ${timestamp}`);
-    await page.fill('#property-value', '1500');
-    
-    // Salvar
-    await page.click('button:has-text("Salvar")');
-    
-    // Aguardar um pouco para o sistema processar
-    await page.waitForTimeout(2000);
-    
-    // Validar que o imóvel aparece na lista
-    const propertyInList = page.locator(`text=${identifier}`);
-    await expect(propertyInList).toBeVisible({ timeout: 10000 });
-    
-    console.log(`✅ Imóvel ${identifier} criado com sucesso!`);
   });
-  
+
+  test.afterEach(async () => {
+    if (createdPropertyId) {
+      await DatabaseHelper.deleteProperty(createdPropertyId);
+      createdPropertyId = undefined;
+    }
+  });
+
+  test('Deve criar um imóvel com sucesso', async ({ page }) => {
+    const timestamp = Date.now();
+    const complement = `APTO ${timestamp}`;
+
+    await page.getByRole('button', { name: /novo imóvel/i }).click();
+    await expect(page.locator('#property-location')).toBeVisible({ timeout: 5000 });
+
+    await page.locator('#property-location').click();
+    await page.getByRole('option').first().click();
+
+    await page.locator('#property-complement').fill(complement);
+    await page.locator('#property-rooms').fill('2');
+    await page.locator('#property-bathrooms').fill('1');
+    await page.locator('#property-area').fill('80');
+    await page.locator('#property-value').fill('1500');
+
+    await page.getByRole('button', { name: /^salvar$/i }).click();
+    await page.waitForTimeout(2000);
+
+    await expect(page.getByText(complement)).toBeVisible({ timeout: 10000 });
+
+    const property = await DatabaseHelper.findPropertyByComplement(complement).catch(() => null);
+    createdPropertyId = property?.id;
+  });
 });

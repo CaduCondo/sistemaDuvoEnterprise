@@ -2,6 +2,15 @@
 
 Este documento detalha o esquema completo do banco de dados PostgreSQL.
 
+> ℹ️ **Revisão de 2026-08:** as tabelas `properties`, `rentals`, `payments` e
+> `deposit_installments` foram conferidas e corrigidas contra o schema real
+> gerado em `src/integrations/supabase/database.types.ts` (fonte de verdade —
+> regenere esse arquivo via CLI do Supabase sempre que o schema mudar). As
+> demais tabelas (`locations`, `tenants`, `system_users`,
+> `user_location_permissions`, `admin_fee_exemptions`, `location_expenses`) não
+> foram reconferidas nesta revisão; se notar divergência, o `database.types.ts`
+> é sempre a referência mais confiável.
+
 ---
 
 ## 📋 Índice
@@ -118,32 +127,35 @@ INSERT INTO locations (name, admin_fee_percentage) VALUES
 
 **Descrição:** Imóveis gerenciados
 
+> ⚠️ **Atualizado em 2026-08** a partir do schema real gerado em
+> `src/integrations/supabase/database.types.ts` (fonte de verdade). A versão
+> anterior deste documento descrevia colunas (`address`, `monthly_rent`,
+> `property_type`, `bedrooms`, `parking_spaces`) que **não existem mais** — o
+> imóvel não tem mais campo de endereço próprio nem "tipo"; o endereço vem da
+> `location` associada, e o campo livre de complemento é `complement`
+> (renomeado de "Endereço" para "Complemento" na UI — ver tarefa
+> "Padronizar Tabela de Imóveis" no board do projeto).
+
 ```sql
 CREATE TABLE properties (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  location_id UUID NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
-  address TEXT NOT NULL,
-  neighborhood TEXT,
-  city TEXT,
-  state TEXT,
-  zip_code TEXT,
-  monthly_rent DECIMAL(10,2) NOT NULL CHECK (monthly_rent > 0),
-  property_type TEXT,
-  bedrooms INTEGER,
-  bathrooms INTEGER,
-  parking_spaces INTEGER,
-  area DECIMAL(10,2),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  location_id UUID NOT NULL REFERENCES locations(id),
+  property_identifier TEXT,
+  complement TEXT,
   description TEXT,
-  status TEXT DEFAULT 'available' CHECK (status IN ('available', 'occupied', 'maintenance', 'unavailable')),
-  images TEXT[],
+  rooms INTEGER,
+  bathrooms INTEGER,
+  area NUMERIC,
+  value NUMERIC,
+  has_garage BOOLEAN DEFAULT false,
+  has_furniture BOOLEAN DEFAULT false,
+  accepts_pets BOOLEAN DEFAULT false,
+  status TEXT NOT NULL, -- 'available' | 'occupied' | 'unavailable'
+  images JSONB,
+  image_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Índices
-CREATE INDEX idx_properties_location ON properties(location_id);
-CREATE INDEX idx_properties_status ON properties(status);
-CREATE INDEX idx_properties_rent ON properties(monthly_rent);
 ```
 
 **Colunas:**
@@ -151,29 +163,30 @@ CREATE INDEX idx_properties_rent ON properties(monthly_rent);
 | Coluna | Tipo | Descrição | Constraints |
 |--------|------|-----------|-------------|
 | `id` | UUID | Identificador único | PRIMARY KEY |
-| `location_id` | UUID | Localização | FK → locations(id) |
-| `address` | TEXT | Endereço completo | NOT NULL |
-| `neighborhood` | TEXT | Bairro | - |
-| `city` | TEXT | Cidade | - |
-| `state` | TEXT | Estado (UF) | - |
-| `zip_code` | TEXT | CEP | - |
-| `monthly_rent` | DECIMAL(10,2) | Valor do aluguel | NOT NULL, > 0 |
-| `property_type` | TEXT | Tipo (casa, apto, etc) | - |
-| `bedrooms` | INTEGER | Quartos | - |
+| `location_id` | UUID | Localização | FK → locations(id), NOT NULL |
+| `property_identifier` | TEXT | Código/identificador do imóvel | - |
+| `complement` | TEXT | Complemento (ex: "Apto 102, Bloco A") — antigo "Endereço" na UI | - |
+| `description` | TEXT | Descrição livre | - |
+| `rooms` | INTEGER | Quartos | rótulo na UI: "Quartos" |
 | `bathrooms` | INTEGER | Banheiros | - |
-| `parking_spaces` | INTEGER | Vagas de garagem | - |
-| `area` | DECIMAL(10,2) | Área (m²) | - |
-| `description` | TEXT | Descrição | - |
-| `status` | TEXT | Status | CHECK (4 valores) |
-| `images` | TEXT[] | URLs das imagens | - |
+| `area` | NUMERIC | Área (m²) | rótulo na UI: "Área Útil" |
+| `value` | NUMERIC | Valor do aluguel | rótulo na UI: "Valor" |
+| `has_garage` | BOOLEAN | Possui vaga de garagem | DEFAULT false |
+| `has_furniture` | BOOLEAN | Móveis planejados | DEFAULT false |
+| `accepts_pets` | BOOLEAN | Aceita pets | DEFAULT false |
+| `status` | TEXT | Status do imóvel | NOT NULL |
+| `images` | JSONB | Metadados das imagens | - |
+| `image_count` | INTEGER | Nº de imagens (contagem materializada) | DEFAULT 0 |
 | `created_at` | TIMESTAMP | Data de criação | DEFAULT NOW() |
 | `updated_at` | TIMESTAMP | Data de atualização | DEFAULT NOW() |
 
-**Status possíveis:**
+**Status possíveis** (ver `SelectItem` em `PropertyFormDialog.tsx`):
 - `available` - Disponível
 - `occupied` - Ocupado
-- `maintenance` - Em manutenção
 - `unavailable` - Indisponível
+
+Não existe mais `maintenance`. O endereço completo do imóvel (rua, bairro,
+cidade, CEP) fica na tabela `locations`, não em `properties`.
 
 ---
 
@@ -260,41 +273,38 @@ CREATE INDEX idx_tenants_status ON tenants(status);
 
 **Descrição:** Contratos de locação
 
+> ⚠️ **Atualizado em 2026-08.** As parcelas de caução **não ficam mais em
+> colunas `deposit_installment_1/2/3` na própria `rentals`** — foram
+> normalizadas para a tabela filha `deposit_installments` (seção 6). Vários
+> nomes de coluna também mudaram: `monthly_rent` → `rent_value`,
+> `payment_day` → `rent_due_day`, `deposit` → `security_deposit`/`deposit_value`,
+> `broker_commission` → `partner_broker_value`.
+
 ```sql
 CREATE TABLE rentals (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
   start_date DATE NOT NULL,
-  end_date DATE NOT NULL,
-  payment_day INTEGER NOT NULL CHECK (payment_day BETWEEN 1 AND 28),
-  monthly_rent DECIMAL(10,2) NOT NULL CHECK (monthly_rent > 0),
-  deposit DECIMAL(10,2),
-  deposit_installments INTEGER DEFAULT 1 CHECK (deposit_installments IN (1, 2, 3)),
-  deposit_installment_1 DECIMAL(10,2),
-  deposit_installment_2 DECIMAL(10,2),
-  deposit_installment_3 DECIMAL(10,2),
-  deposit_installment_1_payment_date DATE,
-  deposit_installment_2_payment_date DATE,
-  deposit_installment_3_payment_date DATE,
-  deposit_installment_1_pix_code TEXT,
-  deposit_installment_2_pix_code TEXT,
-  deposit_installment_3_pix_code TEXT,
-  parking_value DECIMAL(10,2),
-  broker_commission DECIMAL(10,2),
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'terminated')),
+  end_date DATE,
+  rent_due_day INTEGER,
+  rent_value NUMERIC,
+  security_deposit NUMERIC,
+  deposit_value NUMERIC,
+  deposit_installments INTEGER,
+  has_garage BOOLEAN DEFAULT false,
+  garage_value NUMERIC,
+  has_partner_broker BOOLEAN DEFAULT false,
+  partner_broker_value NUMERIC,
+  pix_code TEXT,
+  returned_deposit_amount NUMERIC,
+  attachments JSONB,
+  contract_attachments JSONB,
+  status TEXT DEFAULT 'active', -- 'active' | 'terminated'
+  is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  
-  -- Constraints
-  CHECK (end_date > start_date)
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Índices
-CREATE INDEX idx_rentals_property ON rentals(property_id);
-CREATE INDEX idx_rentals_tenant ON rentals(tenant_id);
-CREATE INDEX idx_rentals_status ON rentals(status);
-CREATE INDEX idx_rentals_dates ON rentals(start_date, end_date);
 ```
 
 **Colunas:**
@@ -302,36 +312,34 @@ CREATE INDEX idx_rentals_dates ON rentals(start_date, end_date);
 | Coluna | Tipo | Descrição | Constraints |
 |--------|------|-----------|-------------|
 | `id` | UUID | Identificador único | PRIMARY KEY |
-| `property_id` | UUID | Propriedade locada | FK → properties(id) |
-| `tenant_id` | UUID | Inquilino | FK → tenants(id) |
+| `property_id` | UUID | Imóvel locado | FK → properties(id), NOT NULL |
+| `tenant_id` | UUID | Inquilino | FK → tenants(id), NOT NULL |
 | `start_date` | DATE | Data de início | NOT NULL |
-| `end_date` | DATE | Data de término | NOT NULL, > start_date |
-| `payment_day` | INTEGER | Dia de pagamento | 1-28 |
-| `monthly_rent` | DECIMAL(10,2) | Valor do aluguel | NOT NULL, > 0 |
-| `deposit` | DECIMAL(10,2) | Valor do caução | - |
-| `deposit_installments` | INTEGER | Nº de parcelas caução | 1, 2 ou 3 |
-| `deposit_installment_1` | DECIMAL(10,2) | 1ª parcela caução | - |
-| `deposit_installment_2` | DECIMAL(10,2) | 2ª parcela caução | - |
-| `deposit_installment_3` | DECIMAL(10,2) | 3ª parcela caução | - |
-| `deposit_installment_1_payment_date` | DATE | Data vencimento 1ª parcela | - |
-| `deposit_installment_2_payment_date` | DATE | Data vencimento 2ª parcela | - |
-| `deposit_installment_3_payment_date` | DATE | Data vencimento 3ª parcela | - |
-| `deposit_installment_1_pix_code` | TEXT | PIX 1ª parcela | - |
-| `deposit_installment_2_pix_code` | TEXT | PIX 2ª parcela | - |
-| `deposit_installment_3_pix_code` | TEXT | PIX 3ª parcela | - |
-| `parking_value` | DECIMAL(10,2) | Valor vaga garagem | - |
-| `broker_commission` | DECIMAL(10,2) | Comissão corretor | - |
+| `end_date` | DATE | Data de término | - |
+| `rent_due_day` | INTEGER | Dia de vencimento do aluguel | rótulo na UI: "Dia vencimento" |
+| `rent_value` | NUMERIC | Valor do aluguel | rótulo na UI: "Aluguel" |
+| `security_deposit` | NUMERIC | Valor total do caução | usado como total ao gerar as parcelas |
+| `deposit_value` | NUMERIC | Valor do caução (campo legado/alternativo) | ver observação abaixo |
+| `deposit_installments` | INTEGER | Nº de parcelas do caução | 1, 2 ou 3 — gera linhas em `deposit_installments` |
+| `has_garage` | BOOLEAN | Possui vaga de garagem | DEFAULT false |
+| `garage_value` | NUMERIC | Valor da vaga de garagem | - |
+| `has_partner_broker` | BOOLEAN | Tem corretor parceiro | DEFAULT false |
+| `partner_broker_value` | NUMERIC | Comissão do corretor parceiro | - |
+| `pix_code` | TEXT | Código PIX do contrato | - |
+| `returned_deposit_amount` | NUMERIC | Valor do caução devolvido ao encerrar | pode diferir do original por descontos |
+| `attachments` | JSONB | Anexos gerais da locação | - |
+| `contract_attachments` | JSONB | Anexos do contrato | - |
 | `status` | TEXT | Status | 'active' ou 'terminated' |
+| `is_active` | BOOLEAN | Flag de locação ativa | usada em filtros/joins |
 | `created_at` | TIMESTAMP | Data de criação | DEFAULT NOW() |
 | `updated_at` | TIMESTAMP | Data de atualização | DEFAULT NOW() |
 
-**Novo campo:**
-
-| Coluna | Tipo | Descrição | Constraints |
-|--------|------|-----------|-------------|
-| `returned_deposit_amount` | DECIMAL(10,2) | Valor do caução devolvido | - |
-
-**Uso:** Registra o valor efetivamente devolvido ao inquilino quando o contrato é cancelado. Pode ser diferente do valor original devido a descontos por danos.
+> **Nota sobre `security_deposit` vs `deposit_value`:** o schema tem os dois
+> campos; o fluxo de criação de locação (`useRentalForm.ts` /
+> `DatabaseHelper.createRental`) usa `security_deposit` como o valor total do
+> caução para calcular as parcelas. Antes de tratar `deposit_value` como
+> autoritativo em uma integração nova, confira qual dos dois o formulário
+> atual está de fato gravando.
 
 ---
 
@@ -346,57 +354,73 @@ CREATE TABLE payments (
   due_date DATE NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
   rent_amount DECIMAL(10,2),
-  parking_amount DECIMAL(10,2),
-  admin_fee DECIMAL(10,2),
-  deposit_amount DECIMAL(10,2),
-  broker_commission DECIMAL(10,2),
-  late_fee DECIMAL(10,2),
-  interest DECIMAL(10,2),
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'overdue', 'cancelled')),
+  admin_fee NUMERIC,
+  late_fee NUMERIC,
+  late_fee_waived BOOLEAN DEFAULT false,
+  interest NUMERIC,
+  interest_waived BOOLEAN DEFAULT false,
+  discount_amount NUMERIC,
+  status TEXT NOT NULL, -- 'pending' | 'paid' | 'overdue' | 'cancelled' (ver uso real no código)
+  is_paid BOOLEAN DEFAULT false,
   payment_date DATE,
+  payment_time TEXT,
   payment_method TEXT,
+  payment_code TEXT,
+  payment_location TEXT,
+  pix_code TEXT,
+  pix_code_type TEXT,
   reference_month TEXT NOT NULL,
   reference_year TEXT NOT NULL,
   installment INTEGER,
   total_installments INTEGER,
-  type TEXT,
-  attachment TEXT,
+  breakdown JSONB,
+  partial_payments JSONB,
+  attachments JSONB,
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Índices
-CREATE INDEX idx_payments_rental ON payments(rental_id);
-CREATE INDEX idx_payments_status ON payments(status);
-CREATE INDEX idx_payments_due_date ON payments(due_date);
-CREATE INDEX idx_payments_reference ON payments(reference_year, reference_month);
 ```
+
+> ⚠️ **Atualizado em 2026-08.** A versão anterior deste documento listava
+> colunas (`amount`, `rent_amount`, `parking_amount`, `deposit_amount`,
+> `broker_commission`, `type`, `attachment`) que **não existem** no schema
+> real. O valor esperado do pagamento é `expected_amount` (não `amount`), o
+> valor efetivamente pago é `paid_amount`, e o detalhamento por componente
+> (aluguel, garagem, taxa admin, comissão etc.) fica no JSON `breakdown`, não
+> em colunas separadas. Anexos (comprovantes) ficam no JSON `attachments`.
 
 **Colunas:**
 
 | Coluna | Tipo | Descrição | Constraints |
 |--------|------|-----------|-------------|
 | `id` | UUID | Identificador único | PRIMARY KEY |
-| `rental_id` | UUID | Locação | FK → rentals(id) CASCADE |
+| `rental_id` | UUID | Locação | FK → rentals(id), NOT NULL |
 | `due_date` | DATE | Data de vencimento | NOT NULL |
-| `amount` | DECIMAL(10,2) | Valor total | NOT NULL |
-| `rent_amount` | DECIMAL(10,2) | Valor do aluguel | - |
-| `parking_amount` | DECIMAL(10,2) | Valor da vaga | - |
-| `admin_fee` | DECIMAL(10,2) | Taxa administrativa | - |
-| `deposit_amount` | DECIMAL(10,2) | Parcela do caução | - |
-| `broker_commission` | DECIMAL(10,2) | Comissão corretor | - |
-| `late_fee` | DECIMAL(10,2) | Multa por atraso | - |
-| `interest` | DECIMAL(10,2) | Juros por atraso | - |
-| `status` | TEXT | Status | 4 valores possíveis |
-| `payment_date` | DATE | Data efetiva pagamento | - |
+| `expected_amount` | NUMERIC | Valor esperado do pagamento | NOT NULL |
+| `paid_amount` | NUMERIC | Valor efetivamente pago | - |
+| `admin_fee` | NUMERIC | Taxa administrativa | - |
+| `late_fee` | NUMERIC | Multa por atraso | - |
+| `late_fee_waived` | BOOLEAN | Multa perdoada/isentada | DEFAULT false |
+| `interest` | NUMERIC | Juros por atraso | - |
+| `interest_waived` | BOOLEAN | Juros perdoados/isentados | DEFAULT false |
+| `discount_amount` | NUMERIC | Desconto aplicado | - |
+| `status` | TEXT | Status | NOT NULL |
+| `is_paid` | BOOLEAN | Flag de pagamento quitado | DEFAULT false |
+| `payment_date` | DATE | Data efetiva do pagamento | - |
+| `payment_time` | TEXT | Hora do pagamento | - |
 | `payment_method` | TEXT | Método de pagamento | - |
+| `payment_code` | TEXT | Código/identificador do pagamento | - |
+| `payment_location` | TEXT | Local do pagamento | - |
+| `pix_code` | TEXT | Código PIX (copia e cola) | - |
+| `pix_code_type` | TEXT | Tipo do código PIX | - |
 | `reference_month` | TEXT | Mês de referência | NOT NULL |
 | `reference_year` | TEXT | Ano de referência | NOT NULL |
 | `installment` | INTEGER | Número da parcela | - |
 | `total_installments` | INTEGER | Total de parcelas | - |
-| `type` | TEXT | Tipo de pagamento | - |
-| `attachment` | TEXT | URL do comprovante | - |
+| `breakdown` | JSONB | Detalhamento do valor (aluguel, garagem, taxas, comissões) | - |
+| `partial_payments` | JSONB | Histórico de pagamentos parciais | - |
+| `attachments` | JSONB | Comprovantes anexados | - |
 | `notes` | TEXT | Observações | - |
 | `created_at` | TIMESTAMP | Data de criação | DEFAULT NOW() |
 | `updated_at` | TIMESTAMP | Data de atualização | DEFAULT NOW() |
@@ -459,6 +483,14 @@ CREATE INDEX idx_deposit_installments_due_date ON deposit_installments(due_date)
 | `internal_commission` | DECIMAL(10,2) | Comissão corretor interno | - |
 | `notes` | TEXT | Observações | - |
 | `attachments` | JSONB | Array de anexos | DEFAULT '[]' |
+| `payment_code` | TEXT | Código/identificador do pagamento da parcela | adicionado depois da 1ª versão deste doc |
+| `payment_location` | TEXT | Local do pagamento | idem |
+| `discount_amount` | NUMERIC | Desconto aplicado na parcela | idem |
+| `interest_amount` | NUMERIC | Juros aplicados na parcela | idem |
+| `penalty_amount` | NUMERIC | Multa aplicada na parcela | idem |
+| `receipt_url` | TEXT | URL do recibo gerado | idem |
+| `reference_month` / `reference_year` | INTEGER | Mês/ano de referência da parcela | idem |
+| `total_installments` | INTEGER | Campo legado, redundante com `installment_total` | opcional — prefira `installment_total` |
 | `created_at` | TIMESTAMP | Data de criação | DEFAULT NOW() |
 | `updated_at` | TIMESTAMP | Data de atualização | DEFAULT NOW() |
 

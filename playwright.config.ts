@@ -69,12 +69,20 @@ export default defineConfig({
 
   /* Configurar projetos para diferentes navegadores e tipos de teste */
   projects: [
-    /* Testes de UI */
+    /*
+     * Projeto principal: roda TODOS os arquivos *.spec.ts, com ou sem tag.
+     *
+     * ⚠️ Antes este projeto tinha `grep: /@ui/`, e como só 4 dos ~18 arquivos
+     * de teste possuíam alguma tag (@smoke/@security/@performance/@stress),
+     * os outros 14 nunca eram executados por `npm run test:e2e` — inclusive
+     * em CI. Os projetos abaixo (api-tests, permissions, performance,
+     * security, smoke, regression) continuam existindo para rodar subconjuntos
+     * marcados por tag isoladamente (ex.: `npx playwright test --project=smoke`).
+     */
     {
-      name: 'ui-chromium',
+      name: 'all-tests',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /.*\.spec\.ts/,
-      grep: /@ui/,
     },
 
     /* Testes de API */

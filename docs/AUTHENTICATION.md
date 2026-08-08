@@ -32,10 +32,23 @@ Este documento detalha o sistema completo de autenticação e gestão de usuári
 
 ### Tecnologias
 
-- **Backend:** Supabase Auth + PostgreSQL
+- **Backend:** Autenticação própria contra a tabela `system_users` no PostgreSQL
+  (Supabase) — **não usa o Supabase Auth**. Ver `src/services/authService.ts`
+  ("Local authentication service — uses ONLY system_users table, NO Supabase
+  Auth integration").
 - **Frontend:** React + TypeScript
 - **Email:** Resend (produção) / Console (desenvolvimento)
+- **Sessão:** objeto salvo em `localStorage` (`auth_session`/`auth_user`), com
+  expiração de 24h verificada no cliente — não é um JWT assinado pelo servidor.
 - **Armazenamento:** Database + localStorage (cache)
+
+> ⚠️ **Atenção (débito técnico de segurança):** hoje `validatePassword()` em
+> `authService.ts` faz comparação **direta de string** (`input === stored`),
+> não hash bcrypt — apesar de `bcryptjs` estar entre as dependências do
+> projeto. O comentário no código está marcado como `TEMPORARY`. Isso significa
+> que a coluna `system_users.password_hash` armazena a senha em texto puro
+> hoje. Recomenda-se migrar para hash bcrypt antes de qualquer uso em produção
+> com dados reais.
 
 ---
 
@@ -76,10 +89,11 @@ Este documento detalha o sistema completo de autenticação e gestão de usuári
 
 ### Campos
 
-1. **Usuário ou Email**
-   - Aceita email ou username
-   - Obrigatório
-   - Placeholder: "Digite seu usuário"
+1. **E-mail** (rótulo real do campo: "E-mail:")
+   - O backend aceita busca por `username` OU `email` (ver `authService.ts`),
+     mas o campo do formulário tem `type="email"`
+   - Obrigatório (validação HTML5 nativa)
+   - Placeholder: "email@exemplo.com"
 
 2. **Senha**
    - Campo password
@@ -802,17 +816,21 @@ async function toggleTheme(userId: string, currentTheme: string) {
    - Invalida senha anterior imediatamente
 
 5. **Armazenamento:**
-   - Senhas NUNCA armazenadas em texto plano
-   - Hash no banco de dados
-   - JWT para sessões
+   - ⚠️ Atualmente as senhas são comparadas em texto puro (ver aviso na seção
+     "Tecnologias" acima) — a documentação anterior descrevia hashing, que
+     ainda não está implementado no código atual
+   - Sessão local em `localStorage`, com expiração de 24h verificada no cliente
 
 ### Vulnerabilidades Mitigadas
 
 ✅ **Força Bruta** - Bloqueio após 3 tentativas
 ✅ **Phishing** - Email apenas para endereço cadastrado
-✅ **Session Hijacking** - JWT com expiração
+⚠️ **Session Hijacking** - sessão expira em 24h, mas não é um JWT assinado —
+   é um objeto simples em `localStorage`
 ✅ **Password Reuse** - Senha temporária obriga troca
 ✅ **Weak Passwords** - Validação de requisitos
+⚠️ **Senha em texto puro** - `password_hash` guarda a senha sem hash hoje
+   (ver aviso acima); recomenda-se migrar para bcrypt
 
 ---
 

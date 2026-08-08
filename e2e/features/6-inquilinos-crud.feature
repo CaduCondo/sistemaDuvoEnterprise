@@ -21,11 +21,12 @@ Funcionalidade: CRUD de Inquilinos
     Quando preencho o campo de busca com "João"
     Então devo ver apenas inquilinos que contenham "João" no nome
 
-  Cenário: Filtrar inquilinos por tipo
-    Quando seleciono o filtro "Pessoa Física"
-    Então devo ver apenas inquilinos com CPF
-    Quando seleciono o filtro "Pessoa Jurídica"
-    Então devo ver apenas inquilinos com CNPJ
+  # ⚠️ Atualizado em 2026-08: o filtro da lista de Inquilinos hoje é por
+  # status (Novo/Locatário/Inativo), não por tipo de pessoa (CPF/CNPJ) — ver
+  # src/components/tenants/TenantFilters.tsx. Não existe filtro de tipo na UI.
+  Cenário: Filtrar inquilinos por status
+    Quando seleciono o filtro de status "Locatário"
+    Então devo ver apenas inquilinos com status locatário
 
   Cenário: Abrir formulário de novo inquilino
     Quando clico no botão "Novo Inquilino"

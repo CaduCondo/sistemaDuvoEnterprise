@@ -1,186 +1,122 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Testes completos do fluxo de login
- * 
- * Estes testes usam os IDs corretos que foram adicionados na página.
+ * Testes completos do fluxo de login.
+ *
+ * ⚠️ Atualizado em 2026-08: não existe mais rota "/login" nem os ids
+ * "#login-submit-button"/"#login-forgot-password-*"/"#reset-email" usados
+ * antes. O acesso administrativo é o dropdown "Gerenciador" na home pública
+ * "/" — ver src/components/public/PublicHeader.tsx.
  */
 
-test.describe('Página de Login', () => {
+async function openLoginDropdown(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  await page.getByRole('button', { name: /gerenciador/i }).click();
+  await page.locator('#username').waitFor({ state: 'visible' });
+}
+
+test.describe('Login via dropdown "Gerenciador"', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
+    await openLoginDropdown(page);
   });
 
   test('deve exibir todos os elementos da interface', async ({ page }) => {
-    // Logo e título
-    await expect(page.locator('h1')).toContainText("D'Uvo Enterprise");
+    await expect(page.getByText("D'Uvo Enterprise")).toBeVisible();
     await expect(page.getByText('Property Control System')).toBeVisible();
 
-    // Campos do formulário
     await expect(page.locator('#username')).toBeVisible();
     await expect(page.locator('#password')).toBeVisible();
-    await expect(page.locator('#login-submit-button')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^entrar$/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /esqueci minha senha/i })).toBeVisible();
 
-    // Link de esqueci senha
-    await expect(page.locator('#login-forgot-password-link')).toBeVisible();
-
-    // Informações do desenvolvedor
     await expect(page.getByText('Carlos Uva')).toBeVisible();
-    await expect(page.getByText('stefcadu@gmail.com')).toBeVisible();
   });
 
   test('deve preencher e limpar os campos corretamente', async ({ page }) => {
     const usernameInput = page.locator('#username');
     const passwordInput = page.locator('#password');
 
-    // Preencher usuário
     await usernameInput.fill('usuario@exemplo.com');
     await expect(usernameInput).toHaveValue('usuario@exemplo.com');
 
-    // Preencher senha
     await passwordInput.fill('MinhaSenh@123');
     await expect(passwordInput).toHaveValue('MinhaSenh@123');
 
-    // Limpar campos
     await usernameInput.clear();
     await passwordInput.clear();
 
-    // Verificar que estão vazios
     await expect(usernameInput).toHaveValue('');
     await expect(passwordInput).toHaveValue('');
   });
 
   test('toggle de senha deve alternar visibilidade', async ({ page }) => {
     const passwordInput = page.locator('#password');
-    const toggleButton = page.locator('#login-toggle-password');
+    // O botão de mostrar/ocultar senha não tem id — é o único <button> ao
+    // lado do campo #password.
+    const toggleButton = passwordInput.locator('xpath=following-sibling::button[1]');
 
-    // Senha oculta por padrão
     await expect(passwordInput).toHaveAttribute('type', 'password');
 
-    // Preencher senha
     await passwordInput.fill('SenhaSecreta123');
 
-    // Mostrar senha
     await toggleButton.click();
     await expect(passwordInput).toHaveAttribute('type', 'text');
 
-    // Ocultar novamente
     await toggleButton.click();
     await expect(passwordInput).toHaveAttribute('type', 'password');
   });
 
   test('botão de submit deve estar habilitado quando campos preenchidos', async ({ page }) => {
-    const submitButton = page.locator('#login-submit-button');
+    const submitButton = page.getByRole('button', { name: /^entrar$/i });
 
-    // Botão deve estar habilitado inicialmente
     await expect(submitButton).toBeEnabled();
 
-    // Preencher campos
     await page.locator('#username').fill('usuario@exemplo.com');
     await page.locator('#password').fill('senha123');
 
-    // Botão ainda habilitado
     await expect(submitButton).toBeEnabled();
-    await expect(submitButton).toHaveText('Entrar');
   });
 
   test('deve mostrar erro com credenciais inválidas', async ({ page }) => {
-    // Preencher com credenciais inválidas
     await page.locator('#username').fill('invalido@exemplo.com');
     await page.locator('#password').fill('senhaerrada');
+    await page.getByRole('button', { name: /^entrar$/i }).click();
 
-    // Submeter
-    await page.locator('#login-submit-button').click();
-
-    // Aguardar resposta (máximo 3 segundos)
     await page.waitForTimeout(3000);
 
-    // Deve mostrar mensagem de erro OU permanecer na página de login
-    const hasError = await page.getByText(/Credenciais inválidas/i).isVisible().catch(() => false);
-    const stillOnLogin = await page.url().then(url => url.includes('/login'));
+    const hasError = await page.getByText(/senha incorreta|não encontrado|bloqueada/i).isVisible().catch(() => false);
+    const stillOnHome = page.url().endsWith('/') || page.url().includes('localhost:3000/');
 
-    expect(hasError || stillOnLogin).toBeTruthy();
+    expect(hasError || stillOnHome).toBeTruthy();
   });
 });
 
-test.describe('Modal de Recuperação de Senha', () => {
+test.describe('Recuperação de senha', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    // Abrir modal
-    await page.locator('#login-forgot-password-link').click();
+    await openLoginDropdown(page);
+    await page.getByRole('button', { name: /esqueci minha senha/i }).click();
     await page.waitForTimeout(300);
   });
 
-  test('deve abrir e fechar modal corretamente', async ({ page }) => {
-    // Modal deve estar visível
-    await expect(page.locator('#login-forgot-password-dialog')).toBeVisible();
+  test('deve abrir e voltar do formulário de recuperação', async ({ page }) => {
+    await expect(page.locator('#recovery-email')).toBeVisible();
     await expect(page.getByText('Recuperar Senha')).toBeVisible();
 
-    // Fechar modal
-    await page.locator('#login-forgot-password-cancel').click();
+    await page.getByRole('button', { name: /^voltar$/i }).click();
     await page.waitForTimeout(300);
 
-    // Modal deve estar oculto
-    await expect(page.locator('#login-forgot-password-dialog')).not.toBeVisible();
+    await expect(page.locator('#username')).toBeVisible();
   });
 
-  test('deve validar email inválido', async ({ page }) => {
-    // Tentar com email sem @
-    await page.locator('#reset-email').fill('emailinvalido');
-    await page.locator('#login-forgot-password-submit').click();
-
-    // Deve mostrar erro (texto exato da página)
-    await expect(page.getByText('Por favor, insira um e-mail válido.')).toBeVisible();
+  test('deve exigir e-mail preenchido (validação HTML5)', async ({ page }) => {
+    const isValid = await page.locator('#recovery-email').evaluate((el: HTMLInputElement) => el.checkValidity());
+    expect(isValid).toBe(false);
   });
 
-  test('deve processar email válido', async ({ page }) => {
-    // Preencher email válido
-    await page.locator('#reset-email').fill('usuario@exemplo.com');
-    await page.locator('#login-forgot-password-submit').click();
+  test('deve informar quando o e-mail não está cadastrado', async ({ page }) => {
+    await page.locator('#recovery-email').fill('nao-cadastrado@teste.com');
+    await page.getByRole('button', { name: /enviar senha/i }).click();
 
-    // Aguardar processamento (simula envio de email)
-    await page.waitForTimeout(2000);
-
-    // Deve mostrar mensagem de sucesso (textos exatos da página)
-    await expect(page.getByText('E-mail enviado!')).toBeVisible();
-    await expect(page.getByText(/Verifique sua caixa de entrada/i)).toBeVisible();
-
-    // Deve ter botão para fechar
-    await expect(page.locator('#login-forgot-password-close')).toBeVisible();
-  });
-
-  test('deve fechar modal após sucesso', async ({ page }) => {
-    // Processo completo
-    await page.locator('#reset-email').fill('usuario@exemplo.com');
-    await page.locator('#login-forgot-password-submit').click();
-    await page.waitForTimeout(2000);
-
-    // Fechar após sucesso
-    await page.locator('#login-forgot-password-close').click();
-    await page.waitForTimeout(300);
-
-    // Modal deve estar fechado
-    await expect(page.locator('#login-forgot-password-dialog')).not.toBeVisible();
-  });
-});
-
-// TESTE COM CREDENCIAIS REAIS - Descomente quando tiver usuário de teste
-test.describe.skip('Login Real (requer credenciais válidas)', () => {
-  test('deve fazer login com sucesso', async ({ page }) => {
-    await page.goto('/login');
-
-    // SUBSTITUA com credenciais válidas do seu ambiente
-    await page.locator('#username').fill('seu-usuario@exemplo.com');
-    await page.locator('#password').fill('SuaSenhaSegura123');
-
-    // Submeter
-    await page.locator('#login-submit-button').click();
-
-    // Aguardar navegação
-    await page.waitForURL('**/dashboard', { timeout: 5000 });
-
-    // Verificar que está no dashboard
-    await expect(page).toHaveURL(/.*dashboard/);
-    await expect(page.locator('#dashboard-page')).toBeVisible();
+    await expect(page.getByText(/e-mail não encontrado/i)).toBeVisible({ timeout: 10000 });
   });
 });

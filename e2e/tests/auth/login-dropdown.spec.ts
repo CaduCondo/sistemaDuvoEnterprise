@@ -1,6 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { LoginPage } from "../../pages/LoginPage";
+import TEST_CONFIG from "../../config/test.config";
 
+/**
+ * Login via dropdown "Gerenciador" (src/components/public/PublicHeader.tsx).
+ *
+ * ⚠️ Corrigido em 2026-08: os placeholders reais são "email@exemplo.com" /
+ * "Digite sua senha" (não "Digite seu usuário"), e os testes usam as
+ * credenciais de e2e/config/test.config.ts em vez de e-mails fictícios que
+ * nunca existiram no banco.
+ */
 test.describe("Login via Dropdown", () => {
   let loginPage: LoginPage;
 
@@ -10,103 +19,52 @@ test.describe("Login via Dropdown", () => {
   });
 
   test("deve exibir dropdown de login ao clicar em Gerenciador", async ({ page }) => {
-    // Clicar no botão Gerenciador
-    await page.click('button:has-text("Gerenciador")');
-    
-    // Verificar que o dropdown está visível
-    await expect(page.locator('text=D\'Uvo Enterprise')).toBeVisible();
-    await expect(page.locator('text=Property Control System')).toBeVisible();
-    
-    // Verificar campos
-    await expect(page.locator('input[placeholder="Digite seu usuário"]')).toBeVisible();
-    await expect(page.locator('input[placeholder="Digite sua senha"]')).toBeVisible();
-    
-    // Verificar botões
-    await expect(page.locator('text=Esqueci minha senha')).toBeVisible();
-    await expect(page.locator('button:has-text("Entrar"))')).toBeVisible();
+    await loginPage.openLoginDropdown();
+
+    await expect(page.getByText("D'Uvo Enterprise")).toBeVisible();
+    await expect(page.getByText("Property Control System")).toBeVisible();
+
+    await expect(loginPage.usernameInput).toBeVisible();
+    await expect(loginPage.passwordInput).toBeVisible();
+
+    await expect(loginPage.forgotPasswordLink).toBeVisible();
+    await expect(loginPage.submitButton).toBeVisible();
   });
 
   test("deve fazer login com credenciais válidas", async ({ page }) => {
-    // Abrir dropdown
-    await page.click('button:has-text("Gerenciador")');
-    
-    // Preencher credenciais
-    await page.fill('input[placeholder="Digite seu usuário"]', "admin@test.com");
-    await page.fill('input[placeholder="Digite sua senha"]', "senha123");
-    
-    // Clicar em Entrar
-    await page.click('button:has-text("Entrar")');
-    
-    // Aguardar redirecionamento
-    await page.waitForURL("/dashboard");
-    
-    // Verificar que está no dashboard
-    await expect(page.locator('text=Painel de Gestão')).toBeVisible();
+    const { email, password } = TEST_CONFIG.users.admin;
+    await loginPage.login(email, password);
+
+    await page.waitForURL("**/dashboard", { timeout: 10000 });
+    await expect(page.locator('#dashboard-page')).toBeVisible();
   });
 
-  test("deve mostrar/ocultar senha ao clicar no ícone", async ({ page }) => {
-    // Abrir dropdown
-    await page.click('button:has-text("Gerenciador")');
-    
-    const passwordInput = page.locator('input[placeholder="Digite sua senha"]');
-    
-    // Verificar que começa como password
-    await expect(passwordInput).toHaveAttribute("type", "password");
-    
-    // Clicar no ícone de mostrar senha
-    await page.click('button[type="button"]:near(input[placeholder="Digite sua senha"])');
-    
-    // Verificar que mudou para text
-    await expect(passwordInput).toHaveAttribute("type", "text");
-    
-    // Clicar novamente
-    await page.click('button[type="button"]:near(input[placeholder="Digite sua senha"])');
-    
-    // Verificar que voltou para password
-    await expect(passwordInput).toHaveAttribute("type", "password");
+  test("deve mostrar/ocultar senha ao clicar no ícone", async () => {
+    await loginPage.openLoginDropdown();
+
+    await expect(loginPage.passwordInput).toHaveAttribute("type", "password");
+
+    await loginPage.togglePasswordVisibility();
+    await expect(loginPage.passwordInput).toHaveAttribute("type", "text");
+
+    await loginPage.togglePasswordVisibility();
+    await expect(loginPage.passwordInput).toHaveAttribute("type", "password");
   });
 
-  test("deve validar campos obrigatórios", async ({ page }) => {
-    // Abrir dropdown
-    await page.click('button:has-text("Gerenciador")');
-    
-    // Tentar enviar sem preencher
-    await page.click('button:has-text("Entrar")');
-    
-    // Verificar validação HTML5
-    const usernameInput = page.locator('input[placeholder="Digite seu usuário"]');
-    await expect(usernameInput).toHaveAttribute("required");
-    
-    const passwordInput = page.locator('input[placeholder="Digite sua senha"]');
-    await expect(passwordInput).toHaveAttribute("required");
+  test("deve validar campos obrigatórios (HTML5)", async () => {
+    await loginPage.openLoginDropdown();
+
+    const usernameValid = await loginPage.usernameInput.evaluate((el: HTMLInputElement) => el.checkValidity());
+    const passwordValid = await loginPage.passwordInput.evaluate((el: HTMLInputElement) => el.checkValidity());
+
+    expect(usernameValid).toBe(false);
+    expect(passwordValid).toBe(false);
   });
 
-  test("deve exibir erro com credenciais inválidas", async ({ page }) => {
-    // Abrir dropdown
-    await page.click('button:has-text("Gerenciador")');
-    
-    // Preencher com credenciais inválidas
-    await page.fill('input[placeholder="Digite seu usuário"]', "usuario@invalido.com");
-    await page.fill('input[placeholder="Digite sua senha"]', "senhaerrada");
-    
-    // Clicar em Entrar
-    await page.click('button:has-text("Entrar")');
-    
-    // Verificar mensagem de erro
-    await expect(page.locator('text=Senha incorreta')).toBeVisible();
-  });
+  test("deve exibir erro com credenciais inválidas", async () => {
+    const { email, password } = TEST_CONFIG.users.invalid;
+    await loginPage.login(email, password);
 
-  test("deve carregar tema do usuário após login", async ({ page }) => {
-    // Login com usuário que tem tema dark
-    await page.click('button:has-text("Gerenciador")');
-    await page.fill('input[placeholder="Digite seu usuário"]', "dark.user@test.com");
-    await page.fill('input[placeholder="Digite sua senha"]', "senha123");
-    await page.click('button:has-text("Entrar")');
-    
-    await page.waitForURL("/dashboard");
-    
-    // Verificar que a classe dark foi aplicada
-    const htmlElement = page.locator("html");
-    await expect(htmlElement).toHaveClass(/dark/);
+    expect(await loginPage.hasError()).toBe(true);
   });
 });

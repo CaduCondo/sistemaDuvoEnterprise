@@ -1,57 +1,40 @@
-# 🚀 GUIA RÁPIDO - 3 Comandos para Funcionar
+# 🚀 Guia Rápido — Testes E2E
 
-## 1️⃣ Sincronizar
-```bash
-git pull origin main
-```
+> ℹ️ Atualizado em 2026-08. Para detalhes completos (estrutura, cobertura, troubleshooting), ver `e2e/README.md`.
 
-## 2️⃣ Setup (primeira vez)
+## 1️⃣ Setup (primeira vez)
+
 ```bash
 npm install
-npm run test:setup
+npx playwright install
 ```
 
-## 3️⃣ Rodar
-```bash
-npm run test:e2e:ui
+Crie um `.env.local` na raiz do projeto com credenciais de um projeto Supabase de **teste** (nunca produção):
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto-teste.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
 ```
 
----
+Não é preciso criar usuários de teste manualmente — o `globalSetup` do Playwright (`e2e/helpers/global-setup.ts`) já roda `DatabaseHelper.ensureDefaultTestUsers()` automaticamente antes de qualquer execução, seedando os 3 perfis (admin/financeiro/corretor) definidos em `e2e/config/test.config.ts`.
 
-## ⚠️ IMPORTANTE
-
-**Antes de rodar os testes, o servidor DEVE estar rodando:**
-
-```bash
-# Terminal 1
-npm run dev
-
-# Terminal 2  
-npm run test:e2e:ui
-```
-
----
-
-## 📌 Comandos Salvos
-
-Copie e cole no terminal (tudo de uma vez):
+## 2️⃣ Rodar
 
 ```bash
-git pull origin main && npm install && npm run test:setup
+npm run test:e2e:ui     # Playwright, interface visual (recomendado)
+npm run test:bdd        # Cucumber/Gherkin (BDD)
 ```
 
-Depois:
+O Playwright sobe o servidor (`npm run dev`) automaticamente — não precisa rodar em outro terminal, a menos que você prefira reaproveitar um servidor já rodando (`reuseExistingServer` está habilitado fora de CI).
 
-```bash
-npm run dev
-```
+## ⚠️ Se der erro
 
-Em outro terminal:
+**"Cannot find module"** → `npm install`
+**"supabaseUrl is required" / variáveis undefined** → confira se `.env.local` existe na raiz e tem as 3 chaves do Supabase
+**"Port 3000 already in use"** → `npx kill-port 3000` (ou mate o processo Node manualmente)
+**Browsers do Playwright ausentes** → `npx playwright install`
 
-```bash
-npm run test:e2e:ui
-```
+## 📌 Comandos completos
 
----
-
-**Pronto! ✅**
+Ver tabela de scripts, tags e troubleshooting detalhado em `e2e/README.md`.

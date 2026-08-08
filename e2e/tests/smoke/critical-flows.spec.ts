@@ -24,11 +24,9 @@ test.describe('Smoke Tests - Fluxos Críticos', () => {
   test('deve fazer login com credenciais válidas @smoke @critical', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
-    
-    // Login básico deve funcionar
-    await loginPage.fillUsername('admin@teste.com');
-    await loginPage.fillPassword('Admin@123');
-    await loginPage.submit();
+
+    // Login básico deve funcionar (dropdown "Gerenciador" na home pública)
+    await loginPage.login('admin@teste.com', 'Admin@123');
 
     // Deve redirecionar para dashboard
     await page.waitForURL('**/dashboard', { timeout: 10000 });

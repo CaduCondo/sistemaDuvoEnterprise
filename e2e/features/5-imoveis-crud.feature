@@ -4,6 +4,10 @@ Funcionalidade: CRUD de Imóveis
   Quero gerenciar imóveis
   Para manter o cadastro atualizado
 
+  # ⚠️ Atualizado em 2026-08 para refletir o formulário e a tabela atuais
+  # (colunas "Código"/"Endereço" foram removidas/renomeadas — ver task-2 do
+  # board Softgen: "Renomear coluna Endereço para Complemento").
+
   Contexto:
     Dado que fiz login como "admin"
     E estou na página "/properties"
@@ -12,12 +16,14 @@ Funcionalidade: CRUD de Imóveis
     Então devo ver a lista de imóveis
     E devo ver as colunas:
       | coluna       |
-      | Código       |
-      | Endereço     |
-      | Localização  |
+      | Local        |
+      | Complemento  |
+      | Valor        |
+      | Quartos      |
+      | Banheiros    |
       | Área Útil    |
-      | Valor Aluguel|
       | Status       |
+      | Foto         |
 
   Cenário: Alternar visualização Grid/Lista
     Quando clico no botão de visualização em grid
@@ -43,32 +49,32 @@ Funcionalidade: CRUD de Imóveis
     Quando clico no botão "Novo Imóvel"
     Então devo ver o formulário de cadastro de imóvel
     E devo ver os campos obrigatórios:
-      | campo              |
-      | Código             |
-      | Endereço           |
-      | Localização        |
-      | Área Útil (m²)     |
-      | Valor do Aluguel   |
+      | campo      |
+      | Local      |
+      | Quartos    |
+      | Banheiros  |
+      | Área (m²)  |
 
-  Cenário: Validar campo obrigatório - Código
+  Cenário: Validar campo obrigatório - Local
     Quando clico no botão "Novo Imóvel"
-    E tento salvar sem preencher o código
+    E tento salvar sem preencher o local
     Então devo ver a mensagem "Campo obrigatório"
 
-  Cenário: Validar campo obrigatório - Endereço
+  Cenário: Validar campo obrigatório - Quartos
     Quando clico no botão "Novo Imóvel"
-    E tento salvar sem preencher o endereço
+    E tento salvar sem preencher os quartos
     Então devo ver a mensagem "Campo obrigatório"
 
   Cenário: Criar imóvel com sucesso
     Quando clico no botão "Novo Imóvel"
     E preencho todos os campos obrigatórios:
-      | campo            | valor                  |
-      | Código           | IMO-001                |
-      | Endereço         | Rua Teste, 123         |
-      | Localização      | São Paulo - Centro     |
-      | Área Útil        | 80                     |
-      | Valor Aluguel    | 2500.00                |
+      | campo        | valor              |
+      | Local        | São Paulo - Centro |
+      | Complemento  | Apto 101           |
+      | Quartos      | 2                  |
+      | Banheiros    | 1                  |
+      | Área         | 80                 |
+      | Valor        | 2500.00            |
     E clico em "Salvar"
     Então devo ver a mensagem de sucesso
     E o imóvel deve aparecer na lista

@@ -1,119 +1,102 @@
 import { Page, Locator, expect } from '@playwright/test';
 
 /**
- * Page Object Model - Página de Login
- * 
- * Encapsula todos os elementos e ações da página de login
+ * Page Object Model - Login
+ *
+ * ⚠️ IMPORTANTE (corrigido em 2026-08): não existe mais uma página dedicada
+ * "/login". O acesso administrativo é feito através de um dropdown
+ * ("Gerenciador") no cabeçalho da página pública "/" — ver
+ * src/components/public/PublicHeader.tsx. Este Page Object reflete o
+ * comportamento real e atual do componente.
  */
-
 export class LoginPage {
   readonly page: Page;
-  
-  // Locators
+
+  // Trigger do dropdown
+  readonly managerTrigger: Locator;
+
+  // Formulário de login
   readonly usernameInput: Locator;
   readonly passwordInput: Locator;
   readonly togglePasswordButton: Locator;
   readonly submitButton: Locator;
   readonly forgotPasswordLink: Locator;
   readonly errorMessage: Locator;
-  
-  // Modal de recuperação de senha
-  readonly forgotPasswordDialog: Locator;
+  readonly successMessage: Locator;
+
+  // Formulário de recuperação de senha
   readonly resetEmailInput: Locator;
   readonly resetSubmitButton: Locator;
-  readonly resetCancelButton: Locator;
-  readonly resetCloseButton: Locator;
-  readonly resetSuccessMessage: Locator;
+  readonly resetBackButton: Locator;
+  readonly resetSuccessTitle: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    
-    // Inicializar locators
+
+    this.managerTrigger = page.getByRole('button', { name: /gerenciador/i });
+
     this.usernameInput = page.locator('#username');
     this.passwordInput = page.locator('#password');
-    this.togglePasswordButton = page.locator('#login-toggle-password');
-    this.submitButton = page.locator('#login-submit-button');
-    this.forgotPasswordLink = page.locator('#login-forgot-password-link');
-    this.errorMessage = page.locator('text=Credenciais inválidas');
-    
-    // Modal
-    this.forgotPasswordDialog = page.locator('#login-forgot-password-dialog');
-    this.resetEmailInput = page.locator('#reset-email');
-    this.resetSubmitButton = page.locator('#login-forgot-password-submit');
-    this.resetCancelButton = page.locator('#login-forgot-password-cancel');
-    this.resetCloseButton = page.locator('#login-forgot-password-close');
-    this.resetSuccessMessage = page.getByText('E-mail enviado!');
+    this.togglePasswordButton = this.passwordInput.locator('xpath=following-sibling::button[1]');
+    this.submitButton = page.getByRole('button', { name: /^entrar$/i });
+    this.forgotPasswordLink = page.getByRole('button', { name: /esqueci minha senha/i });
+    this.errorMessage = page.getByText(/senha incorreta|não encontrado|bloqueada|erro ao processar/i);
+    this.successMessage = page.getByText(/login realizado com sucesso/i);
+
+    this.resetEmailInput = page.locator('#recovery-email');
+    this.resetSubmitButton = page.getByRole('button', { name: /enviar senha/i });
+    this.resetBackButton = page.getByRole('button', { name: /voltar/i });
+    this.resetSuccessTitle = page.getByText(/e-mail enviado com sucesso/i);
   }
 
-  /**
-   * Navegar para a página de login
-   */
+  /** Navega para a home pública, onde vive o acesso administrativo. */
   async goto() {
-    await this.page.goto('/login');
+    await this.page.goto('/');
   }
 
-  /**
-   * Fazer login
-   */
+  /** Abre o dropdown "Gerenciador" com o formulário de login. */
+  async openLoginDropdown() {
+    await this.managerTrigger.click();
+    await expect(this.usernameInput).toBeVisible({ timeout: 5000 });
+  }
+
+  /** Fluxo completo: abre o dropdown (se necessário) e faz login. */
   async login(username: string, password: string) {
+    if (!(await this.usernameInput.isVisible().catch(() => false))) {
+      await this.openLoginDropdown();
+    }
     await this.usernameInput.fill(username);
     await this.passwordInput.fill(password);
     await this.submitButton.click();
   }
 
-  /**
-   * Verificar se a página foi carregada
-   */
   async isLoaded() {
-    await expect(this.page.locator('h1')).toContainText("D'Uvo Enterprise");
+    await expect(this.page.getByText(/property control system/i)).toBeVisible();
     await expect(this.usernameInput).toBeVisible();
     await expect(this.passwordInput).toBeVisible();
     await expect(this.submitButton).toBeVisible();
   }
 
-  /**
-   * Alternar visibilidade da senha
-   */
   async togglePasswordVisibility() {
     await this.togglePasswordButton.click();
   }
 
-  /**
-   * Verificar se a senha está visível
-   */
   async isPasswordVisible(): Promise<boolean> {
     const type = await this.passwordInput.getAttribute('type');
     return type === 'text';
   }
 
-  /**
-   * Abrir modal de recuperação de senha
-   */
   async openForgotPasswordModal() {
     await this.forgotPasswordLink.click();
     await this.page.waitForTimeout(300);
-    await expect(this.forgotPasswordDialog).toBeVisible();
+    await expect(this.resetEmailInput).toBeVisible();
   }
 
-  /**
-   * Fechar modal de recuperação de senha
-   */
-  async closeForgotPasswordModal() {
-    await this.resetCancelButton.click();
-    await this.page.waitForTimeout(300);
-  }
-
-  /**
-   * Enviar email de recuperação
-   */
   async submitForgotPassword(email: string) {
     await this.resetEmailInput.fill(email);
     await this.resetSubmitButton.click();
   }
 
-  /**
-   * Verificar mensagem de erro
-   */
   async hasError(): Promise<boolean> {
     try {
       await expect(this.errorMessage).toBeVisible({ timeout: 3000 });
@@ -123,10 +106,8 @@ export class LoginPage {
     }
   }
 
-  /**
-   * Verificar se está na página de login
-   */
+  /** Antes o login era numa rota própria; hoje é sempre a home. */
   async isOnLoginPage(): Promise<boolean> {
-    return this.page.url().includes('/login');
+    return this.page.url().endsWith('/') || this.page.url().includes('localhost:3000/');
   }
 }

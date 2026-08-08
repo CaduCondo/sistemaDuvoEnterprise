@@ -56,7 +56,18 @@ const TEST_CONFIG = {
       email: 'gestao@teste.com',
       password: 'Gestao@123',
       name: 'Gestão Teste',
-      role: 'management'
+      // ⚠️ O enum real de `system_users.role` é 'admin' | 'financial' | 'broker'
+      // (ver src/components/settings/UserDialog.tsx) — não existe role
+      // "management". O DatabaseHelper força role: 'broker' ao criar este
+      // usuário; o campo abaixo é só documentação.
+      role: 'broker'
+    },
+    // Credenciais propositalmente inválidas, para testar o fluxo de erro
+    invalid: {
+      email: 'usuario-invalido@teste.com',
+      password: 'SenhaErrada123',
+      name: 'Inválido',
+      role: 'admin'
     }
   },
 

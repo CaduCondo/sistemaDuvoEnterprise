@@ -8,17 +8,16 @@ import DatabaseHelper from '../helpers/database.helper';
 
 // ==================== SETUP DE DADOS ====================
 
-Given('que existe um imóvel disponível {string} com aluguel de {string}', async function(propertyId: string, rentValue: string) {
-  this.testData = {
-    ...this.testData,
-    property: { id: propertyId, rent: rentValue }
-  };
-});
+// Observação: "que existe um imóvel disponível {string} com aluguel de
+// {string}" vive em properties.steps.ts (cria o imóvel de verdade via
+// DatabaseHelper) — não duplicar aqui.
 
-Given('que existe um inquilino {string}', async function(tenantName: string) {
+Given('existe um inquilino {string}', async function(tenantName: string) {
+  const tenant = await this.createTenant({ name: tenantName });
+  this.tenantId = tenant.id;
   this.testData = {
     ...this.testData,
-    tenant: { name: tenantName }
+    tenant: { id: tenant.id, name: tenantName }
   };
 });
 
@@ -44,32 +43,53 @@ Given('que existe uma locação ativa com término em {string}', async function(
   };
 });
 
-Given('o pagamento de Janeiro/2026 está {string} com valor de {string}', async function(status: string, value: string) {
-  this.testData = {
-    ...this.testData,
-    januaryPayment: { status, value }
-  };
+/**
+ * ⚠️ As 4 steps abaixo usam "\\/" (barra escapada) porque, em Cucumber
+ * Expressions, "/" sem escape significa ALTERNATIVA (ex.: "Janeiro/2026"
+ * seria lido como "Janeiro" OU "2026", nunca o texto literal com barra).
+ * Sem esse escape, essas steps nunca batiam com o texto das features e
+ * apareciam como "undefined" no dry-run.
+ */
+
+async function upsertMonthlyPayment(
+  world: any,
+  month: string,
+  monthNumber: string,
+  year: string,
+  status: string,
+  value: string
+) {
+  const rentalId = world.rentalId || world.testData?.rentalId;
+  const amount = parseFloat(value.replace(/\./g, '').replace(',', '.'));
+
+  const payment = await world.upsertPayment({
+    rental_id: rentalId,
+    reference_month: monthNumber,
+    reference_year: year,
+    due_date: `${year}-${monthNumber}-10`,
+    expected_amount: amount,
+    status: status.toLowerCase().includes('pago') ? 'paid' : 'pending',
+    paid_amount: status.toLowerCase().includes('pago') ? amount : undefined,
+    payment_date: status.toLowerCase().includes('pago') ? `${year}-${monthNumber}-10` : undefined,
+  });
+
+  world.testData[`${month.toLowerCase()}Payment`] = { status, value, payment };
+}
+
+Given('o pagamento de Janeiro\\/2026 está {string} com valor de {string}', async function (status: string, value: string) {
+  await upsertMonthlyPayment(this, 'january', '01', '2026', status, value);
 });
 
-Given('o pagamento de Novembro/2025 está {string} com valor de {string}', async function(status: string, value: string) {
-  this.testData = {
-    ...this.testData,
-    novemberPayment: { status, value }
-  };
+Given('o pagamento de Novembro\\/2025 está {string} com valor de {string}', async function (status: string, value: string) {
+  await upsertMonthlyPayment(this, 'november', '11', '2025', status, value);
 });
 
-Given('o pagamento de Dezembro/2025 está {string} com valor de {string}', async function(status: string, value: string) {
-  this.testData = {
-    ...this.testData,
-    decemberPayment: { status, value }
-  };
+Given('o pagamento de Dezembro\\/2025 está {string} com valor de {string}', async function (status: string, value: string) {
+  await upsertMonthlyPayment(this, 'december', '12', '2025', status, value);
 });
 
-Given('o pagamento de Março/2026 está {string} com valor de {string}', async function(status: string, value: string) {
-  this.testData = {
-    ...this.testData,
-    marchPayment: { status, value }
-  };
+Given('o pagamento de Março\\/2026 está {string} com valor de {string}', async function (status: string, value: string) {
+  await upsertMonthlyPayment(this, 'march', '03', '2026', status, value);
 });
 
 Given('que existe uma locação com caução parcelado em 3x:', async function(dataTable: any) {
@@ -115,14 +135,30 @@ When('NÃO marco a opção {string}', async function(option: string) {
   await this.page.waitForTimeout(100);
 });
 
-When('seleciono {string}', async function(option: string) {
-  // Exemplo: "3 parcelas"
-  const select = this.page.locator('[id*="installment-count"]');
-  await select.click();
-  await this.page.waitForTimeout(300);
-  
-  const optionElement = this.page.getByText(option);
-  await optionElement.click();
+When('seleciono {string}', async function (this: import('../support/world').CustomWorld, option: string) {
+  const normalized = option.toLowerCase();
+
+  // Tipo de pessoa no formulário de Inquilino (radio buttons, não um select)
+  if (normalized.includes('pessoa física') || normalized.includes('pessoa fisica')) {
+    await this.page.locator('#tenant-doc-type-cpf').click();
+    return;
+  }
+  if (normalized.includes('pessoa jurídica') || normalized.includes('pessoa juridica')) {
+    await this.page.locator('#tenant-doc-type-cnpj').click();
+    return;
+  }
+
+  // Nº de parcelas da caução (select) no formulário de Locação
+  const select = this.page.locator('[id*="installment-count"], [id*="deposit-installments"]').first();
+  if (await select.isVisible().catch(() => false)) {
+    await select.click();
+    await this.page.waitForTimeout(300);
+    await this.page.getByRole('option', { name: new RegExp(option, 'i') }).click();
+    return;
+  }
+
+  // Fallback genérico: clicar no texto da opção
+  await this.page.getByText(option).first().click();
 });
 
 When('preencho:', async function(dataTable: any) {
@@ -196,23 +232,9 @@ When('salvo a locação', async function() {
   await this.page.waitForTimeout(2000);
 });
 
-When('crio uma locação com:', async function(dataTable: any) {
-  const data = dataTable.rowsHash();
-  
-  await this.page.goto('/rentals');
-  await this.page.waitForLoadState('networkidle');
-  
-  await this.page.getByRole('button', { name: /nova locação/i }).click();
-  await this.page.waitForTimeout(500);
-  
-  // Preencher campos...
-  await this.page.waitForTimeout(500);
-  
-  this.testData = {
-    ...this.testData,
-    rental: data
-  };
-});
+// Observação: o step "crio uma locação com:" (usado pela feature 10-caucoes)
+// vive em deposits.steps.ts, que cria a locação de verdade via
+// DatabaseHelper — não duplicar aqui (causa "ambiguous step" no Cucumber).
 
 When('abro a locação em modo {string}', async function(mode: string) {
   // Clicar no primeiro card de locação
@@ -245,7 +267,14 @@ When('altero o valor do aluguel de {string} para {string}', async function(oldVa
 });
 
 When('altero o valor do aluguel para {string}', async function(newValue: string) {
-  const rentInput = this.page.locator('[id*="rent"]');
+  // Reaproveitado no formulário de Imóvel (#property-value) e no de Locação
+  // ([id*="rent"]) — usa o que estiver visível na tela atual.
+  const propertyValueInput = this.page.locator('#property-value');
+  if (await propertyValueInput.isVisible().catch(() => false)) {
+    await propertyValueInput.fill(newValue);
+    return;
+  }
+  const rentInput = this.page.locator('[id*="rent"]').first();
   await rentInput.fill(newValue);
 });
 
@@ -437,25 +466,27 @@ Then('os pagamentos já pagos devem manter o valor original', async function() {
   await this.page.waitForTimeout(500);
 });
 
-Then('o pagamento de Novembro/2025 deve manter {string}', async function(value: string) {
-  this.testData = {
-    ...this.testData,
-    novemberExpected: value
-  };
+async function expectPaymentAmount(world: any, monthNumber: string, year: string, expectedValue: string) {
+  const rentalId = world.rentalId || world.testData?.rentalId;
+  const payments = await world.getRental ? null : null; // placeholder, buscamos direto abaixo
+  const DatabaseHelper = (await import('../helpers/database.helper')).default;
+  const rows = await DatabaseHelper.getPaymentsByRental(rentalId);
+  const payment = rows.find((p: any) => p.reference_month === monthNumber && p.reference_year === year);
+  expect(payment).toBeTruthy();
+  const expected = parseFloat(expectedValue.replace(/\./g, '').replace(',', '.'));
+  expect(Number(payment.expected_amount)).toBeCloseTo(expected, 2);
+}
+
+Then('o pagamento de Novembro\\/2025 deve manter {string}', async function (value: string) {
+  await expectPaymentAmount(this, '11', '2025', value);
 });
 
-Then('o pagamento de Dezembro/2025 deve manter {string}', async function(value: string) {
-  this.testData = {
-    ...this.testData,
-    decemberExpected: value
-  };
+Then('o pagamento de Dezembro\\/2025 deve manter {string}', async function (value: string) {
+  await expectPaymentAmount(this, '12', '2025', value);
 });
 
-Then('o pagamento de Março/2026 deve ser atualizado para {string}', async function(value: string) {
-  this.testData = {
-    ...this.testData,
-    marchExpected: value
-  };
+Then('o pagamento de Março\\/2026 deve ser atualizado para {string}', async function (value: string) {
+  await expectPaymentAmount(this, '03', '2026', value);
 });
 
 Then('pagamentos futuros devem ter {string}', async function(value: string) {

@@ -46,18 +46,26 @@ jobs:
     - name: Build aplicação
       run: npm run build
     
-    - name: Rodar testes E2E
+    - name: Rodar testes E2E (Playwright)
       run: npm run test:e2e
       continue-on-error: false  # Falha se testes falharem
-    
+
+    - name: Rodar testes BDD (Cucumber)
+      run: npm run test:bdd
+      continue-on-error: false
+
     - name: Upload relatório de testes
       uses: actions/upload-artifact@v4
       if: always()  # Sempre faz upload, mesmo se testes falharem
       with:
         name: playwright-report
-        path: playwright-report/
+        # ⚠️ Corrigido em 2026-08: playwright.config.ts grava o relatório em
+        # e2e/reports/playwright-report (reporter "html" → outputFolder), não
+        # em playwright-report/ na raiz — o path antigo nunca encontrava
+        # nada para subir.
+        path: e2e/reports/playwright-report/
         retention-days: 30
-    
+
     - name: Upload screenshots de falhas
       uses: actions/upload-artifact@v4
       if: failure()  # Só se os testes falharem
@@ -91,47 +99,52 @@ jobs:
             body: comment
           });
 
-  # Job secundário: testa em todos os browsers (só no main)
-  test-all-browsers:
-    timeout-minutes: 90
+  # ⚠️ Corrigido em 2026-08: este job antes rodava uma matriz
+  # chromium/firefox/webkit via `--project=${{ matrix.browser }}`, mas
+  # playwright.config.ts NUNCA definiu projetos por navegador — todos os
+  # projetos existentes (`all-tests`, `smoke`, `security`, etc.) usam
+  # apenas `devices['Desktop Chrome']` e são filtrados por tag, não por
+  # browser. O job antigo falhava sempre com "Project(s) 'firefox'/'webkit'
+  # not found" (ou silenciosamente não rodava nada, dependendo da versão do
+  # Playwright). Até haver projetos reais de Firefox/WebKit no config, este
+  # job roda apenas os projetos por tag existentes no Chromium, como
+  # cobertura adicional/mais lenta em cima do job `test` principal.
+  test-tagged-projects:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
-    strategy:
-      matrix:
-        browser: [chromium, firefox, webkit]
-    
+
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-    
+
     steps:
     - name: Checkout código
       uses: actions/checkout@v4
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
-    
+
     - name: Instalar dependências
       run: npm ci
-    
-    - name: Instalar browser ${{ matrix.browser }}
-      run: npx playwright install --with-deps ${{ matrix.browser }}
-    
+
+    - name: Instalar browsers do Playwright
+      run: npx playwright install --with-deps chromium
+
     - name: Build aplicação
       run: npm run build
-    
-    - name: Rodar testes no ${{ matrix.browser }}
-      run: npx playwright test --project=${{ matrix.browser }}
-    
-    - name: Upload relatório ${{ matrix.browser }}
+
+    - name: Rodar smoke + security + permissions + performance + api-tests + regression
+      run: npx playwright test --project=smoke --project=security --project=permissions --project=performance --project=api-tests --project=regression
+
+    - name: Upload relatório
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: playwright-report-${{ matrix.browser }}
-        path: playwright-report/
+        name: playwright-report-tagged
+        path: e2e/reports/playwright-report/
         retention-days: 30

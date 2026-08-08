@@ -2,6 +2,8 @@
 
 Guia passo a passo para rodar os testes E2E no seu ambiente local.
 
+> ℹ️ Revisado em 2026-08. Para uma referência mais enxuta ver `e2e/GUIA_RAPIDO.md`; para a lista completa de scripts, cobertura e tags ver `e2e/README.md`.
+
 ---
 
 ## 📋 Pré-requisitos
@@ -20,13 +22,13 @@ npm install
 ```
 
 ### 3. Variáveis de Ambiente
-```bash
-# Copiar exemplo
-cp .env.local.example .env.local
 
-# Editar .env.local com suas credenciais
-NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+Crie um `.env.local` na raiz do projeto com credenciais de um projeto Supabase de **teste** (nunca produção — o `DatabaseHelper` cria e apaga dados via service role):
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto-teste.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon
+SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role
 ```
 
 ---
@@ -85,40 +87,35 @@ npm run test:e2e:debug
 
 ## 🎯 Executar Testes Específicos
 
-### Por Feature
+### Por Feature (Cucumber/BDD — não Playwright)
+
+Arquivos `.feature` rodam via `cucumber-js`, não via `playwright test`:
 ```bash
 # Apenas testes de cauções
-npx playwright test e2e/features/10-caucoes.feature
+npx cucumber-js --config e2e/cucumber.config.cjs e2e/features/10-caucoes.feature
 
 # Apenas testes de autenticação
-npx playwright test e2e/features/1-autenticacao.feature
+npx cucumber-js --config e2e/cucumber.config.cjs e2e/features/1-autenticacao.feature
 
 # Apenas testes de permissões
-npx playwright test e2e/features/2-permissoes-admin.feature
+npx cucumber-js --config e2e/cucumber.config.cjs e2e/features/2-permissoes-admin.feature
 ```
 
-### Por Tag
+### Por Tag (specs `.spec.ts`)
 ```bash
 # Apenas testes de smoke
 npx playwright test --grep @smoke
 
-# Apenas testes de regressão
-npx playwright test --grep @regression
-
-# Excluir testes lentos
-npx playwright test --grep-invert @slow
+# Apenas testes de segurança
+npx playwright test --grep @security
 ```
 
-### Por Navegador
+### Por Projeto
+
+`playwright.config.ts` define projetos por tag, não por navegador (`all-tests`, `api-tests`, `permissions`, `performance`, `security`, `smoke`, `regression`):
 ```bash
-# Apenas no Chromium
-npx playwright test --project=chromium
-
-# Apenas no Firefox
-npx playwright test --project=firefox
-
-# Apenas no WebKit (Safari)
-npx playwright test --project=webkit
+npx playwright test --project=smoke
+npx playwright test --project=security
 ```
 
 ---

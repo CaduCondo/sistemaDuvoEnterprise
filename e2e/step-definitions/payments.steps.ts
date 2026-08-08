@@ -125,7 +125,7 @@ When('visualizo o detalhamento do pagamento', async function() {
   await this.page.waitForTimeout(500);
 });
 
-When('visualizo o recibo do pagamento de Janeiro/2026', async function() {
+When('visualizo o recibo do pagamento de Janeiro\\/2026', async function() {
   // Procurar e clicar no pagamento de Janeiro
   const janPayment = this.page.getByText(/janeiro.*2026/i);
   await janPayment.click();
@@ -171,13 +171,8 @@ When('filtro pelo mês {string}', async function(month: string) {
   };
 });
 
-When('filtro por {string}', async function(filter: string) {
-  await this.page.waitForTimeout(500);
-  this.testData = {
-    ...this.testData,
-    currentFilter: filter
-  };
-});
+// Observação: "filtro por {string}" (genérico) vive em common.steps.ts —
+// não duplicar aqui.
 
 When('filtro por {string} na página de Recebimentos', async function(month: string) {
   const [monthName, year] = month.split('/');
@@ -213,15 +208,8 @@ When('seleciono o ano {string}', async function(year: string) {
   await this.page.waitForTimeout(500);
 });
 
-When('seleciono o status {string}', async function(status: string) {
-  const statusSelect = this.page.locator('[id*="status-filter"]');
-  await statusSelect.click();
-  await this.page.waitForTimeout(300);
-  
-  const statusOption = this.page.getByText(new RegExp(status, 'i'));
-  await statusOption.click();
-  await this.page.waitForTimeout(500);
-});
+// Observação: "seleciono o status {string}" vive em properties.steps.ts
+// (tenta os seletores de Imóveis, Inquilinos e Pagamentos) — não duplicar.
 
 // ==================== AÇÕES ====================
 
@@ -239,12 +227,6 @@ When('preencho a data de pagamento', async function() {
 When('anexo o comprovante', async function() {
   // Simular anexo de arquivo
   await this.page.waitForTimeout(300);
-});
-
-When('clico em {string}', async function(buttonText: string) {
-  const button = this.page.getByRole('button', { name: new RegExp(buttonText, 'i') });
-  await button.click();
-  await this.page.waitForTimeout(500);
 });
 
 When('confirmo o cancelamento', async function() {
@@ -437,17 +419,5 @@ Then('devo ver apenas pagamentos pagos', async function() {
   }
 });
 
-Then('no bloco {string} devo ver:', async function(blockName: string, dataTable: any) {
-  const rows = dataTable.hashes();
-  
-  // Localizar o bloco pelo título
-  const block = this.page.locator(`text=${blockName}`).locator('..').locator('..');
-  
-  for (const row of rows) {
-    const fieldText = block.getByText(new RegExp(row.campo, 'i'));
-    await expect(fieldText).toBeVisible();
-    
-    const valueText = block.getByText(row.valor);
-    await expect(valueText).toBeVisible();
-  }
-});
+// Observação: "no bloco {string} devo ver:" vive em rentals.steps.ts (trata
+// o marcador "(vazio)") — não duplicar aqui.

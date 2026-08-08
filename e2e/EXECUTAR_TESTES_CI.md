@@ -2,6 +2,8 @@
 
 Este documento explica como os testes E2E são executados automaticamente no GitHub Actions.
 
+> ℹ️ **Revisão de 2026-08:** o workflow tinha dois bugs que o deixavam efetivamente quebrado — path de relatório errado (`playwright-report/` em vez de `e2e/reports/playwright-report/`, conforme `playwright.config.ts`) e um job de matriz `chromium/firefox/webkit` usando `--project=<browser>`, quando `playwright.config.ts` nunca definiu projetos por navegador (só por tag, todos em Desktop Chrome). Ambos foram corrigidos — ver `.github/workflows/e2e-tests.yml`. O workflow agora também roda a suíte BDD (`npm run test:bdd`), que antes nunca era executada em CI.
+
 ---
 
 ## 📋 Workflows Configurados
@@ -18,17 +20,16 @@ Este documento explica como os testes E2E são executados automaticamente no Git
 **Jobs:**
 
 #### Job 1: `test` (Sempre executa)
-- Roda testes no Chromium (navegador padrão)
+- Roda `npm run test:e2e` (Playwright, Chromium) e `npm run test:bdd` (Cucumber/BDD)
 - Timeout: 60 minutos
-- Gera relatório HTML
+- Gera relatório HTML em `e2e/reports/playwright-report/`
 - Faz upload de screenshots de falhas
 - Comenta resultado no PR automaticamente
 
-#### Job 2: `test-all-browsers` (Apenas em push para main)
-- Roda testes em 3 navegadores: Chromium, Firefox, WebKit
-- Execução paralela (matriz)
-- Timeout: 90 minutos
-- Gera relatórios separados por navegador
+#### Job 2: `test-tagged-projects` (Apenas em push para main)
+- Roda os projetos por tag do Playwright (`smoke`, `security`, `permissions`, `performance`, `api-tests`, `regression`), todos em Chromium — cobertura adicional em cima do job `test` principal
+- Timeout: 60 minutos
+- Não roda em Firefox/WebKit — não existem projetos configurados para esses navegadores em `playwright.config.ts` (era o bug do job antigo `test-all-browsers`)
 
 ---
 
@@ -168,12 +169,16 @@ Quando você abre um Pull Request, o workflow:
 ### Passo 3: Reproduzir Localmente
 
 ```bash
-# Usar as mesmas variáveis de ambiente do CI
+# Usar as mesmas variáveis de ambiente do CI (.env.local funciona também)
 export NEXT_PUBLIC_SUPABASE_URL="sua-url-de-teste"
 export NEXT_PUBLIC_SUPABASE_ANON_KEY="sua-chave-de-teste"
+export SUPABASE_SERVICE_ROLE_KEY="sua-chave-service-role"
 
-# Rodar o teste específico que falhou
-npx playwright test e2e/features/10-caucoes.feature --project=chromium
+# Feature Gherkin (Cucumber, não Playwright):
+npx cucumber-js --config e2e/cucumber.config.cjs e2e/features/10-caucoes.feature
+
+# Spec Playwright específico:
+npx playwright test e2e/tests/smoke/critical-flows.spec.ts
 
 # Ou rodar em modo debug
 npm run test:e2e:debug

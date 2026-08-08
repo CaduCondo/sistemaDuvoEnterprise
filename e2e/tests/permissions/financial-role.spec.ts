@@ -14,18 +14,14 @@ import TEST_CONFIG from '../../config/test.config';
 
 test.describe('Permissions - Financial Role', () => {
   test.beforeAll(async () => {
-    // Criar usuário de teste Financeiro se não existir
-    const { email, password, name, role } = TEST_CONFIG.users.financial;
-    
-    const exists = await DatabaseHelper.userExists(email);
-    if (!exists) {
-      await DatabaseHelper.createTestUser({
-        email,
-        password,
-        name: name || 'Usuário Financeiro',
-        role
-      });
-    }
+    // Criar (ou reaproveitar) o usuário de teste Financeiro em `system_users`
+    const { email, password, name } = TEST_CONFIG.users.financial;
+    await DatabaseHelper.ensureTestUser({
+      email,
+      password,
+      name: name || 'Usuário Financeiro',
+      role: 'financial',
+    });
   });
 
   test.afterAll(async () => {

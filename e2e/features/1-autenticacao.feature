@@ -4,6 +4,11 @@ Funcionalidade: Autenticação de Usuários
   Quero fazer login com minhas credenciais
   Para acessar o sistema de gerenciamento de imóveis
 
+  # ⚠️ Atualizado em 2026-08: não existe mais uma rota "/login" dedicada. O
+  # acesso administrativo é um dropdown ("Gerenciador") no cabeçalho da home
+  # pública "/" — ver src/components/public/PublicHeader.tsx. Os textos de
+  # erro/sucesso abaixo foram conferidos contra o componente real.
+
   Contexto:
     Dado que estou na página de login
 
@@ -36,23 +41,22 @@ Funcionalidade: Autenticação de Usuários
     Quando clico no botão de visualizar senha novamente
     Então o campo senha deve estar oculto
 
-  Cenário: Recuperar senha - Email inválido
+  Cenário: Recuperar senha - E-mail não cadastrado
     Quando clico em "Esqueci minha senha"
-    Então devo ver o modal de recuperação de senha
-    Quando preencho o email de recuperação com "email-invalido"
-    E clico em "Enviar"
-    Então devo ver a mensagem "Por favor, insira um e-mail válido."
+    Então devo ver o formulário de recuperação de senha
+    Quando preencho o email de recuperação com "nao-cadastrado@teste.com"
+    E clico em "Enviar Senha"
+    Então devo ver a mensagem "E-mail não encontrado"
 
-  Cenário: Recuperar senha - Email válido
+  Cenário: Recuperar senha - E-mail válido
     Quando clico em "Esqueci minha senha"
-    Então devo ver o modal de recuperação de senha
-    Quando preencho o email de recuperação com "usuario@exemplo.com"
-    E clico em "Enviar"
-    Então devo ver a mensagem "E-mail enviado!"
-    E devo ver a mensagem "Verifique sua caixa de entrada"
+    Então devo ver o formulário de recuperação de senha
+    Quando preencho o email de recuperação com "admin@teste.com"
+    E clico em "Enviar Senha"
+    Então devo ver a mensagem "E-mail Enviado com Sucesso"
 
   Cenário: Logout
-    Dado que fiz login como "admin@teste.com"
+    Dado que fiz login como "admin"
     Quando clico no menu do usuário
     E clico em "Sair"
-    Então devo ser redirecionado para "/login"
+    Então devo ser redirecionado para "/"

@@ -1,0 +1,486 @@
+<testsuites id="" name="" tests="111" failures="0" skipped="111" errors="0" time="3.69466">
+<testsuite name="login.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="8" failures="0" skipped="8" time="0" errors="0">
+<testcase name="Login via dropdown &quot;Gerenciador&quot; › deve exibir todos os elementos da interface" classname="login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login via dropdown &quot;Gerenciador&quot; › deve preencher e limpar os campos corretamente" classname="login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login via dropdown &quot;Gerenciador&quot; › toggle de senha deve alternar visibilidade" classname="login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login via dropdown &quot;Gerenciador&quot; › botão de submit deve estar habilitado quando campos preenchidos" classname="login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login via dropdown &quot;Gerenciador&quot; › deve mostrar erro com credenciais inválidas" classname="login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Recuperação de senha › deve abrir e voltar do formulário de recuperação" classname="login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Recuperação de senha › deve exigir e-mail preenchido (validação HTML5)" classname="login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Recuperação de senha › deve informar quando o e-mail não está cadastrado" classname="login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/api/auth.api.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="17" failures="0" skipped="17" time="0" errors="0">
+<testcase name="API de Autenticação › POST /api/auth/login › deve fazer login com credenciais válidas" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/login › deve retornar erro com credenciais inválidas" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/login › deve incrementar tentativas após senha incorreta" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/login › deve retornar erro quando conta está bloqueada" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/login › deve resetar tentativas após login bem-sucedido" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/login › deve retornar requires_password_change quando senha é temporária" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/forgot-password › deve gerar senha temporária para email válido" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/forgot-password › deve retornar erro para email não encontrado" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/forgot-password › deve resetar tentativas e bloqueio ao recuperar senha" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/forgot-password › deve marcar requires_password_change como true" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/change-password › deve aceitar senha válida" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/change-password › deve rejeitar senha sem maiúscula" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/change-password › deve rejeitar senha sem minúscula" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/change-password › deve rejeitar senha sem número" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/change-password › deve rejeitar senha com menos de 6 caracteres" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/change-password › deve rejeitar senha com mais de 12 caracteres" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Autenticação › POST /api/auth/change-password › deve marcar requires_password_change como false após troca" classname="tests/api/auth.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/api/users.api.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="19" failures="0" skipped="19" time="0" errors="0">
+<testcase name="API de Usuários › GET /api/users › deve listar todos os usuários" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › GET /api/users › deve retornar 401 sem autenticação" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › POST /api/users › deve criar usuário com dados válidos" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › POST /api/users › deve rejeitar email duplicado" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › POST /api/users › deve rejeitar email sem @" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › POST /api/users › deve rejeitar telefone inválido" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › POST /api/users › deve aceitar telefone fixo (10 dígitos)" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › POST /api/users › deve aceitar telefone celular (11 dígitos)" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › POST /api/users › deve criar usuário ativado por padrão" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › PUT /api/users/:id › deve atualizar dados do usuário" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › PUT /api/users/:id › deve alterar status ativo/inativo" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › PUT /api/users/:id › deve atualizar tema do usuário" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › PUT /api/users/:id › deve rejeitar tema inválido" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › POST /api/users/:id/reset-password › deve resetar senha do usuário" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › POST /api/users/:id/reset-password › deve marcar requires_password_change após reset" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › POST /api/users/:id/reset-password › deve resetar tentativas de login" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › DELETE /api/users/:id › deve excluir usuário" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › DELETE /api/users/:id › deve retornar 404 ao buscar usuário excluído" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API de Usuários › DELETE /api/users/:id › deve retornar 401 sem permissão de admin" classname="tests/api/users.api.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/auth/login-dropdown.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="5" failures="0" skipped="5" time="0" errors="0">
+<testcase name="Login via Dropdown › deve exibir dropdown de login ao clicar em Gerenciador" classname="tests/auth/login-dropdown.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login via Dropdown › deve fazer login com credenciais válidas" classname="tests/auth/login-dropdown.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login via Dropdown › deve mostrar/ocultar senha ao clicar no ícone" classname="tests/auth/login-dropdown.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login via Dropdown › deve validar campos obrigatórios (HTML5)" classname="tests/auth/login-dropdown.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login via Dropdown › deve exibir erro com credenciais inválidas" classname="tests/auth/login-dropdown.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/auth/password-change-required.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="9" failures="0" skipped="9" time="0" errors="0">
+<testcase name="Troca Obrigatória de Senha › deve exibir tela de troca de senha ao fazer login com senha temporária" classname="tests/auth/password-change-required.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Troca Obrigatória de Senha › deve validar requisitos em tempo real - maiúscula" classname="tests/auth/password-change-required.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Troca Obrigatória de Senha › deve validar requisitos em tempo real - minúscula" classname="tests/auth/password-change-required.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Troca Obrigatória de Senha › deve validar requisitos em tempo real - número" classname="tests/auth/password-change-required.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Troca Obrigatória de Senha › deve validar tamanho mínimo e máximo" classname="tests/auth/password-change-required.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Troca Obrigatória de Senha › deve validar senhas idênticas ao sair do segundo campo" classname="tests/auth/password-change-required.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Troca Obrigatória de Senha › deve desabilitar botão quando requisitos não atendidos" classname="tests/auth/password-change-required.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Troca Obrigatória de Senha › deve salvar nova senha e redirecionar para dashboard" classname="tests/auth/password-change-required.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Troca Obrigatória de Senha › deve exibir loading durante salvamento" classname="tests/auth/password-change-required.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/auth/password-recovery.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="6" failures="0" skipped="6" time="0" errors="0">
+<testcase name="Recuperação de Senha › deve exibir tela de recuperação ao clicar em &apos;Esqueci minha senha&apos;" classname="tests/auth/password-recovery.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Recuperação de Senha › deve voltar para tela de login ao clicar em Voltar" classname="tests/auth/password-recovery.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Recuperação de Senha › deve enviar email de recuperação com email válido" classname="tests/auth/password-recovery.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Recuperação de Senha › deve exibir erro com email não cadastrado" classname="tests/auth/password-recovery.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Recuperação de Senha › deve desabilitar botão durante envio" classname="tests/auth/password-recovery.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Recuperação de Senha › deve validar formato de email" classname="tests/auth/password-recovery.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/auth/theme-switching.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="7" failures="0" skipped="7" time="0" errors="0">
+<testcase name="Sistema de Tema › deve carregar tema light por padrão" classname="tests/auth/theme-switching.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Sistema de Tema › deve mostrar opção de tema oposto no menu" classname="tests/auth/theme-switching.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Sistema de Tema › deve trocar de light para dark" classname="tests/auth/theme-switching.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Sistema de Tema › deve trocar de dark para light" classname="tests/auth/theme-switching.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Sistema de Tema › deve persistir tema após logout e login" classname="tests/auth/theme-switching.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Sistema de Tema › deve manter tema em diferentes dispositivos" classname="tests/auth/theme-switching.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Sistema de Tema › deve aplicar tema imediatamente sem reload" classname="tests/auth/theme-switching.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/auth/three-attempts.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="4" failures="0" skipped="4" time="0" errors="0">
+<testcase name="Sistema de 3 Tentativas › deve mostrar mensagens decrescentes de tentativas" classname="tests/auth/three-attempts.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Sistema de 3 Tentativas › deve bloquear conta após 3 tentativas falhas" classname="tests/auth/three-attempts.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Sistema de 3 Tentativas › deve resetar tentativas após login bem-sucedido" classname="tests/auth/three-attempts.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Sistema de 3 Tentativas › deve exibir toast ao bloquear conta" classname="tests/auth/three-attempts.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/performance/load-time.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="Performance - Tempo de Carregamento › página inicial (com dropdown de login) deve carregar em menos de 3s @performance" classname="tests/performance/load-time.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Performance - Tempo de Carregamento › dashboard deve carregar em menos de 5s @performance" classname="tests/performance/load-time.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Performance - Tempo de Carregamento › listagem de imóveis deve carregar em menos de 4s @performance" classname="tests/performance/load-time.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/permissions/financial-role.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="2" failures="0" skipped="2" time="0" errors="0">
+<testcase name="Permissions - Financial Role › usuário Financeiro deve ver apenas Dashboard e Financeiro" classname="tests/permissions/financial-role.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Permissions - Financial Role › usuário Financeiro não deve acessar página de Properties" classname="tests/permissions/financial-role.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/security/auth-security.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="5" failures="0" skipped="5" time="0" errors="0">
+<testcase name="Security - Autenticação › não deve permitir acesso sem autenticação @security @critical" classname="tests/security/auth-security.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Security - Autenticação › não deve expor credenciais em cookies @security" classname="tests/security/auth-security.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Security - Autenticação › deve bloquear SQL injection no login @security @critical" classname="tests/security/auth-security.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Security - Autenticação › deve bloquear XSS em campos de input @security" classname="tests/security/auth-security.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Security - Autorização por Perfil › usuário Financeiro não deve acessar /properties @security @permissions" classname="tests/security/auth-security.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/simple/01-login.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="1" failures="0" skipped="1" time="0" errors="0">
+<testcase name="01. Login Básico › Deve fazer login com sucesso e chegar no dashboard" classname="tests/simple/01-login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/simple/02-criar-imovel.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="1" failures="0" skipped="1" time="0" errors="0">
+<testcase name="02. Criar Imóvel › Deve criar um imóvel com sucesso" classname="tests/simple/02-criar-imovel.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/simple/03-criar-inquilino.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="1" failures="0" skipped="1" time="0" errors="0">
+<testcase name="03. Criar Inquilino › Deve criar um inquilino com sucesso" classname="tests/simple/03-criar-inquilino.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/smoke/critical-flows.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="Smoke Tests - Fluxos Críticos › deve carregar a página inicial sem erros @smoke @critical" classname="tests/smoke/critical-flows.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Smoke Tests - Fluxos Críticos › deve fazer login com credenciais válidas @smoke @critical" classname="tests/smoke/critical-flows.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Smoke Tests - Fluxos Críticos › API de saúde deve responder @smoke @critical @api" classname="tests/smoke/critical-flows.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/stress/concurrent-users.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="1" failures="0" skipped="1" time="0" errors="0">
+<testcase name="Stress - Usuários Concorrentes › deve suportar 5 requisições simultâneas à API @stress @api" classname="tests/stress/concurrent-users.spec.ts">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/ui/login.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="7" failures="0" skipped="7" time="0" errors="0">
+<testcase name="Login (dropdown) - UI Tests › deve carregar o formulário corretamente" classname="tests/ui/login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login (dropdown) - UI Tests › deve preencher campos de usuário e senha" classname="tests/ui/login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login (dropdown) - UI Tests › deve alternar visibilidade da senha" classname="tests/ui/login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login (dropdown) - UI Tests › deve abrir o formulário de recuperação de senha e voltar" classname="tests/ui/login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login (dropdown) - UI Tests › deve exigir e-mail válido no formulário de recuperação (HTML5)" classname="tests/ui/login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login (dropdown) - UI Tests › deve processar e-mail cadastrado no formulário de recuperação" classname="tests/ui/login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Login (dropdown) - UI Tests › deve mostrar erro com credenciais inválidas" classname="tests/ui/login.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="tests/users/users-management.spec.ts" timestamp="2026-08-07T23:15:41.348Z" hostname="all-tests" tests="12" failures="0" skipped="12" time="0" errors="0">
+<testcase name="Gestão de Usuários › deve exibir tabela de usuários" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Gestão de Usuários › deve abrir dialog de criação ao clicar em Adicionar Usuário" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Gestão de Usuários › deve validar email com @" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Gestão de Usuários › deve aplicar máscara no telefone" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Gestão de Usuários › deve validar telefone com 10 ou 11 dígitos" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Gestão de Usuários › deve criar novo usuário com sucesso" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Gestão de Usuários › deve impedir criação com email duplicado" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Gestão de Usuários › deve abrir edição ao clicar na linha" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Gestão de Usuários › deve resetar senha do usuário" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Gestão de Usuários › deve excluir usuário com confirmação" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Gestão de Usuários › deve alternar status entre Ativado e Desativado" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Gestão de Usuários › deve exibir status correto na tabela" classname="tests/users/users-management.spec.ts">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+</testsuites>

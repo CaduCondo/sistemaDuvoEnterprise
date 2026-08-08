@@ -3,24 +3,26 @@ import { LoginPage } from '../../pages/LoginPage';
 import TEST_CONFIG from '../../config/test.config';
 
 /**
- * Testes de UI - Página de Login
- * 
- * Usando Page Object Model
+ * Testes de UI - Login (dropdown "Gerenciador" na home pública "/")
+ *
+ * ⚠️ Atualizado em 2026-08: não existe mais uma rota "/login" dedicada — ver
+ * src/components/public/PublicHeader.tsx e e2e/pages/LoginPage.ts.
  */
 
-test.describe('Login Page - UI Tests', () => {
+test.describe('Login (dropdown) - UI Tests', () => {
   let loginPage: LoginPage;
 
   test.beforeEach(async ({ page }) => {
     loginPage = new LoginPage(page);
     await loginPage.goto();
+    await loginPage.openLoginDropdown();
   });
 
-  test('deve carregar a página corretamente', async () => {
+  test('deve carregar o formulário corretamente', async () => {
     await loginPage.isLoaded();
   });
 
-  test('deve preencher campos de usuário e senha', async ({ page }) => {
+  test('deve preencher campos de usuário e senha', async () => {
     await loginPage.usernameInput.fill('teste@exemplo.com');
     await expect(loginPage.usernameInput).toHaveValue('teste@exemplo.com');
 
@@ -30,55 +32,47 @@ test.describe('Login Page - UI Tests', () => {
 
   test('deve alternar visibilidade da senha', async () => {
     await loginPage.passwordInput.fill('MinhaSenh@123');
-    
-    // Verificar que começa oculta
+
     expect(await loginPage.isPasswordVisible()).toBe(false);
-    
-    // Mostrar senha
+
     await loginPage.togglePasswordVisibility();
     expect(await loginPage.isPasswordVisible()).toBe(true);
-    
-    // Ocultar novamente
+
     await loginPage.togglePasswordVisibility();
     expect(await loginPage.isPasswordVisible()).toBe(false);
   });
 
-  test('deve abrir e fechar modal de recuperação de senha', async () => {
+  test('deve abrir o formulário de recuperação de senha e voltar', async () => {
     await loginPage.openForgotPasswordModal();
-    await expect(loginPage.forgotPasswordDialog).toBeVisible();
-    
-    await loginPage.closeForgotPasswordModal();
-    await expect(loginPage.forgotPasswordDialog).not.toBeVisible();
+    await expect(loginPage.resetEmailInput).toBeVisible();
+
+    await loginPage.resetBackButton.click();
+    await expect(loginPage.usernameInput).toBeVisible();
   });
 
-  test('deve validar email inválido no modal de recuperação', async ({ page }) => {
+  test('deve exigir e-mail válido no formulário de recuperação (HTML5)', async () => {
     await loginPage.openForgotPasswordModal();
-    await loginPage.submitForgotPassword('emailinvalido');
-    
-    // Verificar mensagem de erro
-    await expect(page.getByText('Por favor, insira um e-mail válido.')).toBeVisible();
+
+    const isValid = await loginPage.resetEmailInput.evaluate(
+      (el: HTMLInputElement) => el.checkValidity()
+    );
+    // Campo vazio: HTML5 (type="email" required) barra o envio
+    expect(isValid).toBe(false);
   });
 
-  test('deve processar email válido no modal de recuperação', async () => {
+  test('deve processar e-mail cadastrado no formulário de recuperação', async () => {
     await loginPage.openForgotPasswordModal();
-    await loginPage.submitForgotPassword('usuario@exemplo.com');
-    
-    // Aguardar processamento
-    await loginPage.page.waitForTimeout(2000);
-    
-    // Verificar sucesso
-    await expect(loginPage.resetSuccessMessage).toBeVisible();
-    await expect(loginPage.resetCloseButton).toBeVisible();
+    await loginPage.submitForgotPassword(TEST_CONFIG.users.admin.email);
+
+    await expect(loginPage.resetSuccessTitle).toBeVisible({ timeout: 10000 });
   });
 
   test('deve mostrar erro com credenciais inválidas', async () => {
     const { email, password } = TEST_CONFIG.users.invalid;
     await loginPage.login(email, password);
-    
-    // Aguardar resposta
-    await loginPage.page.waitForTimeout(3000);
-    
-    // Deve permanecer na página de login
+
+    // Deve permanecer na home (não existe redirecionamento em caso de erro)
     expect(await loginPage.isOnLoginPage()).toBe(true);
+    expect(await loginPage.hasError()).toBe(true);
   });
 });

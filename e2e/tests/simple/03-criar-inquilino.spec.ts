@@ -1,56 +1,59 @@
 import { test, expect } from '@playwright/test';
+import { LoginPage } from '../../pages/LoginPage';
+import { DatabaseHelper } from '../../helpers/database.helper';
+import TEST_CONFIG from '../../config/test.config';
 
 /**
  * Teste 3: Criar inquilino
  * Criar um inquilino simples e validar que aparece na lista
+ *
+ * ⚠️ Corrigido em 2026-08: rota "/login" e credenciais "admin@softgen.ai"
+ * não existem mais; o campo é "#tenant-document" (não "#tenant-cpf") —
+ * ver src/components/tenants/TenantFormDialog.tsx e
+ * e2e/step-definitions/tenants.steps.ts.
  */
 test.describe('03. Criar Inquilino', () => {
-  
+  let createdTenantId: string | undefined;
+
   test.beforeEach(async ({ page }) => {
-    // Fazer login antes de cada teste
-    await page.goto('http://localhost:3000/login');
-    await page.fill('input[type="email"]', 'admin@softgen.ai');
-    await page.fill('input[type="password"]', 'Softgen@2025');
-    await page.click('button[type="submit"]');
+    const loginPage = new LoginPage(page);
+    const { email, password } = TEST_CONFIG.users.admin;
+
+    await loginPage.goto();
+    await loginPage.login(email, password);
     await page.waitForURL('**/dashboard', { timeout: 10000 });
-  });
-  
-  test('Deve criar um inquilino com sucesso', async ({ page }) => {
-    // Navegar para página de inquilinos
-    await page.click('a[href="/tenants"]');
+
+    await page.getByRole('link', { name: /inquilinos/i }).click();
     await page.waitForURL('**/tenants');
-    
-    // Aguardar a página carregar
     await page.waitForLoadState('networkidle');
-    
-    // Gerar dados únicos para este teste
+  });
+
+  test.afterEach(async () => {
+    if (createdTenantId) {
+      await DatabaseHelper.deleteTenant(createdTenantId);
+      createdTenantId = undefined;
+    }
+  });
+
+  test('Deve criar um inquilino com sucesso', async ({ page }) => {
     const timestamp = Date.now();
     const name = `Teste Inquilino ${timestamp}`;
     const email = `teste${timestamp}@example.com`;
-    
-    // Clicar no botão "Novo Inquilino"
-    await page.click('button:has-text("Novo Inquilino")');
-    
-    // Aguardar o dialog abrir
-    await page.waitForSelector('[role="dialog"]', { timeout: 5000 });
-    
-    // Preencher formulário básico
-    await page.fill('#tenant-name', name);
-    await page.fill('#tenant-cpf', '123.456.789-00');
-    await page.fill('#tenant-email', email);
-    await page.fill('#tenant-phone', '(11) 99999-9999');
-    
-    // Salvar
-    await page.click('button:has-text("Salvar")');
-    
-    // Aguardar processamento
+
+    await page.getByRole('button', { name: /novo inquilino/i }).click();
+    await expect(page.locator('#tenant-name')).toBeVisible({ timeout: 5000 });
+
+    await page.locator('#tenant-name').fill(name);
+    await page.locator('#tenant-document').fill('123.456.789-00');
+    await page.locator('#tenant-email').fill(email);
+    await page.locator('#tenant-phone').fill('(11) 99999-9999');
+
+    await page.getByRole('button', { name: /^salvar$/i }).click();
     await page.waitForTimeout(2000);
-    
-    // Validar que o inquilino aparece na lista
-    const tenantInList = page.locator(`text=${name}`);
-    await expect(tenantInList).toBeVisible({ timeout: 10000 });
-    
-    console.log(`✅ Inquilino ${name} criado com sucesso!`);
+
+    await expect(page.getByText(name)).toBeVisible({ timeout: 10000 });
+
+    const tenant = await DatabaseHelper.findTenantByName(name).catch(() => null);
+    createdTenantId = tenant?.id;
   });
-  
 });

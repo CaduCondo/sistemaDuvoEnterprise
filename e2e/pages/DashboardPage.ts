@@ -1,13 +1,16 @@
 import { Page, Locator, expect } from '@playwright/test';
 
 /**
- * Page Object Model - Página de Dashboard
+ * Page Object Model - Dashboard / navegação principal
+ *
+ * ⚠️ Atualizado em 2026-08: o menu lateral (src/components/Layout.tsx) não
+ * usa ids do tipo "#nav-properties" — os itens são links de texto
+ * ("Imóveis", "Inquilinos" etc.), por isso os locators abaixo usam
+ * `getByRole('link', { name })`, igual ao que os step definitions já fazem.
  */
-
 export class DashboardPage {
   readonly page: Page;
-  
-  // Navigation
+
   readonly dashboardMenuItem: Locator;
   readonly propertiesMenuItem: Locator;
   readonly tenantsMenuItem: Locator;
@@ -15,45 +18,35 @@ export class DashboardPage {
   readonly paymentsMenuItem: Locator;
   readonly financialMenuItem: Locator;
   readonly settingsMenuItem: Locator;
-  
-  // User menu
+
   readonly userMenuTrigger: Locator;
   readonly logoutButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    
-    // Menu items
-    this.dashboardMenuItem = page.locator('#nav-dashboard');
-    this.propertiesMenuItem = page.locator('#nav-properties');
-    this.tenantsMenuItem = page.locator('#nav-tenants');
-    this.rentalsMenuItem = page.locator('#nav-rentals');
-    this.paymentsMenuItem = page.locator('#nav-payments');
-    this.financialMenuItem = page.locator('#nav-financial');
-    this.settingsMenuItem = page.locator('#nav-settings');
-    
-    // User menu
+
+    this.dashboardMenuItem = page.getByRole('link', { name: /dashboard/i });
+    this.propertiesMenuItem = page.getByRole('link', { name: /imóveis/i });
+    this.tenantsMenuItem = page.getByRole('link', { name: /inquilinos/i });
+    this.rentalsMenuItem = page.getByRole('link', { name: /locações/i });
+    this.paymentsMenuItem = page.getByRole('link', { name: /pagamentos/i });
+    this.financialMenuItem = page.getByRole('link', { name: /financeiro/i });
+    this.settingsMenuItem = page.getByRole('link', { name: /configurações/i });
+
+    // ids reais: layout-user-menu-trigger / layout-menu-logout (desktop) /
+    // layout-mobile-logout (mobile)
     this.userMenuTrigger = page.locator('#layout-user-menu-trigger');
-    this.logoutButton = page.locator('#layout-logout-button');
+    this.logoutButton = page.locator('#layout-menu-logout, #layout-mobile-logout');
   }
 
-  /**
-   * Navegar para dashboard
-   */
   async goto() {
     await this.page.goto('/dashboard');
   }
 
-  /**
-   * Verificar se está na página
-   */
   async isLoaded() {
     await expect(this.page).toHaveURL(/.*dashboard/);
   }
 
-  /**
-   * Verificar quais menus estão visíveis
-   */
   async getVisibleMenuItems(): Promise<string[]> {
     const menus = {
       dashboard: this.dashboardMenuItem,
@@ -62,7 +55,7 @@ export class DashboardPage {
       rentals: this.rentalsMenuItem,
       payments: this.paymentsMenuItem,
       financial: this.financialMenuItem,
-      settings: this.settingsMenuItem
+      settings: this.settingsMenuItem,
     };
 
     const visible: string[] = [];
@@ -80,12 +73,14 @@ export class DashboardPage {
     return visible;
   }
 
-  /**
-   * Fazer logout
-   */
-  async logout() {
+  /** Abre o dropdown do usuário (canto superior direito). */
+  async openUserMenu() {
     await this.userMenuTrigger.click();
     await this.page.waitForTimeout(300);
-    await this.logoutButton.click();
+  }
+
+  async logout() {
+    await this.openUserMenu();
+    await this.logoutButton.first().click();
   }
 }
