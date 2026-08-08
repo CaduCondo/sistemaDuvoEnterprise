@@ -11,6 +11,10 @@
 /test-results
 /playwright-report
 /e2e/.auth
+# playwright.config.ts grava relatórios em e2e/reports/ (não na raiz) —
+# sem esta linha, esses arquivos (que mudam a cada execução de teste)
+# ficam marcados como "modified" pelo git a cada `npm run test:e2e`.
+/e2e/reports/
 
 # next.js
 /.next/
