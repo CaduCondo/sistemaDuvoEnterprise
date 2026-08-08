@@ -42,14 +42,26 @@ test.describe('Security - Autenticação', () => {
   test('deve bloquear SQL injection no login @security @critical', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
+    await loginPage.openLoginDropdown();
 
-    await loginPage.login("admin' OR '1'='1", "' OR '1'='1");
-    await page.waitForTimeout(2000);
+    // ⚠️ Corrigido em 2026-08: #username é <input type="email" required>
+    // (src/components/public/PublicHeader.tsx) — um payload de SQL
+    // injection como "admin' OR '1'='1" não é um e-mail válido, então o
+    // próprio navegador bloqueia o submit via validação HTML5 nativa,
+    // ANTES de qualquer chamada ao backend. Não aparece um toast de erro
+    // customizado (hasError() nunca fica true) porque handleSubmit nunca
+    // roda — essa é a barreira de segurança real neste formulário.
+    await loginPage.usernameInput.fill("admin' OR '1'='1");
+    await loginPage.passwordInput.fill("' OR '1'='1");
+
+    const isValid = await loginPage.usernameInput.evaluate((el: HTMLInputElement) => el.checkValidity());
+    expect(isValid).toBe(false);
+
+    await loginPage.submitButton.click();
+    await page.waitForTimeout(500);
 
     // NÃO deve fazer login
-    const url = page.url();
-    expect(url).not.toContain('/dashboard');
-    expect(await loginPage.hasError()).toBe(true);
+    expect(page.url()).not.toContain('/dashboard');
   });
 
   test('deve bloquear XSS em campos de input @security', async ({ page }) => {

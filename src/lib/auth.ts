@@ -12,8 +12,3 @@ export const logout = serviceLogout;
 export const isAuthenticated = serviceIsAuthenticated;
 export const getCurrentUser = serviceGetCurrentUser;
 export const renewSession = serviceRenewSession;
-
-// Helper function purely for async compatibility if needed elsewhere
-export async function isAuthenticatedAsync(): Promise<boolean> {
-  return serviceIsAuthenticated();
-}

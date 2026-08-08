@@ -44,10 +44,6 @@ function setCache(key: string, data: any): void {
   cache.set(key, { data, timestamp: Date.now() });
 }
 
-export function invalidateDashboardCache(): void {
-  cache.clear();
-}
-
 // Limpar cache ao carregar o módulo (força reload)
 cache.clear();
 

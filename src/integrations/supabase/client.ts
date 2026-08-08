@@ -37,40 +37,5 @@ supabase.auth.onAuthStateChange((event, session) => {
   }
 });
 
-export const setSupabaseSession = async (accessToken: string, refreshToken: string) => {
-  try {
-    const { data, error } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-    
-    if (error) {
-      console.error('Erro ao configurar sessão:', error);
-      return false;
-    }
-    
-    return true;
-  } catch (err) {
-    console.error('Erro ao configurar sessão:', err);
-    return false;
-  }
-};
-
-export const getSupabaseSession = async () => {
-  try {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error('Erro ao obter sessão:', error);
-      return null;
-    }
-    
-    return session;
-  } catch (err) {
-    console.error('Erro ao obter sessão:', err);
-    return null;
-  }
-};
-
 // Conexão estabelecida - sem health check
 console.log("✅ Cliente Supabase inicializado");

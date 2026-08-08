@@ -52,6 +52,7 @@ export class DatabaseHelper {
     password: string;
     name: string;
     role: 'admin' | 'financial' | 'broker';
+    theme?: 'light' | 'dark';
   }) {
     const { data: existing } = await supabaseAdmin
       .from('system_users')
@@ -60,7 +61,15 @@ export class DatabaseHelper {
       .maybeSingle();
 
     if (existing) {
-      // Garantir que a senha/role estão como o teste espera
+      // Garantir que a senha/role estão como o teste espera. IMPORTANTE:
+      // reseta requires_password_change/temporary_password para false — sem
+      // isso, um usuário reaproveitado de uma execução anterior (ex.: que
+      // passou pelo teste de "esqueci minha senha" ou de reset de admin)
+      // fica preso na tela de troca de senha em TODO login subsequente,
+      // porque src/components/public/PublicHeader.tsx never navega para
+      // /dashboard enquanto requires_password_change for true (mostra o
+      // PasswordChangeDialog em vez disso). Isso já causou uma cascata de
+      // falsos negativos em quase toda a suíte (2026-08).
       await supabaseAdmin
         .from('system_users')
         .update({
@@ -69,6 +78,9 @@ export class DatabaseHelper {
           active: true,
           login_attempts: 0,
           blocked_until: null,
+          requires_password_change: false,
+          temporary_password: false,
+          ...(userData.theme ? { theme: userData.theme } : {}),
         })
         .eq('id', existing.id);
       return existing;
@@ -83,11 +95,61 @@ export class DatabaseHelper {
         role: userData.role,
         password_hash: userData.password,
         active: true,
+        requires_password_change: false,
+        temporary_password: false,
+        ...(userData.theme ? { theme: userData.theme } : {}),
       })
       .select()
       .single();
 
     if (error) throw new Error(`Falha ao criar usuário de teste: ${error.message}`);
+    track('systemUsers', data.id);
+    return data;
+  }
+
+  /**
+   * Cria (ou reaproveita) um usuário de teste com senha temporária pendente
+   * (`requires_password_change: true`), para testar o fluxo de troca
+   * obrigatória de senha no primeiro login (PasswordChangeDialog).
+   */
+  static async ensureTemporaryPasswordUser(userData: {
+    email: string;
+    username?: string;
+    password: string;
+    name: string;
+    role: 'admin' | 'financial' | 'broker';
+  }) {
+    const { data: existing } = await supabaseAdmin
+      .from('system_users')
+      .select('id')
+      .eq('email', userData.email)
+      .maybeSingle();
+
+    const payload = {
+      email: userData.email,
+      username: userData.username || userData.email.split('@')[0],
+      name: userData.name,
+      role: userData.role,
+      password_hash: userData.password,
+      active: true,
+      login_attempts: 0,
+      blocked_until: null,
+      requires_password_change: true,
+      temporary_password: true,
+    };
+
+    if (existing) {
+      await supabaseAdmin.from('system_users').update(payload).eq('id', existing.id);
+      return existing;
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('system_users')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Falha ao criar usuário com senha temporária: ${error.message}`);
     track('systemUsers', data.id);
     return data;
   }

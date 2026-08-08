@@ -110,7 +110,7 @@ Todos os dados usados nesses cenários (imóveis, inquilinos, locações, pagame
 - **auth/**: dropdown de login, 3 tentativas + bloqueio de 30min, recuperação de senha, troca obrigatória de senha temporária, troca de tema
 - **users/**: CRUD completo de usuários do sistema (`system_users`)
 - **permissions/**: restrição de rotas por role
-- **api/**: `/api/auth/*` e `/api/users/*` (login, forgot-password, change-password, CRUD)
+- **api/**: deprecado (2026-08) — testava `/api/auth/*` e `/api/users/*`, endpoints que nunca existiram no código (auth e gestão de usuários são 100% client-side, via chamadas diretas ao Supabase). Ver comentário no topo dos arquivos.
 - **smoke/**: fluxos críticos ponta a ponta
 - **security/**: SQL injection, XSS, cookies, bloqueio de rota sem autenticação, autorização por perfil
 - **performance/**: tempo de carregamento de home/dashboard/imóveis

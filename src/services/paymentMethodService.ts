@@ -33,24 +33,6 @@ export async function getAllPaymentMethods(): Promise<PaymentMethod[]> {
 }
 
 /**
- * Buscar apenas métodos de pagamento ativos (para selects do sistema)
- */
-export async function getActivePaymentMethods(): Promise<PaymentMethod[]> {
-  const { data, error } = await supabase
-    .from("payment_methods")
-    .select("*")
-    .eq("active", true)
-    .order("display_order", { ascending: true });
-
-  if (error) {
-    console.error("Erro ao buscar métodos de pagamento ativos:", error);
-    throw error;
-  }
-
-  return data || [];
-}
-
-/**
  * Criar novo método de pagamento
  */
 export async function createPaymentMethod(data: {

@@ -21,7 +21,9 @@ test.describe("Login via Dropdown", () => {
   test("deve exibir dropdown de login ao clicar em Gerenciador", async ({ page }) => {
     await loginPage.openLoginDropdown();
 
-    await expect(page.getByText("D'Uvo Enterprise")).toBeVisible();
+    // .first(): "D'Uvo Enterprise" também aparece no <h1> do header ("D'Uvo
+    // Enterprise Corporation"), causando strict-mode violation sem isso.
+    await expect(page.getByText("D'Uvo Enterprise").first()).toBeVisible();
     await expect(page.getByText("Property Control System")).toBeVisible();
 
     await expect(loginPage.usernameInput).toBeVisible();

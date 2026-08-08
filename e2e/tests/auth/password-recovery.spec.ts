@@ -1,96 +1,79 @@
 import { test, expect } from "@playwright/test";
+import { LoginPage } from "../../pages/LoginPage";
+import { DatabaseHelper } from "../../helpers/database.helper";
+
+/**
+ * Recuperação de senha ("Esqueci minha senha") — formulário embutido no
+ * dropdown "Gerenciador", ver src/components/public/PublicHeader.tsx
+ * (handleForgotPasswordSubmit).
+ *
+ * ⚠️ Reescrito em 2026-08: usava seletores de uma rota "/login" antiga
+ * (`input[placeholder="Digite seu usuário"]`) e uma afirmação de texto
+ * ("www.duvoenterprise.com.br") que não existe em lugar nenhum do
+ * componente real.
+ */
 
 test.describe("Recuperação de Senha", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    await page.click('button:has-text("Gerenciador")');
   });
 
   test("deve exibir tela de recuperação ao clicar em 'Esqueci minha senha'", async ({ page }) => {
-    // Clicar em "Esqueci minha senha"
-    await page.click('text=Esqueci minha senha');
-    
-    // Verificar que tela de recuperação apareceu
-    await expect(page.locator('text=Recuperar Senha')).toBeVisible();
-    await expect(page.locator('text=Digite seu e-mail para receber uma senha temporária')).toBeVisible();
-    
-    // Verificar campo de email
-    await expect(page.locator('input[type="email"]')).toBeVisible();
-    
-    // Verificar informações
-    await expect(page.locator('text=Você receberá:')).toBeVisible();
-    await expect(page.locator('text=www.duvoenterprise.com.br')).toBeVisible();
-    await expect(page.locator('text=Senha temporária de 12 caracteres')).toBeVisible();
-    
-    // Verificar botões
-    await expect(page.locator('button:has-text("Voltar")')).toBeVisible();
-    await expect(page.locator('button:has-text("Enviar Email")')).toBeVisible();
+    const loginPage = new LoginPage(page);
+    await loginPage.openLoginDropdown();
+    await loginPage.openForgotPasswordModal();
+
+    await expect(page.getByText("Recuperar Senha")).toBeVisible();
+    await expect(page.getByText("Digite seu e-mail para receber uma senha temporária")).toBeVisible();
+    await expect(loginPage.resetEmailInput).toBeVisible();
   });
 
   test("deve voltar para tela de login ao clicar em Voltar", async ({ page }) => {
-    await page.click('text=Esqueci minha senha');
-    await page.click('button:has-text("Voltar")');
-    
-    // Verificar que voltou para tela de login
-    await expect(page.locator('input[placeholder="Digite seu usuário"]')).toBeVisible();
-    await expect(page.locator('input[placeholder="Digite sua senha"]')).toBeVisible();
+    const loginPage = new LoginPage(page);
+    await loginPage.openLoginDropdown();
+    await loginPage.openForgotPasswordModal();
+
+    await loginPage.resetBackButton.click();
+
+    await expect(loginPage.usernameInput).toBeVisible();
   });
 
-  test("deve enviar email de recuperação com email válido", async ({ page }) => {
-    const email = "usuario@test.com";
-    
-    // Ir para tela de recuperação
-    await page.click('text=Esqueci minha senha');
-    
-    // Preencher email
-    await page.fill('input[type="email"]', email);
-    
-    // Enviar
-    await page.click('button:has-text("Enviar Email")');
-    
-    // Verificar toast de sucesso
-    await expect(page.locator('[role="status"]:has-text("Email enviado!")')).toBeVisible();
-    await expect(page.locator('text=Verifique sua caixa de entrada')).toBeVisible();
-    
-    // Deve voltar para tela de login
-    await expect(page.locator('input[placeholder="Digite seu usuário"]')).toBeVisible();
+  test("deve exigir e-mail preenchido (validação HTML5)", async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.openLoginDropdown();
+    await loginPage.openForgotPasswordModal();
+
+    const isValid = await loginPage.resetEmailInput.evaluate((el: HTMLInputElement) => el.checkValidity());
+    expect(isValid).toBe(false);
   });
 
-  test("deve exibir erro com email não cadastrado", async ({ page }) => {
-    const email = "naoexiste@test.com";
-    
-    await page.click('text=Esqueci minha senha');
-    await page.fill('input[type="email"]', email);
-    await page.click('button:has-text("Enviar Email")');
-    
-    // Verificar toast de erro
-    await expect(page.locator('[role="status"]:has-text("Erro")')).toBeVisible();
-    await expect(page.locator('text=E-mail não encontrado')).toBeVisible();
+  test("deve enviar senha temporária para e-mail cadastrado", async ({ page }) => {
+    const user = {
+      email: "e2e.recovery.ok@teste.com",
+      password: "Original@123",
+      name: "E2E Recovery OK",
+      role: "broker" as const,
+    };
+    await DatabaseHelper.ensureTestUser(user);
+
+    const loginPage = new LoginPage(page);
+    await loginPage.openLoginDropdown();
+    await loginPage.openForgotPasswordModal();
+    await loginPage.submitForgotPassword(user.email);
+
+    await expect(loginPage.resetSuccessTitle).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(user.email)).toBeVisible();
+    await expect(page.getByRole("button", { name: /voltar para login/i })).toBeVisible();
   });
 
-  test("deve desabilitar botão durante envio", async ({ page }) => {
-    await page.click('text=Esqueci minha senha');
-    await page.fill('input[type="email"]', "usuario@test.com");
-    
-    // Clicar em enviar
-    const button = page.locator('button:has-text("Enviar Email")');
-    await button.click();
-    
-    // Verificar que botão ficou desabilitado e mostra "Enviando..."
-    await expect(button).toBeDisabled();
-    await expect(page.locator('text=Enviando...')).toBeVisible();
-  });
+  test("deve exibir erro com e-mail não cadastrado", async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.openLoginDropdown();
+    await loginPage.openForgotPasswordModal();
+    await loginPage.submitForgotPassword("nao-cadastrado-recovery@teste.com");
 
-  test("deve validar formato de email", async ({ page }) => {
-    await page.click('text=Esqueci minha senha');
-    
-    const emailInput = page.locator('input[type="email"]');
-    
-    // Email inválido
-    await emailInput.fill("emailinvalido");
-    await page.click('button:has-text("Enviar Email")');
-    
-    // Validação HTML5 deve impedir envio
-    await expect(emailInput).toHaveAttribute("required");
+    await expect(page.getByText(/e-mail não encontrado/i).first()).toBeVisible({ timeout: 10000 });
+    // Deve permanecer no formulário de recuperação, não avançar pra tela de sucesso
+    await expect(loginPage.resetEmailInput).toBeVisible();
   });
 });

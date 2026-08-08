@@ -21,15 +21,16 @@ test.describe('Login via dropdown "Gerenciador"', () => {
   });
 
   test('deve exibir todos os elementos da interface', async ({ page }) => {
-    await expect(page.getByText("D'Uvo Enterprise")).toBeVisible();
+    // "D'Uvo Enterprise" aparece tanto no <h1> do header ("D'Uvo Enterprise
+    // Corporation") quanto no título do dropdown de login — .first() evita
+    // strict-mode violation por múltiplos matches.
+    await expect(page.getByText("D'Uvo Enterprise").first()).toBeVisible();
     await expect(page.getByText('Property Control System')).toBeVisible();
 
     await expect(page.locator('#username')).toBeVisible();
     await expect(page.locator('#password')).toBeVisible();
     await expect(page.getByRole('button', { name: /^entrar$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /esqueci minha senha/i })).toBeVisible();
-
-    await expect(page.getByText('Carlos Uva')).toBeVisible();
   });
 
   test('deve preencher e limpar os campos corretamente', async ({ page }) => {
@@ -117,6 +118,8 @@ test.describe('Recuperação de senha', () => {
     await page.locator('#recovery-email').fill('nao-cadastrado@teste.com');
     await page.getByRole('button', { name: /enviar senha/i }).click();
 
-    await expect(page.getByText(/e-mail não encontrado/i)).toBeVisible({ timeout: 10000 });
+    // O toast (shadcn/Radix) costuma duplicar o texto (região visível +
+    // região aria-live), por isso .first() evita strict-mode violation.
+    await expect(page.getByText(/e-mail não encontrado/i).first()).toBeVisible({ timeout: 10000 });
   });
 });

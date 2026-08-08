@@ -99,7 +99,10 @@ export class LoginPage {
 
   async hasError(): Promise<boolean> {
     try {
-      await expect(this.errorMessage).toBeVisible({ timeout: 3000 });
+      // 6s (não 3s): a validação de credenciais é uma chamada de rede real
+      // ao Supabase, não uma resposta local — 3s se mostrou apertado o
+      // suficiente para gerar falsos negativos sob carga (2026-08).
+      await expect(this.errorMessage).toBeVisible({ timeout: 6000 });
       return true;
     } catch {
       return false;

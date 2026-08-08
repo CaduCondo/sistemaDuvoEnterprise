@@ -71,20 +71,3 @@ export async function setExemptLocations(locationIds: string[]): Promise<void> {
   }
 }
 
-/**
- * Verifica se um local é isento de taxa de administração
- */
-export async function isLocationExempt(locationId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("admin_fee_exempt_locations")
-    .select("location_id")
-    .eq("location_id", locationId)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Erro ao verificar isenção:", error);
-    return false;
-  }
-
-  return !!data;
-}
