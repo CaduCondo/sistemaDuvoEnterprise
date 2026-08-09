@@ -34,8 +34,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log("🚀 Iniciando recriação de TODOS os recebimentos...
-");
+    console.log("🚀 Iniciando recriação de TODOS os recebimentos...\n");
 
     // Buscar TODAS as locações ativas
     const { data: rentals, error: rentalsError } = await supabase

@@ -369,3 +369,44 @@ export interface DepositInstallment {
   created_at: string;
   updated_at: string;
 }
+
+export type KanbanCategory = "bug" | "feature" | "melhoria" | "divida_tecnica";
+export type KanbanStatus = "backlog" | "todo" | "in_progress" | "done";
+export type KanbanPriority = "urgente" | "alta" | "media" | "baixa";
+
+export interface KanbanCard {
+  id: string;
+  title: string;
+  category: KanbanCategory;
+  status: KanbanStatus;
+  priority: KanbanPriority;
+  module: string | null;
+  problem_description: string | null;
+  action_plan: string | null;
+  how_to: string | null;
+  position: number;
+  created_by: string | null;
+  created_by_name: string | null;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KanbanCardComment {
+  id: string;
+  card_id: string;
+  author_id: string | null;
+  author_name: string | null;
+  content: string;
+  created_at: string;
+}
+
+export interface KanbanCardTask {
+  id: string;
+  card_id: string;
+  title: string;
+  is_done: boolean;
+  position: number;
+  created_at: string;
+}

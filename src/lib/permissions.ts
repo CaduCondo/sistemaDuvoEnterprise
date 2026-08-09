@@ -30,6 +30,7 @@ export interface RolePermissions {
   canViewPayments: boolean;
   canViewFinancial: boolean;
   canViewSettings: boolean;
+  canViewKanban: boolean;
 
   // Operações de Imóveis
   canCreateProperty: boolean;
@@ -92,6 +93,7 @@ export const PERMISSIONS: Record<Role, RolePermissions> = {
     canViewPayments: true,
     canViewFinancial: true,
     canViewSettings: true,
+    canViewKanban: true,
 
     // Operações de Imóveis
     canCreateProperty: true,
@@ -149,6 +151,7 @@ export const PERMISSIONS: Record<Role, RolePermissions> = {
     canViewPayments: true,
     canViewFinancial: true, // ← Acesso ao módulo financeiro
     canViewSettings: false,
+    canViewKanban: true,
 
     // Operações de Imóveis
     canCreateProperty: true,
@@ -206,6 +209,7 @@ export const PERMISSIONS: Record<Role, RolePermissions> = {
     canViewPayments: true,
     canViewFinancial: true, // ← Acesso ao módulo financeiro
     canViewSettings: true,
+    canViewKanban: false,
 
     // Operações de Imóveis
     canCreateProperty: false, // ← Não gerencia imóveis

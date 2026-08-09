@@ -53,3 +53,8 @@ pm2.config.js
 # Supabase
 .branches
 .temp
+
+# dumps do split dev/prod (schema.sql é só estrutura, mas data.sql tem dado
+# real de inquilinos/pagamentos — nenhum dos dois deve ir pro repositório)
+/schema.sql
+/data.sql

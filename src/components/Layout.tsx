@@ -18,7 +18,8 @@ import {
   FileText,
   X,
   Moon,
-  Sun
+  Sun,
+  ClipboardList
 } from "lucide-react";
 import { logout } from "@/lib/auth";
 import {
@@ -181,6 +182,9 @@ export function Layout({ children }: LayoutProps) {
 
   const isActive = (path: string) => router.pathname === path;
 
+  // Kanban vive no menu de perfil (não no menu de navegação), visível só para admin e corretor.
+  const canAccessKanban = authUser?.role === "admin" || authUser?.role === "broker";
+
   const roleDisplayName = (role?: string) => {
     const roleMap: Record<string, string> = {
       admin: "Administrador",
@@ -254,11 +258,11 @@ export function Layout({ children }: LayoutProps) {
       icon: TrendingUp,
       permission: "canViewFinancial" 
     },
-    { 
-      name: "Configurações", 
-      path: "/settings", 
+    {
+      name: "Configurações",
+      path: "/settings",
       icon: Settings,
-      permission: "canViewSettings" 
+      permission: "canViewSettings"
     },
   ];
 
@@ -374,6 +378,12 @@ export function Layout({ children }: LayoutProps) {
                     <ThemeIcon className="mr-2 h-4 w-4" />
                     Trocar Tema ({oppositeTheme})
                   </DropdownMenuItem>
+                  {canAccessKanban && (
+                    <DropdownMenuItem id="layout-menu-kanban" onClick={() => router.push("/kanban")} className="cursor-pointer">
+                      <ClipboardList className="mr-2 h-4 w-4" />
+                      Kanban
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem id="layout-menu-logout" onClick={handleLogout} className="text-red-600 dark:text-red-400 cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
@@ -513,6 +523,20 @@ export function Layout({ children }: LayoutProps) {
                     <ThemeIcon className="h-4 w-4" />
                     Trocar Tema ({oppositeTheme})
                   </Button>
+                  {canAccessKanban && (
+                    <Button
+                      id="layout-mobile-kanban"
+                      variant="outline"
+                      className="w-full justify-start gap-3 h-11 text-sm"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        router.push("/kanban");
+                      }}
+                    >
+                      <ClipboardList className="h-4 w-4" />
+                      Kanban
+                    </Button>
+                  )}
                   <Button
                     id="layout-mobile-logout"
                     variant="outline"

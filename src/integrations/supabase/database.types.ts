@@ -663,6 +663,155 @@ export type Database = {
           },
         ]
       }
+      kanban_cards: {
+        Row: {
+          action_plan: string | null
+          assigned_to: string | null
+          assigned_to_name: string | null
+          category: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          how_to: string | null
+          id: string
+          module: string | null
+          position: number
+          priority: string
+          problem_description: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_plan?: string | null
+          assigned_to?: string | null
+          assigned_to_name?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          how_to?: string | null
+          id?: string
+          module?: string | null
+          position?: number
+          priority?: string
+          problem_description?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_plan?: string | null
+          assigned_to?: string | null
+          assigned_to_name?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          how_to?: string | null
+          id?: string
+          module?: string | null
+          position?: number
+          priority?: string
+          problem_description?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_cards_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "system_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kanban_cards_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "system_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kanban_card_tasks: {
+        Row: {
+          card_id: string
+          created_at: string
+          id: string
+          is_done: boolean
+          position: number
+          title: string
+        }
+        Insert: {
+          card_id: string
+          created_at?: string
+          id?: string
+          is_done?: boolean
+          position?: number
+          title: string
+        }
+        Update: {
+          card_id?: string
+          created_at?: string
+          id?: string
+          is_done?: boolean
+          position?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_card_tasks_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kanban_card_comments: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          card_id: string
+          content: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          card_id: string
+          content: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          card_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_card_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "system_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kanban_card_comments_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "kanban_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       properties: {
         Row: {
           accepts_pets: boolean | null
