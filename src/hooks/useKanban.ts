@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { KanbanCard, KanbanStatus } from "@/types";
+import { KanbanCard, KanbanStatus, KanbanPriority } from "@/types";
 import {
   getAll as getAllCards,
   create as createCard,
   update as updateCard,
   remove as deleteCard,
-  updateStatus as updateCardStatus,
 } from "@/services/kanbanService";
 import { useAlert } from "@/contexts/AlertContext";
 
@@ -77,13 +76,13 @@ export function useKanban() {
   );
 
   const moveCardHandler = useCallback(
-    async (id: string, status: KanbanStatus) => {
+    async (id: string, patch: Partial<{ status: KanbanStatus; priority: KanbanPriority }>) => {
       // Atualização otimista para o board parecer instantâneo
       setCards((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, status } : c))
+        prev.map((c) => (c.id === id ? { ...c, ...patch } : c))
       );
       try {
-        await updateCardStatus(id, status);
+        await updateCard(id, patch);
       } catch (error) {
         showAlert({
           title: "Erro",

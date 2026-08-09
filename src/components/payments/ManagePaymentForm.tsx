@@ -57,6 +57,7 @@ interface PaymentFormData {
   status?: string;
   installment?: number | null;
   total_installments?: number | null;
+  partial_payments?: any;
 }
 
 interface ManagePaymentFormProps {
@@ -876,16 +877,43 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         description: a.description
       }));
 
+      const thisPaymentDate = formData.payment_date;
+      const thisPaymentTime = formData.payment_method === "pix"
+        ? `${paymentHour.padStart(2, '0')}:${paymentMinute.padStart(2, '0')}:${paymentSecond.padStart(2, '0')}`
+        : null;
+
+      // ✅ CORREÇÃO: cada pagamento (inclusive parcelas) fica registrado em
+      // partial_payments com sua própria data/hora/anexo, para não perder o
+      // histórico quando um novo pagamento parcial sobrescreve os campos
+      // principais do registro (bug: horário do 1º pagamento sumia ao
+      // registrar o 2º).
+      const previousHistory = Array.isArray(payment?.partial_payments)
+        ? payment.partial_payments
+        : [];
+      const updatedHistory = userInputAmount > 0
+        ? [
+            ...previousHistory,
+            {
+              amount: userInputAmount,
+              payment_date: thisPaymentDate,
+              payment_time: thisPaymentTime,
+              payment_method: formData.payment_method,
+              notes: formData.notes,
+              attachments: attachmentsToSave,
+              registered_at: new Date().toISOString(),
+            },
+          ]
+        : previousHistory;
+
       const paymentDataUpdate = {
-        payment_date: formData.payment_date,
+        payment_date: thisPaymentDate,
         payment_method: formData.payment_method,
-        payment_time: formData.payment_method === "pix" 
-          ? `${paymentHour.padStart(2, '0')}:${paymentMinute.padStart(2, '0')}:${paymentSecond.padStart(2, '0')}`
-          : null,
+        payment_time: thisPaymentTime,
         paid_amount: finalPaidAmount,
         notes: formData.notes,
         status: paymentStatus,
         attachments: attachmentsToSave.length > 0 ? attachmentsToSave : null,
+        partial_payments: updatedHistory,
         late_fee: removeLateFee ? 0 : values.multa,
         interest: removeInterest ? 0 : values.juros,
         late_fee_waived: removeLateFee,
@@ -997,6 +1025,29 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       </div>
 
       <PaymentInfoCards rental={rental} property={property} tenant={tenant} />
+
+      {Array.isArray(payment?.partial_payments) && payment.partial_payments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Histórico de pagamentos parciais</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {payment.partial_payments.map((entry: any, index: number) => (
+              <div key={index} className="rounded-md bg-muted/50 p-3 text-sm flex flex-wrap gap-x-4 gap-y-1">
+                <span className="font-medium">{formatCurrency((entry.amount || 0).toFixed(2))}</span>
+                <span className="text-muted-foreground">
+                  {entry.payment_date}
+                  {entry.payment_time ? ` às ${entry.payment_time}` : ""}
+                </span>
+                {entry.payment_method && (
+                  <span className="text-muted-foreground uppercase">{entry.payment_method}</span>
+                )}
+                {entry.notes && <span className="text-muted-foreground italic">{entry.notes}</span>}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <PaymentBreakdownCard
