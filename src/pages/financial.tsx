@@ -613,6 +613,7 @@ export default function Financial() {
           installment,
           total_installments,
           pix_code,
+          partial_payments,
           rentals!payments_rental_id_fkey (
             id,
             rent_value,
@@ -654,7 +655,7 @@ export default function Financial() {
 
       // Processar dados e extrair locations
       const locationsMapTemp = new Map<string, string>();
-      const formattedPayments = (paymentsData || []).map((payment: any) => {
+      const formattedPayments = (paymentsData || []).flatMap((payment: any) => {
         const rental = payment.rentals;
         const property = rental?.properties;
         const tenant = rental?.tenants;
@@ -665,7 +666,7 @@ export default function Financial() {
           locationsMapTemp.set(location.id, location.name);
         }
 
-        return {
+        const base = {
           id: payment.id,
           rentalId: payment.rental_id,
           expectedAmount: payment.expected_amount,
@@ -737,7 +738,77 @@ export default function Financial() {
           } : undefined,
           propertyId: property?.id || "",
           tenantId: tenant?.id || "",
-        };
+        } as any;
+
+        // ✅ CORREÇÃO: um recebimento pago em mais de uma vez (parcial) ficava
+        // sendo mostrado como 1 linha só, com o valor esperado do boleto
+        // inteiro — perdendo o registro de cada pagamento e mostrando um
+        // "valor esperado" que não bateu com nenhum dos pagamentos reais.
+        // Expande em 1 linha por pagamento realmente feito (partial_payments),
+        // usando o valor esperado que era válido NAQUELE momento (guardado em
+        // cada entrada desde a correção do histórico), e mantém uma linha
+        // extra para o saldo ainda em aberto quando o boleto não está 100% pago.
+        const history = Array.isArray(payment.partial_payments) ? payment.partial_payments : [];
+        if (history.length === 0) {
+          return [base];
+        }
+
+        const totalExpectedBase = Math.abs(base.expectedAmount || 0);
+        let cumulativePaid = 0;
+        const rows = history.map((entry: any, index: number) => {
+          const paidAmount = Number(entry.amount || 0);
+          const expectedAmount = entry.expected_amount != null
+            ? Math.abs(Number(entry.expected_amount))
+            : Math.max(totalExpectedBase - cumulativePaid, Math.abs(paidAmount));
+          cumulativePaid += Math.abs(paidAmount);
+
+          return {
+            ...base,
+            _rowKey: `${base.id}-${index}`,
+            // Valor esperado desse boleto como um todo (o mais atual, já
+            // com multa/juros do último pagamento) — usado para somar os
+            // totais 1 vez por boleto, não 1 vez por linha exibida.
+            _billExpectedAmount: totalExpectedBase,
+            paidAmount,
+            expectedAmount,
+            // ✅ Zerar breakdown/lateFee/interest nas linhas expandidas: a
+            // função getExpectedAmount() re-soma esses campos a partir do
+            // breakdown do boleto INTEIRO — como todas as linhas copiam o
+            // mesmo breakdown da linha original, isso contava o valor
+            // esperado várias vezes nos totais. Cada linha usa só seu
+            // próprio `expectedAmount`, já calculado corretamente acima.
+            breakdown: null,
+            lateFee: 0,
+            interest: 0,
+            paymentDate: entry.payment_date || null,
+            paymentTime: entry.payment_time || null,
+            paymentMethod: entry.payment_method || null,
+            attachments: Array.isArray(entry.attachments)
+              ? entry.attachments.map((a: any) => (typeof a === "string" ? a : a?.url)).filter(Boolean)
+              : [],
+            status: "paid",
+          };
+        });
+
+        const remaining = totalExpectedBase - cumulativePaid;
+        if (base.status !== "paid" && remaining > 0.01) {
+          rows.push({
+            ...base,
+            _rowKey: `${base.id}-remaining`,
+            _billExpectedAmount: totalExpectedBase,
+            paidAmount: 0,
+            expectedAmount: remaining,
+            breakdown: null,
+            lateFee: 0,
+            interest: 0,
+            paymentDate: null,
+            paymentTime: null,
+            paymentMethod: null,
+            attachments: [],
+          });
+        }
+
+        return rows;
       }) as Payment[];
 
       // Buscar configurações, isenções e permissões
@@ -1038,6 +1109,33 @@ export default function Financial() {
 
     return filtered;
   }, [payments, selectedLocationIds, sortField, sortDirection]);
+
+  // ✅ Um boleto pago em mais de uma vez vira várias linhas (1 por pagamento).
+  // Para a tabela mesclar (rowSpan) as colunas que são iguais nas duas linhas
+  // (Local/Compl/Inquilino/Parc/Período), as linhas do mesmo boleto precisam
+  // ficar adjacentes — reagrupa preservando a ordem de 1ª aparição, porque
+  // ordenar por uma coluna que DIFERE entre as parcelas (Rec, Hora, Val.Esp,
+  // Val.Pg) poderia intercalar linhas de boletos diferentes.
+  const displayPayments = useMemo(() => {
+    const groups = new Map<string, any[]>();
+    const order: string[] = [];
+    getSortedPayments.forEach((p: any) => {
+      if (!groups.has(p.id)) {
+        groups.set(p.id, []);
+        order.push(p.id);
+      }
+      groups.get(p.id)!.push(p);
+    });
+    return order.flatMap((id) => groups.get(id)!);
+  }, [getSortedPayments]);
+
+  const rowSpanCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    displayPayments.forEach((p: any) => {
+      counts.set(p.id, (counts.get(p.id) || 0) + 1);
+    });
+    return counts;
+  }, [displayPayments]);
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1 text-slate-400" />;
@@ -1540,7 +1638,16 @@ export default function Financial() {
     
     const totalLocationExpenses = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
     
-    const totalExpected = paymentsToCalculate.reduce((sum, p) => sum + getExpectedAmount(p), 0);
+    // ✅ CORREÇÃO: um boleto pago em várias parcelas vira várias linhas na
+    // lista (ver formattedPayments), mas o "valor esperado" é do BOLETO,
+    // não de cada linha — soma só 1 vez por boleto (id real), senão o
+    // total ficava maior do que o valor de fato devido.
+    const seenExpectedIds = new Set<string>();
+    const totalExpected = paymentsToCalculate.reduce((sum, p: any) => {
+      if (seenExpectedIds.has(p.id)) return sum;
+      seenExpectedIds.add(p.id);
+      return sum + (p._billExpectedAmount != null ? p._billExpectedAmount : getExpectedAmount(p));
+    }, 0);
     
     const totalReceived = paymentsToCalculate
       .filter((p) => p.status === "paid" || p.status === "partial")
@@ -2177,34 +2284,46 @@ export default function Financial() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {getSortedPayments.map((payment) => {
+                          {displayPayments.map((payment: any, rowIndex: number) => {
+                            const isFirstOfGroup = rowIndex === 0 || displayPayments[rowIndex - 1].id !== payment.id;
+                            const span = rowSpanCounts.get(payment.id) || 1;
                             return (
-                              <TableRow key={payment.id} className="hover:bg-gray-50">
-                                {/* Local */}
-                                <TableCell className="text-center text-xs">
-                                  {payment.property?.location || "N/A"}
-                                </TableCell>
-                                
+                              <TableRow key={payment._rowKey || payment.id} className="hover:bg-gray-50">
+                                {/* Local — mesclado quando o boleto tem mais de 1 linha */}
+                                {isFirstOfGroup && (
+                                  <TableCell className="text-center text-xs" rowSpan={span}>
+                                    {payment.property?.location || "N/A"}
+                                  </TableCell>
+                                )}
+
                                 {/* Compl (Complemento) */}
-                                <TableCell className="text-center text-xs">
-                                  {payment.property?.complement || "-"}
-                                </TableCell>
-                                
+                                {isFirstOfGroup && (
+                                  <TableCell className="text-center text-xs" rowSpan={span}>
+                                    {payment.property?.complement || "-"}
+                                  </TableCell>
+                                )}
+
                                 {/* Inquilino */}
-                                <TableCell className="text-left text-sm">
-                                  {payment.tenant?.name || "N/A"}
-                                </TableCell>
-                                
+                                {isFirstOfGroup && (
+                                  <TableCell className="text-left text-sm" rowSpan={span}>
+                                    {payment.tenant?.name || "N/A"}
+                                  </TableCell>
+                                )}
+
                                 {/* Parc (Parcela) - MOVIDA PARA CÁ */}
-                                <TableCell className="text-center text-xs">
-                                  {payment.installment || 1}/{payment.totalInstallments || 24}
-                                </TableCell>
-                                
+                                {isFirstOfGroup && (
+                                  <TableCell className="text-center text-xs" rowSpan={span}>
+                                    {payment.installment || 1}/{payment.totalInstallments || 24}
+                                  </TableCell>
+                                )}
+
                                 {/* Período */}
-                                <TableCell className="text-center text-xs">
-                                  {months[payment.referenceMonth - 1]}/{payment.referenceYear}
-                                </TableCell>
-                                
+                                {isFirstOfGroup && (
+                                  <TableCell className="text-center text-xs" rowSpan={span}>
+                                    {months[payment.referenceMonth - 1]}/{payment.referenceYear}
+                                  </TableCell>
+                                )}
+
                                 {/* Status */}
                                 <TableCell className="text-center">
                                   <Badge
@@ -2297,7 +2416,16 @@ export default function Financial() {
                               {new Intl.NumberFormat("pt-BR", {
                                 style: "currency",
                                 currency: "BRL",
-                              }).format(getSortedPayments.reduce((sum, p) => sum + getExpectedAmount(p), 0))}
+                              }).format((() => {
+                                // ✅ mesmo boleto pode aparecer em várias linhas (1 por
+                                // pagamento parcial) — soma o valor esperado 1x por boleto
+                                const seen = new Set<string>();
+                                return getSortedPayments.reduce((sum: number, p: any) => {
+                                  if (seen.has(p.id)) return sum;
+                                  seen.add(p.id);
+                                  return sum + (p._billExpectedAmount != null ? p._billExpectedAmount : getExpectedAmount(p));
+                                }, 0);
+                              })())}
                             </TableCell>
                             <TableCell className="text-right text-sm print:text-[9px] text-green-600 font-semibold">
                               {new Intl.NumberFormat("pt-BR", {

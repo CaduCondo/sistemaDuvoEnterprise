@@ -108,13 +108,15 @@ export function usePaymentCalculations({
           : (payment.breakdown || []);
         
         if (Array.isArray(breakdownData)) {
-          const proportionalItem = breakdownData.find((item: any) => 
-            item.description?.includes("proporcional")
+          const proportionalItem = breakdownData.find((item: any) =>
+            item.description?.toLowerCase().includes("proporcional")
           );
           
           if (proportionalItem) {
             isProportional = true;
-            const match = proportionalItem.description.match(/\(.*?(\d+)\s+dias?\)/);
+            // Aceita tanto o formato antigo "(5 dias)" quanto o novo
+            // "Proporcional de 5 dia(s)" — só precisa achar o número antes de "dia".
+            const match = proportionalItem.description.match(/(\d+)\s*dias?/i);
             if (match) {
               proportionalDays = parseInt(match[1]);
             }
@@ -192,7 +194,7 @@ export function usePaymentCalculations({
     });
 
     const getPaymentInstallmentLabel = (paymentItem: any): string => {
-      if (!paymentItem.installment && paymentItem.notes?.includes("proporcional")) {
+      if (!paymentItem.installment && paymentItem.notes?.toLowerCase().includes("proporcional")) {
         return "Proporcional";
       }
 

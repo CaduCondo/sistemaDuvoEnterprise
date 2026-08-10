@@ -21,6 +21,7 @@ import { invalidateCache } from "@/services/cacheService";
 import { getAllPaymentMethods } from "@/services/paymentMethodService";
 import { LateFeeInterestBlock } from "@/components/payments/LateFeeInterestBlock";
 import { applyMoneyMask, formatMoneyForDisplay, parseMoneyMaskToNumber } from "@/lib/masks";
+import { PaymentReceipt } from "@/components/PaymentReceipt";
 
 interface BreakdownItem {
   description?: string;
@@ -70,9 +71,13 @@ interface ManagePaymentFormProps {
   }) => void;
   onClose?: () => void;
   embedded?: boolean;
+  // Se informado, mostra um botão "Cancelar Pagamento" no rodapé (à
+  // esquerda) quando o recebimento já está pago — dispara a confirmação de
+  // cancelamento do lado de quem chamou (ex: página de Recebimentos).
+  onCancelPayment?: (paymentId: string) => void;
 }
 
-export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = false }: ManagePaymentFormProps) {
+export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = false, onCancelPayment }: ManagePaymentFormProps) {
   const router = useRouter();
   const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
@@ -130,6 +135,39 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   const [isLoadingConfig, setIsLoadingConfig] = useState(false);
   const [config, setConfig] = useState<any>(null);
   const [paymentMethods, setPaymentMethods] = useState<Array<{ code: string; name: string }>>([]);
+  const [historyReceiptEntry, setHistoryReceiptEntry] = useState<any | null>(null);
+
+  // Monta um "Payment" sintético para o recibo de UM pagamento parcial
+  // específico do histórico (não o total acumulado da linha em `payments`).
+  const buildHistoryReceiptPayment = useCallback((entry: any) => {
+    const raw: any = payment || {};
+    return {
+      id: raw.id,
+      dueDate: raw.due_date,
+      referenceMonth: raw.reference_month,
+      referenceYear: raw.reference_year,
+      installment: raw.installment,
+      totalInstallments: raw.total_installments,
+      status: "partial",
+      property,
+      tenant,
+      rental,
+      paidAmount: entry.amount,
+      expectedAmount: entry.amount,
+      paymentDate: entry.payment_date,
+      paymentTime: entry.payment_time,
+      paymentMethod: entry.payment_method,
+      notes: entry.notes,
+      attachments: (entry.attachments || []).map((a: any) => (typeof a === "string" ? a : a.url)),
+      breakdown: null,
+      late_fee: 0,
+      interest: 0,
+      paid_amount: entry.amount,
+      expected_amount: entry.amount,
+      discount_amount: 0,
+      payment_time: entry.payment_time,
+    } as any;
+  }, [payment, property, tenant, rental]);
 
   const formatCurrency = useCallback((value: string | number): string => {
     const numericValue = typeof value === "string" ? value.replace(/\D/g, "") : String(value).replace(/\D/g, "");
@@ -343,19 +381,34 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         payment_date: validatedPayment.payment_date || new Date().toISOString().split("T")[0],
         payment_method: validatedPayment.payment_method || "pix",
         payment_time: validatedPayment.payment_time || "",
-        amount_to_pay: validatedPayment.paid_amount 
+        amount_to_pay: validatedPayment.paid_amount
           ? formatCurrency(validatedPayment.paid_amount.toFixed(2))
           : "",
-        notes: validatedPayment.notes || "",
+        // ✅ CORREÇÃO: Observações não pode "herdar" o texto do pagamento
+        // parcial anterior — isso parecia preenchimento automático errado.
+        // Só reaproveita o texto salvo quando é edição de um pagamento já
+        // 100% pago; para um NOVO pagamento (pendente/atrasado/parcial em
+        // aberto) o campo sempre começa vazio.
+        notes: validatedPayment.status === "paid" ? (validatedPayment.notes || "") : "",
       });
 
-      if (validatedPayment.payment_time) {
+      // ✅ CORREÇÃO: se já está totalmente pago, os campos refletem o horário
+      // histórico salvo (edição). Caso contrário (pendente/atrasado/parcial),
+      // o usuário está prestes a registrar UM NOVO pagamento agora — os campos
+      // devem começar no horário atual, não vazios (vazio + padStart virava
+      // "00:00:00" salvo silenciosamente quando o usuário não mexia neles).
+      if (validatedPayment.status === "paid" && validatedPayment.payment_time) {
         const [h, m, s] = validatedPayment.payment_time.split(":");
         setPaymentHour(h || "");
         setPaymentMinute(m || "");
         setPaymentSecond(s || "00");
+      } else {
+        const now = new Date();
+        setPaymentHour(String(now.getHours()).padStart(2, "0"));
+        setPaymentMinute(String(now.getMinutes()).padStart(2, "0"));
+        setPaymentSecond(String(now.getSeconds()).padStart(2, "0"));
       }
-      
+
     } catch (error) {
       console.error("❌ Error loading payment data:", error);
       showAlert({
@@ -464,8 +517,12 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     } else if (!isTerminationPayment && isEditMode && !isPaid) {
       const subtotal = displayBreakdown.total;
       const lateFees = (removeLateFee ? 0 : values.multa) + (removeInterest ? 0 : values.juros);
-      const totalValue = subtotal + lateFees - discountAmount;
-      
+      // ✅ CORREÇÃO: se já tinha sido pago parcialmente, "Valor a Pagar" deve
+      // vir preenchido com o SALDO ainda devido (o que a pessoa realmente
+      // precisa cobrar agora), não o valor cheio do boleto de novo.
+      const alreadyPaid = Math.abs(payment?.paid_amount || 0);
+      const totalValue = Math.max(subtotal + lateFees - discountAmount - alreadyPaid, 0);
+
       setFormData(prev => ({
         ...prev,
         amount_to_pay: formatCurrency(totalValue.toFixed(2))
@@ -887,6 +944,12 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       // histórico quando um novo pagamento parcial sobrescreve os campos
       // principais do registro (bug: horário do 1º pagamento sumia ao
       // registrar o 2º).
+      // expected_amount = quanto ainda era esperado NESSE momento (já com
+      // multa/juros do dia, se houver) antes desse pagamento entrar — usado
+      // por relatórios (ex: Financeiro) para mostrar o valor esperado
+      // correto de cada parcela, não o valor total do boleto inteiro.
+      const previousPaidBeforeThis = Math.abs(payment?.paid_amount || 0);
+      const expectedForThisEntry = Math.max(Math.abs(expectedTotal) - previousPaidBeforeThis, 0);
       const previousHistory = Array.isArray(payment?.partial_payments)
         ? payment.partial_payments
         : [];
@@ -895,6 +958,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
             ...previousHistory,
             {
               amount: userInputAmount,
+              expected_amount: expectedForThisEntry,
               payment_date: thisPaymentDate,
               payment_time: thisPaymentTime,
               payment_method: formData.payment_method,
@@ -948,6 +1012,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
           paidAmount: paymentDataUpdate.paid_amount,
           paymentDate: paymentDataUpdate.payment_date,
           paymentMethod: paymentDataUpdate.payment_method,
+          paymentTime: paymentDataUpdate.payment_time,
         };
 
         onSuccess({
@@ -1033,7 +1098,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
           </CardHeader>
           <CardContent className="space-y-2">
             {payment.partial_payments.map((entry: any, index: number) => (
-              <div key={index} className="rounded-md bg-muted/50 p-3 text-sm flex flex-wrap gap-x-4 gap-y-1">
+              <div key={index} className="rounded-md bg-muted/50 p-3 text-sm flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span className="font-medium">{formatCurrency((entry.amount || 0).toFixed(2))}</span>
                 <span className="text-muted-foreground">
                   {entry.payment_date}
@@ -1043,6 +1108,15 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
                   <span className="text-muted-foreground uppercase">{entry.payment_method}</span>
                 )}
                 {entry.notes && <span className="text-muted-foreground italic">{entry.notes}</span>}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto h-7"
+                  onClick={() => setHistoryReceiptEntry(entry)}
+                >
+                  Recibo
+                </Button>
               </div>
             ))}
           </CardContent>
@@ -1145,7 +1219,20 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         </CardContent>
       </Card>
 
-      <div className="flex gap-4 justify-end pt-4">
+      <div className="flex items-center justify-between gap-4 pt-4">
+        <div>
+          {(payment?.status === "paid" || payment?.status === "partial") && onCancelPayment && (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => onCancelPayment(paymentId)}
+            >
+              Cancelar Pagamento
+            </Button>
+          )}
+        </div>
+
+        <div className="flex gap-4">
         {isPaid && !isEditMode ? (
           <>
             <Button
@@ -1156,8 +1243,8 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
               <X className="mr-2 h-4 w-4" />
               Fechar
             </Button>
-            <Button 
-              type="button" 
+            <Button
+              type="button"
               onClick={handleEnableEdit}
             >
               <Edit className="mr-2 h-4 w-4" />
@@ -1175,18 +1262,30 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               id="manage-payment-submit"
-              type="button" 
-              onClick={handleSubmit} 
-              disabled={isSubmitting} 
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
               size="lg"
             >
               {isSubmitting ? "Salvando..." : isPaid ? "Salvar Alterações" : "Confirmar Recebimento"}
             </Button>
           </>
         )}
+        </div>
       </div>
+
+      {historyReceiptEntry && (
+        <PaymentReceipt
+          payment={buildHistoryReceiptPayment(historyReceiptEntry)}
+          rental={rental}
+          property={property}
+          tenant={tenant}
+          onClose={() => setHistoryReceiptEntry(null)}
+          skipFetch
+        />
+      )}
     </div>
   );
 }

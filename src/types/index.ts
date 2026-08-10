@@ -269,6 +269,7 @@ export interface Payment {
   discount?: number;
   pixCode?: string;
   paymentTime?: string;
+  partialPayments?: any[];
 }
 
 export interface PaymentInstallment {

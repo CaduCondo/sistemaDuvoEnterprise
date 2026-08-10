@@ -47,6 +47,92 @@ function getValidDueDate(chosenDay: number, year: number, month: number): string
   return format(validDate, "yyyy-MM-dd");
 }
 
+/**
+ * ✅ ÚNICA fonte de verdade para o cálculo da 1ª parcela (proporcional).
+ *
+ * Existiam duas implementações desse mesmo cálculo em lugares diferentes que
+ * podiam divergir: uma gerava a parcela 1 corretamente na criação da locação
+ * (generateExpectedPayments), e outra só reagia à MUDANÇA do dia de
+ * vencimento movendo a due_date sem nunca recalcular o valor/quantidade de
+ * dias (updateFuturePaymentsOnPaymentDayChange) — isso fazia a parcela 1
+ * continuar cobrando o mês cheio depois que o dia de vencimento era editado,
+ * mesmo quando deveria virar proporcional. As duas agora usam esta função.
+ *
+ * Regras:
+ * - dia_inicio === dia_vencimento → não há proporcional; parcela 1 cai no
+ *   mês seguinte, cheia (30 dias).
+ * - dia_inicio < dia_vencimento → proporcional no MESMO mês.
+ * - dia_inicio > dia_vencimento → proporcional no mês SEGUINTE.
+ */
+export function calculateFirstInstallment(
+  startDate: string,
+  paymentDay: number
+): { firstPaymentMonth: number; firstPaymentYear: number; days: number } {
+  const [sYear, sMonth, sDay] = startDate.split("-").map(Number);
+
+  if (sDay === paymentDay) {
+    return {
+      firstPaymentMonth: sMonth === 12 ? 1 : sMonth + 1,
+      firstPaymentYear: sMonth === 12 ? sYear + 1 : sYear,
+      days: 30,
+    };
+  }
+
+  if (sDay < paymentDay) {
+    return {
+      firstPaymentMonth: sMonth,
+      firstPaymentYear: sYear,
+      days: paymentDay - sDay,
+    };
+  }
+
+  // sDay > paymentDay: proporcional espalhado entre o resto do mês de início
+  // e o começo do mês seguinte até (mas não incluindo) o dia de vencimento.
+  const daysInStartMonth = new Date(sYear, sMonth, 0).getDate();
+  const daysUntilEndOfStartMonth = daysInStartMonth - sDay + 1; // +1 inclui o próprio dia de início
+  const daysInNextMonthUntilDue = paymentDay - 1; // vencimento não é inclusivo
+  return {
+    firstPaymentMonth: sMonth === 12 ? 1 : sMonth + 1,
+    firstPaymentYear: sMonth === 12 ? sYear + 1 : sYear,
+    days: daysUntilEndOfStartMonth + daysInNextMonthUntilDue,
+  };
+}
+
+/**
+ * Monta o breakdown (aluguel + garagem, se houver) da 1ª parcela a partir da
+ * quantidade de dias já calculada por calculateFirstInstallment.
+ */
+function buildFirstInstallmentBreakdown(
+  days: number,
+  monthlyRent: number,
+  garageValue: number
+): { breakdown: Array<{ description: string; amount: number; type: string }>; expectedAmount: number } {
+  const isProportional = days !== 30;
+  const rentAmount = isProportional ? (monthlyRent / 30) * days : monthlyRent;
+  const garageAmount = garageValue > 0 ? (isProportional ? (garageValue / 30) * days : garageValue) : 0;
+
+  const breakdown: Array<{ description: string; amount: number; type: string }> = [
+    {
+      description: isProportional ? `Aluguel - Proporcional de ${days} dia(s)` : "Aluguel",
+      amount: parseFloat(rentAmount.toFixed(2)),
+      type: "addition",
+    },
+  ];
+
+  if (garageAmount > 0) {
+    breakdown.push({
+      description: isProportional ? `Garagem - Proporcional de ${days} dia(s)` : "Garagem",
+      amount: parseFloat(garageAmount.toFixed(2)),
+      type: "addition",
+    });
+  }
+
+  return {
+    breakdown,
+    expectedAmount: parseFloat((rentAmount + garageAmount).toFixed(2)),
+  };
+}
+
 export const getAll = async (): Promise<Payment[]> => {
   const { data, error } = await supabase
     .from("payments")
@@ -555,63 +641,16 @@ export function generateExpectedPayments(params: {
   
   console.log("📅 Datas parseadas:", { sYear, sMonth, sDay, eYear, eMonth, eDay });
 
-  // **ETAPA 1: Determinar o primeiro mês de cobrança**
-  let firstPaymentMonth: number;
-  let firstPaymentYear: number;
-  let daysToChargeFirstPayment: number;
-  
-  // REGRA: Se dia de início === dia de vencimento, primeira parcela no mês seguinte (integral)
-  if (sDay === paymentDay) {
-    console.log("🎯 REGRA ESPECIAL: Dia início === Dia vencimento → Primeira parcela no MÊS SEGUINTE (integral)");
-    
-    firstPaymentMonth = sMonth === 12 ? 1 : sMonth + 1;
-    firstPaymentYear = sMonth === 12 ? sYear + 1 : sYear;
-    daysToChargeFirstPayment = 30;
-    
-    console.log("✅ Primeira parcela no PRÓXIMO mês (INTEGRAL):", { 
-      firstPaymentMonth, 
-      firstPaymentYear, 
-      daysToChargeFirstPayment: 30,
-      reason: "Dia início = Dia vencimento"
-    });
-  } else if (sDay < paymentDay) {
-    // Primeiro recebimento no mesmo mês (proporcional)
-    firstPaymentMonth = sMonth;
-    firstPaymentYear = sYear;
-    // Contar dias do início até o vencimento (NÃO-INCLUSIVO do dia vencimento)
-    // Exemplo: dia 1 até dia 5 = dias 1,2,3,4 = 4 dias
-    daysToChargeFirstPayment = paymentDay - sDay;
-    console.log("✅ Primeiro recebimento no MESMO mês (PROPORCIONAL):", { 
-      firstPaymentMonth, 
-      firstPaymentYear, 
-      daysToChargeFirstPayment,
-      calculation: `${paymentDay} - ${sDay} = ${daysToChargeFirstPayment} dias`
-    });
-  } else {
-    // Primeiro recebimento no mês seguinte (proporcional)
-    firstPaymentMonth = sMonth === 12 ? 1 : sMonth + 1;
-    firstPaymentYear = sMonth === 12 ? sYear + 1 : sYear;
-    
-    // ✅ CORREÇÃO CRÍTICA: Cálculo proporcional correto
-    // Exemplo: início dia 10/07, vencimento dia 5
-    // - Dias de 10/07 até 31/07 (incluindo dia 10) = 22 dias
-    // - Dias de 01/08 até 04/08 (NÃO-inclusivo do dia 5) = 4 dias
-    // - Total = 26 dias
-    const daysInStartMonth = new Date(sYear, sMonth, 0).getDate();
-    const daysUntilEndOfStartMonth = (daysInStartMonth - sDay) + 1; // +1 para incluir o dia de início
-    const daysInNextMonthUntilDue = paymentDay - 1; // -1 porque o dia de vencimento não é inclusivo
-    daysToChargeFirstPayment = daysUntilEndOfStartMonth + daysInNextMonthUntilDue;
-    
-    console.log("✅ Primeiro recebimento no PRÓXIMO mês (PROPORCIONAL):", { 
-      firstPaymentMonth, 
-      firstPaymentYear, 
-      daysToChargeFirstPayment,
-      daysInCurrentMonth: daysUntilEndOfStartMonth,
-      daysInNextMonth: daysInNextMonthUntilDue,
-      calculation: `${daysUntilEndOfStartMonth} (mês atual) + ${daysInNextMonthUntilDue} (próximo mês até venc-1) = ${daysToChargeFirstPayment}`,
-      example: `Exemplo: 10/07 até 31/07 (${daysUntilEndOfStartMonth} dias) + 01/08 até 04/08 (${daysInNextMonthUntilDue} dias) = ${daysToChargeFirstPayment} dias total`
-    });
-  }
+  // **ETAPA 1: Determinar o primeiro mês de cobrança (usa a função compartilhada)**
+  const { firstPaymentMonth, firstPaymentYear, days: daysToChargeFirstPayment } =
+    calculateFirstInstallment(startDate, paymentDay);
+
+  console.log("✅ [ETAPA 1] Primeira parcela calculada:", {
+    firstPaymentMonth,
+    firstPaymentYear,
+    daysToChargeFirstPayment,
+    isProportional: daysToChargeFirstPayment !== 30,
+  });
 
   // **ETAPA 2: Criar o primeiro recebimento (sempre parcela 1/XX)**
   // ✅ CORREÇÃO CRÍTICA: Calcular due_date PRIMEIRO, depois extrair reference dela
@@ -630,33 +669,17 @@ export function generateExpectedPayments(params: {
     explanation: "Agora reference é SEMPRE igual ao mês/ano da due_date"
   });
   
-  // ✅ CORREÇÃO CRÍTICA: Garantir que aluguel e garagem usem os MESMOS dias
-  const proportionalRent = (rentValue / 30) * daysToChargeFirstPayment;
-  const proportionalGarage = garage > 0 ? (garage / 30) * daysToChargeFirstPayment : 0;
-  const firstPaymentAmount = proportionalRent + proportionalGarage;
-
-  const firstPaymentBreakdown: Array<{ description: string; amount: number; type: string }> = [
-    {
-      description: `Aluguel - Parcela 1 (${daysToChargeFirstPayment} dias)`,
-      amount: parseFloat(proportionalRent.toFixed(2)),
-      type: "addition",
-    }
-  ];
-
-  if (garage > 0) {
-    firstPaymentBreakdown.push({
-      description: `Garagem (${daysToChargeFirstPayment} dias)`,
-      amount: parseFloat(proportionalGarage.toFixed(2)),
-      type: "addition",
-    });
-  }
+  // ✅ Usa a mesma função compartilhada que updateFuturePaymentsOnPaymentDayChange
+  // usa ao recalcular — garante que os dois nunca mais divirjam.
+  const { breakdown: firstPaymentBreakdown, expectedAmount: firstPaymentAmount } =
+    buildFirstInstallmentBreakdown(daysToChargeFirstPayment, rentValue, garage);
 
   paymentsToCreate.push({
     rental_id: rentalId,
     reference_month: String(referenceMonth).padStart(2, '0'), // ✅ CORRETO: extraído da due_date
     reference_year: String(referenceYear), // ✅ CORRETO: extraído da due_date
     due_date: firstPaymentDueDate,
-    expected_amount: parseFloat(firstPaymentAmount.toFixed(2)),
+    expected_amount: firstPaymentAmount,
     status: "pending",
     breakdown: firstPaymentBreakdown,
     installment: 1,
@@ -1045,11 +1068,55 @@ export const updateFuturePaymentsOnPaymentDayChange = async (
 
   console.log(`📊 ${futurePayments.length} datas de vencimento serão atualizadas`);
 
+  // ✅ CORREÇÃO CRÍTICA (causa raiz do bug da parcela 1 cobrando mês cheio):
+  // esta função só mexia na due_date. Se a parcela 1 (proporcional) ainda
+  // estava pendente quando o dia de vencimento era editado, o VALOR dela
+  // nunca era recalculado — continuava com o valor calculado para o dia de
+  // vencimento antigo. Agora, se a parcela 1 estiver entre os pagamentos
+  // futuros pendentes, o valor/descrição dela são recalculados com a mesma
+  // função usada na criação da locação.
+  const firstInstallmentPending = futurePayments.find((p) => p.installment === 1);
+  let rentalForRecalc: { start_date: string; rent_value: number; has_garage: boolean; garage_value: number } | null = null;
+
+  if (firstInstallmentPending) {
+    const { data: rentalData, error: rentalError } = await supabase
+      .from("rentals")
+      .select("start_date, rent_value, has_garage, garage_value")
+      .eq("id", rentalId)
+      .maybeSingle();
+
+    if (rentalError) throw rentalError;
+    rentalForRecalc = rentalData as any;
+  }
+
   const updates = futurePayments.map((payment) => {
     const refYear = typeof payment.reference_year === 'string' ? parseInt(payment.reference_year) : payment.reference_year;
     const refMonth = typeof payment.reference_month === 'string' ? parseInt(payment.reference_month) : payment.reference_month;
 
     const dueDate = getValidDueDate(newPaymentDay, refYear, refMonth);
+
+    if (payment.installment === 1 && rentalForRecalc?.start_date) {
+      const { days } = calculateFirstInstallment(rentalForRecalc.start_date, newPaymentDay);
+      const garageValue = rentalForRecalc.has_garage ? (rentalForRecalc.garage_value || 0) : 0;
+      const { breakdown, expectedAmount } = buildFirstInstallmentBreakdown(
+        days,
+        rentalForRecalc.rent_value || 0,
+        garageValue
+      );
+
+      console.log("🔁 Recalculando parcela 1 proporcional após mudança de dia de vencimento:", {
+        paymentId: payment.id,
+        days,
+        expectedAmount,
+      });
+
+      return {
+        id: payment.id,
+        due_date: dueDate,
+        expected_amount: expectedAmount,
+        breakdown,
+      };
+    }
 
     return {
       id: payment.id,
@@ -1058,10 +1125,11 @@ export const updateFuturePaymentsOnPaymentDayChange = async (
   });
 
   for (const update of updates) {
+    const { id, ...fields } = update;
     const { error } = await supabase
       .from("payments")
-      .update({ due_date: update.due_date })
-      .eq("id", update.id);
+      .update(fields)
+      .eq("id", id);
 
     if (error) throw error;
   }

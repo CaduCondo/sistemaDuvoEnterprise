@@ -166,14 +166,15 @@ export const usePayments = () => {
         const property = rental ? propertiesMap.get(rental.property_id) : null;
         const tenant = rental ? tenantsMap.get(rental.tenant_id) : null;
 
-        // ✅ CORREÇÃO: Converter attachments JSON para array de strings
+        // ✅ CORREÇÃO: Converter attachments JSON para array de strings (urls).
+        // Anexos são salvos como objetos { url, name, description } — o filtro
+        // antigo só aceitava strings puras e descartava TODOS os objetos,
+        // fazendo a coluna "Anexo" sempre mostrar "Não" mesmo quando existia.
         let attachmentsArray: string[] = [];
-        if (payment.attachments) {
-          if (Array.isArray(payment.attachments)) {
-            // Json[] pode conter strings ou outros tipos - filtrar apenas strings
-            attachmentsArray = (payment.attachments as any[])
-              .filter(item => typeof item === 'string') as string[];
-          }
+        if (payment.attachments && Array.isArray(payment.attachments)) {
+          attachmentsArray = (payment.attachments as any[])
+            .map((item) => (typeof item === "string" ? item : item?.url))
+            .filter((url): url is string => typeof url === "string" && url.length > 0);
         }
 
         // ✅ CORREÇÃO CRÍTICA: Calcular referenceMonth e referenceYear SEMPRE a partir de due_date
@@ -191,6 +192,7 @@ export const usePayments = () => {
           referenceYear: calculatedYear,
           dueDate: payment.due_date,
           paymentDate: payment.payment_date || null,
+          paymentTime: payment.payment_time || null,
           expectedAmount: payment.expected_amount || 0,
           paidAmount: payment.paid_amount || 0,
           status: payment.status as "pending" | "paid" | "overdue" | "partial",
@@ -200,6 +202,7 @@ export const usePayments = () => {
           interest: 0,
           breakdown: null,
           attachments: attachmentsArray,
+          partialPayments: Array.isArray(payment.partial_payments) ? payment.partial_payments : [],
           pixCode: payment.pix_code || null,
           installment: payment.installment || 1,
           totalInstallments: payment.total_installments || 1,

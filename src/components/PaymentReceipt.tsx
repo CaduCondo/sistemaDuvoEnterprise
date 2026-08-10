@@ -16,6 +16,11 @@ interface PaymentReceiptProps {
   onClose: () => void;
   lateFee?: number;
   interest?: number;
+  // Quando true, não busca o pagamento de novo no banco pelo id — usa só os
+  // valores recebidos via props. Necessário para recibos de um pagamento
+  // parcial específico dentro do histórico, cujo id é o mesmo da linha em
+  // `payments` (que guarda o valor acumulado, não o daquela parcela).
+  skipFetch?: boolean;
 }
 
 interface BreakdownItem {
@@ -32,6 +37,7 @@ export function PaymentReceipt({
   onClose,
   lateFee: propLateFee,
   interest: propInterest,
+  skipFetch = false,
 }: PaymentReceiptProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const [paymentFromDB, setPaymentFromDB] = useState<any>(null);
@@ -111,7 +117,7 @@ export function PaymentReceipt({
 
   useEffect(() => {
     const fetchPaymentDetails = async () => {
-      if (!payment.id) return;
+      if (!payment.id || skipFetch) return;
       
       console.log("🔍 BUSCANDO DADOS COMPLETOS DO PAGAMENTO:", payment.id);
       
@@ -138,7 +144,7 @@ export function PaymentReceipt({
     };
 
     fetchPaymentDetails();
-  }, [payment.id]);
+  }, [payment.id, skipFetch]);
 
   // Usar dados do banco se disponíveis, senão usar props
   const paymentData = paymentFromDB || payment;
@@ -821,9 +827,12 @@ export function PaymentReceipt({
       year: "numeric"
     }).toUpperCase();
     
-    // Tentar pegar a hora do campo payment_time se existir
-    // Se não, usar 12:00 como padrão
-    const timeStr = payment.paymentTime || "12:00";
+    // ✅ CORREÇÃO: payment.paymentTime (camelCase) nunca era preenchido por
+    // quem chama esse componente — sempre caía no fallback "12:00", mesmo
+    // quando um horário real tinha sido registrado. paymentData vem de um
+    // fetch fresco na tabela `payments` (payment_time, snake_case) e reflete
+    // o horário realmente salvo.
+    const timeStr = paymentData.payment_time || payment.paymentTime || "12:00";
     
     return `SÃO PAULO, ${formattedDate}, ${timeStr}`;
   };

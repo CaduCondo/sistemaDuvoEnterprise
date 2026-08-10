@@ -60,6 +60,7 @@ export default function Payments() {
     paymentToCancel: null as string | null,
     showReceiptDialog: false,
     selectedPayment: null as Payment | null,
+    receiptSkipFetch: false,
   });
 
   const [sortKeyPending, setSortKeyPending] = useState<string | null>(null);
@@ -257,7 +258,7 @@ export default function Payments() {
     setUiState(prev => ({ ...prev, paymentToCancel: paymentId }));
   }, []);
 
-  const handleViewReceipt = useCallback(async (payment: Payment) => {
+  const handleViewReceipt = useCallback(async (payment: Payment, entryOverride?: any) => {
     console.log("🔍 [handleViewReceipt] Iniciando busca de dados completos...");
     console.log("🔍 [handleViewReceipt] Payment:", payment.id);
     
@@ -425,18 +426,36 @@ export default function Payments() {
       console.log("🔍 [handleViewReceipt] tenant.name:", tenant.name);
       
       // 6. Criar payment completo COM property e tenant anexados
+      // ✅ Se veio um pagamento específico do histórico (entryOverride), o
+      // recibo deve refletir SÓ aquela parcela (valor, data, hora, forma de
+      // pagamento e anexos daquele momento) — não o total acumulado da linha.
       const completePayment: Payment = {
         ...payment,
         property,
         tenant,
         rental,
+        ...(entryOverride
+          ? {
+              paidAmount: Number(entryOverride.amount || 0),
+              expectedAmount: Number(entryOverride.amount || 0),
+              paymentDate: entryOverride.payment_date || null,
+              paymentTime: entryOverride.payment_time || null,
+              paymentMethod: entryOverride.payment_method || null,
+              notes: entryOverride.notes || null,
+              attachments: Array.isArray(entryOverride.attachments)
+                ? entryOverride.attachments.map((a: any) => (typeof a === "string" ? a : a?.url)).filter(Boolean)
+                : [],
+              breakdown: null,
+            }
+          : {}),
       };
-      
+
       // 7. Abrir recibo com dados completos
       setUiState(prev => ({
         ...prev,
         selectedPayment: completePayment,
         showReceiptDialog: true,
+        receiptSkipFetch: !!entryOverride,
       }));
       
     } catch (error) {
@@ -907,10 +926,27 @@ export default function Payments() {
       key: "amount", 
       label: "Valor Esperado",
       headerClassName: "text-center",
-      className: "text-right", 
+      className: "text-right",
       render: (p: Payment) => {
         const textColor = getDueDateTextColor(p.dueDate, false);
-        return <span className={`font-bold text-lg ${textColor}`}>{getExpectedAmount(p).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>;
+        const expected = getExpectedAmount(p);
+        const isPartial = p.status === "partial" && (p.paidAmount || 0) > 0;
+
+        if (isPartial) {
+          const remaining = expected - (p.paidAmount || 0);
+          return (
+            <div className={textColor}>
+              <div className="font-bold text-base leading-tight">
+                {remaining.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </div>
+              <div className="text-xs font-medium text-muted-foreground leading-tight">
+                de {expected.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </div>
+            </div>
+          );
+        }
+
+        return <span className={`font-bold text-lg ${textColor}`}>{expected.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>;
       }
     }
   ], [getMonthName, getPaymentInstallment, getExpectedAmount]);
@@ -948,14 +984,56 @@ export default function Payments() {
         );
       }
     },
-    { key: "actions", label: "Ações", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[120px]", render: (p: Payment) => (
-      <div className="flex flex-col items-center gap-1">
-        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleViewReceipt(p); }} title="Ver Recibo">Recibo</Button>
-        {permissions.canDeletePayment && (
-          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={(e) => handleCancelPayment(p.id, e)} title="Cancelar Pagamento">Cancelar</Button>
-        )}
-      </div>
-    )}
+    {
+      key: "actions",
+      label: "Recibo",
+      sortable: false,
+      headerClassName: "text-center",
+      cellClassName: "text-center px-2",
+      className: "w-[140px]",
+      render: (p: Payment) => {
+        // ✅ Um recebimento pago em várias vezes tem um recibo POR pagamento —
+        // mostra 1 botão numerado por entrada do histórico. Se não teve
+        // histórico (pagamento único, sem parcelamento), cai num botão "1"
+        // representando o próprio pagamento da linha.
+        const entries = Array.isArray(p.partialPayments) && p.partialPayments.length > 0
+          ? p.partialPayments
+          : [{
+              amount: p.paidAmount,
+              payment_date: p.paymentDate,
+              payment_time: (p as any).paymentTime,
+              payment_method: p.paymentMethod,
+              notes: p.notes,
+              attachments: p.attachments,
+            }];
+
+        // Quanto mais recibos, menor cada botão precisa ser para caber na coluna.
+        const sizeClass =
+          entries.length === 1 ? "h-8 w-auto px-4 text-sm" :
+          entries.length === 2 ? "h-8 w-9 text-sm" :
+          "h-7 w-7 text-xs";
+
+        return (
+          <div className="flex items-center justify-center gap-1 flex-wrap">
+            {entries.map((entry: any, idx: number) => (
+              <Button
+                key={idx}
+                variant="outline"
+                size="sm"
+                className={`${sizeClass} border-2 border-primary/60 font-semibold text-primary hover:bg-primary hover:text-primary-foreground`}
+                title={`Recibo ${idx + 1}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleViewReceipt(p, entry);
+                }}
+              >
+                {idx + 1}
+              </Button>
+            ))}
+          </div>
+        );
+      }
+    }
   ], [getMonthName, getPaymentInstallment, permissions, handleViewReceipt, handleCancelPayment]);
 
   return (
@@ -1188,6 +1266,7 @@ export default function Payments() {
           rental={(uiState.selectedPayment.rental || rentals.find(r => r.id === uiState.selectedPayment!.rentalId)) as any}
           property={uiState.selectedPayment.property as any}
           tenant={uiState.selectedPayment.tenant as any}
+          skipFetch={uiState.receiptSkipFetch}
           onClose={() => {
             // ✅ CORREÇÃO: sem remoção manual de nós do DOM (isso desincroniza o React
             // e pode travar a página). Só limpeza segura de estilos do body.
@@ -1196,6 +1275,7 @@ export default function Payments() {
               showReceiptDialog: false,
               selectedPayment: null,
               selectedPaymentId: null,
+              receiptSkipFetch: false,
             }));
 
             setTimeout(() => {
@@ -1220,6 +1300,7 @@ export default function Payments() {
               paymentId={uiState.selectedPaymentId}
               onSuccess={handleManagePaymentSuccess}
               onClose={() => setUiState(prev => ({ ...prev, selectedPaymentId: null }))}
+              onCancelPayment={permissions.canDeletePayment ? (id) => setUiState(prev => ({ ...prev, paymentToCancel: id, selectedPaymentId: null })) : undefined}
               embedded
             />
           )}
