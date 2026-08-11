@@ -41,6 +41,7 @@ export function Lightbox({ images, currentIndex, isOpen, onClose, onNavigate }: 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
       <Button
+        type="button"
         variant="ghost"
         size="icon"
         className="absolute top-4 right-4 text-white hover:bg-white/20"
@@ -52,6 +53,7 @@ export function Lightbox({ images, currentIndex, isOpen, onClose, onNavigate }: 
       {images.length > 1 && (
         <>
           <Button
+            type="button"
             variant="ghost"
             size="icon"
             className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20"
@@ -61,6 +63,7 @@ export function Lightbox({ images, currentIndex, isOpen, onClose, onNavigate }: 
           </Button>
 
           <Button
+            type="button"
             variant="ghost"
             size="icon"
             className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20"
