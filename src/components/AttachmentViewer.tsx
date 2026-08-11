@@ -38,6 +38,14 @@ export function AttachmentViewer({ attachments, onRemove }: AttachmentViewerProp
 
   const isImage = (type: string) => type.startsWith("image/");
   const isPDF = (type: string) => type === "application/pdf";
+  const isWord = (type: string) =>
+    type === "application/msword" ||
+    type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+  // Visualizador online da Microsoft: mostra o conteúdo do Word numa aba nova sem
+  // baixar. Só funciona se o link do arquivo for público e acessível pela internet.
+  const getWordViewerUrl = (url: string) =>
+    `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(url)}`;
 
   return (
     <div className="space-y-2">
@@ -71,34 +79,51 @@ export function AttachmentViewer({ attachments, onRemove }: AttachmentViewerProp
             </div>
 
             <div className="flex items-center gap-2 flex-shrink-0">
-              {isImage(attachment.type) && (
+              {/* Visualizar: imagem (lightbox), PDF (navegador exibe inline) e Word (visualizador online) */}
+              {(isImage(attachment.type) || isPDF(attachment.type) || isWord(attachment.type)) && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    const imageIndex = imageAttachments.findIndex(img => img.id === attachment.id);
-                    handleViewImage(imageIndex);
+                    if (isImage(attachment.type)) {
+                      const imageIndex = imageAttachments.findIndex(img => img.id === attachment.id);
+                      handleViewImage(imageIndex);
+                      return;
+                    }
+
+                    // PDF: navegador exibe o conteúdo em nova aba
+                    // Word: visualizador online da Microsoft mostra o conteúdo em nova aba
+                    const urlToOpen = isWord(attachment.type)
+                      ? getWordViewerUrl(normalizedUrl)
+                      : normalizedUrl;
+
+                    const newWindow = window.open(urlToOpen, "_blank");
+                    if (!newWindow) {
+                      console.error("❌ Erro ao abrir anexo:", urlToOpen);
+                      alert("Não foi possível abrir o anexo. Verifique se o arquivo ainda existe.");
+                    }
                   }}
                   title="Visualizar"
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
               )}
-              
+
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  // ✅ CORREÇÃO: Tentar abrir em nova aba com URL normalizada
+                  // Baixar sempre disponível: alternativa caso o visualizador não funcione
+                  // (ex.: link não é público) ou para tipos sem preview possível.
                   const newWindow = window.open(normalizedUrl, "_blank");
                   if (!newWindow) {
                     console.error("❌ Erro ao abrir anexo:", normalizedUrl);
                     alert("Não foi possível abrir o anexo. Verifique se o arquivo ainda existe.");
                   }
                 }}
-                title="Baixar/Abrir"
+                title="Baixar"
               >
                 <Download className="h-4 w-4" />
               </Button>
