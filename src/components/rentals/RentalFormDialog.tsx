@@ -425,15 +425,10 @@ export const RentalFormDialog = memo(function RentalFormDialog({
           location: selectedLocation,
         });
 
-        // ✅ CORREÇÃO: não abrir a tela de Contrato ao mesmo tempo que o alerta de
-        // sucesso - os dois modais sobrepostos faziam o clique em "OK" fechar os dois
-        // juntos. Agora o Contrato só abre depois que o usuário confirma o alerta.
-        showAlert({
-          title: "Sucesso!",
-          description: "Locação criada com sucesso.",
-          type: "success",
-          onConfirm: () => setShowContract(true),
-        });
+        // ✅ CORREÇÃO: na criação, mostrar o Contrato primeiro. O aviso de sucesso só
+        // aparece depois que o usuário fecha o Contrato (ver onClose do RentalContract
+        // mais abaixo), evitando dois modais empilhados.
+        setShowContract(true);
       } else {
         console.log("🔄 [RentalFormDialog] EDITANDO locação:", rental.id);
         console.log("📦 [RentalFormDialog] Dados sendo enviados:", commonData);
@@ -476,13 +471,17 @@ export const RentalFormDialog = memo(function RentalFormDialog({
           location: locations.find((loc) => loc.id === propertySelected.locationId),
         });
 
-        // ✅ CORREÇÃO: mesma correção do fluxo de criação - abrir o Contrato só
-        // depois do usuário confirmar o alerta de sucesso.
+        // ✅ CORREÇÃO: edição NÃO abre o Contrato automaticamente - só mostra o aviso
+        // de sucesso. Ao confirmar, fecha a tela de edição e atualiza a lista.
         showAlert({
           title: "Sucesso!",
           description: "Locação atualizada com sucesso.",
           type: "success",
-          onConfirm: () => setShowContract(true),
+          onConfirm: () => {
+            onOpenChange(false);
+            resetForm();
+            onSuccess();
+          },
         });
       }
     } catch (error: any) {
@@ -496,12 +495,12 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       setLoading(false);
     }
   }, [
-    selectedPropertyId, selectedTenantId, startDate, paymentDay, 
-    hasGarage, garageValue, isDepositInstallment, depositInstallmentCount, 
-    depositInstallment2, depositInstallment3, depositAmount, endDate, 
-    hasPartnerBroker, attachments, depositPaymentDate, depositPixCode, 
-    depositInstallment2PaymentDate, depositInstallment3PaymentDate, 
-    rental, isViewMode, locations, showAlert
+    selectedPropertyId, selectedTenantId, startDate, paymentDay,
+    hasGarage, garageValue, isDepositInstallment, depositInstallmentCount,
+    depositInstallment2, depositInstallment3, depositAmount, endDate,
+    hasPartnerBroker, attachments, depositPaymentDate, depositPixCode,
+    depositInstallment2PaymentDate, depositInstallment3PaymentDate,
+    rental, isViewMode, locations, showAlert, onOpenChange, onSuccess, resetForm
   ]);
 
   const handleCloseDialog = useCallback(() => {
@@ -1202,6 +1201,12 @@ export const RentalFormDialog = memo(function RentalFormDialog({
             resetForm();
             onOpenChange(false);
             onSuccess();
+            // Aviso de sucesso só aparece depois que o Contrato foi fechado.
+            showAlert({
+              title: "Sucesso!",
+              description: "Locação criada com sucesso.",
+              type: "success",
+            });
           }}
         />
       )}
