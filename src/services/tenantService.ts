@@ -37,50 +37,55 @@ function validateRequiredTenantFields(data: Partial<Tenant>): void {
 
 function toDatabase(data: Partial<Tenant>): any {
   console.log("🔄 [tenantService.toDatabase] Dados recebidos:", JSON.stringify(data, null, 2));
-  
-  // ✅ ULTRA-SIMPLES: Criar objeto com TODOS os campos SEMPRE
-  const dbData: any = {
-    // CAMPOS OBRIGATÓRIOS
-    name: data.name || "",
-    email: data.email || "",
-    phone: data.phone || "",
-    status: data.status || "active",
-    
-    // CAMPOS OPCIONAIS - null se vazio
-    cpf: data.cpf || null,
-    rg: data.rg || null,
-    occupation: data.occupation || null,
-    marital_status: data.marital_status || data.maritalStatus || null,
-    monthly_income: null, // Vai ser calculado abaixo
-    document_type: data.document_type || data.documentType || "cpf",
-    zip_code: data.cep || null,
-    street: data.street || null,
-    number: data.number || null,
-    complement: data.complement || null,
-    neighborhood: data.neighborhood || null,
-    city: data.city || null,
-    state: data.state || null,
-  };
-  
-  // ✅ CAMPO DOCUMENT - baseado no document_type
-  if (dbData.document_type === "cpf") {
-    dbData.document = data.cpf || null;
+
+  // ✅ CORRIGIDO (bug crítico): antes esta função sempre montava o pacote com
+  // TODOS os campos, preenchendo com "" ou null qualquer campo que não veio em `data`.
+  // Isso é seguro quando `data` é o formulário inteiro (criação/edição pela tela),
+  // mas quebra totalmente quando alguém chama update() com um objeto parcial -
+  // por exemplo, a criação de Locação chama updateTenant(id, { status: "rented" })
+  // só pra marcar o status, e essa função apagava nome, telefone, e-mail etc.
+  // Agora só incluímos no pacote os campos que realmente vieram em `data`.
+  const dbData: any = {};
+
+  if (data.name !== undefined) dbData.name = data.name || "";
+  if (data.email !== undefined) dbData.email = data.email || "";
+  if (data.phone !== undefined) dbData.phone = data.phone || "";
+  if (data.status !== undefined) dbData.status = data.status || "active";
+  if (data.cpf !== undefined) dbData.cpf = data.cpf || null;
+  if (data.rg !== undefined) dbData.rg = data.rg || null;
+  if (data.occupation !== undefined) dbData.occupation = data.occupation || null;
+  if (data.marital_status !== undefined) dbData.marital_status = data.marital_status || null;
+  else if (data.maritalStatus !== undefined) dbData.marital_status = data.maritalStatus || null;
+  if (data.document_type !== undefined) dbData.document_type = data.document_type || "cpf";
+  else if (data.documentType !== undefined) dbData.document_type = data.documentType || "cpf";
+  if (data.cep !== undefined) dbData.zip_code = data.cep || null;
+  if (data.street !== undefined) dbData.street = data.street || null;
+  if (data.number !== undefined) dbData.number = data.number || null;
+  if (data.complement !== undefined) dbData.complement = data.complement || null;
+  if (data.neighborhood !== undefined) dbData.neighborhood = data.neighborhood || null;
+  if (data.city !== undefined) dbData.city = data.city || null;
+  if (data.state !== undefined) dbData.state = data.state || null;
+
+  // ✅ CAMPO DOCUMENT - baseado no document_type, só se cpf/cnpj vieram
+  const docType = dbData.document_type || data.document_type || data.documentType;
+  if (docType === "cnpj") {
+    if (data.cnpj !== undefined) dbData.document = data.cnpj || null;
   } else {
-    dbData.document = data.cnpj || null;
+    if (data.cpf !== undefined) dbData.document = data.cpf || null;
   }
-  
+
   // ✅ MONTHLY_INCOME
-  if (data.monthly_income !== undefined && data.monthly_income !== null) {
+  if (data.monthly_income !== undefined) {
     const raw = typeof data.monthly_income === 'string' ? parseFloat(data.monthly_income) : data.monthly_income;
-    dbData.monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
-  } else if (data.monthlyIncome !== undefined && data.monthlyIncome !== null) {
+    dbData.monthly_income = raw !== null && !isNaN(raw as number) && (raw as number) > 0 ? Math.round((raw as number) * 100) / 100 : null;
+  } else if (data.monthlyIncome !== undefined) {
     const raw = typeof data.monthlyIncome === 'string' ? parseFloat(data.monthlyIncome) : data.monthlyIncome;
-    dbData.monthly_income = !isNaN(raw) && raw > 0 ? Math.round(raw * 100) / 100 : null;
+    dbData.monthly_income = raw !== null && !isNaN(raw as number) && (raw as number) > 0 ? Math.round((raw as number) * 100) / 100 : null;
   }
-  
+
   console.log("📤 [tenantService.toDatabase] PAYLOAD FINAL:", JSON.stringify(dbData, null, 2));
   console.log("📤 [tenantService.toDatabase] Campos incluídos:", Object.keys(dbData).length);
-  
+
   return dbData;
 }
 
