@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAlert } from "@/contexts/AlertContext";
-import { Camera, Paperclip } from "lucide-react";
 import { formatCurrency, parseCurrencyToNumber, applyMoneyMask, formatMoneyForDisplay, parseMoneyMaskToNumber } from "@/lib/masks";
 import { create as createRental, update as updateRentalService } from "@/services/rentalService";
 import { update as updateProperty } from "@/services/propertyService";
@@ -21,6 +20,7 @@ import {
 } from "@/services/depositInstallmentService";
 import type { Property, Tenant, Location, Rental } from "@/types";
 import { AttachmentViewer } from "@/components/AttachmentViewer";
+import { AttachmentUploadButton } from "@/components/attachments/AttachmentUploadButton";
 import { RentalContract } from "@/components/RentalContract";
 import { DepositPaymentDialog } from "@/components/rentals/DepositPaymentDialog";
 import { useRentalForm } from "@/hooks/useRentalForm";
@@ -231,11 +231,24 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     }
   }, [open, rental, preselectedTenantId]);
 
-  const onFileInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    await handleFileUpload(files[0]);
-  }, [handleFileUpload]);
+  const onFilesSelected = useCallback(async (files: File[]) => {
+    for (const file of files) {
+      try {
+        await handleFileUpload(file);
+      } catch (error) {
+        console.error("Erro ao anexar arquivo:", error);
+        showAlert({
+          title: "Erro ao anexar arquivo",
+          description: `Não foi possível enviar "${file.name}".`,
+          type: "error",
+        });
+      }
+    }
+  }, [handleFileUpload, showAlert]);
+
+  const onUploadError = useCallback((message: string) => {
+    showAlert({ title: "Arquivo não permitido", description: message, type: "error" });
+  }, [showAlert]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1088,36 +1101,24 @@ export const RentalFormDialog = memo(function RentalFormDialog({
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label>Anexos</Label>
-            
-            {attachments.length > 0 && (
-              <AttachmentViewer 
-                attachments={attachments} 
-                onRemove={(id: string) => removeAttachment(id)} 
+
+            {!isFieldDisabled && (
+              <AttachmentUploadButton
+                id="rentalFileUpload"
+                multiple
+                onFilesSelected={onFilesSelected}
+                onError={onUploadError}
               />
             )}
-            
-            <div className="w-full">
-              <input
-                id="rentalFileUpload"
-                type="file"
-                accept="image/*,.pdf,.doc,.docx"
-                capture="environment"
-                className="hidden"
-                onChange={onFileInputChange}
+
+            {attachments.length > 0 && (
+              <AttachmentViewer
+                attachments={attachments}
+                onRemove={(id: string) => removeAttachment(id)}
               />
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-12"
-                onClick={() => document.getElementById("rentalFileUpload")?.click()}
-                disabled={isFieldDisabled}
-              >
-                <Paperclip className="mr-2 h-5 w-5" />
-                Escolher Arquivo
-              </Button>
-            </div>
+            )}
           </div>
 
           <DialogFooter>

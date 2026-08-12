@@ -28,6 +28,7 @@ import { ptBR } from "date-fns/locale";
 import { getAllPaymentMethods } from "@/services/paymentMethodService";
 import { LateFeeInterestBlock } from "@/components/payments/LateFeeInterestBlock";
 import { PaymentAttachments } from "@/components/payments/PaymentAttachments";
+import { validateAttachmentFile } from "@/lib/attachmentValidation";
 
 interface DepositPaymentDialogProps {
   open: boolean;
@@ -205,28 +206,11 @@ export function DepositPaymentDialog({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const maxSize = 15 * 1024 * 1024;
-    if (file.size > maxSize) {
+    const validation = validateAttachmentFile(file);
+    if (!validation.ok) {
       showAlert({
-        title: "Arquivo muito grande",
-        description: `O arquivo tem ${(file.size / 1024 / 1024).toFixed(2)}MB. O tamanho máximo é 15MB`,
-        type: "error",
-      });
-      return;
-    }
-
-    const allowedTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-    ];
-
-    if (!allowedTypes.includes(file.type)) {
-      showAlert({
-        title: "Tipo de arquivo não suportado",
-        description: "Apenas imagens (JPG, PNG, WEBP) e PDF são permitidos",
+        title: "Arquivo não permitido",
+        description: validation.message,
         type: "error",
       });
       return;
