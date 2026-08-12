@@ -469,234 +469,29 @@ export default function Payments() {
   }, [showAlert]);
 
   const handleManagePaymentSuccess = useCallback(async () => {
-    const paymentId = uiState.selectedPaymentId;
-    
     // ✅ CORREÇÃO: Fechar o modal de edição PRIMEIRO
-    setUiState(prev => ({ 
-      ...prev, 
+    setUiState(prev => ({
+      ...prev,
       selectedPaymentId: null,
       showReceiptDialog: false,
       selectedPayment: null,
     }));
-    
+
     // ✅ CORREÇÃO: Aguardar um momento para garantir que o DOM foi limpo
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     // 🔥 CORREÇÃO: Recarregar com os filtros corretos
     await loadPayments(selectedMonth.toString(), selectedYear.toString());
-    
-    // 🔥 NOVA ABORDAGEM: Buscar dados completos DIRETAMENTE do banco COM JOINS
-    if (paymentId) {
-      try {
-        // Buscar o payment atualizado
-        const { data: paymentData, error: paymentError } = await supabase
-          .from("payments")
-          .select("*")
-          .eq("id", paymentId)
-          .single();
-          
-        if (paymentError) throw paymentError;
-        
-        if (paymentData) {
-          // Buscar a rental associada
-          const { data: rentalData, error: rentalError } = await supabase
-            .from("rentals")
-            .select("*")
-            .eq("id", paymentData.rental_id)
-            .single();
-            
-          if (rentalError) throw rentalError;
-          
-          if (rentalData) {
-            // 🔥 CORREÇÃO CRÍTICA: Buscar property COM location via JOIN
-            const { data: propertyData, error: propertyError } = await supabase
-              .from("properties")
-              .select(`
-                *,
-                locations:location_id (
-                  id,
-                  name,
-                  street,
-                  number,
-                  complement,
-                  neighborhood,
-                  city,
-                  state,
-                  zip_code
-                )
-              `)
-              .eq("id", rentalData.property_id)
-              .single();
-              
-            if (propertyError) throw propertyError;
-            
-            // Buscar tenant
-            const { data: tenantData, error: tenantError } = await supabase
-              .from("tenants")
-              .select("*")
-              .eq("id", rentalData.tenant_id)
-              .single();
-              
-            if (tenantError) throw tenantError;
-            
-            if (propertyData && tenantData) {
-              // Extrair dados da location
-              const locationData = propertyData.locations as any;
-              
-              // Converter os dados do banco para o formato do tipo Payment
-              const payment: Payment = {
-                id: paymentData.id,
-                rentalId: paymentData.rental_id,
-                propertyId: rentalData.property_id,
-                tenantId: rentalData.tenant_id,
-                referenceMonth: Number(paymentData.reference_month),
-                referenceYear: Number(paymentData.reference_year),
-                dueDate: paymentData.due_date,
-                expectedAmount: paymentData.expected_amount || 0,
-                paidAmount: paymentData.paid_amount || 0,
-                status: paymentData.status as "pending" | "paid" | "overdue" | "partial",
-                paymentDate: paymentData.payment_date || null,
-                paymentMethod: paymentData.payment_method || null,
-                notes: paymentData.notes || null,
-                lateFee: paymentData.late_fee || 0,
-                interest: paymentData.interest || 0,
-                breakdown: paymentData.breakdown || null,
-                attachments: paymentData.attachments as any,
-                installment: paymentData.installment || 1,
-                totalInstallments: paymentData.total_installments || 24,
-              };
-              
-              // Converter rental com valores corretos
-              const rental: Rental = {
-                id: rentalData.id,
-                propertyId: rentalData.property_id,
-                property_id: rentalData.property_id,
-                tenantId: rentalData.tenant_id,
-                tenant_id: rentalData.tenant_id,
-                startDate: rentalData.start_date,
-                start_date: rentalData.start_date,
-                endDate: rentalData.end_date,
-                end_date: rentalData.end_date,
-                value: rentalData.rent_value || 0,
-                monthlyRent: rentalData.rent_value || 0,
-                monthly_rent: rentalData.rent_value || 0,
-                paymentDay: 10,
-                depositAmount: rentalData.security_deposit || rentalData.deposit_value || 0,
-                deposit_amount: rentalData.security_deposit || rentalData.deposit_value || 0,
-                security_deposit: rentalData.security_deposit || rentalData.deposit_value || 0,
-                status: (rentalData.status === "active" || rentalData.status === "ended" || rentalData.status === "terminated") 
-                  ? rentalData.status 
-                  : "active" as "active" | "ended" | "terminated",
-                isActive: rentalData.status === "active",
-                is_active: rentalData.status === "active",
-                attachments: [],
-                contractAttachments: [],
-                contract_attachments: [],
-                hasGarage: rentalData.has_garage || false,
-                has_garage: rentalData.has_garage || false,
-                garageValue: rentalData.garage_value || 0,
-                garage_value: rentalData.garage_value || 0,
-                hasPartnerBroker: false,
-                has_partner_broker: false,
-                installments: rentalData.deposit_installments || 24,
-                totalInstallments: rentalData.deposit_installments || 24,
-              };
-              
-              // 🔥 CORREÇÃO: Converter property COM dados da location E TODOS OS CAMPOS OBRIGATÓRIOS
-              const property: Property = {
-                id: propertyData.id,
-                locationId: propertyData.location_id,
-                location_id: propertyData.location_id,
-                location: locationData?.name || "",
-                propertyIdentifier: propertyData.property_identifier || "",
-                property_identifier: propertyData.property_identifier || "",
-                complement: locationData?.complement || propertyData.complement || "",
-                description: propertyData.description || "",
-                rooms: propertyData.rooms || 0,
-                bathrooms: propertyData.bathrooms || 0,
-                area: propertyData.area || 0,
-                value: propertyData.value || 0,
-                hasGarage: propertyData.has_garage || false,
-                has_garage: propertyData.has_garage || false,
-                hasFurniture: propertyData.has_furniture || false,
-                has_furniture: propertyData.has_furniture || false,
-                acceptsPets: propertyData.accepts_pets || false,
-                accepts_pets: propertyData.accepts_pets || false,
-                status: (propertyData.status === "available" || propertyData.status === "occupied" || propertyData.status === "unavailable")
-                  ? propertyData.status
-                  : "available" as "available" | "occupied" | "unavailable",
-                images: [],
-                createdAt: propertyData.created_at,
-                created_at: propertyData.created_at,
-                address: locationData?.street || "",
-                features: [],
-                type: "apartment" as "apartment" | "house" | "commercial",
-                monthlyRent: rentalData.rent_value || 0,
-                number: locationData?.number || propertyData.property_identifier || "",
-                neighborhood: locationData?.neighborhood || "",
-                city: locationData?.city || "",
-                state: locationData?.state || "",
-                zipCode: locationData?.zip_code || "",
-              };
-              
-              // Converter tenant
-              const tenant: Tenant = {
-                id: tenantData.id,
-                name: tenantData.name,
-                email: tenantData.email,
-                phone: tenantData.phone,
-                cpf: tenantData.cpf || tenantData.document || "",
-                rg: tenantData.rg || "",
-                createdAt: tenantData.created_at,
-                document: tenantData.document || tenantData.cpf || "",
-                status: (tenantData.status === "active" || tenantData.status === "inactive" || tenantData.status === "rented")
-                  ? tenantData.status
-                  : "active" as "active" | "inactive" | "rented",
-              };
-              
-              // ✅ CORREÇÃO: Aguardar mais um momento para garantir que tudo foi limpo
-              await new Promise(resolve => setTimeout(resolve, 150));
 
-              // 🔥 CORREÇÃO CRÍTICA: anexar property/tenant/rental ao payment antes de abrir
-              // o recibo - eles eram buscados mas nunca eram anexados, por isso o recibo
-              // (e o compartilhamento via WhatsApp) mostrava "LOCATÁRIO NÃO INFORMADO" e
-              // "IMÓVEL NÃO INFORMADO".
-              const completePayment: Payment = {
-                ...payment,
-                property,
-                tenant,
-                rental,
-              };
-
-              // Abrir o recibo com os dados completos
-              setUiState(prev => ({
-                ...prev,
-                selectedPayment: completePayment,
-                showReceiptDialog: true,
-              }));
-
-              return;
-            }
-          }
-        }
-        
-        // Se chegou aqui, algo deu errado
-        showAlert({
-          title: "Aviso",
-          description: "Recebimento registrado, mas não foi possível carregar os dados completos. Recarregue a página.",
-          type: "error",
-        });
-        
-      } catch (error) {
-        console.error("❌ Erro ao buscar dados completos:", error);
-        showAlert({
-          title: "Erro",
-          description: "Erro ao buscar dados do recebimento.",
-          type: "error",
-        });
-      }
-    }
-  }, [uiState.selectedPaymentId, loadPayments, selectedMonth, selectedYear, showAlert]);
+    // ✅ CORREÇÃO: não abre mais o Recibo automaticamente ao salvar/editar um
+    // recebimento (a pedido do usuário) - mostra só uma mensagem de sucesso.
+    // Quem quiser ver o recibo, clica em "Ver Recibo" normalmente.
+    showAlert({
+      title: "Sucesso!",
+      description: "Recebimento atualizado com sucesso.",
+      type: "success",
+    });
+  }, [loadPayments, selectedMonth, selectedYear, showAlert]);
 
   // Pagamentos filtrados por busca e separados por status
   const { pendingPayments, paidPayments } = useMemo(() => {
