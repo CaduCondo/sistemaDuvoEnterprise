@@ -1,10 +1,8 @@
-# 🚀 GUIA RÁPIDO - Rodar Testes no VSCode
+# 🚀 Guia rápido — configurar o ambiente local e rodar os testes
 
-## 📋 PASSO A PASSO (copie e cole cada comando)
+## 1️⃣ Sincronizar seu repositório local com o GitHub
 
-### 1️⃣ Sincronizar seu repositório local com o GitHub/Softgen
-
-Abra o terminal do VSCode (Ctrl + ') e cole estes 3 comandos:
+Abra o terminal do VS Code (Ctrl + `) e cole:
 
 ```bash
 git fetch origin
@@ -12,34 +10,29 @@ git reset --hard origin/main
 git clean -fd
 ```
 
-✅ **O que isso faz?** Baixa todas as alterações do Softgen e descarta qualquer mudança local
+✅ **O que isso faz?** Baixa a versão mais recente do GitHub e descarta qualquer mudança local não commitada.
+
+⚠️ Só rode isso se não tiver nenhuma alteração local que queira manter — `git clean -fd` apaga arquivos não commitados.
 
 ---
 
-### 2️⃣ Configurar as chaves do Supabase (APENAS 1 VEZ)
-
-Cole este comando no terminal:
+## 2️⃣ Configurar as chaves do Supabase (só na primeira vez)
 
 ```bash
 npm run setup:env
 ```
 
-O assistente vai te pedir 3 informações:
-
 **🔑 Onde encontrar suas chaves:**
-1. Acesse: https://supabase.com/dashboard
-2. Clique no seu projeto
-3. Vá em **Settings** → **API**
-4. Copie e cole quando o assistente pedir:
-   - **Project URL** (ex: https://xyz.supabase.co)
-   - **anon key** (começa com eyJ...)
-   - **service_role key** (começa com eyJ...)
+1. Acesse https://supabase.com/dashboard
+2. Clique no projeto de **desenvolvimento** (nunca no de produção, para não misturar dados)
+3. Vá em **Settings → API**
+4. Copie e cole quando o assistente pedir: **Project URL**, **anon key**, **service_role key**
 
-✅ **Pronto!** O arquivo `.env.local` foi criado automaticamente
+✅ O arquivo `.env.local` é criado automaticamente (nunca é commitado no Git).
 
 ---
 
-### 3️⃣ Instalar dependências (APENAS 1 VEZ)
+## 3️⃣ Instalar dependências (só na primeira vez, ou quando o `package.json` mudar)
 
 ```bash
 npm install
@@ -47,111 +40,43 @@ npm install
 
 ---
 
-### 4️⃣ Rodar os testes!
+## 4️⃣ Rodar o sistema localmente
 
-Escolha um destes comandos:
-
-#### 🎯 Todos os testes (recomendado para começar)
 ```bash
-npm run test:e2e
+npm run dev
 ```
 
-#### 🖥️ Interface visual (mais fácil de usar)
-```bash
-npm run test:e2e:ui
-```
-
-#### 🐛 Modo debug (para investigar problemas)
-```bash
-npm run test:e2e:debug
-```
-
-#### 👀 Ver navegador rodando (headed mode)
-```bash
-npm run test:e2e:headed
-```
+Acesse http://localhost:3000 no navegador.
 
 ---
 
-## 📊 Ver Relatórios de Testes
+## 5️⃣ Rodar os testes automatizados
 
-Depois de rodar os testes, veja o relatório:
+```bash
+npm run test:e2e          # todos os testes
+npm run test:e2e:ui       # interface visual (mais fácil de acompanhar)
+npm run test:e2e:debug    # modo debug, passo a passo
+npm run test:e2e:headed   # roda com o navegador visível
+```
+
+Depois de rodar, ver o relatório:
 
 ```bash
 npx playwright show-report
 ```
 
-Abre no navegador com prints, vídeos e detalhes de cada teste!
+---
+
+## 🆘 Problemas comuns
+
+**"NEXT_PUBLIC_SUPABASE_URL é obrigatória"** → rode `npm run setup:env` de novo e confira se colou as chaves certas.
+
+**"Cannot find module"** → rode `npm install` de novo.
+
+**Testes falhando** → confirme que o servidor local está rodando (`npm run dev`) e que http://localhost:3000 carrega normalmente antes de rodar os testes.
 
 ---
 
-## 🔄 Workflow Diário
+## Precisa de ajuda?
 
-**Toda vez que o Softgen fizer alterações:**
-
-```bash
-# 1. Sincronizar
-git fetch origin && git reset --hard origin/main && git clean -fd
-
-# 2. Instalar novas dependências (se houver)
-npm install
-
-# 3. Rodar testes
-npm run test:e2e:ui
-```
-
----
-
-## 🆘 Problemas Comuns
-
-### ❌ "NEXT_PUBLIC_SUPABASE_URL é obrigatória"
-**Solução:** Rode novamente `npm run setup:env` e cole as chaves corretas
-
-### ❌ "Cannot find module"
-**Solução:** Rode `npm install` novamente
-
-### ❌ Testes falhando
-**Solução:** 
-1. Verifique se o servidor está rodando: `npm run dev`
-2. Acesse http://localhost:3000 no navegador
-3. Se carregar, os testes devem funcionar
-
----
-
-## 🎯 Atalho Útil (opcional)
-
-Adicione isto ao seu terminal para ter um comando rápido:
-
-**No Windows (PowerShell):**
-Crie/edite o arquivo `$PROFILE` e adicione:
-```powershell
-function Sync-Softgen {
-    git fetch origin
-    git reset --hard origin/main
-    git clean -fd
-    Write-Host "✅ Sincronizado com Softgen!" -ForegroundColor Green
-}
-Set-Alias sync Sync-Softgen
-```
-
-**No Mac/Linux (Bash/Zsh):**
-Adicione no `~/.bashrc` ou `~/.zshrc`:
-```bash
-alias sync="git fetch origin && git reset --hard origin/main && git clean -fd && echo '✅ Sincronizado!'"
-```
-
-Depois basta digitar:
-```bash
-sync
-```
-
----
-
-## 📞 Precisa de Ajuda?
-
-Se tiver dúvidas, pergunte ao Softgen! Ele pode:
-- Ver os logs dos testes que falharam
-- Ajustar configurações
-- Criar novos testes
-- Corrigir bugs encontrados nos testes
-- teste
+Peça pro Claude (chat ou Claude Code) — ele pode ver os logs dos testes que falharam, ajustar configurações, criar novos testes e corrigir bugs encontrados.

@@ -63,11 +63,11 @@ Este projeto adota um Código de Conduta que todos os contribuidores devem segui
 ```bash
 # Fork no GitHub
 # Depois clone seu fork
-git clone https://github.com/SEU-USUARIO/gerenciador-locacoes.git
-cd gerenciador-locacoes
+git clone https://github.com/CaduCondo/sistemaDuvoEnterprise.git
+cd sistemaDuvoEnterprise
 
 # Adicione o upstream
-git remote add upstream https://github.com/REPO-ORIGINAL/gerenciador-locacoes.git
+git remote add upstream https://github.com/CaduCondo/sistemaDuvoEnterprise.git
 ```
 
 ### 2. Instalar Dependências
@@ -338,7 +338,7 @@ Ao adicionar/modificar features:
 1. **Atualize README.md** se necessário
 2. **Atualize docs relevantes**:
    - ARCHITECTURE.md - Mudanças arquiteturais
-   - BUSINESS_RULES.md - Novas regras de negócio
+   - REGRAS_DE_NEGOCIO.md - Novas regras de negócio
    - API_DOCUMENTATION.md - Novos endpoints/serviços
    - DATABASE_SCHEMA.md - Mudanças no schema
 

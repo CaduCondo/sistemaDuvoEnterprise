@@ -137,9 +137,10 @@ src/pages/
 ├── imovel/
 │   └── [id].tsx          # Página pública de imóvel
 └── api/                   # API Routes
-    ├── upload.ts         # Upload de arquivos
     └── properties/       # APIs de propriedades
 ```
+
+Uploads de arquivos (fotos, documentos, anexos) vão direto para o Supabase Storage a partir do navegador — não existe mais rota própria de upload.
 
 ### Custom Hooks
 
@@ -666,49 +667,11 @@ enum UserRole {
 }
 ```
 
-**Nota:** Perfis `manager`, `operator` e `viewer` foram substituídos por permissões granulares por localização.
-
-### Matriz de Permissões
-
-| Funcionalidade | Admin | Manager | Operator | Viewer |
-|----------------|-------|---------|----------|--------|
-| Criar Propriedades | ✅ | ✅ | ✅ | ❌ |
-| Editar Propriedades | ✅ | ✅ | ✅ | ❌ |
-| Deletar Propriedades | ✅ | ✅ | ❌ | ❌ |
-| Criar Inquilinos | ✅ | ✅ | ✅ | ❌ |
-| Criar Locações | ✅ | ✅ | ✅ | ❌ |
-| Rescindir Contratos | ✅ | ✅ | ✅ | ❌ |
-| Marcar Pagamentos | ✅ | ✅ | ✅ | ❌ |
-| Ver Dashboard | ✅ | ✅ | ✅ | ✅ |
-| Configurações | ✅ | ✅ | ❌ | ❌ |
-| Gerenciar Usuários | ✅ | ❌ | ❌ | ❌ |
+**Nota:** Perfis `manager`, `operator` e `viewer` foram substituídos pelos 3 perfis atuais (Admin, Broker, Financial) combinados com permissões granulares por localização — ver [`docs/REGRAS_DE_NEGOCIO.md`](./REGRAS_DE_NEGOCIO.md) para a matriz de permissões atualizada e detalhada.
 
 ### Implementação de Permissões
 
-```typescript
-// src/hooks/usePermissions.ts
-
-export function usePermissions() {
-  const { user } = useAuth();
-
-  const canCreate = (resource: string) => {
-    return ["admin", "manager", "operator"].includes(user?.role);
-  };
-
-  const canEdit = (resource: string) => {
-    return ["admin", "manager", "operator"].includes(user?.role);
-  };
-
-  const canDelete = (resource: string) => {
-    if (resource === "properties") {
-      return ["admin", "manager"].includes(user?.role);
-    }
-    return user?.role === "admin";
-  };
-
-  return { canCreate, canEdit, canDelete };
-}
-```
+A checagem de permissões fica centralizada no hook `src/hooks/usePermissions.ts`, que combina o perfil do usuário (`admin`/`broker`/`financial`) com as localizações liberadas para ele, e expõe funções como `canCreate`, `canEdit` e `canDelete` para os componentes usarem.
 
 ---
 
@@ -768,7 +731,7 @@ export function usePermissions() {
 ## 📂 Estrutura de Pastas Detalhada
 
 ```
-gerenciador-locacoes/
+sistemaDuvoEnterprise/
 ├── src/
 │   ├── components/              # Componentes React
 │   │   ├── ui/                 # Componentes base (shadcn/ui)
@@ -817,8 +780,7 @@ gerenciador-locacoes/
 │   ├── pages/                  # Páginas Next.js
 │   │   ├── _app.tsx           # App wrapper
 │   │   ├── _document.tsx      # Document wrapper
-│   │   ├── index.tsx          # Home page
-│   │   ├── login.tsx          # Login page
+│   │   ├── index.tsx          # Home page (login é um dropdown no header, não uma página própria)
 │   │   ├── dashboard.tsx      # Dashboard
 │   │   ├── properties/
 │   │   ├── tenants/
@@ -841,11 +803,10 @@ gerenciador-locacoes/
 │   ├── functions/             # Edge Functions
 │   └── migrations/            # Migrações SQL
 ├── public/                    # Arquivos estáticos
-│   ├── favicon.ico
-│   └── uploads/               # Uploads (dev)
+│   └── favicon.ico
 ├── docs/                      # Documentação
 │   ├── ARCHITECTURE.md
-│   ├── BUSINESS_RULES.md
+│   ├── REGRAS_DE_NEGOCIO.md
 │   ├── API_DOCUMENTATION.md
 │   └── ...
 ├── .env.local                 # Variáveis de ambiente
@@ -1025,6 +986,6 @@ No Supabase Dashboard:
 ---
 
 **Próximos documentos:**
-- [Regras de Negócio](BUSINESS_RULES.md)
+- [Regras de Negócio](REGRAS_DE_NEGOCIO.md)
 - [Documentação de API](API_DOCUMENTATION.md)
 - [Esquema do Banco de Dados](DATABASE_SCHEMA.md)

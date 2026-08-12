@@ -938,6 +938,6 @@ Equipe D'Uvo Enterprise
 ---
 
 **Documentos Relacionados:**
-- [Regras de Negócio](BUSINESS_RULES.md)
+- [Regras de Negócio](REGRAS_DE_NEGOCIO.md)
 - [Documentação de API](API_DOCUMENTATION.md)
 - [Arquitetura do Sistema](ARCHITECTURE.md)

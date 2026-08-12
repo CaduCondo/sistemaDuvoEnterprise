@@ -7,7 +7,7 @@ on:
       commit_message:
         description: 'Commit message'
         required: false
-        default: 'chore: sync from Softgen/Vercel'
+        default: 'chore: sync from Vercel'
   repository_dispatch:
     types: [vercel-deploy]
   schedule:
@@ -49,7 +49,7 @@ jobs:
         run: |
           COMMIT_MSG="${{ github.event.inputs.commit_message }}"
           if [ -z "$COMMIT_MSG" ]; then
-            COMMIT_MSG="chore: sync from Softgen - $(date '+%Y-%m-%d %H:%M:%S')"
+            COMMIT_MSG="chore: sync from Vercel - $(date '+%Y-%m-%d %H:%M:%S')"
           fi
           
           git commit -m "$COMMIT_MSG"

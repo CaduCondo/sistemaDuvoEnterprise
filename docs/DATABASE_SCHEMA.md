@@ -1054,6 +1054,6 @@ ORDER BY total_overdue DESC;
 
 **Próximos documentos:**
 - [Arquitetura do Sistema](ARCHITECTURE.md)
-- [Regras de Negócio](BUSINESS_RULES.md)
+- [Regras de Negócio](REGRAS_DE_NEGOCIO.md)
 - [Documentação de API](API_DOCUMENTATION.md)
 - [Guia de Deploy](DEPLOYMENT.md)

@@ -6,7 +6,7 @@ O projeto possui **2 workflows independentes** que rodam em paralelo:
 
 | Workflow | Arquivo | Função | Quando Roda |
 |----------|---------|--------|-------------|
-| **Sync** | `sync-from-vercel.yml` | Sincronizar código Softgen → GitHub | 1x/dia às 20h OU manual |
+| **Sync** | `sync-from-vercel.yml` | Sincronizar código do Vercel de volta pro GitHub (herança de quando se usava o Softgen; hoje provavelmente não encontra nada pra sincronizar — ver [SETUP_GITHUB_AUTO_SYNC.md](./SETUP_GITHUB_AUTO_SYNC.md)) | 1x/dia às 20h OU manual |
 | **E2E Tests** | `e2e-tests.yml` | Rodar testes automatizados | Push/PR OU manual |
 
 **✅ NÃO CONFLITAM** - Podem rodar ao mesmo tempo sem problemas!

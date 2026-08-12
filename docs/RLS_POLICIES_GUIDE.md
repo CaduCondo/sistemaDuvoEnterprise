@@ -346,7 +346,6 @@ ORDER BY policy_count ASC;
 
 ---
 
-**Última Atualização:** 2026-01-18  
-**Responsável:** Sistema Softgen AI  
+**Última Atualização:** 2026-08-12
 **Versão:** 1.0  
 **Status:** ✅ ATIVO E FUNCIONAL

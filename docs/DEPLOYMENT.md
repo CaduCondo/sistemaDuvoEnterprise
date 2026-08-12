@@ -40,7 +40,7 @@ Este documento detalha como fazer o deploy do sistema em produção.
 1. Acesse o Supabase Dashboard
 2. Clique em "New Project"
 3. Preencha:
-   - **Name**: gerenciador-locacoes
+   - **Name**: sistemaDuvoEnterprise
    - **Database Password**: Gere uma senha forte (guarde-a!)
    - **Region**: Escolha a mais próxima (South America - São Paulo recomendado)
    - **Pricing Plan**: Free (ou Pro se necessário)
@@ -649,6 +649,6 @@ Para problemas de deploy:
 
 **Próximos documentos:**
 - [Arquitetura do Sistema](ARCHITECTURE.md)
-- [Regras de Negócio](BUSINESS_RULES.md)
+- [Regras de Negócio](REGRAS_DE_NEGOCIO.md)
 - [Documentação de API](API_DOCUMENTATION.md)
 - [Esquema do Banco de Dados](DATABASE_SCHEMA.md)

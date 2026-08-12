@@ -1373,49 +1373,19 @@ interface DepositInstallment {
 
 #### 1. Upload de Arquivos
 
-**Endpoint:** `POST /api/upload`
+Não existe mais rota própria de upload (`/api/upload` foi removida). Imagens, documentos e demais anexos vão direto do navegador para o **Supabase Storage** (bucket `uploads`), sem passar pelo servidor Next.js:
 
-**Descrição:** Upload de imagens e documentos
-
-**Headers:**
-```
-Content-Type: multipart/form-data
-Authorization: Bearer {JWT_TOKEN}
-```
-
-**Body (FormData):**
 ```typescript
-{
-  file: File;
-  type: "property-image" | "document" | "receipt";
-}
+const { data, error } = await supabase.storage
+  .from("uploads")
+  .upload(`${folder}/${fileName}`, file);
+
+const { data: { publicUrl } } = supabase.storage
+  .from("uploads")
+  .getPublicUrl(data.path);
 ```
 
-**Response:**
-```typescript
-{
-  success: true,
-  url: string; // URL do arquivo
-}
-```
-
-**Exemplo (Frontend):**
-```typescript
-const formData = new FormData();
-formData.append("file", file);
-formData.append("type", "property-image");
-
-const response = await fetch("/api/upload", {
-  method: "POST",
-  body: formData,
-  headers: {
-    Authorization: `Bearer ${session.access_token}`
-  }
-});
-
-const data = await response.json();
-console.log("URL:", data.url);
-```
+`publicUrl` é o que fica salvo no campo `attachments` do registro (locação, pagamento, parcela de caução, etc.).
 
 ---
 
@@ -1827,7 +1797,7 @@ console.log("Locação criada:", rental);
 
 **Próximos documentos:**
 - [Arquitetura do Sistema](ARCHITECTURE.md)
-- [Regras de Negócio](BUSINESS_RULES.md)
+- [Regras de Negócio](REGRAS_DE_NEGOCIO.md)
 - [Esquema do Banco de Dados](DATABASE_SCHEMA.md)
 - [Guia de Deploy](DEPLOYMENT.md)
 

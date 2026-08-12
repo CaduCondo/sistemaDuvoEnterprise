@@ -1,4 +1,11 @@
-# 🔄 Guia de Sincronização: Softgen → GitHub
+> ⚠️ **ARQUIVO HISTÓRICO (agosto/2026):** o Softgen.ai não é mais usado neste
+> projeto — todo o código relacionado a ele (script de monitoramento, pasta
+> `.softgen/`, scripts de sync) já foi removido. Hoje o desenvolvimento é
+> feito direto em VS Code + Claude Code, com push direto pro GitHub (sem o
+> passo "Softgen sandbox" descrito abaixo). Mantido só como registro de como
+> o projeto funcionava antes.
+
+# 🔄 Guia de Sincronização: Softgen → GitHub (obsoleto)
 
 ## ⚡ NOVO: Sincronização Automática via GitHub Actions
 

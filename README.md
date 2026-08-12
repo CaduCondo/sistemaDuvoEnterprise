@@ -10,39 +10,11 @@ Sistema completo para gestão de locações de imóveis com controle financeiro,
 
 ---
 
-## 🔄 Sincronização Softgen → GitHub
+## 💻 Fluxo de desenvolvimento
 
-**IMPORTANTE:** Este projeto é desenvolvido no Softgen, mas precisa de sincronização manual com o GitHub.
+Desenvolvimento é feito localmente (VS Code + Claude Code), com push direto para o GitHub. O Vercel publica automaticamente em produção a cada push na branch `main` — não há mais etapa de sincronização manual.
 
-### 🤖 Sincronização AUTOMÁTICA (GitHub Actions) - RECOMENDADO:
-
-**Configure uma vez, funciona para sempre:**
-
-```bash
-# 1. Ative GitHub Actions no repositório
-# 2. Configure permissões de escrita (Settings → Actions → Read and write)
-# 3. Pronto! Sincronização automática 1x por dia às 20h (BRT)
-
-# Ou sincronize manualmente com 1 clique:
-Actions → Sync from Vercel (Auto) → Run workflow
-```
-
-📚 **[Guia de Configuração GitHub Actions](./docs/SETUP_GITHUB_AUTO_SYNC.md)** (5 minutos)
-
----
-
-### ⚡ Sincronização Manual (Alternativa):
-
-```bash
-# 1. Baixe o ZIP do Softgen (Settings → GitHub → Download as ZIP)
-# 2. Extraia sobre a pasta do projeto
-# 3. Execute o script:
-scripts\sync-softgen-to-github.bat
-
-# Pronto! GitHub atualizado ✅
-```
-
-📚 **[Guia Completo de Sincronização Manual](./SYNC_SOFTGEN_GITHUB.md)**
+👉 Veja [SETUP_AMBIENTE_LOCAL.md](./SETUP_AMBIENTE_LOCAL.md) para configurar o ambiente local.
 
 ---
 
@@ -209,8 +181,8 @@ Sistema desenvolvido em **Next.js 15** com **TypeScript** e **Supabase** para ge
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/seu-usuario/gerenciador-locacoes.git
-cd gerenciador-locacoes
+git clone https://github.com/CaduCondo/sistemaDuvoEnterprise.git
+cd sistemaDuvoEnterprise
 ```
 
 ### 2. Instale as dependências
@@ -289,7 +261,7 @@ Após a primeira execução, você precisa:
 ## 📁 Estrutura do Projeto
 
 ```
-gerenciador-locacoes/
+sistemaDuvoEnterprise/
 ├── src/
 │   ├── components/         # Componentes React
 │   │   ├── ui/            # Componentes base (shadcn/ui)
@@ -360,8 +332,9 @@ npm run start        # Servidor de produção
 
 ## 📚 Documentação Adicional
 
+- [**Índice completo da documentação**](docs/README.md) - ponto de partida para toda a documentação técnica
 - [**Arquitetura**](docs/ARCHITECTURE.md) - Estrutura técnica e fluxo de dados
-- [**Regras de Negócio**](docs/BUSINESS_RULES.md) - Regras detalhadas do sistema
+- [**Regras de Negócio**](docs/REGRAS_DE_NEGOCIO.md) - Regras detalhadas do sistema
 - [**API**](docs/API_DOCUMENTATION.md) - Documentação completa das APIs
 - [**Banco de Dados**](docs/DATABASE_SCHEMA.md) - Esquema e relacionamentos
 - [**Deploy**](docs/DEPLOYMENT.md) - Guia de deployment
@@ -385,31 +358,19 @@ npm run start        # Servidor de produção
 
 ---
 
-## 🆕 Novidades (2026-08-06)
+## 🆕 Novidades (2026-08-12)
 
-### Sistema de Alertas Centralizados
-- ✅ Alertas exibidos no meio da tela (não mais no rodapé)
-- ✅ AlertContext para gerenciamento global
-- ✅ Componentes migrados: Properties, Tenants, Rentals, Payments
-
-### Reativação de Locações
-- ✅ Editar data fim de locação encerrada reativa automaticamente
-- ✅ Recria pagamentos faltantes até nova data fim
-- ✅ Ajusta último pagamento anterior (de proporcional para cheio)
-- ✅ Calcula novo último pagamento proporcional
-
-### Funções SQL Avançadas
-- ✅ `update_tenant_guaranteed()` - Atualização com verificação campo por campo
-- ✅ `manual_update_tenant()` - Função SQL para testes diretos no dashboard
-- ✅ Verificação de persistência antes de retornar sucesso
+- Projeto limpo: removidos arquivos não usados e resíduos do antigo Softgen.ai
+- Documentação revisada e desduplicada
+- Correções nos anexos de locações (visualização, download, arquivos antigos perdidos)
+- Sistema de alertas centralizados (exibidos no meio da tela)
+- Reativação automática de locações encerradas ao editar a data fim
 
 ---
 
 ## 🐛 Problemas Conhecidos
 
-Nenhum problema crítico conhecido no momento.
-
-Para reportar bugs, abra uma issue no GitHub.
+O acompanhamento de bugs e próximas melhorias é feito pelo kanban do projeto: https://duvoenterprise.com.br/kanban
 
 ---
 
@@ -427,9 +388,7 @@ Este projeto é privado e proprietário. Todos os direitos reservados.
 
 ## 📞 Suporte
 
-Para dúvidas ou suporte:
-- **Email**: suporte@exemplo.com
-- **Documentação**: [docs/](docs/)
+Para dúvidas ou suporte, veja a [documentação](docs/README.md) ou o [kanban do projeto](https://duvoenterprise.com.br/kanban).
 
 ---
 
@@ -443,5 +402,5 @@ Desenvolvido com ❤️ usando:
 
 ---
 
-**Versão**: 1.1.0  
-**Última atualização**: 06 de Agosto de 2026
+**Versão**: 1.2.0  
+**Última atualização**: 12 de Agosto de 2026

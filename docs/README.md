@@ -12,32 +12,20 @@ Sistema completo de gestão de locações de imóveis com controle de pagamentos
 
 ---
 
-## 🆕 Últimas Atualizações (2026-08-06)
+## 🆕 Últimas Atualizações (2026-08-12)
 
-### Sistema de Alertas Centralizados
-- ✅ Todos os alertas agora aparecem no meio da tela (não mais no rodapé)
-- ✅ AlertContext implementado para gerenciamento global
-- ✅ Migração completa dos componentes principais
-
-### Reativação de Locações Encerradas
-- ✅ Editar data fim de locação encerrada reativa automaticamente o contrato
-- ✅ Recria pagamentos faltantes até a nova data fim
-- ✅ Ajusta último pagamento anterior (de proporcional para valor cheio)
-- ✅ Calcula novo último pagamento proporcional baseado na nova data
-
-### Funções SQL Avançadas
-- ✅ `update_tenant_guaranteed()` - Atualização com verificação campo por campo
-- ✅ `manual_update_tenant()` - Função SQL para testes manuais
-- ✅ Verificação de persistência de dados antes de retornar sucesso
-- ✅ Garantia de integridade em operações críticas
+- Limpeza geral do projeto: removidos arquivos e código não usados (pasta `uploads/` antiga, rota de upload local, resíduos do Softgen.ai).
+- Documentação revisada: `BUSINESS_RULES.md` (duplicata em inglês) e `SETUP_SIMPLES.md` removidos por estarem desatualizados; este índice corrigido.
+- Anexos: correção de bugs de exibição/download e tratamento amigável para arquivos antigos perdidos.
+- Sistema de alertas centralizado (aparecem no meio da tela) e reativação automática de locações encerradas ao editar a data fim.
 
 ---
 
 ## 📖 Documentação Principal
 
-### 1. [REGRAS_DE_NEGOCIO.md](./REGRAS_DE_NEGOCIO.md) 🇧🇷
+### 1. [REGRAS_DE_NEGOCIO.md](./REGRAS_DE_NEGOCIO.md)
 **Idioma:** Português  
-**Conteúdo:** Documentação completa em português com todas as regras de negócio, fluxos e funcionalidades do sistema.
+**Conteúdo:** Documentação completa em português com todas as regras de negócio, fluxos e funcionalidades do sistema. Documento único e canônico — a versão em inglês (`BUSINESS_RULES.md`) foi removida em agosto/2026 por ser uma tradução duplicada e desatualizada, dando trabalho extra de manutenção sem necessidade (não há equipe internacional usando este projeto).
 
 **Tópicos principais:**
 - Autenticação e permissões
@@ -47,34 +35,14 @@ Sistema completo de gestão de locações de imóveis com controle de pagamentos
 - Pagamentos e cauções
 - Financeiro e relatórios
 - Workflows completos
-- **NOVO:** Sistema de alertas centralizados
-- **NOVO:** Reativação de locações encerradas
-- **NOVO:** Funções SQL com verificação
+- Sistema de alertas centralizados
+- Reativação de locações encerradas
+- Funções SQL com verificação
 
 ---
 
-### 2. [BUSINESS_RULES.md](./BUSINESS_RULES.md) 🇬🇧
-**Idioma:** Inglês  
-**Conteúdo:** Business rules em inglês para desenvolvedores internacionais.
-
-**Tópicos principais:**
-- Properties management
-- Tenants management
-- Rentals and terminations
-- Security deposits (Cauções)
-- Payments and receipts
-- Late fees and interest
-- Administrative fees
-- Broker commissions
-- Permissions and security
-- **NEW:** Centralized alert system
-- **NEW:** Rental reactivation logic
-- **NEW:** SQL functions with verification
-
----
-
-### 3. [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)
-**Idioma:** Inglês  
+### 2. [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)
+**Idioma:** Português  
 **Conteúdo:** Esquema completo do banco de dados PostgreSQL com diagramas ER, tabelas, relacionamentos, índices e triggers.
 
 **Tópicos principais:**
@@ -91,7 +59,7 @@ Sistema completo de gestão de locações de imóveis com controle de pagamentos
 
 ---
 
-### 4. [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)
+### 3. [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)
 **Idioma:** Inglês  
 **Conteúdo:** Documentação completa de todos os serviços, APIs e integrações.
 
@@ -107,8 +75,8 @@ Sistema completo de gestão de locações de imóveis com controle de pagamentos
 - Integrações externas (IGPM)
 - Tipos TypeScript completos
 - Exemplos de uso
-- **NEW:** AlertContext API
-- **NEW:** Funções SQL de atualização com verificação
+- AlertContext API
+- Funções SQL de atualização com verificação
 
 ---
 
@@ -126,11 +94,11 @@ Guia para contribuidores: como configurar ambiente local, padrões de commit, pu
 ### [RLS_POLICIES_GUIDE.md](./RLS_POLICIES_GUIDE.md)
 Guia detalhado das políticas de Row Level Security implementadas no Supabase.
 
-### [MULTI_TENANT_URLS.md](./MULTI_TENANT_URLS.md)
-Análise e implementação de URLs multi-tenant para página pública de imóveis.
+### [MULTI_TENANT_URLS.md](./MULTI_TENANT_URLS.md) 📌 documento de planejamento
+Proposta de URLs multi-tenant para página pública de imóveis — ainda não implementada.
 
-### [ANALISE_GATEWAY_PAGAMENTO.md](./ANALISE_GATEWAY_PAGAMENTO.md)
-Análise de integração com gateways de pagamento (Stripe, Mercado Pago, etc.).
+### [ANALISE_GATEWAY_PAGAMENTO.md](./ANALISE_GATEWAY_PAGAMENTO.md) 📌 documento de planejamento
+Análise de viabilidade para integrar um gateway de pagamento (Asaas) — ainda não implementada.
 
 ---
 
@@ -178,8 +146,8 @@ npm run test:e2e:ci
 
 ```bash
 # Clonar repositório
-git clone <repo-url>
-cd gerenciador-locacoes
+git clone https://github.com/CaduCondo/sistemaDuvoEnterprise.git
+cd sistemaDuvoEnterprise
 
 # Instalar dependências
 npm install
@@ -195,7 +163,7 @@ npm run dev
 ### 2. Estrutura do Projeto
 
 ```
-📁 gerenciador-locacoes/
+📁 sistemaDuvoEnterprise/
 ├── 📁 src/
 │   ├── 📁 components/      # Componentes React
 │   ├── 📁 pages/           # Páginas Next.js (Page Router)
@@ -219,8 +187,7 @@ npm run dev
 
 | Preciso saber sobre... | Consultar |
 |------------------------|-----------|
-| Regras de negócio (PT) | [REGRAS_DE_NEGOCIO.md](./REGRAS_DE_NEGOCIO.md) |
-| Business rules (EN) | [BUSINESS_RULES.md](./BUSINESS_RULES.md) |
+| Regras de negócio | [REGRAS_DE_NEGOCIO.md](./REGRAS_DE_NEGOCIO.md) |
 | Estrutura do banco | [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) |
 | Como usar os serviços | [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) |
 | Políticas RLS | [RLS_POLICIES_GUIDE.md](./RLS_POLICIES_GUIDE.md) |
@@ -246,19 +213,17 @@ npm run dev
 
 ## 📝 Notas de Atualização
 
-**Última atualização:** 2026-08-06  
-**Versão:** 2.2
+**Última atualização:** 2026-08-12  
+**Versão:** 2.3
 
 **Mudanças recentes:**
-- ✅ Sistema de alertas centralizados implementado
-- ✅ Reativação de locações encerradas com recriação de pagamentos
-- ✅ Funções SQL com verificação de persistência (update_tenant_guaranteed)
-- ✅ Função SQL para testes manuais (manual_update_tenant)
-- ✅ Sistema de cauções documentado (deposit_installments)
-- ✅ Edição inline de comissões e valores
-- ✅ Campo returned_deposit_amount para contratos cancelados
-- ✅ Testes E2E completos para cauções (18 cenários)
-- ✅ Integração com IGPM para correção de caução
+- Limpeza do projeto: remoção de arquivos não usados e resíduos do Softgen.ai
+- Documentação simplificada e desduplicada (removidos `BUSINESS_RULES.md` e `SETUP_SIMPLES.md`)
+- Correções nos anexos de locações (visualização, download, arquivos antigos perdidos)
+- Sistema de alertas centralizados implementado
+- Reativação de locações encerradas com recriação de pagamentos
+- Funções SQL com verificação de persistência (update_tenant_guaranteed, manual_update_tenant)
+- Sistema de cauções documentado (deposit_installments), com testes E2E (18 cenários)
 
 ---
 

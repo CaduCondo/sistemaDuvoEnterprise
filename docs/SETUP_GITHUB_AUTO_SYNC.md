@@ -1,8 +1,18 @@
-# 🔄 Configuração de Sincronização Automática Softgen → GitHub
+> ⚠️ **Nota (agosto/2026):** este documento descreve a Action `.github/workflows/sync-from-vercel.yml`,
+> criada na época em que o Softgen publicava direto no Vercel (contornando o
+> GitHub) e essa Action existia pra trazer essas mudanças de volta pro
+> GitHub. O Softgen não é mais usado — hoje o desenvolvimento é feito direto
+> em VS Code + Claude Code, com push pro GitHub primeiro, e o Vercel só
+> publica a partir do GitHub. Ou seja, é bem provável que essa Action hoje
+> nunca encontre nada pra sincronizar (o GitHub já tem tudo). Vale considerar
+> desativá-la — só não fiz isso sozinho porque é uma mudança de infraestrutura
+> e prefiro confirmar com você antes.
+
+# 🔄 Configuração de Sincronização Automática Vercel → GitHub
 
 ## 📋 Objetivo
 
-Sincronizar automaticamente o código do Softgen para o GitHub após cada deploy no Vercel.
+Sincronizar automaticamente o código do Vercel para o GitHub, caso alguma mudança chegue lá por um caminho que não passou pelo GitHub primeiro.
 
 ---
 

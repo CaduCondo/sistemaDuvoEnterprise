@@ -1,5 +1,9 @@
 # 🌐 Estratégias de URLs Multi-Tenant para Páginas Públicas
 
+> 📌 **Status: documento de planejamento — nada disso foi implementado.**
+> É uma análise de opções para o futuro, não uma descrição do sistema atual
+> (hoje não existe conceito de multi-tenant/organização no código nem no banco).
+
 **Data:** 08/07/2026  
 **Sistema:** Gerenciador de Locações de Imóveis  
 **Objetivo:** Cada imobiliária ter sua própria página pública de anúncios

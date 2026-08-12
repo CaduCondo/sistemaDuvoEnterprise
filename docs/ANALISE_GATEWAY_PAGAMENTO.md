@@ -1,5 +1,9 @@
 # 📊 Análise de Viabilidade: Gateway de Pagamento (Asaas)
 
+> 📌 **Status: documento de planejamento — a integração com o Asaas não foi
+> implementada.** As taxas e projeções abaixo são de julho/2026; confirme os
+> valores atuais no site do Asaas antes de decidir com base neles.
+
 **Data:** 08/07/2026  
 **Sistema:** Gerenciador de Locações de Imóveis  
 **Análise baseada em:** Dados reais do sistema em produção
