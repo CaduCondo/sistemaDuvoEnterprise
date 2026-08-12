@@ -12,15 +12,19 @@ interface TenantCardProps {
   viewMode?: "grid" | "list";
 }
 
+// ✅ CORREÇÃO: o valor real do status gravado no banco é "active" (ver
+// tenants.tsx/getStatusBadge), não "new". Com "new" o card sempre caía no
+// estilo/label "default" (cinza, mostrando o valor cru "active") para
+// qualquer inquilino disponível.
 const STATUS_STYLES = {
-  new: "bg-green-500 hover:bg-green-600",
+  active: "bg-green-500 hover:bg-green-600",
   rented: "bg-blue-500 hover:bg-blue-600",
   inactive: "bg-red-500 hover:bg-red-600",
   default: "bg-gray-500 hover:bg-gray-600",
 } as const;
 
 const statusLabels: Record<string, string> = {
-  new: "Novo",
+  active: "Disponível",
   rented: "Locatário",
   inactive: "Inativo",
 };

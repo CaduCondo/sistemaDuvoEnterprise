@@ -16,8 +16,11 @@ interface TenantFiltersProps {
   totalCount: number;
 }
 
+// ✅ CORREÇÃO: o valor real do status gravado no banco é "active" (ver
+// tenants.tsx/getStatusBadge), não "new". Com "new" o filtro nunca encontrava
+// nenhum inquilino, porque nenhum registro tem esse valor.
 const statusOptions = [
-  { value: "new", label: "Novo" },
+  { value: "active", label: "Disponível" },
   { value: "rented", label: "Locatário" },
   { value: "inactive", label: "Inativo" },
 ];
