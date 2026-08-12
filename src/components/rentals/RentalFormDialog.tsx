@@ -492,14 +492,22 @@ export const RentalFormDialog = memo(function RentalFormDialog({
 
         // ✅ CORREÇÃO: edição NÃO abre o Contrato automaticamente - só mostra o aviso
         // de sucesso. Ao confirmar, fecha a tela de edição e atualiza a lista.
+        //
+        // ✅ CORREÇÃO (travamento após editar): fechar a tela de edição no mesmo
+        // instante em que o aviso de sucesso termina de fechar é a mesma causa raiz
+        // do travamento já corrigido na criação de Locação (2 Dialogs do Radix
+        // fechando colados um no outro). Dando uma pequena pausa entre os dois
+        // fechamentos, o Radix termina de limpar o primeiro antes do segundo começar.
         showAlert({
           title: "Sucesso!",
           description: "Locação atualizada com sucesso.",
           type: "success",
           onConfirm: () => {
-            onOpenChange(false);
-            resetForm();
-            onSuccess();
+            setTimeout(() => {
+              onOpenChange(false);
+              resetForm();
+              onSuccess();
+            }, 250);
           },
         });
       }
