@@ -223,7 +223,11 @@ export function useRentalForm({
     }
     
     // Anexos
-    setAttachments(rentalData.contractAttachments || rentalData.attachments || []);
+    // ✅ CORREÇÃO: contractAttachments é uma lista separada (anexos do Contrato) e
+    // sempre vem como [] (array vazio) - como [] é "truthy" em JS, o || antigo
+    // sempre escolhia contractAttachments e nunca chegava a usar os anexos reais
+    // (attachments), fazendo os anexos "sumirem" toda vez que a locação era reaberta.
+    setAttachments(rentalData.attachments || []);
     
     console.log("✅ [useRentalForm] Inicialização completa!");
   }, [formatDate]);
