@@ -14,6 +14,24 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 const DETAILS_CACHE_DURATION = 15 * 60 * 1000; // 15 minutos (detalhes mudam menos)
 
 /**
+ * ✅ TRAVA DE SEGURANÇA: garante que um imóvel nunca seja criado com campos
+ * obrigatórios vazios, mesmo que a validação da tela seja contornada por algum motivo.
+ */
+function validateRequiredPropertyFields(property: Omit<Property, "id" | "createdAt" | "updatedAt">): void {
+  const missing: string[] = [];
+  if (!property.locationId || !String(property.locationId).trim()) missing.push("Local");
+  if (!property.rooms || property.rooms <= 0) missing.push("Quartos");
+  if (!property.bathrooms || property.bathrooms <= 0) missing.push("Banheiros");
+  if (!property.area || property.area <= 0) missing.push("Área");
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Não é possível salvar o imóvel sem preencher: ${missing.join(", ")}.`
+    );
+  }
+}
+
+/**
  * Helper para processar imagens do JSONB do Supabase
  */
 const processImages = (images: any): string[] => {
@@ -271,6 +289,9 @@ export const getById = async (id: string): Promise<Property | null> => {
  * Criar novo imóvel
  */
 export const create = async (property: Omit<Property, "id" | "createdAt" | "updatedAt">): Promise<Property> => {
+  // ✅ VALIDAÇÃO: campos obrigatórios não podem estar vazios
+  validateRequiredPropertyFields(property);
+
   const { data, error } = await supabase
     .from("properties")
     .insert({

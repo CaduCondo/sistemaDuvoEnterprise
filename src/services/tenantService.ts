@@ -11,6 +11,30 @@ import { logAudit } from "./auditService";
 
 const TABLE = "tenants";
 
+/**
+ * ✅ TRAVA DE SEGURANÇA: garante que um inquilino nunca seja criado com campos
+ * obrigatórios vazios, mesmo que a validação da tela seja contornada por algum motivo.
+ */
+function validateRequiredTenantFields(data: Partial<Tenant>): void {
+  const name = (data.name || "").trim();
+  const phone = (data.phone || "").trim();
+  const email = (data.email || "").trim();
+  const cpf = (data.cpf || "").trim();
+  const cnpj = (data.cnpj || "").trim();
+
+  const missing: string[] = [];
+  if (!name) missing.push("Nome");
+  if (!phone) missing.push("Telefone");
+  if (!email) missing.push("E-mail");
+  if (!cpf && !cnpj) missing.push("CPF/CNPJ");
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Não é possível salvar o inquilino sem preencher: ${missing.join(", ")}.`
+    );
+  }
+}
+
 function toDatabase(data: Partial<Tenant>): any {
   console.log("🔄 [tenantService.toDatabase] Dados recebidos:", JSON.stringify(data, null, 2));
   
@@ -158,7 +182,10 @@ export const getById = getTenantById;
 export async function createTenant(data: Partial<Tenant>): Promise<Tenant> {
   console.log("\n🔥 ===== createTenant =====");
   console.log("🔍 Dados recebidos:", JSON.stringify(data, null, 2));
-  
+
+  // ✅ VALIDAÇÃO: campos obrigatórios não podem estar vazios
+  validateRequiredTenantFields(data);
+
   // ✅ VALIDAÇÃO: Email único
   if (data.email) {
     const { data: existingTenant, error: emailCheckError } = await supabase
