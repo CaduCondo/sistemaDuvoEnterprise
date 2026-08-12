@@ -382,9 +382,13 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         payment_date: validatedPayment.payment_date || new Date().toISOString().split("T")[0],
         payment_method: validatedPayment.payment_method || "pix",
         payment_time: validatedPayment.payment_time || "",
-        amount_to_pay: validatedPayment.paid_amount
-          ? formatCurrency(validatedPayment.paid_amount.toFixed(2))
-          : "",
+        // ✅ CORREÇÃO: "validatedPayment.paid_amount ? ..." tratava 0 como "vazio"
+        // (0 é falsy em JS) - então reabrir um recebimento já Pago com paid_amount
+        // 0/ausente deixava o campo em branco, e o formulário não deixava salvar
+        // (campo obrigatório) mesmo só querendo mexer nos anexos. Agora sempre
+        // mostra um valor de verdade (R$ 0,00 quando não há valor pago registrado),
+        // sem alterar nenhuma outra regra de cálculo do campo.
+        amount_to_pay: formatCurrency((validatedPayment.paid_amount || 0).toFixed(2)),
         // ✅ CORREÇÃO: Observações não pode "herdar" o texto do pagamento
         // parcial anterior — isso parecia preenchimento automático errado.
         // Só reaproveita o texto salvo quando é edição de um pagamento já
@@ -649,11 +653,15 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
   const handleEnableEdit = useCallback(() => {
     setIsEditMode(true);
-    
-    // ✅ CORREÇÃO: Apenas zerar o campo, SEM mostrar alerta que trava a tela
+
+    // ✅ CORREÇÃO: antes zerava para "" (vazio) - como o campo é obrigatório,
+    // quem editasse só para mexer em outra coisa (ex.: anexos) e esquecesse de
+    // preencher esse campo tomava um erro de validação ao salvar, e fechar esse
+    // erro travava a página. Agora mostra R$ 0,00 (valor válido) em vez de
+    // vazio - se o usuário realmente for mexer no valor, ele mesmo substitui.
     setFormData(prev => ({
       ...prev,
-      amount_to_pay: ""
+      amount_to_pay: formatCurrency((0).toFixed(2))
     }));
   }, []);
 
