@@ -231,7 +231,15 @@ export function useRentalForm({
     // ✅ CORREÇÃO: locações antigas têm anexos salvos como texto simples (só a URL),
     // não como objeto {url, name, type}. Sem normalizar aqui, o visualizador de
     // anexos (AttachmentList) recebia um texto no lugar de um objeto e quebrava a
-    // tela ao abrir a locação. Mesmo tratamento já usado em RentalDetailsCard.tsx.
+    // tela ao abrir a locação.
+    //
+    // ✅ CORREÇÃO: a primeira versão desse tratamento colocava "application/octet-stream"
+    // como type - só que AttachmentList decide o que mostrar (Visualizar/ícone) usando
+    // "attachment.type || attachment.name", e como "application/octet-stream" não é
+    // vazio, ele nunca chegava a olhar para o nome do arquivo (que tem a extensão,
+    // ex: ".docx") - todo anexo antigo virava "outro tipo de arquivo" e escondia o
+    // Visualizar mesmo pra imagem/PDF/Word. Deixando o type de fora, o código já
+    // existente cai automaticamente para adivinhar pela extensão do nome.
     const rawAttachments = rentalData.attachments || [];
     const normalizedAttachments = rawAttachments.map((att: any) => {
       if (typeof att === "string") {
@@ -239,8 +247,8 @@ export function useRentalForm({
           id: att,
           name: att.split("/").pop() || "Arquivo",
           url: att,
-          type: "application/octet-stream",
-          category: "other",
+          type: "", // vazio de propósito: deixa o código adivinhar pela extensão do nome
+          category: "other" as const,
           uploadedAt: new Date().toISOString(),
         };
       }

@@ -27,7 +27,7 @@ export function AttachmentList({ attachments, isReadOnly, onRemove }: Attachment
 
   const imageItems = attachments.filter((att) => getAttachmentKind(att.type || att.name) === "image");
 
-  const openViewer = (attachment: AttachmentListItem) => {
+  const openViewer = async (attachment: AttachmentListItem) => {
     const kind = getAttachmentKind(attachment.type || attachment.name);
     const normalizedUrl = normalizeAttachmentUrl(attachment.url);
 
@@ -36,6 +36,21 @@ export function AttachmentList({ attachments, isReadOnly, onRemove }: Attachment
       setCurrentImageIndex(imgIndex >= 0 ? imgIndex : 0);
       setLightboxOpen(true);
       return;
+    }
+
+    // ✅ CORREÇÃO: mesmo caso do downloadAttachment - anexo antigo cujo arquivo já
+    // não existe mais. Sem essa checagem, "Visualizar" abria uma aba nova só com
+    // erro 404 (ou, no caso de Word, o visualizador da Microsoft tentando abrir um
+    // link morto). Confere antes se o arquivo ainda existe.
+    try {
+      const check = await fetch(normalizedUrl, { method: "HEAD" });
+      if (check.status === 404) {
+        alert("Este anexo não está mais disponível (arquivo antigo perdido). Não é possível visualizar.");
+        return;
+      }
+    } catch {
+      // Falha ao checar (ex.: CORS) não significa que o arquivo não existe -
+      // deixa seguir e tentar abrir normalmente.
     }
 
     const target = kind === "word" ? getWordViewerUrl(normalizedUrl) : normalizedUrl;
@@ -53,6 +68,17 @@ export function AttachmentList({ attachments, isReadOnly, onRemove }: Attachment
     // link temporário com o nome real do arquivo, que sim força o download.
     try {
       const response = await fetch(normalizedUrl);
+
+      // ✅ CORREÇÃO: anexo de locação antiga cujo arquivo já não existe mais
+      // (era salvo no disco do servidor antes de migrarmos para o Supabase
+      // Storage, e esse disco antigo foi perdido). Antes disso caía no catch
+      // abaixo e abria uma aba nova só com a página de erro 404 - agora avisa
+      // com uma mensagem clara em vez de abrir um link quebrado.
+      if (response.status === 404) {
+        alert("Este anexo não está mais disponível (arquivo antigo perdido). Não é possível baixar.");
+        return;
+      }
+
       if (!response.ok) throw new Error("Falha ao buscar o arquivo");
 
       const blob = await response.blob();
