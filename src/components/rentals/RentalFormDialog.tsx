@@ -338,6 +338,12 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         value: totalValue,
         monthlyRent: baseRent,
         depositAmount: parseMoneyMaskToNumber(depositAmount) || 0,
+        // ✅ CORREÇÃO: esses 2 campos existiam na tela mas nunca eram enviados ao
+        // salvar uma edição, então a Data Pagamento do caução (e o código PIX)
+        // nunca chegavam a ser atualizados no banco. O rentalService.update() já
+        // sabia processar esses campos - só faltava incluí-los aqui.
+        depositPaymentDate: depositPaymentDate || undefined,
+        depositPixCode: depositPixCode || undefined,
         status: "active" as const,
         isActive: true,
         attachments: attachments, // ✅ Agora é Attachment[] corretamente
