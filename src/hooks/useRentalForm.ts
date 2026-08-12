@@ -227,7 +227,26 @@ export function useRentalForm({
     // sempre vem como [] (array vazio) - como [] é "truthy" em JS, o || antigo
     // sempre escolhia contractAttachments e nunca chegava a usar os anexos reais
     // (attachments), fazendo os anexos "sumirem" toda vez que a locação era reaberta.
-    setAttachments(rentalData.attachments || []);
+    //
+    // ✅ CORREÇÃO: locações antigas têm anexos salvos como texto simples (só a URL),
+    // não como objeto {url, name, type}. Sem normalizar aqui, o visualizador de
+    // anexos (AttachmentList) recebia um texto no lugar de um objeto e quebrava a
+    // tela ao abrir a locação. Mesmo tratamento já usado em RentalDetailsCard.tsx.
+    const rawAttachments = rentalData.attachments || [];
+    const normalizedAttachments = rawAttachments.map((att: any) => {
+      if (typeof att === "string") {
+        return {
+          id: att,
+          name: att.split("/").pop() || "Arquivo",
+          url: att,
+          type: "application/octet-stream",
+          category: "other",
+          uploadedAt: new Date().toISOString(),
+        };
+      }
+      return att;
+    });
+    setAttachments(normalizedAttachments);
     
     console.log("✅ [useRentalForm] Inicialização completa!");
   }, [formatDate]);
