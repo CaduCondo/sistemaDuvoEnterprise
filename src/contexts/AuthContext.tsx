@@ -55,14 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             setUser(null);
             if (!isPublicRoute) {
-              router.push("/login");
+              router.push("/");
             }
           }
         } else {
           setUser(null);
           // Apenas redireciona para login se NÃO estiver em rota pública
           if (!isPublicRoute) {
-            router.push("/login");
+            router.push("/");
           }
         }
       } catch (error) {
