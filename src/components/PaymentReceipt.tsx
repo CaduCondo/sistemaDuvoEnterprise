@@ -893,10 +893,25 @@ export function PaymentReceipt({
   const contractSnapshot = useMemo(() => {
     if (payment.status === 'paid' || payment.status === 'partial') {
       // ✅ Pagamento PAGO: usar valores do breakdown (snapshot do momento do pagamento)
-      const breakdownAluguel = payment.breakdown?.find((b: any) => 
+      // ✅ CORREÇÃO: recebimentos antigos podem ter o breakdown salvo como texto
+      // (bug já corrigido na tela de gerenciar recebimento) em vez de lista -
+      // normaliza aqui antes de usar .find(), senão a tela quebra.
+      let breakdownList: any[] = payment.breakdown as any;
+      if (typeof breakdownList === 'string') {
+        try {
+          breakdownList = JSON.parse(breakdownList);
+        } catch {
+          breakdownList = [];
+        }
+      }
+      if (!Array.isArray(breakdownList)) {
+        breakdownList = [];
+      }
+
+      const breakdownAluguel = breakdownList.find((b: any) =>
         b.description?.toLowerCase().includes('aluguel') || b.description?.toLowerCase().includes('rent')
       );
-      const breakdownGaragem = payment.breakdown?.find((b: any) => 
+      const breakdownGaragem = breakdownList.find((b: any) =>
         b.description?.toLowerCase().includes('garagem') || b.description?.toLowerCase().includes('garage')
       );
       

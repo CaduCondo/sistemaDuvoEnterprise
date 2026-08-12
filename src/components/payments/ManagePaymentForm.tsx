@@ -752,7 +752,11 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       console.log("💾 AUTO-SAVE - Novo Expected Total (com desconto):", newExpectedTotal);
       
       const updateData = {
-        breakdown: JSON.stringify(breakdownData),
+        // ✅ CORREÇÃO: salvar a lista de verdade (não texto). O banco já guarda
+        // esse campo como jsonb; convertendo para string aqui, quem lê depois
+        // (ex.: tela de Recibo) recebia um texto em vez de lista e quebrava ao
+        // tentar usar métodos de lista como .find().
+        breakdown: breakdownData,
         expected_amount: Math.abs(newExpectedTotal),
         discount_amount: discountAmount,
         updated_at: new Date().toISOString(),
@@ -880,7 +884,8 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
             });
           }
           
-          updatedBreakdown = JSON.stringify(breakdownData);
+          // ✅ CORREÇÃO: mesma causa do outro ponto acima - salvar a lista, não texto.
+          updatedBreakdown = breakdownData;
           
           const breakdownTotal = breakdownData.reduce((sum: number, item: any) => sum + item.amount, 0);
           expectedTotal = breakdownTotal - discountAmount;
