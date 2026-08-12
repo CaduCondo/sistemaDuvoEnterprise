@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { isLightboxOpen } from "@/lib/lightboxState"
 
 const Dialog = DialogPrimitive.Root
 
@@ -69,6 +70,16 @@ const DialogContent = React.forwardRef<
           className
         )}
         onPointerDownOutside={(e) => {
+          // ✅ CORREÇÃO CRÍTICA: o Lightbox (visualizador de imagem) abre num portal
+          // fora da árvore desse Dialog. Sem isso, o Radix entende qualquer clique
+          // dentro do Lightbox (inclusive o botão de fechar) como um "clique fora"
+          // e fecha esse Dialog inteiro junto - perdendo o que o usuário estava
+          // preenchendo no formulário. Enquanto o Lightbox estiver aberto, ignora
+          // esse "clique fora".
+          if (isLightboxOpen()) {
+            e.preventDefault();
+            return;
+          }
           handlePreventClose(e);
           onPointerDownOutside?.(e);
         }}
@@ -77,6 +88,10 @@ const DialogContent = React.forwardRef<
           onEscapeKeyDown?.(e);
         }}
         onInteractOutside={(e) => {
+          if (isLightboxOpen()) {
+            e.preventDefault();
+            return;
+          }
           handlePreventClose(e);
           onInteractOutside?.(e);
         }}
