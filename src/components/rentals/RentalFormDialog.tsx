@@ -1203,17 +1203,26 @@ export const RentalFormDialog = memo(function RentalFormDialog({
           tenant={createdRentalData.tenant}
           location={createdRentalData.location}
           onClose={() => {
+            // ✅ CORREÇÃO: fechar o Contrato e o formulário de Locação no mesmo
+            // instante confundia o Radix (2 Dialogs fechando juntos), deixando a
+            // página travada (nada clicável) depois que o aviso de sucesso era
+            // fechado - mesma causa raiz já corrigida antes em Inquilinos (ver
+            // AlertContext.tsx). Aqui fechamos um modal de cada vez, com uma
+            // pequena pausa entre eles, em vez de tudo junto.
             setShowContract(false);
             setCreatedRentalData(null);
-            resetForm();
-            onOpenChange(false);
-            onSuccess();
-            // Aviso de sucesso só aparece depois que o Contrato foi fechado.
-            showAlert({
-              title: "Sucesso!",
-              description: "Locação criada com sucesso.",
-              type: "success",
-            });
+
+            setTimeout(() => {
+              resetForm();
+              onOpenChange(false);
+              onSuccess();
+              // Aviso de sucesso só aparece depois que o formulário foi fechado.
+              showAlert({
+                title: "Sucesso!",
+                description: "Locação criada com sucesso.",
+                type: "success",
+              });
+            }, 250);
           }}
         />
       )}
