@@ -287,7 +287,7 @@ export default function PropertyDetailPage() {
                 <div className="md:col-span-2 space-y-6">
                   <div>
                     <h2 className="text-xl font-bold text-slate-900 mb-3">Descrição</h2>
-                    <p className="text-slate-600 leading-relaxed">{property.description}</p>
+                    <p className="text-slate-600 leading-relaxed whitespace-pre-line">{property.description}</p>
                   </div>
 
                   <div>

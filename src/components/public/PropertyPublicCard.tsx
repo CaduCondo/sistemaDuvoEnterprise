@@ -267,7 +267,7 @@ export function PropertyPublicCard({ property, priority = false, index = 0 }: Pr
               {property.description && (
                 <div>
                   <h3 className="font-semibold text-base mb-1.5">📝 Descrição</h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">{property.description}</p>
+                  <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{property.description}</p>
                 </div>
               )}
 

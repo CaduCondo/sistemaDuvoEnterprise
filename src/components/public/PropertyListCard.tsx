@@ -88,7 +88,7 @@ export function PropertyListCard({ property }: PropertyListCardProps) {
               </div>
 
               {property.description && (
-                <p className="text-sm text-slate-600 line-clamp-2 mb-4">
+                <p className="text-sm text-slate-600 line-clamp-2 mb-4 whitespace-pre-line">
                   {property.description}
                 </p>
               )}

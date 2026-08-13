@@ -94,7 +94,7 @@ export const PropertyCard = memo(function PropertyCard({
 
       <CardContent className="p-3 pt-0 space-y-2 w-full">
         {property.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed break-words">
+          <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed break-words whitespace-pre-line">
             {property.description}
           </p>
         )}
