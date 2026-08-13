@@ -84,6 +84,17 @@ const DialogContent = React.forwardRef<
           onPointerDownOutside?.(e);
         }}
         onEscapeKeyDown={(e) => {
+          // ✅ CORREÇÃO: mesma proteção já aplicada em onPointerDownOutside e
+          // onInteractOutside acima, mas que faltava aqui. Sem isso, apertar Esc
+          // para fechar o Lightbox também fechava esse Dialog por trás ao mesmo
+          // tempo (os dois fechando no mesmo instante é a mesma causa raiz do
+          // travamento de tela já documentado em AlertContext.tsx/RentalFormDialog.tsx
+          // - o Radix perde a conta de quem deve liberar o scroll/pointer-events
+          // do body). Enquanto o Lightbox estiver aberto, ignora o Esc aqui.
+          if (isLightboxOpen()) {
+            e.preventDefault();
+            return;
+          }
           handlePreventClose(e);
           onEscapeKeyDown?.(e);
         }}
