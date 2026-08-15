@@ -31,13 +31,22 @@ const DialogOverlay = React.forwardRef<
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  // ✅ Padrão TRUE de propósito (pedido do Cadu, agosto/2026): clicar fora ou
+  // apertar Esc não fecha mais nenhuma tela do sistema sozinho - isso já
+  // causou perda de dados preenchidos em Novo Imóvel, Novo Inquilino e
+  // Recebimentos (fechava sem querer com um clique sem intenção). Agora só
+  // fecha pelo X ou pelos botões da própria tela (Cancelar, Criar, Salvar
+  // etc.), que continuam funcionando normalmente por chamarem onOpenChange
+  // direto no onClick - nada disso passa por aqui. Se algum dia precisar de
+  // uma tela específica que module continuar fechando com clique fora, dá
+  // pra passar preventClose={false} nela.
   preventClose?: boolean;
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, preventClose = false, onPointerDownOutside, onEscapeKeyDown, onInteractOutside, ...props }, ref) => {
+>(({ className, children, preventClose = true, onPointerDownOutside, onEscapeKeyDown, onInteractOutside, ...props }, ref) => {
   // Cleanup only body styles when component unmounts
   React.useEffect(() => {
     return () => {
