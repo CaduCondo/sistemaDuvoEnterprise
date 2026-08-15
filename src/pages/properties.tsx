@@ -42,6 +42,7 @@ const INITIAL_FORM_DATA: PropertyFormData = {
   acceptsPets: false,
   area: "",
   hasGarage: false,
+  hasBarbecue: false,
   listingType: "rent",
 };
 
@@ -199,6 +200,7 @@ export default function PropertiesPage() {
     acceptsPets: property.acceptsPets || false,
     area: String(property.area || ""),
     hasGarage: property.hasGarage || false,
+    hasBarbecue: property.hasBarbecue || false,
     listingType: property.listingType || "rent",
   }), []);
 

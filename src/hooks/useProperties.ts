@@ -50,6 +50,7 @@ export interface PropertyFormData {
   acceptsPets: boolean;
   area?: string;
   hasGarage: boolean;
+  hasBarbecue: boolean;
   listingType: "rent" | "sale";
 }
 
@@ -185,6 +186,7 @@ export function useProperties(): UsePropertiesReturn {
       acceptsPets: formData.acceptsPets,
       area: formData.area ? parseFloat(formData.area.replace(",", ".")) : 0,
       hasGarage: formData.hasGarage,
+      hasBarbecue: formData.hasBarbecue,
       status: formData.status as "available" | "occupied" | "unavailable",
       listingType: formData.listingType || "rent",
       address: "",
@@ -262,6 +264,7 @@ export function useProperties(): UsePropertiesReturn {
       acceptsPets: formData.acceptsPets,
       area: formData.area ? parseFloat(formData.area.replace(",", ".")) : 0,
       hasGarage: formData.hasGarage,
+      hasBarbecue: formData.hasBarbecue,
       listingType: formData.listingType || "rent",
     };
 

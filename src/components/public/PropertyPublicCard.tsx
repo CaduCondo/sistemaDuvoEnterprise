@@ -21,6 +21,7 @@ import {
   Maximize,
   MessageCircle,
   Image as ImageIcon,
+  Flame,
 } from "lucide-react";
 import { InterestFormDialog } from "./InterestFormDialog";
 import { ShareButtons } from "./ShareButtons";
@@ -307,38 +308,57 @@ export function PropertyPublicCard({ property, priority = false, index = 0 }: Pr
                 </div>
               </div>
 
-              <div>
-                <h3 className="font-semibold text-base mb-2">✨ Detalhes Adicionais</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg">
-                    <Armchair className="h-4 w-4 text-slate-600" />
-                    <div>
-                      <p className="text-xs font-medium">Móveis Planejados</p>
-                      <Badge variant={property.hasFurniture ? "default" : "secondary"} className="mt-0.5 text-xs">
-                        {property.hasFurniture ? "✅ Sim" : "❌ Não"}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg">
-                    <PawPrint className="h-4 w-4 text-slate-600" />
-                    <div>
-                      <p className="text-xs font-medium">Aceita Pets</p>
-                      <Badge variant={property.acceptsPets ? "default" : "secondary"} className="mt-0.5 text-xs">
-                        {property.acceptsPets ? "✅ Sim" : "❌ Não"}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg">
-                    <Car className="h-4 w-4 text-slate-600" />
-                    <div>
-                      <p className="text-xs font-medium">Vaga de Garagem</p>
-                      <Badge variant={property.hasGarage ? "default" : "secondary"} className="mt-0.5 text-xs">
-                        {property.hasGarage ? "✅ Sim" : "❌ Não"}
-                      </Badge>
-                    </div>
+              {(property.hasFurniture || property.acceptsPets || property.hasGarage || property.hasBarbecue) && (
+                <div>
+                  <h3 className="font-semibold text-base mb-2">✨ Detalhes Adicionais</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    {property.hasFurniture && (
+                      <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg">
+                        <Armchair className="h-4 w-4 text-slate-600" />
+                        <div>
+                          <p className="text-xs font-medium">Móveis Planejados</p>
+                          <Badge variant="default" className="mt-0.5 text-xs">
+                            ✅ Sim
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                    {property.acceptsPets && (
+                      <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg">
+                        <PawPrint className="h-4 w-4 text-slate-600" />
+                        <div>
+                          <p className="text-xs font-medium">Aceita Pets</p>
+                          <Badge variant="default" className="mt-0.5 text-xs">
+                            ✅ Sim
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                    {property.hasGarage && (
+                      <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg">
+                        <Car className="h-4 w-4 text-slate-600" />
+                        <div>
+                          <p className="text-xs font-medium">Vaga de Garagem</p>
+                          <Badge variant="default" className="mt-0.5 text-xs">
+                            ✅ Sim
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                    {property.hasBarbecue && (
+                      <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-lg">
+                        <Flame className="h-4 w-4 text-slate-600" />
+                        <div>
+                          <p className="text-xs font-medium">Churrasqueira</p>
+                          <Badge variant="default" className="mt-0.5 text-xs">
+                            ✅ Sim
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg">
                 <h3 className="font-semibold text-base mb-2">💰 Valores</h3>

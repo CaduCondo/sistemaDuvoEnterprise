@@ -73,6 +73,7 @@ const mapDatabasePropertyLight = (item: any): Property => {
     hasGarage: item.has_garage || false,
     hasFurniture: item.has_furniture || false,
     acceptsPets: item.accepts_pets || false,
+    hasBarbecue: item.has_barbecue || false,
     status: item.status as "available" | "occupied" | "unavailable",
     listingType: (item.listing_type as "rent" | "sale") || "rent",
     images: [], // VAZIO para listagem! Carrega só no detalhe
@@ -100,6 +101,7 @@ const mapDatabasePropertyFull = (item: any): Property => {
     hasGarage: item.has_garage || false,
     hasFurniture: item.has_furniture || false,
     acceptsPets: item.accepts_pets || false,
+    hasBarbecue: item.has_barbecue || false,
     status: item.status as "available" | "occupied" | "unavailable",
     listingType: (item.listing_type as "rent" | "sale") || "rent",
     images: processImages(item.images),
@@ -151,6 +153,7 @@ export const getAll = async (): Promise<Property[]> => {
         has_garage,
         has_furniture,
         accepts_pets,
+        has_barbecue,
         image_count,
         created_at
       `) as any; // Type assertion temporária até regenerar tipos
@@ -186,6 +189,7 @@ export const getAll = async (): Promise<Property[]> => {
         hasGarage: item.has_garage || false,
         hasFurniture: item.has_furniture || false,
         acceptsPets: item.accepts_pets || false,
+        hasBarbecue: item.has_barbecue || false,
         status: item.status as "available" | "occupied" | "unavailable",
         listingType: (item.listing_type as "rent" | "sale") || "rent",
         images: images, // 🔥 Array vazio com length correto (ícone funciona!)
@@ -249,6 +253,7 @@ export const getById = async (id: string): Promise<Property | null> => {
         images,
         has_furniture,
         accepts_pets,
+        has_barbecue,
         created_at,
         updated_at
       `)
@@ -313,6 +318,7 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
       images: property.images || [],
       has_furniture: property.hasFurniture || false,
       accepts_pets: property.acceptsPets || false,
+      has_barbecue: property.hasBarbecue || false,
       listing_type: property.listingType || "rent",
     })
     .select(`
@@ -331,6 +337,7 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
       images,
       has_furniture,
       accepts_pets,
+      has_barbecue,
       created_at,
       updated_at,
       locations!properties_location_id_fkey(name)
@@ -398,6 +405,7 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
   if (property.images !== undefined) propertyData.images = property.images;
   if (property.hasFurniture !== undefined) propertyData.has_furniture = property.hasFurniture;
   if (property.acceptsPets !== undefined) propertyData.accepts_pets = property.acceptsPets;
+  if (property.hasBarbecue !== undefined) propertyData.has_barbecue = property.hasBarbecue;
   if (property.listingType !== undefined) propertyData.listing_type = property.listingType;
 
   const { data, error } = await supabase
@@ -420,6 +428,7 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
       images,
       has_furniture,
       accepts_pets,
+      has_barbecue,
       created_at,
       updated_at,
       locations!properties_location_id_fkey(name)
@@ -445,6 +454,7 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
       { old: oldData.has_garage, new: data.has_garage, key: "has_garage", label: "Garagem" },
       { old: oldData.has_furniture, new: data.has_furniture, key: "has_furniture", label: "Mobiliado" },
       { old: oldData.accepts_pets, new: data.accepts_pets, key: "accepts_pets", label: "Aceita Pets" },
+      { old: oldData.has_barbecue, new: data.has_barbecue, key: "has_barbecue", label: "Churrasqueira" },
       { old: oldData.status, new: data.status, key: "status", label: "Status" },
     ];
 
@@ -590,6 +600,7 @@ export const getPublicProperties = async (): Promise<Property[]> => {
         has_garage,
         has_furniture,
         accepts_pets,
+        has_barbecue,
         image_count,
         created_at
       `)
@@ -648,6 +659,7 @@ export const getPublicProperties = async (): Promise<Property[]> => {
           hasGarage: item.has_garage || false,
           hasFurniture: item.has_furniture || false,
           acceptsPets: item.accepts_pets || false,
+          hasBarbecue: item.has_barbecue || false,
           status: item.status as "available" | "occupied" | "unavailable",
           listingType: (item.listing_type as "rent" | "sale") || "rent",
           images: images, // Array vazio com length correto
@@ -707,6 +719,7 @@ export const getPublicProperties = async (): Promise<Property[]> => {
         hasGarage: item.has_garage || false,
         hasFurniture: item.has_furniture || false,
         acceptsPets: item.accepts_pets || false,
+        hasBarbecue: item.has_barbecue || false,
         status: item.status as "available" | "occupied" | "unavailable",
         listingType: (item.listing_type as "rent" | "sale") || "rent",
         images: images, // Array vazio com length correto (ícone funciona!)

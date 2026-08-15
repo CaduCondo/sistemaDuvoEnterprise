@@ -820,6 +820,7 @@ export type Database = {
           complement: string | null
           created_at: string | null
           description: string | null
+          has_barbecue: boolean
           has_furniture: boolean | null
           has_garage: boolean | null
           id: string
@@ -840,6 +841,7 @@ export type Database = {
           complement?: string | null
           created_at?: string | null
           description?: string | null
+          has_barbecue?: boolean
           has_furniture?: boolean | null
           has_garage?: boolean | null
           id?: string
@@ -860,6 +862,7 @@ export type Database = {
           complement?: string | null
           created_at?: string | null
           description?: string | null
+          has_barbecue?: boolean
           has_furniture?: boolean | null
           has_garage?: boolean | null
           id?: string

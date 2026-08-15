@@ -24,6 +24,7 @@ import {
   Image as ImageIcon,
   ArrowLeft,
   Loader2,
+  Flame,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -103,6 +104,7 @@ export default function PropertyDetailPage() {
           hasGarage: data.has_garage || false,
           hasFurniture: data.has_furniture || false,
           acceptsPets: data.accepts_pets || false,
+          hasBarbecue: data.has_barbecue || false,
           listingType: (data.listing_type as "rent" | "sale") || "rent",
           images: allImages,
           allImages: allImages,
@@ -332,36 +334,57 @@ export default function PropertyDetailPage() {
               )}
 
               <div>
-                <h2 className="text-xl font-bold text-slate-900 mb-3">Detalhes</h2>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                    <Armchair className="h-5 w-5 text-slate-600" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Móveis Planejados</p>
-                      <Badge variant={property.hasFurniture ? "default" : "secondary"} className="mt-1">
-                        {property.hasFurniture ? "Sim" : "Não"}
-                      </Badge>
+                {(property.hasFurniture || property.acceptsPets || property.hasGarage || property.hasBarbecue) && (
+                  <>
+                    <h2 className="text-xl font-bold text-slate-900 mb-3">Detalhes</h2>
+                    <div className="space-y-3">
+                      {property.hasFurniture && (
+                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                          <Armchair className="h-5 w-5 text-slate-600" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">Móveis Planejados</p>
+                            <Badge variant="default" className="mt-1">
+                              Sim
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                      {property.acceptsPets && (
+                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                          <PawPrint className="h-5 w-5 text-slate-600" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">Aceita Pets</p>
+                            <Badge variant="default" className="mt-1">
+                              Sim
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                      {property.hasGarage && (
+                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                          <Car className="h-5 w-5 text-slate-600" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">Vaga de Garagem</p>
+                            <Badge variant="default" className="mt-1">
+                              Sim
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                      {property.hasBarbecue && (
+                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                          <Flame className="h-5 w-5 text-slate-600" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">Churrasqueira</p>
+                            <Badge variant="default" className="mt-1">
+                              Sim
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                    <PawPrint className="h-5 w-5 text-slate-600" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Aceita Pets</p>
-                      <Badge variant={property.acceptsPets ? "default" : "secondary"} className="mt-1">
-                        {property.acceptsPets ? "Sim" : "Não"}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                    <Car className="h-5 w-5 text-slate-600" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Vaga de Garagem</p>
-                      <Badge variant={property.hasGarage ? "default" : "secondary"} className="mt-1">
-                        {property.hasGarage ? "Sim" : "Não"}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
+                  </>
+                )}
 
                 <Button
                   onClick={() => setShowInterestForm(true)}

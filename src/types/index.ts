@@ -112,6 +112,8 @@ export interface Property {
   has_furniture?: boolean; // Compatibility
   acceptsPets: boolean;
   accepts_pets?: boolean; // Compatibility
+  hasBarbecue?: boolean;
+  has_barbecue?: boolean; // Compatibility
   status: "available" | "occupied" | "unavailable";
   listingType?: "rent" | "sale"; // Tipo de anúncio: Locação ou Venda
   listing_type?: "rent" | "sale"; // Compatibility
