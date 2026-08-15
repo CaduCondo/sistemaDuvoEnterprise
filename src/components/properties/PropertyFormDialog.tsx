@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { X, Pencil, ImageIcon, Camera } from "lucide-react";
+import { X, Pencil, ImageIcon, Camera, GripVertical } from "lucide-react";
 import { PropertyFormData } from "@/hooks/useProperties";
 import { formatCurrencyInput, applyMoneyMask, formatMoneyForDisplay, parseMoneyMaskToNumber } from "@/lib/masks";
 
@@ -43,26 +43,81 @@ interface PropertyFormDialogProps {
   onEdit?: () => void;
 }
 
-const ImageGallery = memo(function ImageGallery({ 
-  images, 
-  onRemove, 
-  isReadOnly 
-}: { 
-  images: string[]; 
+const ImageGallery = memo(function ImageGallery({
+  images,
+  onRemove,
+  onReorder,
+  isReadOnly
+}: {
+  images: string[];
   onRemove?: (index: number) => void;
+  onReorder?: (fromIndex: number, toIndex: number) => void;
   isReadOnly?: boolean;
 }) {
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   if (images.length === 0) return null;
+
+  const canDrag = !isReadOnly && !!onReorder && images.length > 1;
+
+  const handleDragStart = (index: number) => (e: React.DragEvent) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    // Necessário para o Firefox permitir o drag.
+    e.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const handleDragOver = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    setDragOverIndex(index);
+  };
+
+  const handleDrop = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== index) {
+      onReorder?.(draggedIndex, index);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-3">
       {images.map((image, index) => (
-        <div key={index} className="relative aspect-video group">
+        <div
+          key={index}
+          draggable={canDrag}
+          onDragStart={canDrag ? handleDragStart(index) : undefined}
+          onDragOver={canDrag ? handleDragOver(index) : undefined}
+          onDrop={canDrag ? handleDrop(index) : undefined}
+          onDragEnd={canDrag ? handleDragEnd : undefined}
+          className={`relative aspect-video group ${canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${
+            draggedIndex === index ? "opacity-40" : ""
+          } ${dragOverIndex === index && draggedIndex !== index ? "ring-2 ring-primary ring-offset-1" : ""}`}
+        >
           <img
             src={image}
             alt={`Foto ${index + 1}`}
-            className="w-full h-full object-cover rounded-lg border"
+            draggable={false}
+            className="w-full h-full object-cover rounded-lg border pointer-events-none"
           />
+          {index === 0 && (
+            <span className="absolute bottom-1 left-1 bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 rounded">
+              Capa
+            </span>
+          )}
+          {canDrag && (
+            <div className="absolute top-1 left-1 bg-black/50 text-white rounded p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <GripVertical className="h-4 w-4" />
+            </div>
+          )}
           {!isReadOnly && onRemove && (
             <Button
               type="button"
@@ -131,6 +186,15 @@ export const PropertyFormDialog = memo(function PropertyFormDialog({
   const triggerFileInput = useCallback((inputId: string) => {
     document.getElementById(inputId)?.click();
   }, []);
+
+  // ✅ Reordenar fotos por clicar-e-arrastar: a primeira foto da lista é a que
+  // aparece como capa do anúncio (card e topo da página pública do imóvel).
+  const handleReorderImages = useCallback((fromIndex: number, toIndex: number) => {
+    const reordered = [...formData.images];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    setFormData({ ...formData, images: reordered });
+  }, [formData, setFormData]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -259,7 +323,7 @@ export const PropertyFormDialog = memo(function PropertyFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="property-status" className="text-sm font-medium">
                 Status *
@@ -280,43 +344,81 @@ export const PropertyFormDialog = memo(function PropertyFormDialog({
               </Select>
             </div>
 
-            <div className="flex items-center space-x-2 h-[68px] sm:h-[60px]">
-              <Checkbox
-                id="property-furniture"
-                checked={formData.hasFurniture}
-                onCheckedChange={(checked) => handleFieldChange("hasFurniture", checked)}
-                disabled={isReadOnly}
-                className="h-5 w-5"
-              />
-              <Label htmlFor="property-furniture" className="text-sm cursor-pointer font-normal whitespace-nowrap">
-                Móveis Planejados
-              </Label>
+            {/* ✅ Coluna com 2 checkboxes empilhados (Vaga Garagem em cima,
+                Aceita Pets embaixo), bem colados um no outro e "subidos" para
+                perto do topo da linha - não mais alinhados embaixo, perto do
+                Select. */}
+            <div className="flex flex-col justify-center gap-1.5">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="property-garage"
+                  checked={formData.hasGarage}
+                  onCheckedChange={(checked) => handleFieldChange("hasGarage", checked)}
+                  disabled={isReadOnly}
+                  className="h-5 w-5"
+                />
+                <Label htmlFor="property-garage" className="text-sm cursor-pointer font-normal whitespace-nowrap">
+                  Vaga Garagem
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="property-pets"
+                  checked={formData.acceptsPets}
+                  onCheckedChange={(checked) => handleFieldChange("acceptsPets", checked)}
+                  disabled={isReadOnly}
+                  className="h-5 w-5"
+                />
+                <Label htmlFor="property-pets" className="text-sm cursor-pointer font-normal whitespace-nowrap">
+                  Aceita Pets
+                </Label>
+              </div>
             </div>
 
-            <div className="flex items-center space-x-2 h-[68px] sm:h-[60px]">
-              <Checkbox
-                id="property-pets"
-                checked={formData.acceptsPets}
-                onCheckedChange={(checked) => handleFieldChange("acceptsPets", checked)}
-                disabled={isReadOnly}
-                className="h-5 w-5"
-              />
-              <Label htmlFor="property-pets" className="text-sm cursor-pointer font-normal whitespace-nowrap">
-                Aceita Pets
-              </Label>
+            <div className="flex flex-col justify-center gap-1.5">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="property-furniture"
+                  checked={formData.hasFurniture}
+                  onCheckedChange={(checked) => handleFieldChange("hasFurniture", checked)}
+                  disabled={isReadOnly}
+                  className="h-5 w-5"
+                />
+                <Label htmlFor="property-furniture" className="text-sm cursor-pointer font-normal whitespace-nowrap">
+                  Móveis Planejados
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="property-barbecue"
+                  checked={formData.hasBarbecue}
+                  onCheckedChange={(checked) => handleFieldChange("hasBarbecue", checked)}
+                  disabled={isReadOnly}
+                  className="h-5 w-5"
+                />
+                <Label htmlFor="property-barbecue" className="text-sm cursor-pointer font-normal whitespace-nowrap">
+                  Churrasqueira
+                </Label>
+              </div>
             </div>
 
-            <div className="flex items-center space-x-2 h-[68px] sm:h-[60px]">
-              <Checkbox
-                id="property-garage"
-                checked={formData.hasGarage}
-                onCheckedChange={(checked) => handleFieldChange("hasGarage", checked)}
-                disabled={isReadOnly}
-                className="h-5 w-5"
-              />
-              <Label htmlFor="property-garage" className="text-sm cursor-pointer font-normal whitespace-nowrap">
-                Vaga Garagem
+            <div className="space-y-2">
+              <Label htmlFor="property-listing-type" className="text-sm font-medium">
+                Tipo anúncio:
               </Label>
+              <Select
+                value={formData.listingType || "rent"}
+                onValueChange={(value) => handleFieldChange("listingType", value)}
+                disabled={isReadOnly}
+              >
+                <SelectTrigger id="property-listing-type" className="h-11 sm:h-10 text-sm mobile-input">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rent">Locação</SelectItem>
+                  <SelectItem value="sale">Venda</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -338,10 +440,16 @@ export const PropertyFormDialog = memo(function PropertyFormDialog({
           {!isReadOnly && (
             <div className="space-y-3">
               <Label className="text-sm font-medium">Fotos do Imóvel</Label>
-              
-              <ImageGallery 
-                images={formData.images} 
+              {formData.images.length > 1 && (
+                <p className="text-xs text-muted-foreground -mt-1">
+                  Arraste uma foto para reordenar. A primeira é a capa do anúncio.
+                </p>
+              )}
+
+              <ImageGallery
+                images={formData.images}
                 onRemove={removeImage}
+                onReorder={handleReorderImages}
                 isReadOnly={false}
               />
               

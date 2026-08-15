@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
 import { SEO } from "@/components/SEO";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function PropertiesPage() {
+  const router = useRouter();
   const {
     properties,
     filteredProperties,
@@ -343,6 +345,21 @@ export default function PropertiesPage() {
     resetForm();
     setIsDialogOpen(true);
   }, [resetForm]);
+
+  // ✅ Atalho para abrir a tela de "Novo Imóvel" direto por URL
+  // (/properties?novo=1), sem precisar clicar no botão. Útil, por exemplo,
+  // pra testar layout com uma extensão de navegador (tipo VisBug) que fecha
+  // o formulário se ele for aberto clicando no botão logo antes de ativá-la.
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (router.query.novo === "1") {
+      handleOpenDialog();
+      // Remove o "?novo=1" da URL sem recarregar a página, pra não reabrir
+      // de novo sozinho se a pessoa der refresh depois de fechar a tela.
+      router.replace("/properties", undefined, { shallow: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.novo]);
 
   const propertyColumns = useMemo(() => [
     { key: "local", label: "Local", headerClassName: "text-center", render: (p: Property) => <span className="font-medium text-blue-600">{p.location}</span> },
