@@ -21,10 +21,10 @@ function applySorting(properties: Property[], sort?: SortOption): Property[] {
     }
     return shuffled;
   }
-  
+
   // Mais recentes (padrão se não especificado)
   if (!sort || sort === "newest") {
-    return [...properties].sort((a, b) => 
+    return [...properties].sort((a, b) =>
       new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
   }
@@ -32,22 +32,17 @@ function applySorting(properties: Property[], sort?: SortOption): Property[] {
   switch (sort) {
     case "price-asc":
       return [...properties].sort((a, b) => (a.value || 0) - (b.value || 0));
-    
+
     case "price-desc":
       return [...properties].sort((a, b) => (b.value || 0) - (a.value || 0));
-    
+
     case "area-desc":
       return [...properties].sort((a, b) => (b.area || 0) - (a.area || 0));
-    
+
     default:
       return properties;
   }
 }
-
-// Cache em memória para evitar requisições repetidas
-let cachedProperties: Property[] | null = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
 export function usePublicProperties({ location, sort }: UsePublicPropertiesOptions) {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -60,33 +55,20 @@ export function usePublicProperties({ location, sort }: UsePublicPropertiesOptio
         setLoading(true);
         setError(null);
 
-        const now = Date.now();
-        
-        // Usar cache se válido
-        if (cachedProperties && (now - cacheTimestamp) < CACHE_DURATION) {
-          console.log("✅ [usePublicProperties] Usando cache em memória");
-          
-          // Aplicar filtro de localização
-          let filtered = cachedProperties;
-          if (location && location !== "all") {
-            filtered = cachedProperties.filter((prop) => prop.locationId === location);
-          }
-
-          // Aplicar ordenação
-          const sorted = applySorting(filtered, sort);
-          setProperties(sorted);
-          setLoading(false);
-          return;
-        }
-
+        // ✅ CORREÇÃO (ago/2026): removido o cache em memória de 5 minutos que
+        // existia aqui. Ele guardava a lista de imóveis públicos na aba do
+        // navegador e reaproveitava esse resultado antigo por até 5 minutos,
+        // mesmo depois de um imóvel mudar de status (Disponível/Ocupado) ou
+        // ser criado/editado. Isso causava a página de anúncios mostrar uma
+        // lista desatualizada e diferente dependendo de quando/onde a pessoa
+        // tinha aberto a página pela última vez (por isso o total de imóveis
+        // podia aparecer diferente em dois aparelhos ao mesmo tempo, e um
+        // imóvel recém-marcado como Disponível podia não aparecer ainda).
+        // Agora a página sempre busca os dados direto do banco.
         console.log("🔄 [usePublicProperties] Carregando imóveis públicos...");
 
         // Carregar imóveis (já vem com primeira imagem + todas as imagens)
         const data = await propertyService.getPublicProperties();
-
-        // Atualizar cache
-        cachedProperties = data;
-        cacheTimestamp = now;
 
         console.log(`✅ [usePublicProperties] ${data.length} imóveis carregados com imagens`);
 
