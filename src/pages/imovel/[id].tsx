@@ -103,6 +103,7 @@ export default function PropertyDetailPage() {
           hasGarage: data.has_garage || false,
           hasFurniture: data.has_furniture || false,
           acceptsPets: data.accepts_pets || false,
+          listingType: (data.listing_type as "rent" | "sale") || "rent",
           images: allImages,
           allImages: allImages,
           features: [],
@@ -219,13 +220,17 @@ export default function PropertyDetailPage() {
               <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg mb-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 mb-1">Valor Mensal</p>
+                    <p className="text-sm text-slate-600 mb-1">
+                      {property.listingType === "sale" ? "Valor Venda" : "Valor Mensal"}
+                    </p>
                     <p className="text-3xl font-bold text-blue-600">
                       {property.value.toLocaleString("pt-BR", {
                         style: "currency",
                         currency: "BRL",
                       })}
-                      <span className="text-lg font-normal text-slate-600">/mês</span>
+                      {property.listingType !== "sale" && (
+                        <span className="text-lg font-normal text-slate-600">/mês</span>
+                      )}
                     </p>
                   </div>
                   <Button

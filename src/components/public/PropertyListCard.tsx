@@ -83,7 +83,9 @@ export function PropertyListCard({ property }: PropertyListCardProps) {
                   <div className="text-2xl font-bold text-blue-600 mb-1">
                     {formatCurrency(totalAmount)}
                   </div>
-                  <span className="text-sm text-slate-500">/mês</span>
+                  {property.listingType !== "sale" && (
+                    <span className="text-sm text-slate-500">/mês</span>
+                  )}
                 </div>
               </div>
 

@@ -825,6 +825,7 @@ export type Database = {
           id: string
           image_count: number
           images: Json | null
+          listing_type: string
           location_id: string
           property_identifier: string | null
           rooms: number | null
@@ -844,6 +845,7 @@ export type Database = {
           id?: string
           image_count?: number
           images?: Json | null
+          listing_type?: string
           location_id: string
           property_identifier?: string | null
           rooms?: number | null
@@ -863,6 +865,7 @@ export type Database = {
           id?: string
           image_count?: number
           images?: Json | null
+          listing_type?: string
           location_id?: string
           property_identifier?: string | null
           rooms?: number | null

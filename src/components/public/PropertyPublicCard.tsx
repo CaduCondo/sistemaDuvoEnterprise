@@ -240,7 +240,9 @@ export function PropertyPublicCard({ property, priority = false, index = 0 }: Pr
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
-                <span className="text-sm font-normal text-slate-500">/mês</span>
+                {property.listingType !== "sale" && (
+                  <span className="text-sm font-normal text-slate-500">/mês</span>
+                )}
               </p>
             </div>
           </div>
@@ -342,7 +344,9 @@ export function PropertyPublicCard({ property, priority = false, index = 0 }: Pr
                 <h3 className="font-semibold text-base mb-2">💰 Valores</h3>
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
-                    <span className="text-base font-semibold">Valor Mensal:</span>
+                    <span className="text-base font-semibold">
+                      {property.listingType === "sale" ? "Valor Venda:" : "Valor Mensal:"}
+                    </span>
                     <span className="text-xl font-bold text-blue-600">
                       {property.value.toLocaleString("pt-BR", {
                         style: "currency",

@@ -113,6 +113,8 @@ export interface Property {
   acceptsPets: boolean;
   accepts_pets?: boolean; // Compatibility
   status: "available" | "occupied" | "unavailable";
+  listingType?: "rent" | "sale"; // Tipo de anúncio: Locação ou Venda
+  listing_type?: "rent" | "sale"; // Compatibility
   images: string[];
   createdAt: string;
   created_at?: string; // Compatibility

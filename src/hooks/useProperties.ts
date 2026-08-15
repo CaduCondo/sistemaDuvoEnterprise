@@ -50,6 +50,7 @@ export interface PropertyFormData {
   acceptsPets: boolean;
   area?: string;
   hasGarage: boolean;
+  listingType: "rent" | "sale";
 }
 
 const SORT_FUNCTIONS = {
@@ -185,6 +186,7 @@ export function useProperties(): UsePropertiesReturn {
       area: formData.area ? parseFloat(formData.area.replace(",", ".")) : 0,
       hasGarage: formData.hasGarage,
       status: formData.status as "available" | "occupied" | "unavailable",
+      listingType: formData.listingType || "rent",
       address: "",
       features: [],
     };
@@ -260,6 +262,7 @@ export function useProperties(): UsePropertiesReturn {
       acceptsPets: formData.acceptsPets,
       area: formData.area ? parseFloat(formData.area.replace(",", ".")) : 0,
       hasGarage: formData.hasGarage,
+      listingType: formData.listingType || "rent",
     };
 
     await propertyService.update(id, propertyData);

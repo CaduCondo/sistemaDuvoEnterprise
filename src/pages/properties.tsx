@@ -42,6 +42,7 @@ const INITIAL_FORM_DATA: PropertyFormData = {
   acceptsPets: false,
   area: "",
   hasGarage: false,
+  listingType: "rent",
 };
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive"> = {
@@ -198,6 +199,7 @@ export default function PropertiesPage() {
     acceptsPets: property.acceptsPets || false,
     area: String(property.area || ""),
     hasGarage: property.hasGarage || false,
+    listingType: property.listingType || "rent",
   }), []);
 
   const handleEdit = useCallback((property: Property) => {

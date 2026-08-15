@@ -74,6 +74,7 @@ const mapDatabasePropertyLight = (item: any): Property => {
     hasFurniture: item.has_furniture || false,
     acceptsPets: item.accepts_pets || false,
     status: item.status as "available" | "occupied" | "unavailable",
+    listingType: (item.listing_type as "rent" | "sale") || "rent",
     images: [], // VAZIO para listagem! Carrega só no detalhe
     createdAt: item.created_at,
     address: "",
@@ -100,6 +101,7 @@ const mapDatabasePropertyFull = (item: any): Property => {
     hasFurniture: item.has_furniture || false,
     acceptsPets: item.accepts_pets || false,
     status: item.status as "available" | "occupied" | "unavailable",
+    listingType: (item.listing_type as "rent" | "sale") || "rent",
     images: processImages(item.images),
     createdAt: item.created_at,
     address: "",
@@ -145,6 +147,7 @@ export const getAll = async (): Promise<Property[]> => {
         area,
         value,
         status,
+        listing_type,
         has_garage,
         has_furniture,
         accepts_pets,
@@ -184,6 +187,7 @@ export const getAll = async (): Promise<Property[]> => {
         hasFurniture: item.has_furniture || false,
         acceptsPets: item.accepts_pets || false,
         status: item.status as "available" | "occupied" | "unavailable",
+        listingType: (item.listing_type as "rent" | "sale") || "rent",
         images: images, // 🔥 Array vazio com length correto (ícone funciona!)
         createdAt: item.created_at,
         address: "",
@@ -241,6 +245,7 @@ export const getById = async (id: string): Promise<Property | null> => {
         has_garage,
         value,
         status,
+        listing_type,
         images,
         has_furniture,
         accepts_pets,
@@ -308,6 +313,7 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
       images: property.images || [],
       has_furniture: property.hasFurniture || false,
       accepts_pets: property.acceptsPets || false,
+      listing_type: property.listingType || "rent",
     })
     .select(`
       id,
@@ -321,6 +327,7 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
       has_garage,
       value,
       status,
+      listing_type,
       images,
       has_furniture,
       accepts_pets,
@@ -391,6 +398,7 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
   if (property.images !== undefined) propertyData.images = property.images;
   if (property.hasFurniture !== undefined) propertyData.has_furniture = property.hasFurniture;
   if (property.acceptsPets !== undefined) propertyData.accepts_pets = property.acceptsPets;
+  if (property.listingType !== undefined) propertyData.listing_type = property.listingType;
 
   const { data, error } = await supabase
     .from("properties")
@@ -408,6 +416,7 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
       has_garage,
       value,
       status,
+      listing_type,
       images,
       has_furniture,
       accepts_pets,
@@ -577,6 +586,7 @@ export const getPublicProperties = async (): Promise<Property[]> => {
         area,
         value,
         status,
+        listing_type,
         has_garage,
         has_furniture,
         accepts_pets,
@@ -639,6 +649,7 @@ export const getPublicProperties = async (): Promise<Property[]> => {
           hasFurniture: item.has_furniture || false,
           acceptsPets: item.accepts_pets || false,
           status: item.status as "available" | "occupied" | "unavailable",
+          listingType: (item.listing_type as "rent" | "sale") || "rent",
           images: images, // Array vazio com length correto
           createdAt: item.created_at,
           features: [],
@@ -697,6 +708,7 @@ export const getPublicProperties = async (): Promise<Property[]> => {
         hasFurniture: item.has_furniture || false,
         acceptsPets: item.accepts_pets || false,
         status: item.status as "available" | "occupied" | "unavailable",
+        listingType: (item.listing_type as "rent" | "sale") || "rent",
         images: images, // Array vazio com length correto (ícone funciona!)
         createdAt: item.created_at,
         features: [],
