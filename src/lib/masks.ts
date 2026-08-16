@@ -20,7 +20,11 @@ export const formatCurrency = (value: string | number): string => {
 
 export const parseCurrency = (value: string): number => {
   if (!value) return 0;
-  return parseFloat(value.replace(/[^\d,]/g, "").replace(/\./g, "").replace(",", "."));
+  // ✅ CORREÇÃO: o regex não deixava passar o sinal de "-", então um valor
+  // negativo digitado/exibido (ex: recebimento de rescisão em que o Duvo
+  // devolve dinheiro ao inquilino) virava positivo ao salvar. Isso fazia o
+  // "Registrar Recebimento" gravar o valor errado (positivo) no banco.
+  return parseFloat(value.replace(/[^\d,-]/g, "").replace(/\./g, "").replace(",", "."));
 };
 
 export const applyRealMask = (value: string): string => {

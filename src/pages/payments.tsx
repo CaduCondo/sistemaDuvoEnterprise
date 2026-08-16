@@ -39,6 +39,14 @@ const MONTH_NAMES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ];
 
+// ✅ Recebimento de rescisão de contrato: junta aluguel proporcional +
+// despesas - devolução de caução em UM recebimento só (pode até dar negativo,
+// quando o Duvo tem que devolver dinheiro pro inquilino). Como ele fica na
+// mesma listagem dos recebimentos normais de aluguel, marcamos com uma
+// etiqueta "Rescisão" pra não parecer um recebimento comum.
+const isTerminationPayment = (payment: Payment) =>
+  payment.notes?.includes("Rescisão de Contrato") || false;
+
 export default function Payments() {
   const router = useRouter();
   const { showAlert } = useAlert();
@@ -706,7 +714,14 @@ export default function Payments() {
           overdue: { label: "Atrasado", className: "bg-red-100 text-red-800" },
           partial: { label: "Parcial", className: "bg-orange-100 text-orange-800" },
         }[p.status] || { label: "Pendente", className: "bg-yellow-100 text-yellow-800" };
-        return <Badge className={config.className}>{config.label}</Badge>;
+        return (
+          <div className="flex flex-col items-center gap-1">
+            <Badge className={config.className}>{config.label}</Badge>
+            {isTerminationPayment(p) && (
+              <Badge className="bg-purple-100 text-purple-800">Rescisão</Badge>
+            )}
+          </div>
+        );
     }},
     { key: "tenant", label: "Inquilino", headerClassName: "text-center", render: (p: Payment) => {
       console.log(`🔎 [render tenant] Payment ${p.id}:`, p.tenant?.name);
@@ -758,7 +773,14 @@ export default function Payments() {
     { key: "period", label: "Período", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => `${getMonthName(p.referenceMonth)}/${p.referenceYear}` },
     { key: "attachments", label: "Anexo", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[80px]", render: (p: Payment) => (p.attachments && (Array.isArray(p.attachments) ? p.attachments.length > 0 : Object.keys(p.attachments).length > 0)) ? <Badge className="bg-blue-100 text-blue-800">Sim</Badge> : <Badge variant="outline">Não</Badge> },
     { key: "installment", label: "Parcela", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[80px]", render: (p: Payment) => getPaymentInstallment(p) },
-    { key: "status", label: "Status", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: () => <Badge className="bg-green-100 text-green-800">Pago</Badge> },
+    { key: "status", label: "Status", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => (
+      <div className="flex flex-col items-center gap-1">
+        <Badge className="bg-green-100 text-green-800">Pago</Badge>
+        {isTerminationPayment(p) && (
+          <Badge className="bg-purple-100 text-purple-800">Rescisão</Badge>
+        )}
+      </div>
+    ) },
     { key: "tenant", label: "Inquilino", headerClassName: "text-center", render: (p: Payment) => {
       console.log(`🔎 [render tenant PAGO] Payment ${p.id}:`, p.tenant?.name);
       return p.tenant?.name || "-";

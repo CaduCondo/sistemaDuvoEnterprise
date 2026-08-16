@@ -84,6 +84,13 @@ const hasAttachments = (payment: Payment): boolean => {
   return payment.attachments && Array.isArray(payment.attachments) && payment.attachments.length > 0;
 };
 
+// ✅ Recebimento de rescisão de contrato (junta aluguel proporcional +
+// despesas - devolução de caução em um recebimento só, que pode até ficar
+// negativo) - mostramos uma etiqueta pra não parecer um recebimento comum.
+const isTerminationPayment = (payment: Payment): boolean => {
+  return payment.notes?.includes("Rescisão de Contrato") || false;
+};
+
 export const PaymentCard = memo(function PaymentCard({
   payment,
   property,
@@ -166,6 +173,9 @@ export const PaymentCard = memo(function PaymentCard({
                 {getMonthName(payment.referenceMonth)}/{payment.referenceYear}
               </span>
               {getStatusBadge(payment.status)}
+              {isTerminationPayment(payment) && (
+                <Badge className="bg-purple-500 text-white text-xs">Rescisão</Badge>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -296,6 +306,9 @@ export const PaymentCard = memo(function PaymentCard({
                     {getMonthName(payment.referenceMonth)}/{payment.referenceYear}
                   </span>
                   {getStatusBadge(payment.status)}
+                  {isTerminationPayment(payment) && (
+                    <Badge className="bg-purple-500 text-white text-xs">Rescisão</Badge>
+                  )}
                   {hasAttachments(payment) && (
                     <div 
                       id={`payment-list-attachments-${payment.id}`}
