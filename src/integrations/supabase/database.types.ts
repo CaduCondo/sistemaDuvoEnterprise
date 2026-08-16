@@ -829,6 +829,7 @@ export type Database = {
           listing_type: string
           location_id: string
           property_identifier: string | null
+          public_code: number
           rooms: number | null
           status: string
           updated_at: string | null
@@ -850,6 +851,7 @@ export type Database = {
           listing_type?: string
           location_id: string
           property_identifier?: string | null
+          public_code?: number
           rooms?: number | null
           status: string
           updated_at?: string | null
@@ -871,6 +873,7 @@ export type Database = {
           listing_type?: string
           location_id?: string
           property_identifier?: string | null
+          public_code?: number
           rooms?: number | null
           status?: string
           updated_at?: string | null

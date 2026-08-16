@@ -61,6 +61,7 @@ const processImages = (images: any): string[] => {
 const mapDatabasePropertyLight = (item: any): Property => {
   return {
     id: item.id,
+    publicCode: item.public_code ?? undefined,
     locationId: item.location_id,
     location: item.location_name || "",
     propertyIdentifier: item.property_identifier || "",
@@ -89,6 +90,7 @@ const mapDatabasePropertyLight = (item: any): Property => {
 const mapDatabasePropertyFull = (item: any): Property => {
   return {
     id: item.id,
+    publicCode: item.public_code ?? undefined,
     locationId: item.location_id,
     location: item.location_name || "",
     propertyIdentifier: item.property_identifier || "",
@@ -140,6 +142,7 @@ export const getAll = async (): Promise<Property[]> => {
       .from("properties")
       .select(`
         id,
+        public_code,
         location_id,
         property_identifier,
         complement,
@@ -177,6 +180,7 @@ export const getAll = async (): Promise<Property[]> => {
       
       return {
         id: item.id,
+        publicCode: item.public_code ?? undefined,
         locationId: item.location_id,
         location: locationsMap.get(item.location_id) || "",
         propertyIdentifier: item.property_identifier || "",
@@ -239,6 +243,7 @@ export const getById = async (id: string): Promise<Property | null> => {
       .from("properties")
       .select(`
         id,
+        public_code,
         location_id,
         property_identifier,
         complement,
@@ -587,6 +592,7 @@ export const getPublicProperties = async (): Promise<Property[]> => {
       .from("properties")
       .select(`
         id,
+        public_code,
         location_id,
         property_identifier,
         complement,
@@ -643,6 +649,7 @@ export const getPublicProperties = async (): Promise<Property[]> => {
         
         return {
           id: item.id,
+          publicCode: item.public_code ?? undefined,
           locationId: item.location_id,
           location: "",
           city: "",
@@ -703,6 +710,7 @@ export const getPublicProperties = async (): Promise<Property[]> => {
 
       return {
         id: item.id,
+        publicCode: item.public_code ?? undefined,
         locationId: item.location_id,
         location: location?.name || "",
         city: location?.city || "",

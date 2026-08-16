@@ -138,6 +138,11 @@ export interface Property {
   
   // Image optimization
   allImages?: string[]; // Todas as imagens do imóvel (usado na página pública)
+
+  // Código curto e sequencial usado na URL pública (ex: 0001), gerado automaticamente pelo banco.
+  // O ID de verdade (UUID) continua sendo a chave interna do sistema.
+  publicCode?: number;
+  public_code?: number; // Compatibility
 }
 
 export interface Tenant {

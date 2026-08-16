@@ -28,6 +28,7 @@ import { ShareButtons } from "./ShareButtons";
 import { Lightbox } from "@/components/Lightbox";
 import { Property } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
+import { formatPublicCode } from "@/lib/propertyCode";
 import type React from "react";
 
 interface PropertyPublicCardProps {
@@ -386,7 +387,10 @@ export function PropertyPublicCard({ property, priority = false, index = 0 }: Pr
                   <MessageCircle className="h-5 w-5 mr-2" />
                   Tenho Interesse!
                 </Button>
-                <ShareButtons propertyName={displayTitle} propertyUrl={`/imovel/${property.id}`} />
+                <ShareButtons
+                  propertyName={displayTitle}
+                  propertyUrl={`/imovel/${formatPublicCode(property)}`}
+                />
               </div>
 
               {images.length > 0 && (

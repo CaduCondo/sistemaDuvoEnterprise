@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Property } from "@/types";
+import { formatPublicCode } from "@/lib/propertyCode";
 import {
   MapPin,
   Bed,
@@ -49,10 +50,18 @@ export default function PropertyDetailPage() {
         setLoading(true);
         setError(null);
 
+        // ✅ A URL pública aceita tanto o código curto (ex: 0001) quanto o
+        // UUID antigo, para não quebrar links já compartilhados anteriormente.
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(propertyId);
+        const codeAsNumber = Number(propertyId);
+        const isShortCode = !isUuid && Number.isInteger(codeAsNumber) && codeAsNumber > 0;
+
+        if (!isUuid && !isShortCode) {
+          throw new Error("Imóvel não encontrado");
+        }
+
         // 🔥 Buscar imóvel COM imagens (query completa)
-        const { data, error: fetchError } = await supabase
-          .from("properties")
-          .select(`
+        const selectClause = `
             *,
             locations!properties_location_id_fkey (
               id,
@@ -64,10 +73,21 @@ export default function PropertyDetailPage() {
               state,
               zip_code
             )
-          `)
-          .eq("id", propertyId)
-          .eq("status", "available")
-          .single();
+          `;
+
+        const { data, error: fetchError } = isUuid
+          ? await supabase
+              .from("properties")
+              .select(selectClause)
+              .eq("status", "available")
+              .eq("id", propertyId)
+              .single()
+          : await supabase
+              .from("properties")
+              .select(selectClause)
+              .eq("status", "available")
+              .eq("public_code", codeAsNumber)
+              .single();
 
         if (fetchError) throw fetchError;
         if (!data) throw new Error("Imóvel não encontrado");
@@ -85,6 +105,7 @@ export default function PropertyDetailPage() {
         const location = data.locations;
         const mappedProperty: Property = {
           id: data.id,
+          publicCode: data.public_code ?? undefined,
           locationId: location?.id || "",
           location: location?.name || "",
           address: location?.street || "",
@@ -216,7 +237,10 @@ export default function PropertyDetailPage() {
                     </div>
                   )}
                 </div>
-                <ShareButtons propertyName={displayTitle} propertyUrl={`/imovel/${property.id}`} />
+                <ShareButtons
+                  propertyName={displayTitle}
+                  propertyUrl={`/imovel/${formatPublicCode(property)}`}
+                />
               </div>
 
               <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg mb-6">
@@ -246,48 +270,6 @@ export default function PropertyDetailPage() {
                 </div>
               </div>
             </div>
-
-            {images.length > 0 && (
-              <div className="mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <button
-                      onClick={() => handleThumbnailClick(0)}
-                      className="relative w-full aspect-video overflow-hidden rounded-lg hover:opacity-95 transition-opacity"
-                    >
-                      <img
-                        src={images[0]}
-                        alt={`${displayTitle} - Principal`}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                    </button>
-                  </div>
-                  {images.slice(1, 5).map((imageUrl, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleThumbnailClick(idx + 1)}
-                      className="relative aspect-video overflow-hidden rounded-lg hover:opacity-95 transition-opacity"
-                    >
-                      <img
-                        src={imageUrl}
-                        alt={`${displayTitle} - Foto ${idx + 2}`}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-                {images.length > 5 && (
-                  <Button
-                    onClick={() => handleThumbnailClick(0)}
-                    variant="outline"
-                    className="w-full mt-4"
-                  >
-                    <ImageIcon className="h-4 w-4 mr-2" />
-                    Ver todas as {images.length} fotos
-                  </Button>
-                )}
-              </div>
-            )}
 
             <div className="grid md:grid-cols-3 gap-6 mb-8">
               {property.description && (
@@ -396,6 +378,49 @@ export default function PropertyDetailPage() {
                 </Button>
               </div>
             </div>
+
+            {images.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-xl font-bold text-slate-900 mb-3">Fotos</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <button
+                      onClick={() => handleThumbnailClick(0)}
+                      className="relative w-full aspect-video overflow-hidden rounded-lg hover:opacity-95 transition-opacity"
+                    >
+                      <img
+                        src={images[0]}
+                        alt={`${displayTitle} - Principal`}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </button>
+                  </div>
+                  {images.slice(1, 5).map((imageUrl, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleThumbnailClick(idx + 1)}
+                      className="relative aspect-video overflow-hidden rounded-lg hover:opacity-95 transition-opacity"
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={`${displayTitle} - Foto ${idx + 2}`}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+                {images.length > 5 && (
+                  <Button
+                    onClick={() => handleThumbnailClick(0)}
+                    variant="outline"
+                    className="w-full mt-4"
+                  >
+                    <ImageIcon className="h-4 w-4 mr-2" />
+                    Ver todas as {images.length} fotos
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
