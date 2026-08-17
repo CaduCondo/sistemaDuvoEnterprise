@@ -956,87 +956,6 @@ export async function createPaymentsForRental(params: {
 }
 
 /**
- * Atualiza valores de pagamentos FUTUROS quando a locação é editada
- * 
- * REGRA CRÍTICA:
- * - Atualiza APENAS pagamentos com due_date >= HOJE
- * - Atualiza APENAS pagamentos com status = 'pending' ou 'overdue'
- * - NUNCA toca em pagamentos 'paid' ou 'partial'
- * - Preserva o snapshot de valores em pagamentos já pagos
- */
-export async function updateFuturePayments(
-  rentalId: string,
-  newTotalValue: number,
-  rental: Rental
-): Promise<void> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split('T')[0];
-
-  console.log("🔄 [updateFuturePayments] Atualizando pagamentos futuros...");
-  console.log("📅 Data de corte:", todayStr);
-
-  // ✅ CRÍTICO: Buscar APENAS pagamentos futuros (due_date >= hoje) e pending/overdue
-  const { data: futurePayments, error } = await supabase
-    .from("payments")
-    .select("id, reference_month, reference_year, breakdown, status, due_date")
-    .eq("rental_id", rentalId)
-    .in("status", ["pending", "overdue"])
-    .gte("due_date", todayStr);  // ← APENAS pagamentos futuros
-
-  if (error) throw error;
-  if (!futurePayments || futurePayments.length === 0) {
-    console.log("ℹ️ Nenhum pagamento futuro para atualizar");
-    return;
-  }
-
-  console.log(`📊 ${futurePayments.length} pagamentos futuros serão atualizados`);
-
-  const baseRent = rental.monthlyRent || rental.value || 0;
-  const garage = rental.hasGarage && rental.garageValue ? rental.garageValue : 0;
-
-  const updates = futurePayments.map((payment) => {
-    const breakdown = [
-      {
-        description: "Aluguel",
-        amount: parseFloat(baseRent.toFixed(2)),
-        type: "addition",
-      },
-    ];
-
-    if (rental.hasGarage && garage > 0) {
-      breakdown.push({
-        description: "Garagem",
-        amount: parseFloat(garage.toFixed(2)),
-        type: "addition",
-      });
-    }
-
-    return {
-      id: payment.id,
-      expected_amount: parseFloat(newTotalValue.toFixed(2)),
-      breakdown: breakdown,
-    };
-  });
-
-  await Promise.all(
-    updates.map(async (update) => {
-      const { error } = await supabase
-        .from("payments")
-        .update({
-          expected_amount: update.expected_amount,
-          breakdown: update.breakdown,
-        })
-        .eq("id", update.id);
-      
-      if (error) throw error;
-    })
-  );
-
-  console.log(`✅ ${updates.length} pagamentos futuros atualizados com sucesso`);
-}
-
-/**
  * Atualiza dia de vencimento de pagamentos FUTUROS
  * 
  * REGRA CRÍTICA: Atualiza APENAS due_date >= hoje e status = 'pending'
@@ -1135,46 +1054,6 @@ export const updateFuturePaymentsOnPaymentDayChange = async (
   }
 
   console.log(`✅ ${updates.length} datas atualizadas com sucesso`);
-};
-
-/**
- * Atualiza pagamentos quando a locação é editada
- * 
- * REGRA CRÍTICA: Atualiza APENAS pagamentos futuros (due_date >= hoje) e pending
- */
-export const updatePendingPaymentsOnRentalEdit = async (
-  rentalId: string,
-  updates: Partial<{
-    monthlyRent: number;
-    paymentDay: number;
-    hasGarage: boolean;
-    garageValue: number;
-  }>,
-  rental: Rental
-): Promise<void> => {
-  console.log("🔄 [updatePendingPaymentsOnRentalEdit] Iniciando...");
-  console.log("📋 Updates:", updates);
-
-  if (updates.monthlyRent !== undefined || updates.garageValue !== undefined || updates.hasGarage !== undefined) {
-    const baseRent = updates.monthlyRent ?? rental.monthlyRent ?? rental.value ?? 0;
-    const garage = (updates.hasGarage ?? rental.hasGarage) && (updates.garageValue ?? rental.garageValue) 
-      ? (updates.garageValue ?? rental.garageValue ?? 0) 
-      : 0;
-    const totalValue = baseRent + garage;
-    
-    console.log("💰 Novo total:", totalValue, "(aluguel:", baseRent, "+ garagem:", garage, ")");
-    
-    await updateFuturePayments(rentalId, totalValue, {
-      ...rental,
-      monthlyRent: baseRent,
-      hasGarage: updates.hasGarage ?? rental.hasGarage,
-      garageValue: updates.garageValue ?? rental.garageValue
-    });
-  }
-
-  if (updates.paymentDay !== undefined) {
-    await updateFuturePaymentsOnPaymentDayChange(rentalId, updates.paymentDay);
-  }
 };
 
 export async function analyzeAllRentalsPayments(): Promise<{

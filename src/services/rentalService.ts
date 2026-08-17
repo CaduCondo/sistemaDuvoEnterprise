@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Rental, Attachment } from "@/types";
 import { deleteDepositInstallmentsByRental, createDepositInstallments } from "./depositInstallmentService";
 import { getAllLocations } from "./locationService";
-import { updatePendingPaymentsOnRentalEdit, createPaymentsForRental, generateExpectedPayments } from "./paymentService";
+import { createPaymentsForRental, generateExpectedPayments } from "./paymentService";
 import { logAudit } from "./auditService";
 
 let rentalsCache: { data: Rental[] | null; timestamp: number } = {

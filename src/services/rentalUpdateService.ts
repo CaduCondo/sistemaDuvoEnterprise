@@ -385,7 +385,10 @@ export async function adjustRentalValue(
     .from("payments")
     .select("*")
     .eq("rental_id", rentalId)
-    .eq("status", "pending")
+    // ✅ CORREÇÃO: antes só pegava status "pending" — uma parcela futura que já
+    // estivesse "overdue" (atrasada, mas ainda não paga) ficava de fora e
+    // continuava com o valor antigo de aluguel/garagem para sempre.
+    .in("status", ["pending", "overdue"])
     .gte("due_date", todayStr)
     .order("due_date", { ascending: true });
 

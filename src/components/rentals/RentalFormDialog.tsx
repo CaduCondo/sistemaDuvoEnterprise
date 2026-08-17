@@ -24,7 +24,6 @@ import { AttachmentUploadButton } from "@/components/attachments/AttachmentUploa
 import { RentalContract } from "@/components/RentalContract";
 import { DepositPaymentDialog } from "@/components/rentals/DepositPaymentDialog";
 import { useRentalForm } from "@/hooks/useRentalForm";
-import { rentalUpdateService } from "@/services/rentalUpdateService";
 import { supabase } from "@/integrations/supabase/client";
 
 interface RentalFormDialogProps {
@@ -452,29 +451,14 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         console.log("🔄 [RentalFormDialog] EDITANDO locação:", rental.id);
         console.log("📦 [RentalFormDialog] Dados sendo enviados:", commonData);
         console.log("📎 [RentalFormDialog] Anexos sendo salvos:", attachments); // ✅ DEBUG: Log de anexos
-        
-        const changes: any = {};
-        if (startDate !== rental.startDate) changes.startDate = startDate;
-        if (endDate !== rental.endDate) changes.endDate = endDate;
-        if (baseRent !== rental.monthlyRent) changes.monthlyRent = baseRent;
-        if (parseInt(paymentDay) !== rental.paymentDay) changes.paymentDay = parseInt(paymentDay);
-        if (hasGarage !== rental.hasGarage) changes.hasGarage = hasGarage;
-        if (hasGarage && garageAmount !== (rental.garageValue || 0)) changes.garageValue = garageAmount;
 
-        // 🔥 CORREÇÃO: NÃO deletar/recriar parcelas - deixar rentalService.update() fazer a atualização inteligente
+        // 🔥 CORREÇÃO: NÃO deletar/recriar parcelas - deixar rentalService.update() fazer a
+        // atualização inteligente. rentalService.update() já compara os dados antigos com os
+        // novos e sincroniza os recebimentos sozinho - não é preciso (nem seguro) chamar essa
+        // sincronização de novo aqui, usando os dados desatualizados do "rental" antes da edição.
         const updatedRental = await updateRentalService(rental.id, commonData);
-        
+
         console.log("✅ [RentalFormDialog] Locação atualizada, rentalService.update() já atualizou as parcelas");
-        
-        // Atualizar pagamentos apenas se houver mudanças relevantes
-        if (Object.keys(changes).length > 0) {
-          console.log("🔄 [RentalFormDialog] Atualizando pagamentos de aluguel...");
-          await rentalUpdateService.updatePaymentsOnRentalEdit(
-            rental.id,
-            rental,
-            changes
-          );
-        }
 
         const mergedRental: Rental = {
           ...rental,
