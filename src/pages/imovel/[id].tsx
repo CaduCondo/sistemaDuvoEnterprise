@@ -8,7 +8,6 @@ import { Lightbox } from "@/components/Lightbox";
 import { WhatsAppButton } from "@/components/public/WhatsAppButton";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Property } from "@/types";
 import { formatPublicCode } from "@/lib/propertyCode";
@@ -271,112 +270,92 @@ export default function PropertyDetailPage() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-6 mb-8">
+            <div className="space-y-6 mb-8">
               {property.description && (
-                <div className="md:col-span-2 space-y-6">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 mb-3">Descrição</h2>
-                    <p className="text-slate-600 leading-relaxed whitespace-pre-line">{property.description}</p>
-                  </div>
-
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 mb-3">Características</h2>
-                    <div className="grid grid-cols-2 gap-3">
-                      {property.rooms > 0 && (
-                        <Card className="p-4 text-center">
-                          <Bed className="h-6 w-6 mx-auto mb-2 text-blue-600" />
-                          <p className="text-sm text-slate-600">Quartos</p>
-                          <p className="text-xl font-bold">{property.rooms}</p>
-                        </Card>
-                      )}
-                      {property.bathrooms > 0 && (
-                        <Card className="p-4 text-center">
-                          <Bath className="h-6 w-6 mx-auto mb-2 text-blue-600" />
-                          <p className="text-sm text-slate-600">Banheiros</p>
-                          <p className="text-xl font-bold">{property.bathrooms}</p>
-                        </Card>
-                      )}
-                      {property.area > 0 && (
-                        <Card className="p-4 text-center">
-                          <Maximize className="h-6 w-6 mx-auto mb-2 text-blue-600" />
-                          <p className="text-sm text-slate-600">Área</p>
-                          <p className="text-xl font-bold">{property.area}m²</p>
-                        </Card>
-                      )}
-                      {property.hasGarage && (
-                        <Card className="p-4 text-center">
-                          <Car className="h-6 w-6 mx-auto mb-2 text-blue-600" />
-                          <p className="text-sm text-slate-600">Garagem</p>
-                          <p className="text-xl font-bold">Sim</p>
-                        </Card>
-                      )}
-                    </div>
-                  </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900 mb-3">Descrição</h2>
+                  <p className="text-slate-600 leading-relaxed whitespace-pre-line">{property.description}</p>
                 </div>
               )}
 
               <div>
-                {(property.hasFurniture || property.acceptsPets || property.hasGarage || property.hasBarbecue) && (
-                  <>
-                    <h2 className="text-xl font-bold text-slate-900 mb-3">Detalhes</h2>
-                    <div className="space-y-3">
-                      {property.hasFurniture && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                          <Armchair className="h-5 w-5 text-slate-600" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">Móveis Planejados</p>
-                            <Badge variant="default" className="mt-1">
-                              Sim
-                            </Badge>
-                          </div>
-                        </div>
-                      )}
-                      {property.acceptsPets && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                          <PawPrint className="h-5 w-5 text-slate-600" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">Aceita Pets</p>
-                            <Badge variant="default" className="mt-1">
-                              Sim
-                            </Badge>
-                          </div>
-                        </div>
-                      )}
-                      {property.hasGarage && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                          <Car className="h-5 w-5 text-slate-600" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">Vaga de Garagem</p>
-                            <Badge variant="default" className="mt-1">
-                              Sim
-                            </Badge>
-                          </div>
-                        </div>
-                      )}
-                      {property.hasBarbecue && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                          <Flame className="h-5 w-5 text-slate-600" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">Churrasqueira</p>
-                            <Badge variant="default" className="mt-1">
-                              Sim
-                            </Badge>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                <Button
-                  onClick={() => setShowInterestForm(true)}
-                  className="w-full bg-green-500 hover:bg-green-600 mt-6"
-                  size="lg"
-                >
-                  <MessageCircle className="h-5 w-5 mr-2" />
-                  Tenho Interesse!
-                </Button>
+                <h2 className="text-xl font-bold text-slate-900 mb-3">Características</h2>
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
+                  {property.rooms > 0 && (
+                    <Card className="p-4 text-center">
+                      <Bed className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                      <p className="text-sm text-slate-600">Quartos</p>
+                      <p className="text-xl font-bold">{property.rooms}</p>
+                    </Card>
+                  )}
+                  {property.bathrooms > 0 && (
+                    <Card className="p-4 text-center">
+                      <Bath className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                      <p className="text-sm text-slate-600">Banheiros</p>
+                      <p className="text-xl font-bold">{property.bathrooms}</p>
+                    </Card>
+                  )}
+                  {property.area > 0 && (
+                    <Card className="p-4 text-center">
+                      <Maximize className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                      <p className="text-sm text-slate-600">Área</p>
+                      <p className="text-xl font-bold">{property.area}m²</p>
+                    </Card>
+                  )}
+                  {property.hasGarage && (
+                    <Card className="p-4 text-center">
+                      <Car className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                      <p className="text-sm text-slate-600">Garagem</p>
+                      <p className="text-xl font-bold">Sim</p>
+                    </Card>
+                  )}
+                </div>
               </div>
+
+              {(property.hasFurniture || property.acceptsPets || property.hasGarage || property.hasBarbecue) && (
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900 mb-3">Detalhes</h2>
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
+                    {property.hasFurniture && (
+                      <Card className="p-4 text-center">
+                        <Armchair className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                        <p className="text-sm text-slate-600">Móveis Planejados</p>
+                        <p className="text-xl font-bold">Sim</p>
+                      </Card>
+                    )}
+                    {property.acceptsPets && (
+                      <Card className="p-4 text-center">
+                        <PawPrint className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                        <p className="text-sm text-slate-600">Aceita Pets</p>
+                        <p className="text-xl font-bold">Sim</p>
+                      </Card>
+                    )}
+                    {property.hasGarage && (
+                      <Card className="p-4 text-center">
+                        <Car className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                        <p className="text-sm text-slate-600">Vaga de Garagem</p>
+                        <p className="text-xl font-bold">Sim</p>
+                      </Card>
+                    )}
+                    {property.hasBarbecue && (
+                      <Card className="p-4 text-center">
+                        <Flame className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                        <p className="text-sm text-slate-600">Churrasqueira</p>
+                        <p className="text-xl font-bold">Sim</p>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <Button
+                onClick={() => setShowInterestForm(true)}
+                className="w-full bg-green-500 hover:bg-green-600"
+                size="lg"
+              >
+                <MessageCircle className="h-5 w-5 mr-2" />
+                Tenho Interesse!
+              </Button>
             </div>
 
             {images.length > 0 && (
