@@ -265,6 +265,7 @@ export type Database = {
           internal_commission: number | null
           notes: string | null
           paid_amount: number | null
+          partial_payments: Json | null
           partner_commission: number | null
           payment_code: string | null
           payment_date: string | null
@@ -293,6 +294,7 @@ export type Database = {
           internal_commission?: number | null
           notes?: string | null
           paid_amount?: number | null
+          partial_payments?: Json | null
           partner_commission?: number | null
           payment_code?: string | null
           payment_date?: string | null
@@ -321,6 +323,7 @@ export type Database = {
           internal_commission?: number | null
           notes?: string | null
           paid_amount?: number | null
+          partial_payments?: Json | null
           partner_commission?: number | null
           payment_code?: string | null
           payment_date?: string | null

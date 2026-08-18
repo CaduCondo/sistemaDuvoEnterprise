@@ -109,7 +109,7 @@ export async function getDepositInstallmentsByRental(
     throw error;
   }
 
-  return data as DepositInstallment[];
+  return data as unknown as DepositInstallment[];
 }
 
 /**

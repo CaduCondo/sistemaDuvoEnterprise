@@ -279,6 +279,12 @@ export interface Payment {
   pixCode?: string;
   paymentTime?: string;
   partialPayments?: any[];
+  // ✅ Recebimentos de caução (deposit_installments) aparecem misturados nesta
+  // mesma lista, cada um no mês de referência da sua data de vencimento, com
+  // as mesmas regras de cor (azul/amarelo/vermelho/verde) dos recebimentos de
+  // aluguel. isDeposit distingue os dois na hora de exibir/etiquetar/clicar.
+  isDeposit?: boolean;
+  depositInstallment?: DepositInstallment;
 }
 
 export interface PaymentInstallment {
@@ -362,6 +368,19 @@ export interface LoginResult {
   error?: string;
 }
 
+// ✅ Cada pagamento (total ou parcial) registrado numa parcela de caução vira
+// uma entrada aqui, igual já funciona em `payments.partial_payments` pro
+// aluguel - permite ter histórico de pagamentos e gerar recibo por entrada.
+export interface DepositPartialPaymentEntry {
+  amount: number;
+  expected_amount: number;
+  payment_date: string;
+  payment_method: string;
+  notes: string | null;
+  attachments: { url: string; name: string; description?: string }[];
+  registered_at: string;
+}
+
 export interface DepositInstallment {
   id: string;
   rental_id: string;
@@ -376,6 +395,9 @@ export interface DepositInstallment {
   pix_code: string | null; // ✅ ADICIONADO: código PIX da parcela
   notes: string | null;
   attachments: string[];
+  partial_payments?: DepositPartialPaymentEntry[];
+  penalty_amount?: number | null;
+  interest_amount?: number | null;
   created_at: string;
   updated_at: string;
 }

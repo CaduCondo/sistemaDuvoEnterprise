@@ -16,6 +16,9 @@ import { useAlert } from "@/contexts/AlertContext";
 import { hasPermission } from "@/lib/permissions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ManagePaymentForm } from "@/components/payments/ManagePaymentForm";
+import { DepositPaymentDialog } from "@/components/rentals/DepositPaymentDialog";
+import { DepositReceipt } from "@/components/rentals/DepositReceipt";
+import type { DepositPartialPaymentEntry } from "@/types";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { supabase } from "@/integrations/supabase/client";
 import { getAllDepositInstallments } from "@/services/depositInstallmentService";
@@ -54,6 +57,9 @@ export default function Payments() {
   const { user } = useAuth();
   const mountedRef = useRef(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  // ✅ Recibo de um pagamento específico do histórico de uma parcela de
+  // caução, aberto a partir do botão numerado na coluna "Recibo" da aba Pagos.
+  const [depositReceiptView, setDepositReceiptView] = useState<{ payment: Payment; entry: DepositPartialPaymentEntry } | null>(null);
   
   // Permissões baseadas no sistema centralizado
   const permissions = useMemo(() => ({
@@ -66,6 +72,11 @@ export default function Payments() {
     viewMode: "list" as "grid" | "list",
     searchQuery: "",
     selectedPaymentId: null as string | null,
+    // ✅ Recebimentos de caução abrem a mesma tela de gerenciar parcela de
+    // caução que já existe na Locação, não a tela de recebimento de aluguel -
+    // guardamos o "Payment" inteiro (já vem com .depositInstallment e .rental
+    // prontos, montados em usePayments.ts) pra não precisar buscar de novo.
+    selectedDepositPayment: null as Payment | null,
     paymentToCancel: null as string | null,
     showReceiptDialog: false,
     selectedPayment: null as Payment | null,
@@ -512,6 +523,18 @@ export default function Payments() {
     });
   }, [loadPayments, selectedMonth, selectedYear, showAlert]);
 
+  // ✅ Sucesso ao registrar/editar um recebimento de CAUÇÃO aberto a partir da
+  // tela de Recebimentos (mesmo diálogo já usado na tela de Locação).
+  const handleDepositPaymentSuccess = useCallback(async () => {
+    setUiState(prev => ({ ...prev, selectedDepositPayment: null }));
+    await loadPayments(selectedMonth.toString(), selectedYear.toString());
+    showAlert({
+      title: "Sucesso!",
+      description: "Recebimento de caução atualizado com sucesso.",
+      type: "success",
+    });
+  }, [loadPayments, selectedMonth, selectedYear, showAlert]);
+
   // Pagamentos filtrados por busca e separados por status
   const { pendingPayments, paidPayments } = useMemo(() => {
     const filterBySearch = (p: Payment) => {
@@ -728,6 +751,9 @@ export default function Payments() {
         return (
           <div className="flex flex-col items-center gap-1">
             <Badge className={config.className}>{config.label}</Badge>
+            {p.isDeposit && (
+              <Badge className="bg-indigo-100 text-indigo-800">Caução</Badge>
+            )}
             {isTerminationPayment(p) && (
               <Badge className="bg-purple-100 text-purple-800">Rescisão</Badge>
             )}
@@ -787,6 +813,9 @@ export default function Payments() {
     { key: "status", label: "Status", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => (
       <div className="flex flex-col items-center gap-1">
         <Badge className="bg-green-100 text-green-800">Pago</Badge>
+        {p.isDeposit && (
+          <Badge className="bg-indigo-100 text-indigo-800">Caução</Badge>
+        )}
         {isTerminationPayment(p) && (
           <Badge className="bg-purple-100 text-purple-800">Rescisão</Badge>
         )}
@@ -820,6 +849,51 @@ export default function Payments() {
       cellClassName: "text-center px-2",
       className: "w-[140px]",
       render: (p: Payment) => {
+        // ✅ Caução também tem recibo por pagamento - usa o histórico próprio
+        // (partial_payments de deposit_installments) e o DepositReceipt
+        // (recibo simples, dedicado a caução) em vez do fluxo de aluguel.
+        if (p.isDeposit) {
+          const depositEntries = Array.isArray(p.depositInstallment?.partial_payments) && p.depositInstallment!.partial_payments!.length > 0
+            ? p.depositInstallment!.partial_payments!
+            : p.depositInstallment
+            ? [{
+                amount: p.depositInstallment.paid_amount,
+                payment_date: p.depositInstallment.payment_date || "",
+                payment_method: p.depositInstallment.payment_method || "",
+                notes: p.depositInstallment.notes,
+              }]
+            : [];
+
+          if (depositEntries.length === 0 || !p.depositInstallment || !p.rental) {
+            return <span className="text-muted-foreground text-xs">-</span>;
+          }
+
+          const sizeClass =
+            depositEntries.length === 1 ? "h-8 w-auto px-4 text-sm" :
+            depositEntries.length === 2 ? "h-8 w-9 text-sm" :
+            "h-7 w-7 text-xs";
+
+          return (
+            <div className="flex items-center justify-center gap-1 flex-wrap">
+              {depositEntries.map((entry, idx) => (
+                <Button
+                  key={idx}
+                  variant="outline"
+                  size="sm"
+                  className={`${sizeClass} border-2 border-indigo-500/60 font-semibold text-indigo-600 hover:bg-indigo-600 hover:text-white`}
+                  title={`Recibo ${idx + 1}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDepositReceiptView({ payment: p, entry });
+                  }}
+                >
+                  {idx + 1}
+                </Button>
+              ))}
+            </div>
+          );
+        }
+
         // ✅ Um recebimento pago em várias vezes tem um recibo POR pagamento —
         // mostra 1 botão numerado por entrada do histórico. Se não teve
         // histórico (pagamento único, sem parcelamento), cai num botão "1"
@@ -975,8 +1049,12 @@ export default function Payments() {
                         viewMode={uiState.viewMode}
                         installment={getPaymentInstallment(payment)}
                         expectedAmount={getExpectedAmount(payment)}
-                        onCardClick={(id) => setUiState(prev => ({ ...prev, selectedPaymentId: id }))}
-                        onClick={() => setUiState(prev => ({ ...prev, selectedPaymentId: payment.id }))}
+                        onCardClick={(id) => payment.isDeposit
+                          ? setUiState(prev => ({ ...prev, selectedDepositPayment: payment }))
+                          : setUiState(prev => ({ ...prev, selectedPaymentId: id }))}
+                        onClick={() => payment.isDeposit
+                          ? setUiState(prev => ({ ...prev, selectedDepositPayment: payment }))
+                          : setUiState(prev => ({ ...prev, selectedPaymentId: payment.id }))}
                         getMonthName={getMonthName}
                         onCancelPayment={permissions.canDeletePayment ? handleCancelPayment : undefined}
                         onViewReceipt={permissions.canViewReceipt ? (id, e) => {
@@ -995,7 +1073,9 @@ export default function Payments() {
                         sortKey={sortKeyPending}
                         sortDirection={sortDirectionPending}
                         onSort={handleSortPending}
-                        onRowClick={(p) => setUiState(prev => ({ ...prev, selectedPaymentId: p.id }))}
+                        onRowClick={(p) => p.isDeposit
+                          ? setUiState(prev => ({ ...prev, selectedDepositPayment: p }))
+                          : setUiState(prev => ({ ...prev, selectedPaymentId: p.id }))}
                         getRowClassName={(p) => getDueDateColor(p.dueDate, false)}
                         emptyMessage="Nenhum recebimento pendente encontrado."
                       />
@@ -1024,8 +1104,12 @@ export default function Payments() {
                         viewMode={uiState.viewMode}
                         installment={getPaymentInstallment(payment)}
                         expectedAmount={getExpectedAmount(payment)}
-                        onCardClick={(id) => setUiState(prev => ({ ...prev, selectedPaymentId: id }))}
-                        onClick={() => setUiState(prev => ({ ...prev, selectedPaymentId: payment.id }))}
+                        onCardClick={(id) => payment.isDeposit
+                          ? setUiState(prev => ({ ...prev, selectedDepositPayment: payment }))
+                          : setUiState(prev => ({ ...prev, selectedPaymentId: id }))}
+                        onClick={() => payment.isDeposit
+                          ? setUiState(prev => ({ ...prev, selectedDepositPayment: payment }))
+                          : setUiState(prev => ({ ...prev, selectedPaymentId: payment.id }))}
                         getMonthName={getMonthName}
                         onCancelPayment={permissions.canDeletePayment ? handleCancelPayment : undefined}
                         onViewReceipt={permissions.canViewReceipt ? (id, e) => {
@@ -1044,7 +1128,9 @@ export default function Payments() {
                         sortKey={sortKeyPaid}
                         sortDirection={sortDirectionPaid}
                         onSort={handleSortPaid}
-                        onRowClick={(p) => setUiState(prev => ({ ...prev, selectedPaymentId: p.id }))}
+                        onRowClick={(p) => p.isDeposit
+                          ? setUiState(prev => ({ ...prev, selectedDepositPayment: p }))
+                          : setUiState(prev => ({ ...prev, selectedPaymentId: p.id }))}
                         getRowClassName={(p) => getDueDateColor(p.dueDate, true)}
                         emptyMessage="Nenhum recebimento pago encontrado."
                       />
@@ -1149,6 +1235,28 @@ export default function Payments() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ✅ Recebimento de CAUÇÃO clicado na tela de Recebimentos abre o mesmo
+          diálogo já usado na tela de Locação, reaproveitando os dados que já
+          vieram prontos (depositInstallment + rental) do usePayments.ts. */}
+      {uiState.selectedDepositPayment?.depositInstallment && uiState.selectedDepositPayment?.rental && (
+        <DepositPaymentDialog
+          open={!!uiState.selectedDepositPayment}
+          onOpenChange={(open) => !open && setUiState(prev => ({ ...prev, selectedDepositPayment: null }))}
+          installment={uiState.selectedDepositPayment.depositInstallment}
+          rental={uiState.selectedDepositPayment.rental}
+          onSuccess={handleDepositPaymentSuccess}
+        />
+      )}
+
+      {depositReceiptView?.payment.depositInstallment && depositReceiptView?.payment.rental && (
+        <DepositReceipt
+          installment={depositReceiptView.payment.depositInstallment}
+          rental={depositReceiptView.payment.rental}
+          entry={depositReceiptView.entry}
+          onClose={() => setDepositReceiptView(null)}
+        />
+      )}
 
       <HelpDialog open={helpOpen} onOpenChange={setHelpOpen} page="payments" />
     </Layout>

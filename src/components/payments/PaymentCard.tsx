@@ -173,6 +173,9 @@ export const PaymentCard = memo(function PaymentCard({
                 {getMonthName(payment.referenceMonth)}/{payment.referenceYear}
               </span>
               {getStatusBadge(payment.status)}
+              {payment.isDeposit && (
+                <Badge className="bg-indigo-500 text-white text-xs">Caução</Badge>
+              )}
               {isTerminationPayment(payment) && (
                 <Badge className="bg-purple-500 text-white text-xs">Rescisão</Badge>
               )}
@@ -250,9 +253,10 @@ export const PaymentCard = memo(function PaymentCard({
             </div>
           )}
 
-          {/* Botões de ação */}
+          {/* Botões de ação - recebimentos de caução são gerenciados pela tela
+              da Locação, não por essas ações (que mexem na tabela de aluguel) */}
           <div className="pt-3 border-t space-y-2">
-            {isPaid && onViewReceipt && (
+            {!payment.isDeposit && isPaid && onViewReceipt && (
               <Button
                 id={`payment-card-receipt-${payment.id}`}
                 variant="outline"
@@ -268,7 +272,7 @@ export const PaymentCard = memo(function PaymentCard({
               </Button>
             )}
             
-            {isPaid && onCancelPayment && (
+            {!payment.isDeposit && isPaid && onCancelPayment && (
               <Button
                 id={`payment-card-cancel-${payment.id}`}
                 variant="outline"
@@ -306,6 +310,9 @@ export const PaymentCard = memo(function PaymentCard({
                     {getMonthName(payment.referenceMonth)}/{payment.referenceYear}
                   </span>
                   {getStatusBadge(payment.status)}
+                  {payment.isDeposit && (
+                    <Badge className="bg-indigo-500 text-white text-xs">Caução</Badge>
+                  )}
                   {isTerminationPayment(payment) && (
                     <Badge className="bg-purple-500 text-white text-xs">Rescisão</Badge>
                   )}
@@ -389,8 +396,8 @@ export const PaymentCard = memo(function PaymentCard({
               </div>
             </div>
             
-            {/* Botões de ação no modo List */}
-            {isPaid && (onViewReceipt || onCancelPayment) && (
+            {/* Botões de ação no modo List - não se aplicam a caução */}
+            {!payment.isDeposit && isPaid && (onViewReceipt || onCancelPayment) && (
               <div className="flex flex-col gap-2 sm:flex-shrink-0 pt-3 border-t sm:border-t-0 sm:pt-0">
                 {onViewReceipt && (
                   <Button

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Payment, Rental, Property, Tenant } from "@/types";
+import { Payment, Rental, Property, Tenant, DepositInstallment as DepositInstallmentType } from "@/types";
 import { getAllDepositInstallments } from "@/services/depositInstallmentService";
 
 export const usePayments = () => {
@@ -15,66 +15,81 @@ export const usePayments = () => {
 
   const loadPayments = useCallback(async (month: string = "all", year: string = "all") => {
     if (loadingRef.current) return;
-    
+
     try {
       setLoading(true);
       loadingRef.current = true;
-      
+
       console.log(`🔄 [usePayments] Buscando recebimentos do banco... (mês: ${month}, ano: ${year})`);
-      
-      // 1. Buscar payments COM FILTRO de mês/ano aplicado no banco
-      let query = supabase
+
+      // ✅ Intervalo de datas usado tanto para os recebimentos de aluguel
+      // (payments) quanto para os de caução (deposit_installments) - os dois
+      // aparecem juntos na mesma tela, cada um no mês da sua própria data de
+      // vencimento.
+      let dateRange: { startDate: string; endDate: string } | null = null;
+      if (month !== "all" && year !== "all") {
+        const monthNum = parseInt(month);
+        const yearNum = parseInt(year);
+        const startDate = new Date(yearNum, monthNum - 1, 1).toISOString().split('T')[0];
+        const endDate = new Date(yearNum, monthNum, 0).toISOString().split('T')[0];
+        console.log(`🔍 [usePayments] Aplicando filtro de data: ${startDate} até ${endDate}`);
+        dateRange = { startDate, endDate };
+      } else {
+        console.log(`🔍 [usePayments] SEM FILTRO - buscando TODOS os registros`);
+      }
+
+      // 1. Buscar payments (aluguel) COM FILTRO de mês/ano aplicado no banco
+      let paymentsQuery = supabase
         .from("payments")
         .select("*")
         .order("due_date", { ascending: false });
 
-      // ✅ FILTRO: Aplicar filtro de mês/ano DIRETAMENTE na query SQL
-      if (month !== "all" && year !== "all") {
-        const monthNum = parseInt(month);
-        const yearNum = parseInt(year);
-        
-        // Primeiro dia do mês
-        const startDate = new Date(yearNum, monthNum - 1, 1).toISOString().split('T')[0];
-        
-        // Último dia do mês
-        const endDate = new Date(yearNum, monthNum, 0).toISOString().split('T')[0];
-        
-        console.log(`🔍 [usePayments] Aplicando filtro de data: ${startDate} até ${endDate}`);
-        
-        query = query
-          .gte("due_date", startDate)
-          .lte("due_date", endDate);
-      } else {
-        console.log(`🔍 [usePayments] SEM FILTRO - buscando TODOS os payments`);
+      if (dateRange) {
+        paymentsQuery = paymentsQuery.gte("due_date", dateRange.startDate).lte("due_date", dateRange.endDate);
       }
 
-      console.log(`📡 [usePayments] Executando query no Supabase...`);
-      const { data: paymentsData, error: paymentsError } = await query;
-
-      console.log(`📦 [usePayments] Resposta do Supabase:`, {
-        temDados: !!paymentsData,
-        quantidade: paymentsData?.length || 0,
-        temErro: !!paymentsError,
-        erro: paymentsError?.message
-      });
+      const { data: paymentsData, error: paymentsError } = await paymentsQuery;
 
       if (paymentsError) {
         console.error("❌ [usePayments] Erro ao buscar payments:", paymentsError);
         throw paymentsError;
       }
 
-      console.log(`✅ [usePayments] Payments carregados do banco: ${paymentsData?.length || 0}`);
+      console.log(`✅ [usePayments] Payments (aluguel) carregados do banco: ${paymentsData?.length || 0}`);
 
-      if (!paymentsData || paymentsData.length === 0) {
-        console.warn(`⚠️ [usePayments] NENHUM payment retornado - tabela vazia ou filtro muito restritivo`);
+      // 1b. Buscar deposit_installments (caução) com o MESMO filtro de mês/ano,
+      // pra aparecerem juntos com os recebimentos de aluguel nesta tela.
+      let depositsQuery = supabase
+        .from("deposit_installments")
+        .select("*")
+        .order("due_date", { ascending: false });
+
+      if (dateRange) {
+        depositsQuery = depositsQuery.gte("due_date", dateRange.startDate).lte("due_date", dateRange.endDate);
+      }
+
+      const { data: depositsData, error: depositsError } = await depositsQuery;
+
+      if (depositsError) {
+        console.error("❌ [usePayments] Erro ao buscar deposit_installments:", depositsError);
+        throw depositsError;
+      }
+
+      console.log(`✅ [usePayments] Cauções carregadas do banco: ${depositsData?.length || 0}`);
+
+      if ((!paymentsData || paymentsData.length === 0) && (!depositsData || depositsData.length === 0)) {
+        console.warn(`⚠️ [usePayments] NENHUM recebimento retornado - tabelas vazias ou filtro muito restritivo`);
         setPayments([]);
         setLoading(false);
         loadingRef.current = false;
         return;
       }
 
-      // 2. Buscar rentals únicos (apenas os necessários)
-      const uniqueRentalIds = [...new Set(paymentsData.map(p => p.rental_id).filter(Boolean))];
+      // 2. Buscar rentals únicos (dos payments E dos deposit_installments juntos)
+      const uniqueRentalIds = [...new Set([
+        ...(paymentsData || []).map(p => p.rental_id),
+        ...(depositsData || []).map(d => d.rental_id),
+      ].filter(Boolean))];
       console.log(`🔍 [usePayments] Buscando ${uniqueRentalIds.length} rentals únicos...`);
 
       const { data: rentalsData, error: rentalsError } = await supabase
@@ -161,7 +176,7 @@ export const usePayments = () => {
       console.log("🗺️ [usePayments] Maps criados para lookup rápido");
 
       // 6. Mapear payments com dados relacionados (lookup O(1))
-      const mappedPayments = paymentsData.map((payment): Payment => {
+      const mappedPayments = (paymentsData || []).map((payment): Payment => {
         const rental = rentalsMap.get(payment.rental_id);
         const property = rental ? propertiesMap.get(rental.property_id) : null;
         const tenant = rental ? tenantsMap.get(rental.tenant_id) : null;
@@ -274,7 +289,119 @@ export const usePayments = () => {
         } : "UNDEFINED");
       }
 
-      setPayments(mappedPayments);
+      // 7. Mapear deposit_installments (caução) no MESMO formato "Payment",
+      // usando os mesmos maps de rental/property/tenant já buscados acima -
+      // assim eles aparecem juntos na tela de Recebimentos, com isDeposit
+      // marcando quais são caução (pra mostrar a etiqueta e abrir a tela certa
+      // ao clicar).
+      const mappedDeposits = (depositsData || []).map((installment): Payment => {
+        const rental = rentalsMap.get(installment.rental_id);
+        const property = rental ? propertiesMap.get(rental.property_id) : null;
+        const tenant = rental ? tenantsMap.get(rental.tenant_id) : null;
+
+        const dueDate = new Date(installment.due_date + "T12:00:00");
+        const calculatedMonth = dueDate.getMonth() + 1;
+        const calculatedYear = dueDate.getFullYear();
+
+        const depositInstallment: DepositInstallmentType = {
+          id: installment.id,
+          rental_id: installment.rental_id,
+          installment_number: installment.installment_number,
+          total_installments: installment.installment_total,
+          amount: installment.amount,
+          due_date: installment.due_date,
+          payment_date: installment.payment_date,
+          paid_amount: installment.paid_amount || 0,
+          payment_method: installment.payment_method,
+          status: installment.status as "pending" | "paid" | "partial" | "overdue",
+          notes: installment.notes,
+          attachments: Array.isArray(installment.attachments) ? installment.attachments : [],
+          pix_code: installment.pix_code || null,
+          partial_payments: Array.isArray(installment.partial_payments)
+            ? (installment.partial_payments as unknown as DepositInstallmentType["partial_payments"])
+            : [],
+          penalty_amount: installment.penalty_amount ?? null,
+          interest_amount: installment.interest_amount ?? null,
+          created_at: installment.created_at,
+          updated_at: installment.updated_at,
+        };
+
+        return {
+          id: installment.id,
+          rentalId: installment.rental_id,
+          propertyId: rental?.property_id || "",
+          tenantId: rental?.tenant_id || "",
+          referenceMonth: calculatedMonth,
+          referenceYear: calculatedYear,
+          dueDate: installment.due_date,
+          paymentDate: installment.payment_date || null,
+          expectedAmount: installment.amount || 0,
+          paidAmount: installment.paid_amount || 0,
+          status: installment.status as "pending" | "paid" | "overdue" | "partial",
+          paymentMethod: installment.payment_method || null,
+          notes: installment.notes || null,
+          lateFee: 0,
+          interest: 0,
+          breakdown: null,
+          attachments: Array.isArray(installment.attachments) ? installment.attachments : [],
+          pixCode: installment.pix_code || null,
+          installment: installment.installment_number || 1,
+          totalInstallments: installment.installment_total || 1,
+          isDeposit: true,
+          depositInstallment,
+          property: property ? {
+            id: property.id,
+            locationId: property.location_id,
+            location: property.locations?.name || "",
+            complement: property.complement || "",
+            propertyIdentifier: property.property_identifier || "",
+            description: property.description || "",
+            rooms: property.rooms || 0,
+            bathrooms: property.bathrooms || 0,
+            area: property.area || 0,
+            value: property.value || 0,
+            hasGarage: false,
+            hasFurniture: false,
+            acceptsPets: false,
+            status: property.status as "available" | "occupied" | "unavailable",
+            images: [],
+            createdAt: "",
+            address: "",
+            features: [],
+          } : undefined,
+          tenant: tenant ? {
+            id: tenant.id,
+            name: tenant.name,
+            email: tenant.email || "",
+            phone: tenant.phone || "",
+            cpf: tenant.cpf || "",
+            rg: "",
+            status: "rented" as const,
+            createdAt: "",
+          } : undefined,
+          rental: rental ? {
+            id: rental.id,
+            propertyId: rental.property_id,
+            tenantId: rental.tenant_id,
+            startDate: rental.start_date,
+            endDate: rental.end_date || null,
+            monthlyRent: rental.rent_value,
+            paymentDay: rental.rent_due_day,
+            status: (rental.status === "inactive" ? "ended" : rental.status) as "active" | "terminated" | "ended",
+            value: rental.rent_value,
+            depositAmount: 0,
+            isActive: rental.is_active || false,
+            hasGarage: false,
+            hasPartnerBroker: false,
+            attachments: [],
+            contractAttachments: [],
+          } : undefined,
+        };
+      });
+
+      console.log(`✅ [usePayments] ${mappedDeposits.length} cauções mapeadas com sucesso`);
+
+      setPayments([...mappedPayments, ...mappedDeposits]);
 
     } catch (error) {
       console.error("❌ [usePayments] Erro ao carregar recebimentos:", error);
