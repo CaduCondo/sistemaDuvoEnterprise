@@ -602,8 +602,8 @@ export const remove = async (id: string): Promise<void> => {
 };
 
 export async function getActive(): Promise<Tenant[]> {
-  console.log("🔄 [tenantService.getActive] Buscando inquilinos disponíveis (apenas status 'new')...");
-  
+  console.log("🔄 [tenantService.getActive] Buscando inquilinos disponíveis para nova locação...");
+
   const { data: tenantsData, error: tenantsError } = await supabase
     .from("tenants")
     .select("id, name, status")
@@ -615,15 +615,15 @@ export async function getActive(): Promise<Tenant[]> {
   }
 
   console.log(`📊 [tenantService.getActive] ${(tenantsData || []).length} inquilinos encontrados`);
-  
+
   const { data: rentalsData, error: rentalsError } = await supabase
     .from("rentals")
     .select("tenant_id, status") as any;
-  
+
   if (rentalsError) {
     console.error("❌ [tenantService.getActive] Erro ao buscar locações:", rentalsError);
   }
-  
+
   const rentalsMap = new Map<string, string[]>();
   (rentalsData || []).forEach((rental: any) => {
     if (!rentalsMap.has(rental.tenant_id)) {
@@ -631,14 +631,25 @@ export async function getActive(): Promise<Tenant[]> {
     }
     rentalsMap.get(rental.tenant_id)!.push(rental.status);
   });
-  
-  console.log(`📊 [tenantService.getActive] Mapa de locações criado com ${rentalsMap.size} inquilinos que já tiveram/têm locações`);
-  
-  const newTenants = (tenantsData || []).filter(
-    (tenant: any) => !rentalsMap.has(tenant.id)
-  );
-  
-  console.log(`✅ [tenantService.getActive] ${newTenants.length} inquilinos com status "active" (nunca tiveram locações)`);
-  
-  return newTenants as unknown as Tenant[];
+
+  // ✅ CORRIGIDO (bug crítico, ago/2026): antes esta função só retornava
+  // inquilinos que NUNCA tinham tido nenhuma locação (nem encerrada) -
+  // `!rentalsMap.has(tenant.id)`. Isso ignorava completamente o campo
+  // `status` do inquilino: uma vez que o inquilino fazia a 1ª locação, ele
+  // sumia desta lista para sempre, mesmo que a locação encerrasse e o Cadu
+  // mudasse manualmente o status de volta para "Disponível" - o inquilino
+  // não aparecia mais para selecionar numa nova locação (ver ticket "Anexo
+  // ao selecionar inquilino já locado antes"). Agora a regra usa a mesma
+  // lógica já aplicada em getAllTenants(): um inquilino está disponível
+  // quando NÃO tem nenhuma locação com status "active" no momento E o
+  // status cadastral dele não é "inactive" (Indisponível).
+  const availableTenants = (tenantsData || []).filter((tenant: any) => {
+    const rentalStatuses = rentalsMap.get(tenant.id) || [];
+    const hasActiveRental = rentalStatuses.includes("active");
+    return !hasActiveRental && tenant.status !== "inactive";
+  });
+
+  console.log(`✅ [tenantService.getActive] ${availableTenants.length} inquilinos disponíveis (sem locação ativa e status != inactive)`);
+
+  return availableTenants as unknown as Tenant[];
 }
