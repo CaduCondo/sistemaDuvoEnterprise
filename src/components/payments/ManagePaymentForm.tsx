@@ -7,8 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAlert } from "@/contexts/AlertContext";
-import { Camera, Paperclip, CreditCard, Edit, X, Upload, FileText, Loader2, ImageIcon } from "lucide-react";
+import { Camera, Paperclip, CreditCard, Edit, X, Upload, FileText, Loader2, ImageIcon, Trash2 } from "lucide-react";
 import type { Payment, Rental, Property, Tenant } from "@/types";
 import { calculateCorrectedDeposit } from "@/services/igpmService";
 import { PaymentInfoCards } from "./PaymentInfoCards";
@@ -23,6 +33,7 @@ import { LateFeeInterestBlock } from "@/components/payments/LateFeeInterestBlock
 import { applyMoneyMask, formatMoneyForDisplay, parseMoneyMaskToNumber } from "@/lib/masks";
 import { validateAttachmentFile } from "@/lib/attachmentValidation";
 import { PaymentReceipt } from "@/components/PaymentReceipt";
+import { forceDialogCleanup } from "@/lib/forceCleanup";
 
 interface BreakdownItem {
   description?: string;
@@ -137,6 +148,10 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   const [config, setConfig] = useState<any>(null);
   const [paymentMethods, setPaymentMethods] = useState<Array<{ code: string; name: string }>>([]);
   const [historyReceiptEntry, setHistoryReceiptEntry] = useState<any | null>(null);
+  // Índice (dentro de partial_payments) do recibo que o usuário pediu pra excluir -
+  // guardamos o índice pra poder mostrar a confirmação antes de apagar de verdade.
+  const [entryIndexToDelete, setEntryIndexToDelete] = useState<number | null>(null);
+  const [isDeletingEntry, setIsDeletingEntry] = useState(false);
 
   // Monta um "Payment" sintético para o recibo de UM pagamento parcial
   // específico do histórico (não o total acumulado da linha em `payments`).
@@ -668,9 +683,67 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   const handleCancelEdit = useCallback(() => {
     setIsEditMode(false);
     loadPaymentData();
-    
+
     // ✅ CORREÇÃO: Remover alerta que pode travar a tela
   }, [loadPaymentData]);
+
+  // Exclui um recibo específico do histórico de pagamentos parciais (pedido do
+  // Cadu). Recalcula o valor total pago e o status do recebimento com base
+  // no que sobrar no histórico - nunca mexe nos outros recibos.
+  const handleConfirmDeletePartialPayment = useCallback(async () => {
+    if (entryIndexToDelete === null || !payment) return;
+
+    setIsDeletingEntry(true);
+    try {
+      const currentHistory = Array.isArray(payment.partial_payments) ? payment.partial_payments : [];
+      const updatedHistory = currentHistory.filter((_: any, i: number) => i !== entryIndexToDelete);
+
+      const newPaidAmount = updatedHistory.reduce((sum: number, entry: any) => sum + Math.abs(entry.amount || 0), 0);
+      const expected = Math.abs(payment.expected_amount || 0);
+
+      let newStatus: string;
+      if (newPaidAmount <= 0) {
+        newStatus = "pending";
+      } else if (newPaidAmount >= expected - 0.01) {
+        newStatus = "paid";
+      } else {
+        newStatus = "partial";
+      }
+
+      // O recebimento principal (payment_date/hora/forma) passa a refletir o
+      // recibo mais recente que sobrou no histórico - ou fica vazio se não
+      // sobrar nenhum.
+      const lastEntry = updatedHistory[updatedHistory.length - 1];
+
+      const { error } = await supabase
+        .from("payments")
+        .update({
+          partial_payments: updatedHistory,
+          paid_amount: newPaidAmount,
+          status: newStatus,
+          payment_date: lastEntry?.payment_date ?? null,
+          payment_time: lastEntry?.payment_time ?? null,
+          payment_method: lastEntry?.payment_method ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", paymentId);
+
+      if (error) throw error;
+
+      invalidateCache('payments');
+      await loadPaymentData();
+    } catch (error) {
+      console.error("❌ Erro ao excluir recibo:", error);
+      showAlert({
+        title: "Erro",
+        description: "Não foi possível excluir esse recibo. Tente novamente.",
+        type: "error",
+      });
+    } finally {
+      setIsDeletingEntry(false);
+      setEntryIndexToDelete(null);
+    }
+  }, [entryIndexToDelete, payment, paymentId, loadPaymentData, showAlert]);
 
   const handleRepairExpensesChange = useCallback((value: string) => {
     const masked = applyMoneyMask(value);
@@ -1105,15 +1178,26 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
                   <span className="text-muted-foreground uppercase">{entry.payment_method}</span>
                 )}
                 {entry.notes && <span className="text-muted-foreground italic">{entry.notes}</span>}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto h-7"
-                  onClick={() => setHistoryReceiptEntry(entry)}
-                >
-                  Recibo
-                </Button>
+                <div className="ml-auto flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7"
+                    onClick={() => setHistoryReceiptEntry(entry)}
+                  >
+                    Recibo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-red-600 hover:text-red-700"
+                    onClick={() => setEntryIndexToDelete(index)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             ))}
           </CardContent>
@@ -1283,6 +1367,43 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
           skipFetch
         />
       )}
+
+      <AlertDialog
+        open={entryIndexToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEntryIndexToDelete(null);
+            // ✅ Mesma correção do travamento pós-cancelamento: garante que a
+            // página não fique com pointer-events bloqueado depois que esse
+            // diálogo fecha.
+            setTimeout(() => {
+              if (document.querySelectorAll('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').length === 0) {
+                forceDialogCleanup();
+              }
+            }, 100);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este recibo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. O valor total pago e o status deste
+              recebimento serão recalculados com base nos recibos que sobrarem.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingEntry}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeletePartialPayment}
+              disabled={isDeletingEntry}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingEntry ? "Excluindo..." : "Excluir recibo"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

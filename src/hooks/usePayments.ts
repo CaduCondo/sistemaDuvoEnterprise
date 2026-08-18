@@ -302,6 +302,10 @@ export const usePayments = () => {
           paid_amount: 0,
           payment_method: null,
           attachments: null,
+          // ✅ CORREÇÃO (pedido do Cadu): cancelar o recebimento também apaga o
+          // histórico de pagamentos parciais - senão os recibos antigos
+          // continuavam aparecendo mesmo depois do cancelamento.
+          partial_payments: [],
         })
         .eq("id", paymentId);
 
