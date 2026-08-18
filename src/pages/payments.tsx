@@ -20,6 +20,7 @@ import { SortableTable } from "@/components/ui/sortable-table";
 import { supabase } from "@/integrations/supabase/client";
 import { getAllDepositInstallments } from "@/services/depositInstallmentService";
 import { HelpDialog } from "@/components/HelpDialog";
+import { forceDialogCleanup } from "@/lib/forceCleanup";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -247,11 +248,21 @@ export default function Payments() {
 
     try {
       await cancelPayment(uiState.paymentToCancel);
-      
+
       setUiState(prev => ({ ...prev, paymentToCancel: null }));
-      
+
       await loadPayments(selectedMonth.toString(), selectedYear.toString());
-      
+
+      // ✅ CORREÇÃO (travamento da página depois de cancelar): este AlertDialog
+      // de confirmação acabou de fechar (paymentToCancel virou null) e, na
+      // sequência, abrimos outro AlertDialog (o de sucesso, via showAlert).
+      // Se o Radix ainda não tiver terminado de destravar a página do
+      // primeiro diálogo quando o segundo abre, a página fica com
+      // pointer-events bloqueado e nada mais é clicável. Forçamos a limpeza
+      // aqui, entre os dois, pra garantir que o segundo diálogo sempre abra
+      // com a página "limpa".
+      forceDialogCleanup();
+
       showAlert({
         title: "Recebimento cancelado",
         description: "O recebimento foi cancelado com sucesso.",
@@ -1051,7 +1062,21 @@ export default function Payments() {
       </div>
 
       {/* Dialog de confirmação de cancelamento */}
-      <AlertDialog open={!!uiState.paymentToCancel} onOpenChange={(open) => !open && setUiState(prev => ({ ...prev, paymentToCancel: null }))}>
+      <AlertDialog
+        open={!!uiState.paymentToCancel}
+        onOpenChange={(open) => {
+          if (!open) {
+            setUiState(prev => ({ ...prev, paymentToCancel: null }));
+            // ✅ Garante que fechar esse diálogo (inclusive via ESC/clique fora,
+            // não só pelo botão) nunca deixe a página travada.
+            setTimeout(() => {
+              if (document.querySelectorAll('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').length === 0) {
+                forceDialogCleanup();
+              }
+            }, 100);
+          }
+        }}
+      >
         <AlertDialogContent id="payments-cancel-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Cancelamento</AlertDialogTitle>
@@ -1064,6 +1089,7 @@ export default function Payments() {
                   <li>Zerar o valor pago</li>
                   <li>Remover o método de pagamento</li>
                   <li>Remover anexos</li>
+                  <li>Apagar o histórico de pagamentos parciais e seus recibos</li>
                 </ul>
               </div>
             </AlertDialogDescription>

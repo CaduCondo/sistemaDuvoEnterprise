@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle, AlertCircle, Info } from "lucide-react";
+import { forceDialogCleanup } from "@/lib/forceCleanup";
 
 type AlertType = "success" | "error" | "warning" | "info";
 
@@ -61,14 +62,14 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     setOpen(newOpen);
 
     if (!newOpen) {
-      // ✅ Rede de segurança leve (sem remover nós do DOM - isso quebra o React):
-      // se por algum motivo o Radix não restaurar o body a tempo, garante que a
-      // página continue interativa.
+      // ✅ Rede de segurança: se por algum motivo o Radix não restaurar o body a
+      // tempo (ex: esse alerta fechou logo depois de outro diálogo/AlertDialog
+      // fechar), a página trava sem nada clicável. forceDialogCleanup() faz uma
+      // limpeza mais completa que só resetar o body (remove overlays e focus
+      // guards órfãos, reseta pointer-events em qualquer elemento preso).
       setTimeout(() => {
         if (document.querySelectorAll('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').length === 0) {
-          document.body.style.pointerEvents = '';
-          document.body.style.overflow = '';
-          document.body.removeAttribute('data-scroll-locked');
+          forceDialogCleanup();
         }
       }, 100);
 
