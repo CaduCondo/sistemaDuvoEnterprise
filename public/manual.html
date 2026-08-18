@@ -712,16 +712,22 @@
                 <div class="field-item">
                     <span class="field-name">☑ Vaga Garagem:</span> Marque se possui
                 </div>
-                
+                <div class="field-item">
+                    <span class="field-name">☑ Churrasqueira:</span> Marque se possui (novo)
+                </div>
+                <div class="field-item">
+                    <span class="field-name">Tipo de Anúncio:</span> Locação ou Venda — imóveis de Venda mostram "Valor Venda" no anúncio (sem "/mês")
+                </div>
+
                 <h4>Informações Adicionais</h4>
                 <div class="field-item">
                     <span class="field-name">Descrição:</span> Texto livre com detalhes do imóvel
                 </div>
                 <div class="field-item">
-                    <span class="field-name">Fotos:</span> Clique em "Escolher Arquivo" ou "Tirar Foto" (mobile)
+                    <span class="field-name">Fotos:</span> Clique em "Escolher Arquivo" ou "Tirar Foto" (mobile). A primeira foto da lista vira a "Capa" do anúncio — dá para arrastar e soltar para reordenar.
                 </div>
             </div>
-            
+
             <div class="rule-box">
                 <h4>⚠️ Regras Importantes</h4>
                 <ul>
@@ -729,6 +735,8 @@
                     <li>Imóveis com status <strong>Ocupado</strong> não aparecem na seleção ao criar novas locações</li>
                     <li>Recomenda-se adicionar <strong>pelo menos 3 fotos</strong> para melhor divulgação</li>
                     <li>Não é possível <strong>excluir</strong> um imóvel com locações ativas</li>
+                    <li>Atalho: acessar <code>/properties?novo=1</code> já abre a tela de Novo Imóvel direto</li>
+                    <li>O link de compartilhamento do imóvel (botão de compartilhar no anúncio) agora usa um código curto na URL, mais fácil de mandar por WhatsApp</li>
                 </ul>
             </div>
         </div>
@@ -1149,8 +1157,21 @@
                     <li>✅ Status muda para <strong>"Pago"</strong> automaticamente</li>
                     <li>✅ Você pode emitir <strong>Recibo em PDF</strong></li>
                     <li>✅ Comprovantes ficam salvos permanentemente</li>
-                    <li>❌ Não é possível editar recebimento pago (apenas visualizar)</li>
+                    <li>⚠️ Recebimento pago abre <strong>somente leitura</strong>; clique em <strong>"Editar"</strong> para alterar algo</li>
                 </ul>
+            </div>
+
+            <h3 id="novidades-recebimentos">7.4 Novidades (Agosto/2026)</h3>
+            <div class="field-list">
+                <div class="field-item">
+                    <span class="field-name">Caução também aparece aqui:</span> as parcelas de caução passaram a aparecer junto com as de aluguel nesta tela (antes só apareciam no relatório de Financeiro), com uma etiqueta <strong>"CAUÇÃO"</strong> em índigo para diferenciar.
+                </div>
+                <div class="field-item">
+                    <span class="field-name">Histórico de pagamentos:</span> cada pagamento registrado (mesmo parcial) fica guardado num histórico, com um recibo individual por pagamento. Dá para excluir um pagamento específico do histórico, ou cancelar o recebimento inteiro (o que limpa todo o histórico e volta a parcela para "Pendente").
+                </div>
+                <div class="field-item">
+                    <span class="field-name">Etiqueta "Rescisão":</span> o recebimento do mês em que uma locação foi rescindida (que pode ter valor negativo, quando a devolução de caução é maior que o aluguel proporcional devido) agora aparece com essa etiqueta, para não ser confundido com um recebimento comum.
+                </div>
             </div>
         </div>
 
@@ -1676,6 +1697,7 @@
                     <li>✅ Emita <strong>recibos</strong> após registrar pagamentos</li>
                     <li>✅ Personalize seu <strong>tema</strong> (claro/escuro)</li>
                     <li>✅ Mantenha seu <strong>email atualizado</strong> para receber notificações</li>
+                    <li>ℹ️ Nenhuma tela fecha mais sozinha ao clicar fora ou apertar Esc — só pelo "X" ou pelos botões da própria tela, então pode preencher formulários sem medo de perder o que já digitou</li>
                 </ul>
             </div>
 

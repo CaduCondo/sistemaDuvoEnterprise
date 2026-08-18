@@ -10,6 +10,16 @@ Este documento detalha o esquema completo do banco de dados PostgreSQL.
 > `user_location_permissions`, `admin_fee_exemptions`, `location_expenses`) não
 > foram reconferidas nesta revisão; se notar divergência, o `database.types.ts`
 > é sempre a referência mais confiável.
+>
+> ℹ️ **Atualização 18/08/2026:** adicionada a coluna `partial_payments` em
+> `deposit_installments` (histórico de pagamentos de caução + recibo por
+> entrada, mesmo padrão de `payments.partial_payments`). Ver seção da tabela
+> `deposit_installments` abaixo.
+>
+> ℹ️ **Atualização 12-16/08/2026:** adicionadas em `properties` as colunas
+> `has_barbecue` (churrasqueira), `listing_type` (Locação/Venda) e
+> `public_code` (código curto da URL pública do imóvel). Ver seção da tabela
+> `properties` abaixo.
 
 ---
 
@@ -149,7 +159,10 @@ CREATE TABLE properties (
   value NUMERIC,
   has_garage BOOLEAN DEFAULT false,
   has_furniture BOOLEAN DEFAULT false,
+  has_barbecue BOOLEAN DEFAULT false,
   accepts_pets BOOLEAN DEFAULT false,
+  listing_type TEXT DEFAULT 'rent', -- 'rent' | 'sale'
+  public_code TEXT,
   status TEXT NOT NULL, -- 'available' | 'occupied' | 'unavailable'
   images JSONB,
   image_count INTEGER NOT NULL DEFAULT 0,
@@ -173,7 +186,10 @@ CREATE TABLE properties (
 | `value` | NUMERIC | Valor do aluguel | rótulo na UI: "Valor" |
 | `has_garage` | BOOLEAN | Possui vaga de garagem | DEFAULT false |
 | `has_furniture` | BOOLEAN | Móveis planejados | DEFAULT false |
+| `has_barbecue` | BOOLEAN | Possui churrasqueira | DEFAULT false — adicionado 12/08/2026 |
 | `accepts_pets` | BOOLEAN | Aceita pets | DEFAULT false |
+| `listing_type` | TEXT | Tipo de anúncio: `rent` (Locação) ou `sale` (Venda) | DEFAULT 'rent' — adicionado 12/08/2026. Quando `sale`, o anúncio público mostra "Valor Venda" (sem "/mês") |
+| `public_code` | TEXT | Código curto usado na URL pública do imóvel (ex: `/imovel/AB12`, em vez do UUID completo) | adicionado 16/08/2026, ver `src/lib/propertyCode.ts` |
 | `status` | TEXT | Status do imóvel | NOT NULL |
 | `images` | JSONB | Metadados das imagens | - |
 | `image_count` | INTEGER | Nº de imagens (contagem materializada) | DEFAULT 0 |
@@ -486,11 +502,12 @@ CREATE INDEX idx_deposit_installments_due_date ON deposit_installments(due_date)
 | `payment_code` | TEXT | Código/identificador do pagamento da parcela | adicionado depois da 1ª versão deste doc |
 | `payment_location` | TEXT | Local do pagamento | idem |
 | `discount_amount` | NUMERIC | Desconto aplicado na parcela | idem |
-| `interest_amount` | NUMERIC | Juros aplicados na parcela | idem |
-| `penalty_amount` | NUMERIC | Multa aplicada na parcela | idem |
+| `interest_amount` | NUMERIC | Juros aplicados na parcela (multa/juros congelados quando a parcela já está paga) | idem |
+| `penalty_amount` | NUMERIC | Multa aplicada na parcela (idem — congelada quando paga) | idem |
 | `receipt_url` | TEXT | URL do recibo gerado | idem |
 | `reference_month` / `reference_year` | INTEGER | Mês/ano de referência da parcela | idem |
 | `total_installments` | INTEGER | Campo legado, redundante com `installment_total` | opcional — prefira `installment_total` |
+| `partial_payments` | JSONB | Histórico de pagamentos (total ou parciais) desta parcela — mesmo padrão de `payments.partial_payments` | DEFAULT '[]'::jsonb, adicionado na migração `20260818120000_add_partial_payments_to_deposit_installments.sql` (agosto/2026) |
 | `created_at` | TIMESTAMP | Data de criação | DEFAULT NOW() |
 | `updated_at` | TIMESTAMP | Data de atualização | DEFAULT NOW() |
 
@@ -505,6 +522,19 @@ CREATE INDEX idx_deposit_installments_due_date ON deposit_installments(due_date)
 - `pix_code` serve como comprovante de recebimento (quando preenchido = recebido)
 - Comissões são valores únicos por locação (não por parcela)
 - Datas de vencimento vêm dos campos `deposit_payment_date`, `deposit_installment2_payment_date` e `deposit_installment3_payment_date` da tabela `rentals`
+
+> ✅ **Agosto/2026 — Recebimentos de caução na tela de Recebimentos.** Além do
+> relatório "Detalhamento dos Cauções" (Financeiro), as parcelas de caução
+> agora também aparecem na tela **Recebimentos**, junto com as de aluguel,
+> com o mesmo comportamento: histórico de pagamentos por entrada em
+> `partial_payments` (cada entrada = `{ amount, expected_amount,
+> payment_date, payment_method, notes, attachments, registered_at }`), um
+> recibo em PDF/WhatsApp por entrada do histórico (`DepositReceipt.tsx`), e a
+> tela trava para edição quando a parcela está `paid` (multa/juros
+> congelados em `penalty_amount`/`interest_amount`) — só libera clicando em
+> "Editar", igual já funciona no recebimento de aluguel
+> (`ManagePaymentForm.tsx`). Ver `docs/REGRAS_DE_NEGOCIO.md` seção "💰
+> Caução" para o detalhamento das regras de negócio.
 
 ---
 

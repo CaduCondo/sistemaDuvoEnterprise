@@ -35,6 +35,13 @@ Sistema completo de gestão de locações de imóveis com controle de:
 - **Backend**: Supabase (PostgreSQL, Auth, Storage)
 - **Autenticação**: Supabase Auth (email/senha)
 
+### Comportamento Padrão das Telas (NOVO — Agosto/2026)
+Nenhuma tela/formulário do sistema fecha mais sozinha ao clicar fora dela ou
+apertar Esc (antes isso apagava o que estava sendo preenchido em Novo
+Imóvel, Novo Inquilino, Recebimentos, etc). Agora só fecha pelo "X" ou pelos
+botões da própria tela (Cancelar, Criar, Salvar...). Padrão alterado em
+`src/components/ui/dialog.tsx`, vale para todas as telas do sistema.
+
 ### Estrutura de Navegação
 ```
 ├── Login (página pública)
@@ -765,6 +772,24 @@ Gerenciar cadastro completo de imóveis disponíveis para locação.
 - Botão para editar (se Admin/Broker)
 - Botão para criar nova locação (se disponível)
 
+### Novidades do Cadastro de Imóvel (NOVO — Agosto/2026)
+
+- **Churrasqueira** (`has_barbecue`): novo checkbox em "Diferenciais", junto
+  com Móveis Planejados / Aceita Pets / Vaga de Garagem. No anúncio público,
+  o bloco "Detalhes Adicionais" só mostra os itens marcados no cadastro.
+- **Tipo de Anúncio** (`listing_type`): `rent` (Locação) ou `sale` (Venda).
+  Quando o imóvel é cadastrado como Venda, o anúncio público e a página de
+  detalhes mostram "Valor Venda" em vez de "Valor" + "/mês".
+- **Reordenar fotos por arrastar**: no formulário de Novo/Editar Imóvel, a
+  primeira foto da lista vira a "Capa" do anúncio; dá pra arrastar e soltar
+  para reordenar.
+- **Atalho de URL**: `/properties?novo=1` abre a tela de Novo Imóvel já
+  aberta, sem precisar clicar no botão.
+- **Link de compartilhamento com código curto** (`public_code`): a URL
+  pública do imóvel (`/imovel/[código]`) passou a usar um código curto
+  (ex: `AB12`) em vez do UUID completo, mais fácil de compartilhar por
+  WhatsApp. Gerado automaticamente no cadastro (`src/lib/propertyCode.ts`).
+
 ---
 
 ## 👥 Inquilinos
@@ -1203,6 +1228,15 @@ Se totalAtual != totalEsperado:
 - ✅ Inquilino volta para `status = 'active'`
 - ✅ Locação continua `is_active = true` (pode ser encerrada manualmente depois)
 
+**5.5 Identificação na Tela de Recebimentos (NOVO — Agosto/2026)**
+- O recebimento do mês da rescisão (que pode ter valor negativo, quando a
+  devolução de caução é maior que o proporcional de aluguel devido) ganhou
+  uma etiqueta **"Rescisão"** no card, na tela de Recebimentos, para não ser
+  confundido com um recebimento comum.
+- Corrigido bug em que esse valor negativo era salvo sempre como positivo
+  (a função `parseCurrency()` apagava o sinal de "-"), fazendo o
+  recebimento de rescisão aparecer como um aluguel normal na lista.
+
 #### 6. Upload de Contrato
 
 **6.1 Formato Aceito**
@@ -1532,6 +1566,46 @@ SENÃO:
 - Status com badge colorido
 - Botões de ação
 
+### Histórico de Pagamentos, Recibo por Entrada e Exclusão (NOVO — Agosto/2026)
+
+- Cada pagamento (total ou parcial) registrado num recebimento vira uma
+  entrada em `payments.partial_payments` (JSONB), com
+  `{ amount, expected_amount, payment_date, payment_method, notes,
+  attachments, registered_at }` — em vez de só sobrescrever `paid_amount`.
+- A tela de "Gerenciar Pagamento" mostra esse histórico com um botão de
+  recibo numerado por entrada (1, 2, 3...), permitindo emitir o recibo de
+  cada pagamento separadamente.
+- **Excluir um recibo/pagamento específico** do histórico: recalcula
+  `paid_amount` e `status` a partir do que sobrou no histórico.
+- **Cancelar o recebimento** (voltar para pendente) também limpa todo o
+  histórico de `partial_payments`, não deixando entradas órfãs.
+- Corrigido também um travamento da página que acontecia ao fechar diálogos
+  de confirmação em sequência (ex.: confirmar exclusão de um recibo logo
+  depois de outra ação) — o `AlertContext` não liberava o controle de
+  scroll/pointer-events do fundo da página corretamente.
+
+### Sincronização de Recebimentos ao Editar Locação (NOVO — Agosto/2026)
+
+Quando o valor do aluguel de uma locação é alterado (edição da Locação), os
+recebimentos futuros e vencidos são recalculados automaticamente para
+refletir o novo valor:
+
+- **Recebimentos com status `overdue` (atrasado)** também são recalculados
+  — antes só os `pending` eram atualizados, então um recebimento já vencido
+  continuava mostrando o valor antigo mesmo depois de o aluguel ser
+  reajustado na locação.
+- A correção do **valor da garagem** (`garage_value`) usada nesse
+  recálculo também foi corrigida para não usar um valor desatualizado
+  (parado no valor antigo do imóvel).
+- A lógica de sincronização, que estava duplicada entre
+  `rentalUpdateService.ts` e `paymentService.ts` (podendo gerar resultados
+  diferentes dependendo de qual caminho de código rodava primeiro), foi
+  unificada em `rentalUpdateService.ts`. `paymentService.ts` não sincroniza
+  mais recebimentos por conta própria.
+- **Recebimentos que já estavam desatualizados antes dessa correção**
+  foram corrigidos manualmente via SQL direto no banco (não retroativo por
+  código — é uma correção pontual dos dados já existentes).
+
 ---
 
 ## 💰 Caução
@@ -1714,6 +1788,57 @@ Caução Corrigido = Caução Original × (1 + IGPM_Acumulado/100)
 **Regra:** Taxa administrativa **NÃO é aplicada** sobre o valor do caução
 
 **Motivo:** Caução é uma garantia, não é receita da administradora
+
+### Recebimentos de Caução na Tela de Recebimentos (NOVO — Agosto/2026)
+
+**O que mudou:** além de aparecerem no relatório "Detalhamento dos Cauções"
+(aba Financeiro), as parcelas de caução agora também aparecem **junto com
+as parcelas de aluguel na tela Recebimentos** — antes só o aluguel aparecia
+lá.
+
+**Como diferenciar caução de aluguel na tela de Recebimentos:**
+- Badge/borda na cor **indigo/roxo** com o texto **"CAUÇÃO"** no dialog de
+  gerenciamento (`DepositPaymentDialog.tsx`), contra o visual padrão do
+  aluguel (`ManagePaymentForm.tsx`)
+- O layout e os campos são propositalmente muito parecidos com o de
+  aluguel (mesmas seções de informações da locação, mesmos campos de
+  valor/data/forma de pagamento/anexos) — a intenção é reduzir a curva de
+  aprendizado, mantendo a cor/badge como diferenciador principal
+
+**Histórico de pagamentos + recibo por pagamento (igual ao aluguel):**
+- Cada pagamento (total ou parcial) registrado numa parcela de caução vira
+  uma entrada em `deposit_installments.partial_payments` (JSONB)
+- A tela de Recebimentos mostra um botão de recibo numerado por entrada do
+  histórico (1, 2, 3...), igual já acontecia com aluguel
+- O recibo de caução (`DepositReceipt.tsx`) segue o mesmo layout/texto do
+  recibo de aluguel (`PaymentReceipt.tsx`), com as substituições
+  específicas de caução:
+  - Título "RECIBO DE CAUÇÃO" (em vez de "RECIBO DE ALUGUEL")
+  - Indicador de parcela mostra a parcela do **caução** (ex: "1/3"), não a
+    parcela do contrato de aluguel
+  - Texto "Recebi de [inquilino]... proveniente ao depósito de caução
+    referente ao mês de [mês/ano do vencimento da parcela]..." (sem menção a
+    água/luz, que é específica do recibo de aluguel)
+  - Bloco de valores mostra "Caução:" em vez de "Aluguel:"
+  - Mesma assinatura, botões (Imprimir/WhatsApp/Baixar PDF/Fechar) e rodapé
+    de Vencimento/Pagamento do recibo de aluguel
+
+**Trava de edição quando a parcela está paga:**
+- Quando o status da parcela de caução é `paid`, a tela abre **somente
+  leitura** (campos desabilitados) — igual já acontecia no recebimento de
+  aluguel
+- A multa e os juros **não continuam contando** depois que a parcela foi
+  paga: ficam congelados nos valores históricos (`penalty_amount` /
+  `interest_amount` da parcela), em vez de recalcular com base na data
+  atual
+- Para alterar algo numa parcela já paga, é preciso clicar no botão
+  **"Editar"** (mesmo padrão do botão "Editar" do recebimento de aluguel)
+
+**Exclusão de pagamentos individuais ou de todos:**
+- Cada entrada do histórico pode ser excluída individualmente (recalcula
+  `paid_amount`/status a partir do restante do histórico)
+- Também é possível excluir **todos** os recebimentos da parcela de uma vez
+  (zera `partial_payments`, volta a parcela para `pending`)
 
 ---
 
