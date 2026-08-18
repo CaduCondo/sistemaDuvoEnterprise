@@ -879,16 +879,21 @@ export function DepositInstallmentsTable({
                               }
                             }
                             
+                            // ✅ CORREÇÃO: "new Date('2026-07-20')" sem horário é
+                            // interpretado como meia-noite UTC - no fuso de Brasília
+                            // (UTC-3) isso vira 19/07 às 21h, e o relatório mostrava
+                            // um dia a menos que a data real cadastrada na Locação.
+                            // Fixando o horário em meio-dia evita esse problema.
                             return dateToDisplay
-                              ? new Date(dateToDisplay).toLocaleDateString("pt-BR")
+                              ? new Date(dateToDisplay + "T12:00:00").toLocaleDateString("pt-BR")
                               : "-";
                           })()}
                         </TableCell>
-                        
+
                         {/* Data Pagamento - NÃO mesclado - COM COLORAÇÃO */}
                         <TableCell className={`text-center ${installment.pix_code ? 'bg-green-50' : 'bg-red-50'}`}>
                           {installment.payment_date
-                            ? new Date(installment.payment_date).toLocaleDateString("pt-BR")
+                            ? new Date(installment.payment_date + "T12:00:00").toLocaleDateString("pt-BR")
                             : "-"}
                         </TableCell>
                         
