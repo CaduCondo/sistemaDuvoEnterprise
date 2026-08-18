@@ -359,7 +359,16 @@ export async function syncPaymentsOnDateChange(
 }
 
 /**
- * Ajusta o valor do aluguel de uma locação ativa e recalcula os recebimentos futuros
+ * Ajusta o valor do aluguel de uma locação ativa e recalcula os recebimentos
+ * ainda não pagos (pending ou overdue).
+ *
+ * ✅ CORREÇÃO (pedido do Cadu): antes só atualizava recebimentos com
+ * due_date >= hoje ("futuros"), deixando de fora o mês já vencido mas ainda
+ * não pago. Na prática, quando o corretor demora pra registrar o reajuste,
+ * o mês atual já está atrasado e ficava sem o aumento. Agora atualiza
+ * QUALQUER recebimento pending/overdue da locação, seja o vencimento no
+ * passado ou no futuro — só não mexe em pagamentos 'paid' ou 'partial'
+ * (esses são histórico e nunca são alterados).
  */
 export async function adjustRentalValue(
   rentalId: string,
@@ -369,10 +378,6 @@ export async function adjustRentalValue(
 ): Promise<void> {
   console.log("💰 [adjustRentalValue] Ajustando valor do aluguel...");
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split('T')[0];
-
   const { data: rental, error: rentalError } = await supabase
     .from("rentals")
     .select("*")
@@ -381,52 +386,48 @@ export async function adjustRentalValue(
 
   if (rentalError || !rental) throw new Error("Locação não encontrada");
 
-  const { data: futurePayments, error: paymentsError } = await supabase
+  const { data: unpaidPayments, error: paymentsError } = await supabase
     .from("payments")
     .select("*")
     .eq("rental_id", rentalId)
-    // ✅ CORREÇÃO: antes só pegava status "pending" — uma parcela futura que já
-    // estivesse "overdue" (atrasada, mas ainda não paga) ficava de fora e
-    // continuava com o valor antigo de aluguel/garagem para sempre.
     .in("status", ["pending", "overdue"])
-    .gte("due_date", todayStr)
     .order("due_date", { ascending: true });
 
   if (paymentsError) throw paymentsError;
-  if (!futurePayments || futurePayments.length === 0) {
-    console.log("ℹ️ Nenhum pagamento futuro para atualizar");
+  if (!unpaidPayments || unpaidPayments.length === 0) {
+    console.log("ℹ️ Nenhum pagamento pendente/atrasado para atualizar");
     return;
   }
 
-  console.log(`📊 ${futurePayments.length} pagamentos futuros serão atualizados`);
+  console.log(`📊 ${unpaidPayments.length} pagamentos pendentes/atrasados serão atualizados`);
 
   const garageAmount = (rental.has_garage && rental.garage_value) ? rental.garage_value : 0;
   const totalNewValue = newValue + garageAmount;
 
-  for (const payment of futurePayments) {
+  for (const payment of unpaidPayments) {
     const breakdown = [
       { type: "addition", amount: parseFloat(newValue.toFixed(2)), description: "Aluguel" }
     ];
     if (garageAmount > 0) {
-      breakdown.push({ 
-        type: "addition", 
-        amount: parseFloat(garageAmount.toFixed(2)), 
-        description: "Garagem" 
+      breakdown.push({
+        type: "addition",
+        amount: parseFloat(garageAmount.toFixed(2)),
+        description: "Garagem"
       });
     }
 
     const { error: updateError } = await supabase
       .from("payments")
-      .update({ 
-        expected_amount: parseFloat(totalNewValue.toFixed(2)), 
-        breakdown 
+      .update({
+        expected_amount: parseFloat(totalNewValue.toFixed(2)),
+        breakdown
       })
       .eq("id", payment.id);
 
     if (updateError) throw updateError;
   }
 
-  console.log(`✅ ${futurePayments.length} pagamentos atualizados`);
+  console.log(`✅ ${unpaidPayments.length} pagamentos atualizados`);
 }
 
 export const rentalUpdateService = {
