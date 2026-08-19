@@ -143,6 +143,108 @@ export function planDepositInstallmentsSync(
 }
 
 /**
+ * Dados de entrada (vindos do formulário/objeto rental) usados por
+ * `buildInitialDepositInstallments` para montar as parcelas de caução no
+ * momento em que uma locação é CRIADA (não confundir com a edição, que usa
+ * `planDepositInstallmentsSync`).
+ */
+export interface InitialDepositInstallmentInput {
+  depositAmount: number;
+  depositInstallments?: number;
+  depositInstallment1?: number;
+  depositInstallment1DueDate?: string;
+  depositInstallment1PaymentDate?: string | null;
+  depositInstallment1PixCode?: string | null;
+  depositPaymentDate?: string | null;
+  depositPixCode?: string | null;
+  depositInstallment2?: number;
+  depositInstallment2DueDate?: string;
+  depositInstallment3?: number;
+  depositInstallment3DueDate?: string;
+  startDate: string;
+}
+
+/**
+ * Decide, de forma pura (sem chamar o banco), quais parcelas de caução
+ * devem ser criadas quando uma locação NOVA é salva - a partir dos dados
+ * preenchidos no formulário (1 parcela "à vista", ou 2/3 parcelas quando
+ * "Caução Parcelado?" está marcado).
+ *
+ * Esse é o ÚNICO lugar que monta essa lista na criação (ver ticket "Bug:
+ * criação de locação com caução parcelado (2 ou 3x) só salva a 1ª
+ * parcela" / issue #14 do GitHub). Antes dessa correção, existiam DOIS
+ * pontos criando parcelas na mesma operação (rentalService.create() e
+ * RentalFormDialog.tsx), e a trava de duplicidade de `createDepositInstallments`
+ * descartava silenciosamente a 2ª chamada (a que tinha os dados certos).
+ *
+ * Regras:
+ * - `depositInstallments` (quantidade escolhida no formulário) manda no
+ *   total; se não vier, assume 1 (caução à vista, sem parcelamento).
+ * - A data de vencimento da 1ª parcela usa o que o usuário digitou
+ *   (`depositInstallment1DueDate` ou `depositPaymentDate`); só cai para a
+ *   data de início do contrato (`startDate`) como último recurso, nunca
+ *   como comportamento normal.
+ * - Se a 1ª parcela já vier com código PIX preenchido, ela é criada com
+ *   `status: "paid"` (mesmo comportamento que já existia antes, só que
+ *   agora sempre é aplicado, já que só há um ponto criando parcelas).
+ */
+export function buildInitialDepositInstallments(input: InitialDepositInstallmentInput) {
+  const totalInstallments = input.depositInstallments || 1;
+
+  const installment1Amount = input.depositInstallment1 || input.depositAmount;
+  const installment1DueDate =
+    input.depositInstallment1DueDate || input.depositPaymentDate || input.startDate;
+  const installment1PixCode = input.depositInstallment1PixCode || input.depositPixCode || null;
+  const installment1PaymentDate =
+    input.depositInstallment1PaymentDate || input.depositPaymentDate || null;
+  const installment1Paid = !!installment1PixCode;
+
+  const installments = [
+    {
+      installment_number: 1,
+      total_installments: totalInstallments,
+      amount: installment1Amount,
+      due_date: installment1DueDate,
+      payment_date: installment1Paid ? installment1PaymentDate : null,
+      pix_code: installment1PixCode,
+      status: installment1Paid ? ("paid" as const) : ("pending" as const),
+      paid_amount: installment1Paid ? installment1Amount : 0,
+      payment_method: installment1Paid ? "pix" : null,
+    },
+  ];
+
+  if (totalInstallments >= 2 && input.depositInstallment2 && input.depositInstallment2 > 0) {
+    installments.push({
+      installment_number: 2,
+      total_installments: totalInstallments,
+      amount: input.depositInstallment2,
+      due_date: input.depositInstallment2DueDate!,
+      payment_date: null,
+      pix_code: null,
+      status: "pending",
+      paid_amount: 0,
+      payment_method: null,
+    });
+  }
+
+  if (totalInstallments === 3 && input.depositInstallment3 && input.depositInstallment3 > 0) {
+    installments.push({
+      installment_number: 3,
+      total_installments: totalInstallments,
+      amount: input.depositInstallment3,
+      due_date: input.depositInstallment3DueDate!,
+      payment_date: null,
+      pix_code: null,
+      status: "pending",
+      paid_amount: 0,
+      payment_method: null,
+    });
+  }
+
+  return installments;
+}
+
+/**
  * Criar parcelas de caução para uma locação
  */
 export async function createDepositInstallments(

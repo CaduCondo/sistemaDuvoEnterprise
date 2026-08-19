@@ -1,4 +1,4 @@
-import { planDepositInstallmentsSync } from "../depositInstallmentService";
+import { planDepositInstallmentsSync, buildInitialDepositInstallments } from "../depositInstallmentService";
 
 // ⚠️ Assim como paymentService.test.ts, este arquivo ainda não roda
 // automaticamente - o projeto não tem jest/vitest configurado (não há
@@ -94,5 +94,101 @@ describe("planDepositInstallmentsSync", () => {
     expect(update1?.amount).toBeUndefined();
     expect(update1?.due_date).toBeUndefined();
     expect(update1?.installment_total).toBe(2);
+  });
+});
+
+// Ticket: "Bug: criação de locação com caução parcelado (2 ou 3x) só salva
+// a 1ª parcela" (kanban interno + issue #14 do GitHub).
+describe("buildInitialDepositInstallments", () => {
+  test("Cenário 1: criar locação com caução em 2 parcelas cria as 2 parcelas", () => {
+    const installments = buildInitialDepositInstallments({
+      depositAmount: 500,
+      depositInstallments: 2,
+      depositPaymentDate: "2026-09-01",
+      depositInstallment2: 500,
+      depositInstallment2DueDate: "2026-10-01",
+      startDate: "2026-08-20",
+    });
+
+    expect(installments.map((i) => i.installment_number)).toEqual([1, 2]);
+    expect(installments[0]).toMatchObject({ amount: 500, due_date: "2026-09-01", status: "pending" });
+    expect(installments[1]).toMatchObject({ amount: 500, due_date: "2026-10-01", status: "pending" });
+  });
+
+  test("Cenário 2: criar locação com caução em 3 parcelas cria as 3 parcelas", () => {
+    const installments = buildInitialDepositInstallments({
+      depositAmount: 400,
+      depositInstallments: 3,
+      depositPaymentDate: "2026-09-01",
+      depositInstallment2: 400,
+      depositInstallment2DueDate: "2026-10-01",
+      depositInstallment3: 400,
+      depositInstallment3DueDate: "2026-11-01",
+      startDate: "2026-08-20",
+    });
+
+    expect(installments.map((i) => i.installment_number)).toEqual([1, 2, 3]);
+    expect(installments[2]).toMatchObject({ amount: 400, due_date: "2026-11-01", status: "pending" });
+  });
+
+  test("Cenário 3: vencimento da 1ª parcela não vira a data de início do contrato quando informado", () => {
+    const installments = buildInitialDepositInstallments({
+      depositAmount: 1500,
+      depositInstallments: 1,
+      depositPaymentDate: "2026-09-15",
+      startDate: "2026-08-20",
+    });
+
+    expect(installments[0].due_date).toBe("2026-09-15");
+    expect(installments[0].due_date).not.toBe("2026-08-20");
+  });
+
+  test("só cai para a data de início do contrato se nenhuma data de vencimento foi informada", () => {
+    const installments = buildInitialDepositInstallments({
+      depositAmount: 1500,
+      depositInstallments: 1,
+      startDate: "2026-08-20",
+    });
+
+    expect(installments[0].due_date).toBe("2026-08-20");
+  });
+
+  test("caução à vista (sem parcelamento) continua criando só 1 parcela", () => {
+    const installments = buildInitialDepositInstallments({
+      depositAmount: 1000,
+      depositPaymentDate: "2026-09-01",
+      startDate: "2026-08-20",
+    });
+
+    expect(installments).toHaveLength(1);
+    expect(installments[0]).toMatchObject({ installment_number: 1, total_installments: 1, amount: 1000 });
+  });
+
+  test("1ª parcela com código PIX preenchido é criada já como paga", () => {
+    const installments = buildInitialDepositInstallments({
+      depositAmount: 1000,
+      depositPaymentDate: "2026-09-01",
+      depositPixCode: "00020126...",
+      startDate: "2026-08-20",
+    });
+
+    expect(installments[0]).toMatchObject({
+      status: "paid",
+      paid_amount: 1000,
+      payment_method: "pix",
+      payment_date: "2026-09-01",
+    });
+  });
+
+  test("2ª e 3ª parcelas nunca são criadas sem valor preenchido, mesmo com o total maior", () => {
+    const installments = buildInitialDepositInstallments({
+      depositAmount: 500,
+      depositInstallments: 3,
+      depositPaymentDate: "2026-09-01",
+      // depositInstallment2/3 não preenchidos
+      startDate: "2026-08-20",
+    });
+
+    expect(installments.map((i) => i.installment_number)).toEqual([1]);
   });
 });

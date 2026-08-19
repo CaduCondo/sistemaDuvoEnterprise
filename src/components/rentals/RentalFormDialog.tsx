@@ -14,9 +14,8 @@ import { getAll as getAllLocations } from "@/services/locationService";
 import {
   createPaymentsForRental,
 } from "@/services/paymentService";
-import { 
-  createDepositInstallments, 
-  deleteDepositInstallmentsByRental 
+import {
+  deleteDepositInstallmentsByRental
 } from "@/services/depositInstallmentService";
 import type { Property, Tenant, Location, Rental } from "@/types";
 import { AttachmentViewer } from "@/components/AttachmentViewer";
@@ -349,20 +348,23 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         // sabia processar esses campos - só faltava incluí-los aqui.
         depositPaymentDate: depositPaymentDate || undefined,
         depositPixCode: depositPixCode || undefined,
-        // ✅ CORREÇÃO (edição do parcelamento do caução): a config completa de
-        // parcelamento (quantas parcelas, valor/vencimento da 2ª e 3ª) também
-        // nunca era enviada numa edição - só a 1ª parcela chegava a ser
-        // considerada. Agora mandamos tudo, e quem decide criar/atualizar/
-        // remover parcelas é o rentalService.update().
-        // Só enviamos esses campos em modo de EDIÇÃO (rental existente): na
-        // CRIAÇÃO, quem monta as parcelas continua sendo o bloco manual mais
-        // abaixo (não queremos mudar o comportamento de criação aqui).
-        depositInstallments: rental ? depositInstallmentsTotal : undefined,
-        depositInstallment1DueDate: rental ? (depositPaymentDate || undefined) : undefined,
-        depositInstallment2: rental && depositInstallmentsTotal >= 2 ? (parseMoneyMaskToNumber(depositInstallment2) || undefined) : undefined,
-        depositInstallment2DueDate: rental && depositInstallmentsTotal >= 2 ? (depositInstallment2PaymentDate || undefined) : undefined,
-        depositInstallment3: rental && depositInstallmentsTotal === 3 ? (parseMoneyMaskToNumber(depositInstallment3) || undefined) : undefined,
-        depositInstallment3DueDate: rental && depositInstallmentsTotal === 3 ? (depositInstallment3PaymentDate || undefined) : undefined,
+        // ✅ CORREÇÃO (edição do parcelamento do caução, issue #13): a config
+        // completa de parcelamento (quantas parcelas, valor/vencimento da 2ª
+        // e 3ª) também nunca era enviada numa edição - só a 1ª parcela
+        // chegava a ser considerada. Agora mandamos tudo, e quem decide
+        // criar/atualizar/remover parcelas é o rentalService.update().
+        // ✅ CORREÇÃO (criação de locação, issue #14): esses mesmos campos
+        // agora são enviados TAMBÉM na criação (antes só saíam em modo de
+        // edição). É o que faz o rentalService.create() saber, de fato,
+        // quantas parcelas (1, 2 ou 3) e com quais valores/vencimentos
+        // criar - antes, na criação, ele nunca recebia isso e sempre criava
+        // só 1 parcela, não importa o que o usuário tivesse escolhido.
+        depositInstallments: depositInstallmentsTotal,
+        depositInstallment1DueDate: depositPaymentDate || undefined,
+        depositInstallment2: depositInstallmentsTotal >= 2 ? (parseMoneyMaskToNumber(depositInstallment2) || undefined) : undefined,
+        depositInstallment2DueDate: depositInstallmentsTotal >= 2 ? (depositInstallment2PaymentDate || undefined) : undefined,
+        depositInstallment3: depositInstallmentsTotal === 3 ? (parseMoneyMaskToNumber(depositInstallment3) || undefined) : undefined,
+        depositInstallment3DueDate: depositInstallmentsTotal === 3 ? (depositInstallment3PaymentDate || undefined) : undefined,
         status: "active" as const,
         isActive: true,
         attachments: attachments, // ✅ Agora é Attachment[] corretamente
@@ -398,61 +400,16 @@ export const RentalFormDialog = memo(function RentalFormDialog({
           garageValue: mappedRental.garageValue || 0,
         });
 
-        if (isDepositInstallment && depositInstallmentCount) {
-          const installmentsData = [];
-          const totalInstallments = parseInt(depositInstallmentCount);
-
-          // ✅ 1ª PARCELA: Se PIX Code preenchido → marcar como PAGO automaticamente
-          if (depositAmount && depositPaymentDate) {
-            const hasPix = depositPixCode && depositPixCode.trim() !== "";
-            
-            installmentsData.push({
-              installment_number: 1,
-              total_installments: totalInstallments,
-              amount: parseMoneyMaskToNumber(depositAmount),
-              due_date: depositPaymentDate,
-              payment_date: hasPix ? depositPaymentDate : null, // ✅ Preencher payment_date se tiver PIX
-              pix_code: depositPixCode || null,
-              status: hasPix ? "paid" : "pending", // ✅ Se tiver PIX → marcar como pago
-              paid_amount: hasPix ? parseMoneyMaskToNumber(depositAmount) : 0, // ✅ Se pago → paid_amount = amount
-              payment_method: hasPix ? "pix" : null, // ✅ Método de pagamento
-            });
-            
-            if (hasPix) {
-              console.log("✅ [RentalFormDialog] 1ª parcela marcada como PAGA (PIX Code preenchido)");
-            }
-          }
-
-          // ✅ 2ª PARCELA: Salva APENAS due_date (payment_date será preenchido ao pagar)
-          if (totalInstallments >= 2 && depositInstallment2 && depositInstallment2PaymentDate) {
-            installmentsData.push({
-              installment_number: 2,
-              total_installments: totalInstallments,
-              amount: parseMoneyMaskToNumber(depositInstallment2),
-              due_date: depositInstallment2PaymentDate,
-              payment_date: null, // ✅ NULL: será preenchido quando for pago
-              status: "pending",
-              paid_amount: 0,
-            });
-          }
-
-          // ✅ 3ª PARCELA: Salva APENAS due_date (payment_date será preenchido ao pagar)
-          if (totalInstallments === 3 && depositInstallment3 && depositInstallment3PaymentDate) {
-            installmentsData.push({
-              installment_number: 3,
-              total_installments: totalInstallments,
-              amount: parseMoneyMaskToNumber(depositInstallment3),
-              due_date: depositInstallment3PaymentDate,
-              payment_date: null, // ✅ NULL: será preenchido quando for pago
-              status: "pending",
-              paid_amount: 0,
-            });
-          }
-
-          if (installmentsData.length > 0) {
-            await createDepositInstallments(createdRental.id, installmentsData);
-          }
-        }
+        // ✅ CORREÇÃO (issue #14): as parcelas de caução (1, 2 ou 3) já são
+        // criadas dentro de rentalService.create() -> createRental(), a
+        // partir dos campos depositInstallments/depositInstallment2/3 que
+        // agora vão em commonData (ver comentário acima, perto de
+        // "commonData"). Esse bloco manual que existia aqui foi removido:
+        // ele criava as parcelas de novo, com os dados corretos, mas
+        // chegava tarde - a trava de duplicidade do createDepositInstallments
+        // já tinha bloqueado por causa da 1ª parcela criada pelo service.
+        // Ter dois pontos criando a mesma coisa foi exatamente a causa
+        // desse bug; agora só existe um.
 
         const selectedLocation = locations.find((loc) => loc.id === propertySelected.locationId);
 

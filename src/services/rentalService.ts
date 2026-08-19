@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Rental, Attachment } from "@/types";
-import { deleteDepositInstallmentsByRental, createDepositInstallments, planDepositInstallmentsSync, type DesiredDepositInstallment } from "./depositInstallmentService";
+import { deleteDepositInstallmentsByRental, createDepositInstallments, planDepositInstallmentsSync, buildInitialDepositInstallments, type DesiredDepositInstallment } from "./depositInstallmentService";
 import { getAllLocations } from "./locationService";
 import { createPaymentsForRental, generateExpectedPayments } from "./paymentService";
 import { logAudit } from "./auditService";
@@ -373,44 +373,32 @@ export const rentalService = {
 
     if (rental.depositAmount && rental.depositAmount > 0) {
       console.log("🔄 [rentalService.create] Gerando parcelas de caução...");
-      
+
       try {
-        const installmentsToCreate = [];
-        const totalInstallments = rental.depositInstallments || 1;
-        
-        installmentsToCreate.push({
-          installment_number: 1,
-          total_installments: totalInstallments,
-          amount: rental.depositInstallment1 || rental.depositAmount,
-          due_date: rental.depositInstallment1DueDate || rental.depositDueDate || rental.startDate!,
-          payment_date: rental.depositInstallment1PaymentDate || rental.depositPaymentDate || null,
-          pix_code: rental.depositInstallment1PixCode || rental.depositPixCode || null,
+        // ✅ CORREÇÃO (issue #14): este é o ÚNICO lugar que cria parcelas de
+        // caução na criação de uma locação. Antes, o RentalFormDialog.tsx
+        // também tentava criar (com os dados certos de 2ª/3ª parcela), mas
+        // como essa chamada aqui já tinha criado a 1ª parcela primeiro, a
+        // trava de duplicidade descartava a 2ª chamada por completo -
+        // ficava só 1 parcela, mesmo quando o usuário escolhia 2 ou 3.
+        const installmentsToCreate = buildInitialDepositInstallments({
+          depositAmount: rental.depositAmount,
+          depositInstallments: rental.depositInstallments,
+          depositInstallment1: rental.depositInstallment1,
+          depositInstallment1DueDate: rental.depositInstallment1DueDate,
+          depositInstallment1PaymentDate: rental.depositInstallment1PaymentDate,
+          depositInstallment1PixCode: rental.depositInstallment1PixCode,
+          depositPaymentDate: rental.depositPaymentDate,
+          depositPixCode: rental.depositPixCode,
+          depositInstallment2: rental.depositInstallment2,
+          depositInstallment2DueDate: rental.depositInstallment2DueDate,
+          depositInstallment3: rental.depositInstallment3,
+          depositInstallment3DueDate: rental.depositInstallment3DueDate,
+          startDate: rental.startDate!,
         });
-        
-        if (totalInstallments >= 2 && rental.depositInstallment2 && rental.depositInstallment2 > 0) {
-          installmentsToCreate.push({
-            installment_number: 2,
-            total_installments: totalInstallments,
-            amount: rental.depositInstallment2,
-            due_date: rental.depositInstallment2DueDate!,
-            payment_date: rental.depositInstallment2PaymentDate || null,
-            pix_code: rental.depositInstallment2PixCode || null,
-          });
-        }
-        
-        if (totalInstallments === 3 && rental.depositInstallment3 && rental.depositInstallment3 > 0) {
-          installmentsToCreate.push({
-            installment_number: 3,
-            total_installments: totalInstallments,
-            amount: rental.depositInstallment3,
-            due_date: rental.depositInstallment3DueDate!,
-            payment_date: rental.depositInstallment3PaymentDate || null,
-            pix_code: rental.depositInstallment3PixCode || null,
-          });
-        }
-        
+
         await createDepositInstallments(data.id, installmentsToCreate);
-        
+
         console.log("✅ [rentalService.create] Parcelas de caução criadas com sucesso!");
       } catch (depositError) {
         console.error("❌ [rentalService.create] ERRO ao criar parcelas de caução:", depositError);
