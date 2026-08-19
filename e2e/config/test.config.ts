@@ -10,12 +10,20 @@ console.log('🔍 [TEST CONFIG] Carregando .env.local de:', envPath);
 
 const result = dotenv.config({ path: envPath, override: true });
 
-if (result.error) {
+// Em CI (GitHub Actions) o .env.local nao existe de proposito (fica no .gitignore) --
+// as variaveis ja chegam prontas via `env:` do workflow, direto em process.env.
+// So tratamos como erro fatal se as variaveis realmente nao estiverem disponiveis
+// de nenhuma forma (nem .env.local, nem process.env ja populado pelo CI).
+if (result.error && !process.env.NEXT_PUBLIC_SUPABASE_URL) {
   console.error('❌ [TEST CONFIG] ERRO ao carregar .env.local:', result.error);
   throw new Error(`Falha ao carregar .env.local: ${result.error.message}`);
 }
 
-console.log('✅ [TEST CONFIG] .env.local carregado com sucesso!');
+if (result.error) {
+  console.log('⚠️ [TEST CONFIG] .env.local nao encontrado (normal em CI) -- usando variaveis de ambiente ja definidas (secrets do GitHub Actions).');
+} else {
+  console.log('✅ [TEST CONFIG] .env.local carregado com sucesso!');
+}
 console.log('🔍 [TEST CONFIG] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) + '...');
 console.log('🔍 [TEST CONFIG] NEXT_PUBLIC_SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 20) + '...');
 console.log('🔍 [TEST CONFIG] SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 20) + '...');
