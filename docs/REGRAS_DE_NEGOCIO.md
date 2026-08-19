@@ -1618,17 +1618,42 @@ refletir o novo valor:
 | **Parcelado em 2x** | Caução dividido em 2 parcelas (1º e 2º mês) |
 | **Parcelado em 3x** | Caução dividido em 3 parcelas (1º, 2º e 3º mês) |
 
-> ⚠️ **Status:** havia um bug conhecido em que **editar** o número de
-> parcelas de uma locação já criada não funcionava corretamente (o sistema
-> só atualizava valores/datas das parcelas que já existiam, sem criar as
-> que faltavam nem remover as que sobravam). Uma correção já foi
-> implementada em `src/services/rentalService.ts` /
-> `src/services/depositInstallmentService.ts` e está aguardando
-> revisão/push/deploy e teste manual em produção antes de ser considerada
-> encerrada. Acompanhar em: ticket "Bug: parcelamento do caução (nº de
-> parcelas) não é salvo ao editar a locação" no
-> [kanban interno](https://duvoenterprise.com.br/kanban) e na
-> [issue #13 do GitHub](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/13).
+> ⚠️ **Status:** dois bugs relacionados ao parcelamento do caução foram
+> corrigidos no código (commits `f9d2eb5d` e `0414ca4b`) e estão
+> aguardando `git push` + deploy + teste manual em produção antes de
+> serem considerados encerrados:
+>
+> 1. **Edição** de uma locação já criada não atualizava corretamente o
+>    número de parcelas (só mexia nas que já existiam, sem criar as que
+>    faltavam nem remover as que sobravam) — [issue #13 do GitHub](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/13).
+> 2. **Criação** de uma locação nova com caução em 2x ou 3x só salvava a
+>    1ª parcela (as parcelas 2 e 3 eram descartadas silenciosamente,
+>    porque dois pontos do código tentavam criar as parcelas na mesma
+>    operação) — [issue #14 do GitHub](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/14).
+>
+> Acompanhar status em ambos no [kanban interno](https://duvoenterprise.com.br/kanban).
+
+### Criação do parcelamento numa locação nova
+
+Ao criar uma locação com "Caução Parcelado?" marcado, `rentalService.create()`
+é o único ponto que cria as parcelas em `deposit_installments` — antes da
+correção da issue #14, o `RentalFormDialog.tsx` também tentava criar as
+parcelas certas logo em seguida, e a trava de duplicidade descartava essa
+2ª tentativa por completo, sem avisar o usuário.
+
+- **1 parcela (à vista):** cria 1 registro com o valor e vencimento
+  informados.
+- **2 ou 3 parcelas:** cria um registro por parcela, cada um com seu
+  próprio valor e vencimento (2ª e 3ª parcelas só são criadas se tiverem
+  valor preenchido no formulário).
+- **Vencimento da 1ª parcela:** usa a data informada no formulário; só
+  cai para a data de início do contrato como último recurso, se nenhuma
+  data foi informada.
+- **Código PIX preenchido na 1ª parcela:** a parcela já é criada com
+  `status = "paid"` (mesmo comportamento de antes, agora sempre aplicado).
+- Essa lógica fica em `buildInitialDepositInstallments()`, em
+  `depositInstallmentService.ts`, e é testada isoladamente em
+  `depositInstallmentService.test.ts`.
 
 ### Edição do parcelamento numa locação existente
 
