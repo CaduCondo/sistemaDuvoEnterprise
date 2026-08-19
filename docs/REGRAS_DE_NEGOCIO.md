@@ -1618,6 +1618,45 @@ refletir o novo valor:
 | **Parcelado em 2x** | Caução dividido em 2 parcelas (1º e 2º mês) |
 | **Parcelado em 3x** | Caução dividido em 3 parcelas (1º, 2º e 3º mês) |
 
+> ⚠️ **Status:** havia um bug conhecido em que **editar** o número de
+> parcelas de uma locação já criada não funcionava corretamente (o sistema
+> só atualizava valores/datas das parcelas que já existiam, sem criar as
+> que faltavam nem remover as que sobravam). Uma correção já foi
+> implementada em `src/services/rentalService.ts` /
+> `src/services/depositInstallmentService.ts` e está aguardando
+> revisão/push/deploy e teste manual em produção antes de ser considerada
+> encerrada. Acompanhar em: ticket "Bug: parcelamento do caução (nº de
+> parcelas) não é salvo ao editar a locação" no
+> [kanban interno](https://duvoenterprise.com.br/kanban) e na
+> [issue #13 do GitHub](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/13).
+
+### Edição do parcelamento numa locação existente
+
+Ao editar uma locação e mudar o número de parcelas do caução, o sistema
+sincroniza a tabela `deposit_installments` para refletir a nova
+configuração:
+
+- **Aumentar o número de parcelas** (ex.: 1 → 3): as parcelas que já
+  existiam são atualizadas com os novos valores/vencimentos, e as que
+  faltam são criadas.
+- **Diminuir o número de parcelas** (ex.: 3 → 1): as parcelas que deixam
+  de existir são removidas, exceto parcelas já pagas (ver regra abaixo).
+- **Parcela já paga (`status = "paid"`):** nunca tem valor ou vencimento
+  sobrescritos por uma edição de locação, e nunca é excluída
+  automaticamente — só é excluída manualmente pelo próprio recebimento de
+  caução (Financeiro > Cauções), o que reabre a parcela para cobrança.
+- **Limite para reduzir a quantidade de parcelas:** não é possível
+  configurar uma quantidade de parcelas menor que a quantidade de parcelas
+  já pagas (não importa qual parcela — 1ª, 2ª ou 3ª — está paga, só a
+  quantidade). Por exemplo, se 2 das 3 parcelas já foram pagas, só é
+  possível reduzir para 2 parcelas ou manter em 3; tentar reduzir para 1
+  mostra uma mensagem explicando o motivo. Para reduzir de verdade abaixo
+  disso, é preciso excluir antes o(s) recebimento(s) de caução já pago(s)
+  em Financeiro > Cauções.
+- Essa lógica de decisão (o que criar/atualizar/remover) fica em
+  `planDepositInstallmentsSync()`, em `depositInstallmentService.ts`, e é
+  testada isoladamente em `depositInstallmentService.test.ts`.
+
 ### Tabela deposit_installments
 
 **Estrutura:** O sistema mantém um registro separado para cada parcela de caução na tabela `deposit_installments`.

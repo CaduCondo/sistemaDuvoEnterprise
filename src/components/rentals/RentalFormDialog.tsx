@@ -328,6 +328,12 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       const propertyId = String(selectedPropertyId);
       const tenantId = String(selectedTenantId);
       
+      // Quantas parcelas de caução a locação deve ter após salvar (1 = à
+      // vista, sem "Caução Parcelado?" marcado).
+      const depositInstallmentsTotal = isDepositInstallment && depositInstallmentCount
+        ? parseInt(depositInstallmentCount)
+        : 1;
+
       const commonData = {
         propertyId: propertyId,
         tenantId: tenantId,
@@ -343,6 +349,20 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         // sabia processar esses campos - só faltava incluí-los aqui.
         depositPaymentDate: depositPaymentDate || undefined,
         depositPixCode: depositPixCode || undefined,
+        // ✅ CORREÇÃO (edição do parcelamento do caução): a config completa de
+        // parcelamento (quantas parcelas, valor/vencimento da 2ª e 3ª) também
+        // nunca era enviada numa edição - só a 1ª parcela chegava a ser
+        // considerada. Agora mandamos tudo, e quem decide criar/atualizar/
+        // remover parcelas é o rentalService.update().
+        // Só enviamos esses campos em modo de EDIÇÃO (rental existente): na
+        // CRIAÇÃO, quem monta as parcelas continua sendo o bloco manual mais
+        // abaixo (não queremos mudar o comportamento de criação aqui).
+        depositInstallments: rental ? depositInstallmentsTotal : undefined,
+        depositInstallment1DueDate: rental ? (depositPaymentDate || undefined) : undefined,
+        depositInstallment2: rental && depositInstallmentsTotal >= 2 ? (parseMoneyMaskToNumber(depositInstallment2) || undefined) : undefined,
+        depositInstallment2DueDate: rental && depositInstallmentsTotal >= 2 ? (depositInstallment2PaymentDate || undefined) : undefined,
+        depositInstallment3: rental && depositInstallmentsTotal === 3 ? (parseMoneyMaskToNumber(depositInstallment3) || undefined) : undefined,
+        depositInstallment3DueDate: rental && depositInstallmentsTotal === 3 ? (depositInstallment3PaymentDate || undefined) : undefined,
         status: "active" as const,
         isActive: true,
         attachments: attachments, // ✅ Agora é Attachment[] corretamente

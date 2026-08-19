@@ -2,6 +2,147 @@ import { supabase } from "@/integrations/supabase/client";
 import { DepositInstallment } from "@/types";
 
 /**
+ * Configuração desejada (o que o formulário de locação quer que uma parcela
+ * seja) para uma parcela de caução, usada por `planDepositInstallmentsSync`.
+ */
+export interface DesiredDepositInstallment {
+  amount: number;
+  due_date: string;
+  pix_code: string | null;
+}
+
+/**
+ * Formato mínimo de uma parcela já existente no banco, usado por
+ * `planDepositInstallmentsSync` para decidir o que fazer com ela.
+ */
+export interface ExistingDepositInstallmentSummary {
+  id: string;
+  installment_number: number;
+  installment_total: number;
+  amount: number;
+  due_date: string;
+  pix_code: string | null;
+  status: string;
+}
+
+export type DepositInstallmentToCreate = { installment_number: number } & DesiredDepositInstallment;
+export type DepositInstallmentToUpdate = { id: string; installment_number: number } & Partial<
+  Pick<DesiredDepositInstallment, "amount" | "due_date" | "pix_code">
+> & { installment_total?: number };
+export type DepositInstallmentRef = { id: string; installment_number: number };
+
+// Nota: propositalmente NÃO é um union type (`{blocked: true} | {blocked:
+// false, ...}`). Com a config atual do projeto (strict: false /
+// strictNullChecks: false no tsconfig), o TypeScript não estreita esse tipo
+// de union corretamente depois de um `if (plan.blocked) throw ...`, e os
+// campos ficariam inacessíveis por engano no restante do código. Um objeto
+// só, com arrays vazios quando bloqueado, evita esse problema.
+export interface DepositInstallmentSyncPlan {
+  blocked: boolean;
+  reason?: string;
+  toCreate: DepositInstallmentToCreate[];
+  toUpdate: DepositInstallmentToUpdate[];
+  toDelete: DepositInstallmentRef[];
+  keptPaid: DepositInstallmentRef[];
+}
+
+/**
+ * Decide, de forma pura (sem chamar o banco), o que precisa ser criado,
+ * atualizado ou removido na tabela `deposit_installments` para que ela
+ * passe a refletir `totalInstallments` parcelas configuradas em `desired`,
+ * partindo do que já existe em `existing`.
+ *
+ * Regras (alinhadas com o Cadu):
+ * - Nunca sobrescreve valor/vencimento de uma parcela já paga (`status ===
+ *   "paid"`) - ela só tem `installment_total` atualizado, se necessário.
+ * - Nunca remove uma parcela já paga.
+ * - Bloqueia (retorna `blocked: true`) se `totalInstallments` for menor que
+ *   a quantidade de parcelas já pagas, com uma mensagem amigável explicando
+ *   por quê - não importa qual parcela (1ª, 2ª ou 3ª) está paga, só a
+ *   quantidade.
+ */
+export function planDepositInstallmentsSync(
+  totalInstallments: number,
+  desired: Record<number, DesiredDepositInstallment>,
+  existing: ExistingDepositInstallmentSummary[]
+): DepositInstallmentSyncPlan {
+  const existingByNumber = new Map<number, ExistingDepositInstallmentSummary>(
+    existing.map((installment) => [installment.installment_number, installment])
+  );
+  const paidCount = existing.filter((installment) => installment.status === "paid").length;
+
+  if (totalInstallments < paidCount) {
+    return {
+      blocked: true,
+      reason:
+        `Não é possível configurar o caução em ${totalInstallments} parcela(s): ${paidCount} parcela(s) já ` +
+        `foram pagas. Selecione ${paidCount} parcela(s) ou mais, ou exclua o(s) recebimento(s) de caução já ` +
+        `pagos em Financeiro > Cauções antes de reduzir a quantidade de parcelas.`,
+      toCreate: [],
+      toUpdate: [],
+      toDelete: [],
+      keptPaid: [],
+    };
+  }
+
+  const toCreate: DepositInstallmentToCreate[] = [];
+  const toUpdate: DepositInstallmentToUpdate[] = [];
+  const toDelete: DepositInstallmentRef[] = [];
+  const keptPaid: DepositInstallmentRef[] = [];
+
+  for (let num = 1; num <= totalInstallments; num++) {
+    const desiredInstallment = desired[num];
+    if (!desiredInstallment) continue; // sem valor informado para essa parcela
+
+    const existingInstallment = existingByNumber.get(num);
+
+    if (!existingInstallment) {
+      toCreate.push({ installment_number: num, ...desiredInstallment });
+      continue;
+    }
+
+    if (existingInstallment.status === "paid") {
+      keptPaid.push({ id: existingInstallment.id, installment_number: num });
+      if (existingInstallment.installment_total !== totalInstallments) {
+        toUpdate.push({ id: existingInstallment.id, installment_number: num, installment_total: totalInstallments });
+      }
+      continue;
+    }
+
+    const update: DepositInstallmentToUpdate = { id: existingInstallment.id, installment_number: num };
+    let hasChange = false;
+    if (existingInstallment.installment_total !== totalInstallments) {
+      update.installment_total = totalInstallments;
+      hasChange = true;
+    }
+    if (existingInstallment.amount !== desiredInstallment.amount) {
+      update.amount = desiredInstallment.amount;
+      hasChange = true;
+    }
+    if (existingInstallment.due_date !== desiredInstallment.due_date) {
+      update.due_date = desiredInstallment.due_date;
+      hasChange = true;
+    }
+    if (desiredInstallment.pix_code !== null && existingInstallment.pix_code !== desiredInstallment.pix_code) {
+      update.pix_code = desiredInstallment.pix_code;
+      hasChange = true;
+    }
+    if (hasChange) toUpdate.push(update);
+  }
+
+  for (const [num, existingInstallment] of existingByNumber) {
+    if (num <= totalInstallments) continue;
+    if (existingInstallment.status === "paid") {
+      keptPaid.push({ id: existingInstallment.id, installment_number: num });
+      continue;
+    }
+    toDelete.push({ id: existingInstallment.id, installment_number: num });
+  }
+
+  return { blocked: false, toCreate, toUpdate, toDelete, keptPaid };
+}
+
+/**
  * Criar parcelas de caução para uma locação
  */
 export async function createDepositInstallments(
