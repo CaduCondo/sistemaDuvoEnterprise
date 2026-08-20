@@ -183,8 +183,12 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         });
       }
 
-      // Chamar onSave para recarregar a lista
-      await onSave({});
+      // ✅ CORREÇÃO: não chamar onSave() de novo aqui. onSave já É o
+      // handleCreateUser/handleUpdateUser (ver UsersTab.tsx), que já recarrega
+      // a lista sozinho ao final (fetchUsers()) - essa segunda chamada repetia
+      // a criação/edição só que com os campos vazios (objeto {}), o que fazia
+      // um segundo INSERT/UPDATE quebrar (nome nulo) e deixar um alerta de erro
+      // preso na tela por cima da lista, bloqueando cliques nela (ex.: excluir).
       onOpenChange(false);
     } catch (error: any) {
       console.error("Erro ao salvar usuário:", error);
