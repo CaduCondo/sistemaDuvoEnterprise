@@ -569,9 +569,41 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     setAttachments(prev => [...prev, { url: '', name: '', description: '' }]);
   }, []);
 
-  const removeAttachment = useCallback((index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
-  }, []);
+  // ✅ Remove o anexo já na hora, direto no banco - sem precisar clicar em
+  // "Editar" primeiro. Antes, um anexo de um recebimento já pago só podia
+  // ser removido depois de destravar a tela inteira (isReadOnly); agora o X
+  // funciona sempre, igual à tela de Anexos da Locação. Anexo que ainda nem
+  // foi enviado (slot vazio) só some da tela, não mexe no banco.
+  const removeAttachment = useCallback(async (index: number) => {
+    setAttachments(prev => {
+      const toRemove = prev[index];
+      const updated = prev.filter((_, i) => i !== index);
+
+      if (toRemove?.url && payment?.id) {
+        const validAttachments = updated
+          .filter(a => a.url)
+          .map(({ url, name, description }) => ({ url, name, description }));
+
+        supabase
+          .from("payments")
+          .update({ attachments: validAttachments as any })
+          .eq("id", payment.id)
+          .then(({ error }) => {
+            if (error) {
+              console.error("Erro ao remover anexo:", error);
+              showAlert({
+                title: "Erro",
+                description: "Não foi possível remover o anexo.",
+                type: "error",
+              });
+              setAttachments(prev); // reverte a remoção na tela
+            }
+          });
+      }
+
+      return updated;
+    });
+  }, [payment?.id, showAlert]);
 
   const uploadToSupabase = async (file: File): Promise<string> => {
     const fileExt = file.name.split('.').pop();

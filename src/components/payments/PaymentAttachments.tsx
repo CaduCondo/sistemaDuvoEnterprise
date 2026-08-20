@@ -73,7 +73,10 @@ export const PaymentAttachments = memo(function PaymentAttachments({
           </p>
           <AttachmentList
             attachments={attachedFiles}
-            isReadOnly={isReadOnly}
+            // ✅ O X de remover fica sempre disponível, mesmo com o
+            // recebimento já pago e travado (isReadOnly só esconde o botão
+            // de anexar novo arquivo) - mesmo padrão da tela de Anexos da
+            // Locação, que também deixa remover a qualquer momento.
             onRemove={(index) => {
               const original = attachments.indexOf(attachedFiles[index]);
               onRemoveAttachment(original === -1 ? index : original);
