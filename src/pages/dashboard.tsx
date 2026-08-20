@@ -106,7 +106,7 @@ export default function DashboardPage() {
         <title>Painel de Gestão - D&apos;Uvo Enterprise</title>
       </Head>
 
-      <div className="space-y-6">
+      <div id="dashboard-page" className="space-y-6">
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

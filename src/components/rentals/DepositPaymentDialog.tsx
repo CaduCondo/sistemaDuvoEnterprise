@@ -308,9 +308,39 @@ export function DepositPaymentDialog({
     setAttachments(prev => [...prev, { url: "", name: "", description: "" }]);
   }, []);
 
-  const removeAttachment = useCallback((index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
-  }, []);
+  // ✅ Remove o anexo já na hora, direto no banco - sem precisar clicar em
+  // "Editar" primeiro. Antes, um anexo de um recebimento já pago só podia
+  // ser removido depois de destravar a tela inteira (isReadOnly); agora o X
+  // funciona sempre, igual à tela de Anexos da Locação. Anexo que ainda nem
+  // foi enviado (slot vazio) só some da tela, não mexe no banco.
+  const removeAttachment = useCallback(async (index: number) => {
+    const toRemove = attachments[index];
+    const updated = attachments.filter((_, i) => i !== index);
+    setAttachments(updated);
+
+    if (!toRemove?.url) return;
+
+    try {
+      const validAttachments = updated
+        .filter(a => a.url)
+        .map(({ url, name, description }) => ({ url, name, description }));
+
+      const { error } = await supabase
+        .from("deposit_installments")
+        .update({ attachments: validAttachments as any })
+        .eq("id", installment.id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Erro ao remover anexo:", error);
+      showAlert({
+        title: "Erro",
+        description: "Não foi possível remover o anexo.",
+        type: "error",
+      });
+      setAttachments(attachments); // reverte a remoção na tela
+    }
+  }, [attachments, installment.id, showAlert]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];

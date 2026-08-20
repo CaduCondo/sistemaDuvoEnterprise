@@ -28,8 +28,9 @@
 
 ### Autonomia padrão (não precisa perguntar de novo)
 
-- Está liberado, por padrão, alterar código, testes, documentação e configuração de Git (criar branch, `git add`, `git commit`) sem precisar pedir permissão a cada vez. Se der pra mexer direto no banco (Supabase) com segurança, também está liberado — se não der (sem acesso/credencial), avisar e o Cadu faz essa parte.
-- `git push`: quem dá o push é o Cadu, manualmente, pelo VS Code — combinado assim porque, em alguns ambientes, o Claude nem tem credencial de push liberada para este repositório (ex.: sandbox web/Cowork sem o repo autorizado). Nesses casos, preparar o(s) commit(s) prontos (numa branch, nunca direto na `main`) e entregar pro Cadu aplicar/pushar, com a mensagem de commit sugerida. Se o ambiente permitir dar o push diretamente (ex.: Claude Code local já autenticado), também está liberado a fazer — não precisa perguntar antes, só avisar o que foi pushado.
+- Está liberado, por padrão, alterar código, testes, documentação e configuração de Git (criar branch, `git add`) sem precisar pedir permissão a cada vez. Se der pra mexer direto no banco (Supabase) com segurança, também está liberado — se não der (sem acesso/credencial), avisar e o Cadu faz essa parte.
+- `git commit`: SEMPRE perguntar antes de commitar, mostrando a mensagem de commit que vai usar, e esperar o Cadu confirmar.
+- `git push`: SEMPRE perguntar antes de dar o push, mesmo quando o ambiente permite fazer direto (ex.: Claude Code local já autenticado). Só dar o push depois do Cadu confirmar.
 - Isso vale como regra permanente: não é preciso o Cadu repetir essa autorização a cada conversa.
 
 ### Fluxo padrão para bug/feature novo encontrado
