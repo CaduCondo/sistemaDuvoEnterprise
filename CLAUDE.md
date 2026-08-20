@@ -21,6 +21,7 @@
 ## Regras de trabalho
 
 - Sempre explicar o que vai ser mudado ANTES de mudar, e depois explicar o que foi feito, em linguagem simples (o usuário não programa).
+- Respostas curtas, resumidas e diretas ao ponto — sem parágrafos longos nem listas de opções que não serão seguidas. Se for preciso mais detalhe, o Cadu pede.
 - Preferir mudanças pequenas e objetivas por vez, fáceis de revisar.
 - Anexos (Locação, Recebimento de Aluguel, Recebimento de Caução) sobem para o Supabase Storage (bucket `uploads`), nunca para disco local — o disco do Vercel é efêmero e não persiste entre deploys. Anexos salvos antes dessa migração (URL relativa, tipo `/uploads/arquivo.ext`) apontam para arquivos já perdidos e não têm como ser recuperados.
 - Ver também: `SETUP_AMBIENTE_LOCAL.md` na raiz do projeto para mais contexto histórico do setup local.
