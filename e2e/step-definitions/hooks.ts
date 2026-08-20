@@ -4,6 +4,7 @@ import { CustomWorld } from '../support/world';
 import { LoginPage } from '../pages/LoginPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import DatabaseHelper from '../helpers/database.helper';
+import TEST_CONFIG from '../config/test.config';
 
 setDefaultTimeout(60 * 1000);
 
@@ -15,7 +16,14 @@ BeforeAll(async function () {
 
 Before(async function (this: CustomWorld) {
   this.browser = await chromium.launch({ headless: process.env.HEADED !== 'true' });
-  this.context = await this.browser.newContext({ viewport: { width: 1280, height: 720 } });
+  // ✅ CORREÇÃO: sem baseURL, todo page.goto('/') (ou qualquer caminho
+  // relativo) quebrava com "Cannot navigate to invalid URL" - os testes BDD
+  // (cucumber) não passam por playwright.config.ts (que só vale pra
+  // `npm run test:e2e`), então precisam da própria baseURL aqui.
+  this.context = await this.browser.newContext({
+    viewport: { width: 1280, height: 720 },
+    baseURL: TEST_CONFIG.baseUrl,
+  });
   this.page = await this.context.newPage();
 
   this.loginPage = new LoginPage(this.page);
