@@ -17,6 +17,7 @@
 - Editor: VS Code, com a extensão Claude Code instalada.
 - Supabase: bancos de dados separados de dev e prod (atenção: alguns campos já divergiram de tipo entre os dois bancos — ver ticket "attachments de deposit_installments" no kanban — sempre confirmar o schema real antes de escrever SQL para produção).
 - Kanban de tarefas: https://duvoenterprise.com.br/kanban — é a fonte de verdade sobre bugs conhecidos e prioridades, não este arquivo. Respeitar a prioridade e a ordem das tarefas de lá; bugs novos que forem aparecendo devem virar tickets novos no kanban, respeitando a prioridade (não furar fila).
+- Pasta do projeto conectada diretamente (21/ago/2026): o Claude consegue ler e escrever os arquivos locais do Cadu (a mesma pasta aberta no VS Code) sem precisar passar por Git. Isso significa que o código já aparece atualizado no VS Code do Cadu assim que o Claude termina de mexer — ele não precisa dar `git pull`. `git commit`/`git push` continuam sendo só para levar a mudança para o GitHub/produção (Vercel), e continuam exigindo autorização do Cadu como sempre.
 
 ## Regras de trabalho
 
@@ -51,3 +52,64 @@ Na prática, isso significa:
 4. Espelhar o mesmo ticket como issue no GitHub (`CaduCondo/sistemaDuvoEnterprise`), com label e adicionado ao Project "Sistema DUvoEnterprise", com o mesmo conteúdo.
 5. Ao implementar a correção, manter os dois tickets sincronizados (status e conteúdo) — se algum critério de aceitação mudar durante o desenvolvimento (ex.: uma regra de negócio foi refinada com o Cadu), corrigir o texto nos dois lugares, não só num.
 6. Atualizar a documentação e os manuais relevantes (ex.: `docs/REGRAS_DE_NEGOCIO.md`) sempre que necessário, para que reflitam o comportamento real do sistema, e não o que já foi corrigido/mudado.
+
+### Claude é o dono do backlog — ciclo de trabalho contínuo
+
+Regra do Cadu (27/ago/2026, vale sempre, sem precisar pedir de novo): o
+Claude é quem toca o backlog do início ao fim. O Cadu não vai ficar
+pedindo passo a passo — se ele esquecer de pedir algo (ex.: atualizar a
+documentação), o Claude tem que lembrar sozinho. O Cadu não é
+desenvolvedor: toda explicação, resumo ou pergunta para ele tem que ser
+em linguagem simples, sem termos técnicos ("tecnês") — se precisar citar
+algo técnico, traduzir o impacto em termos do dia a dia do sistema.
+
+O ciclo, item por item do backlog, é este (a ordem interna dos passos
+pode variar conforme o caso, mas nenhum passo pode ser pulado):
+
+1. **Escolher o próximo item.** O Claude prioriza o backlog sozinho,
+   combinando valor (pro usuário/negócio), custo/esforço, risco e
+   urgência — não segue só a ordem que o Cadu foi citando os itens,
+   porque o Cadu mesmo não sabe qual é a melhor ordem técnica.
+2. **Todo trabalho nasce como item do backlog primeiro.** Antes de mexer
+   em código, o item já precisa existir no kanban interno e como issue
+   no GitHub (ver seção acima), mesmo que ainda incompleto.
+3. **Preencher o item enquanto analisa.** Ao investigar o problema, ir
+   completando contexto, causa raiz e critérios de aceitação (BDD) do
+   próprio item — o ticket tem que ficar cada vez mais claro conforme o
+   Claude entende o problema, não só no início.
+4. **Implementar.** Alterar o código para corrigir o bug ou construir a
+   feature que o item pede.
+5. **Git — sempre com autorização do Cadu:**
+   - `commit`: sempre perguntar antes, mostrando a mensagem de commit e
+     um resumo simples do que está sendo alterado.
+   - `push`: sempre perguntar antes. Se o ambiente permitir o Claude
+     pushar direto, só fazer depois do "sim" do Cadu. Se o ambiente
+     não der essa credencial pro Claude, avisar isso claramente e pedir
+     pro Cadu dar o push manualmente (passando o branch/commit certo).
+6. **Depois do push, checar o GitHub Actions.** Ver se os testes
+   automatizados passaram. Se algum teste falhou, investigar o erro e
+   criar um novo item no backlog (kanban + issue no GitHub) já
+   descrevendo o bug encontrado pela automação — seguindo o mesmo
+   padrão da seção "Fluxo padrão" acima (contexto, tarefas, BDD).
+7. **Priorizar o que for criado no passo 6** dentro do backlog, junto
+   com o resto (não é só "jogar lá pra depois" — decidir onde entra na
+   fila, usando o mesmo critério do passo 1).
+8. **Fechar o item.** Atualizar kanban interno e issue do GitHub
+   (mover de coluna, fechar), com um comentário simples explicando o
+   que foi feito.
+9. **Checar a documentação — sempre, sem exceção.** Antes de considerar
+   o item realmente concluído, avaliar explicitamente se alguma coisa
+   mudou que deixa a documentação/manual desatualizados (ex.:
+   `docs/REGRAS_DE_NEGOCIO.md` e os outros arquivos de `docs/`). Mesmo
+   quando a conclusão for "não precisa mudar nada", esse é um passo que
+   tem que ser feito e não pulado — foi exatamente pular esse passo,
+   no passado, que fez a documentação acumular desatualização.
+10. **Escolher e já sinalizar o próximo item** (kanban + GitHub), e
+    recomeçar o ciclo — sem esperar o Cadu perguntar "qual o próximo?".
+
+Manual/documentação com imagens: o manual (`docs/REGRAS_DE_NEGOCIO.md`)
+tem vários pontos marcados como `[Imagem]` que nunca foram preenchidos
+com capturas de tela reais. Sempre que mexer numa tela que tenha um
+desses placeholders, aproveitar para capturar um print atual e inserir
+no lugar do placeholder — não precisa esperar um pedido específico do
+Cadu para isso.

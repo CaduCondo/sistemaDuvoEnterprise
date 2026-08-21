@@ -197,6 +197,18 @@ export async function syncPaymentsOnDateChange(
     installmentNumber: number;
   }> = [];
 
+  // 6b. Identificar recebimentos MANTIDOS (já existiam) cujo valor precisa
+  // ser recalculado porque a mudança de data alterou se a parcela é
+  // proporcional (e quantos dias) — ex.: corrigir a data de início depois
+  // que a parcela do mês já tinha sido criada com o mês cheio.
+  // ⚠️ Nunca mexe em pagamentos 'paid' ou 'partial' (histórico, imutável) —
+  // só em 'pending'/'overdue', mesma regra usada no restante deste arquivo.
+  const paymentsToUpdate: Array<{
+    id: string;
+    amount: number;
+    breakdown: any[];
+  }> = [];
+
   // Calcular qual será o próximo installment number
   const existingNumbers = (existingPayments || [])
     .filter(p => !paymentsToDelete.includes(p.id))
@@ -210,8 +222,45 @@ export async function syncPaymentsOnDateChange(
   for (const expected of expectedPayments) {
     const refKey = `${expected.refYear}-${expected.refMonth}`;
     
-    // Se já existe (e não foi deletado), pular
+    // Se já existe (e não foi deletado), conferir se o valor ainda bate com
+    // o que é esperado agora (pode ter virado proporcional, ou deixado de
+    // ser, por causa da mudança de data) — só recalcula se ainda estiver
+    // pending/overdue; 'paid'/'partial' nunca são tocados.
     if (paymentsToKeep.has(refKey)) {
+      const kept = paymentsToKeep.get(refKey);
+      if (kept.status === "pending" || kept.status === "overdue") {
+        let correctAmount: number;
+        let correctBreakdown: any[];
+
+        if (expected.isProportional && expected.days) {
+          const proportionalRent = calculateProportionalAmount(monthlyRent, expected.days);
+          const proportionalGarage = hasGarage ? calculateProportionalAmount(garageValue, expected.days) : 0;
+          correctAmount = parseFloat((proportionalRent + proportionalGarage).toFixed(2));
+          correctBreakdown = [
+            { description: `Aluguel (${expected.days} dias)`, amount: proportionalRent, type: "addition" }
+          ];
+          if (hasGarage && proportionalGarage > 0) {
+            correctBreakdown.push({
+              description: `Garagem (${expected.days} dias)`,
+              amount: proportionalGarage,
+              type: "addition"
+            });
+          }
+        } else {
+          correctAmount = parseFloat(totalRent.toFixed(2));
+          correctBreakdown = [
+            { description: "Aluguel", amount: monthlyRent, type: "addition" }
+          ];
+          if (hasGarage && garageValue > 0) {
+            correctBreakdown.push({ description: "Garagem", amount: garageValue, type: "addition" });
+          }
+        }
+
+        if (Math.abs(correctAmount - Number(kept.expected_amount)) > 0.01) {
+          console.log(`🔄 Recalculando parcela mantida ${refKey} (parcela ${kept.installment}): R$ ${Number(kept.expected_amount).toFixed(2)} → R$ ${correctAmount.toFixed(2)}`);
+          paymentsToUpdate.push({ id: kept.id, amount: correctAmount, breakdown: correctBreakdown });
+        }
+      }
       continue;
     }
 
@@ -280,6 +329,20 @@ export async function syncPaymentsOnDateChange(
     
     if (insertError) throw insertError;
     console.log(`✅ ${paymentsToCreate.length} recebimentos criados`);
+  }
+
+  // 7b. Atualizar recebimentos mantidos cujo valor mudou (ver passo 6b)
+  if (paymentsToUpdate.length > 0) {
+    console.log(`🔄 Atualizando ${paymentsToUpdate.length} recebimento(s) mantido(s) com valor desatualizado...`);
+    for (const p of paymentsToUpdate) {
+      const { error: updateKeptError } = await supabase
+        .from("payments")
+        .update({ expected_amount: p.amount, breakdown: p.breakdown })
+        .eq("id", p.id);
+
+      if (updateKeptError) throw updateKeptError;
+    }
+    console.log(`✅ ${paymentsToUpdate.length} recebimento(s) mantido(s) atualizado(s)`);
   }
 
   // 8. AJUSTAR RECEBIMENTO QUE ERA PROPORCIONAL MAS AGORA NÃO É MAIS
