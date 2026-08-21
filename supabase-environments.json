@@ -1,0 +1,5 @@
+{
+  "_comentario": "Fonte de verdade sobre qual banco de dados Supabase pertence a cada ambiente. Estes codigos NAO sao segredo: eles ja aparecem publicamente na URL do Supabase e dentro do JavaScript do site. O valor deles aqui e servir de referencia fixa, versionada no Git, que a trava do build e o aviso da tela conferem contra o que a Vercel realmente entregou. Criado apos o incidente de 21/ago/2026, em que o site de producao ficou apontando para o banco de DEV e ninguem foi avisado.",
+  "production": "alvghyfbzrpjwhckmkwx",
+  "development": "yrknfweilbuwrhzzwnrr"
+}
