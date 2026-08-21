@@ -97,13 +97,22 @@ pode variar conforme o caso, mas nenhum passo pode ser pulado):
 8. **Fechar o item.** Atualizar kanban interno e issue do GitHub
    (mover de coluna, fechar), com um comentário simples explicando o
    que foi feito.
-9. **Checar a documentação — sempre, sem exceção.** Antes de considerar
-   o item realmente concluído, avaliar explicitamente se alguma coisa
-   mudou que deixa a documentação/manual desatualizados (ex.:
-   `docs/REGRAS_DE_NEGOCIO.md` e os outros arquivos de `docs/`). Mesmo
-   quando a conclusão for "não precisa mudar nada", esse é um passo que
-   tem que ser feito e não pulado — foi exatamente pular esse passo,
-   no passado, que fez a documentação acumular desatualização.
+9. **Checar a documentação E os testes automáticos — sempre, sem
+   exceção.** Antes de considerar o item realmente concluído, avaliar
+   explicitamente duas coisas (nenhuma pode ser pulada, mesmo quando a
+   conclusão for "não precisa mudar nada"):
+   - **Documentação:** se alguma coisa mudou que deixa a
+     documentação/manual desatualizados (ex.: `docs/REGRAS_DE_NEGOCIO.md`
+     e os outros arquivos de `docs/`).
+   - **Testes automáticos (BDD, pasta `e2e/`):** se o comportamento
+     corrigido/criado já está coberto pelos testes automáticos que rodam
+     no GitHub Actions a cada push. Se não estiver, criar ou atualizar o
+     cenário BDD (Dado/Quando/Então) correspondente, para que esse
+     comportamento passe a ser testado sempre, automaticamente, e o
+     mesmo problema não volte sem ser percebido.
+   Pular esse passo no passado foi exatamente o que fez a documentação
+   (e a cobertura de testes) acumular desatualização — por isso agora é
+   sempre avaliado, nos dois casos.
 10. **Escolher e já sinalizar o próximo item** (kanban + GitHub), e
     recomeçar o ciclo — sem esperar o Cadu perguntar "qual o próximo?".
 

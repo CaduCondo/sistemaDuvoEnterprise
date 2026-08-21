@@ -166,6 +166,19 @@ Funcionalidade: Regras de Negócio de Locações
     E o pagamento de Março/2026 deve ser atualizado para "2800.00"
     E pagamentos futuros devem ter "2800.00"
 
+  # ✅ NOVO (bug corrigido 21/ago/2026): quando a data de início é
+  # corrigida DEPOIS que a parcela do mês já tinha sido criada, o valor
+  # dessa parcela precisa ser recalculado — antes ficava "preso" no valor
+  # de mês cheio, mesmo quando a nova data tornava a parcela proporcional.
+  Cenário: Editar locação - Corrigir data de início recalcula parcela já criada
+    Dado que existe uma locação ativa com aluguel de "2500.00"
+    E o dia de vencimento é "20"
+    E o pagamento de referência Junho/2026 está "Pendente" com valor de "2500.00"
+    Quando edito a locação
+    E altero a data de início para "18/06/2026"
+    E salvo as alterações
+    Então o pagamento de referência Junho/2026 deve ser atualizado para "166.67"
+
   Cenário: Comprovante de Contrato - Somar aluguel e garagem
     Dado que existe uma locação com:
       | campo          | valor   |

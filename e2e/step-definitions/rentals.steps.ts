@@ -36,6 +36,13 @@ Given('que existe uma locação ativa com aluguel de {string}', async function(r
   };
 });
 
+Given('o dia de vencimento é {string}', async function(paymentDay: string) {
+  this.testData = {
+    ...this.testData,
+    rental: { ...this.testData?.rental, paymentDay }
+  };
+});
+
 Given('que existe uma locação ativa com término em {string}', async function(endDate: string) {
   this.testData = {
     ...this.testData,
@@ -90,6 +97,10 @@ Given('o pagamento de Dezembro\\/2025 está {string} com valor de {string}', asy
 
 Given('o pagamento de Março\\/2026 está {string} com valor de {string}', async function (status: string, value: string) {
   await upsertMonthlyPayment(this, 'march', '03', '2026', status, value);
+});
+
+Given('o pagamento de referência Junho\\/2026 está {string} com valor de {string}', async function (status: string, value: string) {
+  await upsertMonthlyPayment(this, 'june', '06', '2026', status, value);
 });
 
 Given('que existe uma locação com caução parcelado em 3x:', async function(dataTable: any) {
@@ -276,6 +287,17 @@ When('altero o valor do aluguel para {string}', async function(newValue: string)
   }
   const rentInput = this.page.locator('[id*="rent"]').first();
   await rentInput.fill(newValue);
+});
+
+When('altero a data de início para {string}', async function(date: string) {
+  const startDateInput = this.page.locator('#rental-start-date');
+
+  if (date.includes('/')) {
+    const [day, month, year] = date.split('/');
+    await startDateInput.fill(`${year}-${month}-${day}`);
+  } else {
+    await startDateInput.fill(date);
+  }
 });
 
 When('altero a garagem para {string}', async function(value: string) {
@@ -487,6 +509,10 @@ Then('o pagamento de Dezembro\\/2025 deve manter {string}', async function (valu
 
 Then('o pagamento de Março\\/2026 deve ser atualizado para {string}', async function (value: string) {
   await expectPaymentAmount(this, '03', '2026', value);
+});
+
+Then('o pagamento de referência Junho\\/2026 deve ser atualizado para {string}', async function (value: string) {
+  await expectPaymentAmount(this, '06', '2026', value);
 });
 
 Then('pagamentos futuros devem ter {string}', async function(value: string) {
