@@ -1,0 +1,33 @@
+name: Trava de ambiente
+
+# Confere que a trava que impede um deploy de subir apontando para o banco de
+# dados errado continua funcionando. Roda em todo push e pull request.
+#
+# Proposital: este workflow NAO depende de navegador, banco ou secrets. Ele e
+# rapido (segundos) e independente da suite E2E, para que a protecao criada
+# depois do incidente de 21/ago/2026 nunca fique sem verificacao.
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  auto-teste:
+    name: Auto-teste da trava de ambiente
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Rodar o auto-teste da trava
+        run: node scripts/check-supabase-env.js --self-test

@@ -3,15 +3,19 @@
  * Trava de seguranca do build.
  *
  * Roda automaticamente antes de cada `npm run build` (script "prebuild").
- * Se um deploy de PRODUCAO estiver apontando para o banco errado, o build
- * FALHA e nada e publicado.
+ * Se um deploy estiver apontando para o banco de dados errado, o build FALHA
+ * e nada e publicado.
  *
  * Existe por causa do incidente de 21/ago/2026: o site de producao ficou
- * apontando para o banco de DEV e o deploy passou normalmente, sem nenhum
- * aviso. Usuarios reais gravaram dados no banco de teste.
+ * apontando para o banco de DEV, o deploy passou normalmente sem nenhum aviso,
+ * e usuarios reais gravaram dados no banco de teste.
  *
  * A referencia de qual banco pertence a cada ambiente esta em
  * `supabase-environments.json`, na raiz do projeto.
+ *
+ * Uso:
+ *   node scripts/check-supabase-env.js              confere o ambiente atual
+ *   node scripts/check-supabase-env.js --self-test  testa a propria logica
  */
 
 const projectRefs = require("../supabase-environments.json");
@@ -19,12 +23,8 @@ const projectRefs = require("../supabase-environments.json");
 const PROD_REF = String(projectRefs.production).toLowerCase();
 const DEV_REF = String(projectRefs.development).toLowerCase();
 
-// VERCEL_ENV vale "production", "preview" ou "development" quando o build roda
-// na Vercel. No computador do Cadu ele nao existe.
-const vercelEnv = process.env.VERCEL_ENV || null;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-
 function extractRef(url) {
+  if (!url) return null;
   const match = String(url).trim().match(/^https?:\/\/([a-z0-9-]+)\.supabase\./i);
   return match ? match[1].toLowerCase() : null;
 }
@@ -35,15 +35,31 @@ function describe(ref) {
   return "DESCONHECIDO";
 }
 
-function fail(titulo, linhas) {
-  console.error("");
-  console.error("==================================================================");
-  console.error("  BUILD BLOQUEADO - " + titulo);
-  console.error("==================================================================");
-  linhas.forEach((l) => console.error("  " + l));
-  console.error("==================================================================");
-  console.error("");
-  process.exit(1);
+/**
+ * Decide se este build pode continuar.
+ *
+ * `vercelEnv` vale "production", "preview" ou "development" quando o build roda
+ * na Vercel; no computador do Cadu ele nao existe (null).
+ *
+ * Retorna { ok, codigo, ref } — `codigo` identifica o motivo, e e o que os
+ * testes automaticos verificam.
+ */
+function avaliar(vercelEnv, supabaseUrl) {
+  const ref = extractRef(supabaseUrl);
+  const naVercel = vercelEnv === "production" || vercelEnv === "preview";
+
+  if (!ref) {
+    return naVercel
+      ? { ok: false, codigo: "url-ausente", ref: null }
+      : { ok: true, codigo: "local-sem-url", ref: null };
+  }
+  if (vercelEnv === "production" && ref !== PROD_REF) {
+    return { ok: false, codigo: "producao-com-banco-errado", ref };
+  }
+  if (vercelEnv === "preview" && ref === PROD_REF) {
+    return { ok: false, codigo: "preview-com-banco-de-producao", ref };
+  }
+  return { ok: true, codigo: "ok", ref };
 }
 
 const COMO_CORRIGIR = [
@@ -58,18 +74,118 @@ const COMO_CORRIGIR = [
   "     o valor e gravado dentro do site na hora do build).",
 ];
 
-const ref = extractRef(supabaseUrl);
-
-// 1) Variavel ausente ou irreconhecivel
-if (!ref) {
-  if (vercelEnv === "production" || vercelEnv === "preview") {
-    fail("NEXT_PUBLIC_SUPABASE_URL ausente ou invalida", [
-      "Ambiente do deploy: " + vercelEnv,
-      "Valor recebido: " + (supabaseUrl ? supabaseUrl : "(vazio)"),
-      "",
-      ...COMO_CORRIGIR,
-    ]);
+function explicar(resultado, vercelEnv, supabaseUrl) {
+  switch (resultado.codigo) {
+    case "url-ausente":
+      return {
+        titulo: "NEXT_PUBLIC_SUPABASE_URL ausente ou invalida",
+        linhas: [
+          "Ambiente do deploy: " + vercelEnv,
+          "Valor recebido: " + (supabaseUrl || "(vazio)"),
+          "",
+          ...COMO_CORRIGIR,
+        ],
+      };
+    case "producao-com-banco-errado":
+      return {
+        titulo: "producao apontando para o banco errado",
+        linhas: [
+          "Este deploy vai para o site que os usuarios reais usam,",
+          "mas esta configurado para o banco " + describe(resultado.ref) + ".",
+          "",
+          "  Esperado: " + PROD_REF + "  (PRODUCAO)",
+          "  Recebido: " + resultado.ref,
+          "",
+          "Publicar assim faria os usuarios gravarem dados no banco errado,",
+          "exatamente como aconteceu em 21/ago/2026.",
+          "",
+          ...COMO_CORRIGIR,
+        ],
+      };
+    case "preview-com-banco-de-producao":
+      return {
+        titulo: "ambiente de teste apontando para o banco de PRODUCAO",
+        linhas: [
+          "Este e um deploy de Preview (teste), mas esta ligado ao banco real.",
+          "Qualquer teste feito nele alteraria os dados de verdade dos clientes.",
+          "",
+          "  Esperado: " + DEV_REF + "  (DESENVOLVIMENTO)",
+          "  Recebido: " + resultado.ref + "  (PRODUCAO)",
+          "",
+          ...COMO_CORRIGIR,
+        ],
+      };
+    default:
+      return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Auto-teste: garante que a propria trava continua funcionando.
+// Roda no GitHub Actions a cada push (workflow "Trava de ambiente").
+// ---------------------------------------------------------------------------
+function selfTest() {
+  const URL_PROD = "https://" + PROD_REF + ".supabase.co";
+  const URL_DEV = "https://" + DEV_REF + ".supabase.co";
+
+  const casos = [
+    ["producao com banco de DEV bloqueia (o incidente de 21/ago/2026)", "production", URL_DEV, false, "producao-com-banco-errado"],
+    ["producao com banco de producao passa", "production", URL_PROD, true, "ok"],
+    ["producao com banco desconhecido bloqueia", "production", "https://outroprojeto.supabase.co", false, "producao-com-banco-errado"],
+    ["producao sem a variavel bloqueia", "production", "", false, "url-ausente"],
+    ["preview com banco de producao bloqueia", "preview", URL_PROD, false, "preview-com-banco-de-producao"],
+    ["preview com banco de DEV passa", "preview", URL_DEV, true, "ok"],
+    ["preview sem a variavel bloqueia", "preview", "", false, "url-ausente"],
+    ["build local sem VERCEL_ENV nunca bloqueia", null, URL_DEV, true, "ok"],
+    ["build local sem a variavel nunca bloqueia", null, "", true, "local-sem-url"],
+    ["URL com espacos em volta ainda e reconhecida", "production", "  " + URL_PROD + "  ", true, "ok"],
+    ["URL em maiuscula ainda e reconhecida", "production", URL_PROD.toUpperCase(), true, "ok"],
+  ];
+
+  let falhas = 0;
+  console.log("Auto-teste da trava de ambiente\n");
+  for (const [descricao, env, url, okEsperado, codigoEsperado] of casos) {
+    const r = avaliar(env, url);
+    const passou = r.ok === okEsperado && r.codigo === codigoEsperado;
+    if (!passou) falhas++;
+    console.log(
+      (passou ? "  OK   " : "  FALHOU ") +
+        descricao +
+        (passou ? "" : "  (esperado ok=" + okEsperado + "/" + codigoEsperado +
+          ", obtido ok=" + r.ok + "/" + r.codigo + ")")
+    );
+  }
+  console.log("");
+  if (falhas > 0) {
+    console.error(falhas + " de " + casos.length + " casos falharam.");
+    process.exit(1);
+  }
+  console.log("Todos os " + casos.length + " casos passaram.");
+  process.exit(0);
+}
+
+if (process.argv.includes("--self-test")) selfTest();
+
+// ---------------------------------------------------------------------------
+// Execucao normal (antes do build)
+// ---------------------------------------------------------------------------
+const vercelEnv = process.env.VERCEL_ENV || null;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const resultado = avaliar(vercelEnv, supabaseUrl);
+
+if (!resultado.ok) {
+  const { titulo, linhas } = explicar(resultado, vercelEnv, supabaseUrl);
+  console.error("");
+  console.error("==================================================================");
+  console.error("  BUILD BLOQUEADO - " + titulo);
+  console.error("==================================================================");
+  linhas.forEach((l) => console.error("  " + l));
+  console.error("==================================================================");
+  console.error("");
+  process.exit(1);
+}
+
+if (resultado.codigo === "local-sem-url") {
   console.warn(
     "[check-supabase-env] Aviso: NEXT_PUBLIC_SUPABASE_URL ausente ou invalida. " +
       "Build local segue normalmente."
@@ -77,41 +193,12 @@ if (!ref) {
   process.exit(0);
 }
 
-// 2) Deploy de PRODUCAO com banco que nao e o de producao -> este foi o incidente
-if (vercelEnv === "production" && ref !== PROD_REF) {
-  fail("producao apontando para o banco errado", [
-    "Este deploy vai para o site que os usuarios reais usam,",
-    "mas esta configurado para o banco " + describe(ref) + ".",
-    "",
-    "  Esperado: " + PROD_REF + "  (PRODUCAO)",
-    "  Recebido: " + ref,
-    "",
-    "Publicar assim faria os usuarios gravarem dados no banco errado,",
-    "exatamente como aconteceu em 21/ago/2026.",
-    "",
-    ...COMO_CORRIGIR,
-  ]);
-}
-
-// 3) Deploy de teste (Preview) apontando para o banco de producao
-if (vercelEnv === "preview" && ref === PROD_REF) {
-  fail("ambiente de teste apontando para o banco de PRODUCAO", [
-    "Este e um deploy de Preview (teste), mas esta ligado ao banco real.",
-    "Qualquer teste feito nele alteraria os dados de verdade dos clientes.",
-    "",
-    "  Esperado: " + DEV_REF + "  (DESENVOLVIMENTO)",
-    "  Recebido: " + ref + "  (PRODUCAO)",
-    "",
-    ...COMO_CORRIGIR,
-  ]);
-}
-
 console.log(
   "[check-supabase-env] OK - ambiente '" +
     (vercelEnv || "local") +
     "' conectado ao banco de " +
-    describe(ref) +
+    describe(resultado.ref) +
     " (" +
-    ref +
+    resultado.ref +
     ")."
 );

@@ -241,8 +241,27 @@ NEXT_PUBLIC_MAX_FILE_SIZE=10485760
 NODE_ENV=production
 ```
 
-**IMPORTANTE:**
-- ✅ Configure para **Production**, **Preview** e **Development**
+**IMPORTANTE — cada ambiente usa o SEU PRÓPRIO banco:**
+
+Na Vercel, `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` precisam
+de uma entrada **separada para cada ambiente**. Nunca crie uma única entrada
+marcada como "Production and Preview": foi exatamente isso que causou o
+incidente de 21/ago/2026, em que o site de produção passou a ler e gravar no
+banco de desenvolvimento sem nenhum aviso, e usuários reais editaram dados que
+foram parar no banco de teste.
+
+| Ambiente na Vercel | Banco que deve usar | Código do projeto |
+| --- | --- | --- |
+| Production | Supabase de **produção** | `alvghyfbzrpjwhckmkwx` |
+| Preview | Supabase de **desenvolvimento** | `yrknfweilbuwrhzzwnrr` |
+| Development (`.env.local`) | Supabase de **desenvolvimento** | `yrknfweilbuwrhzzwnrr` |
+
+A referência oficial de qual banco pertence a cada ambiente fica em
+`supabase-environments.json`, na raiz do projeto.
+
+- ⚠️ Mudar a variável na Vercel **não** conserta o site sozinho. O valor é
+  gravado dentro do JavaScript na hora do build, então é obrigatório rodar um
+  **novo deploy** depois de alterar — senão o site continua com o valor antigo.
 - ✅ NUNCA exponha `service_role_key` no frontend
 - ✅ Guarde credenciais em local seguro (1Password, Bitwarden, etc.)
 
@@ -303,6 +322,42 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 # Upload
 NEXT_PUBLIC_MAX_FILE_SIZE=10485760
 ```
+
+---
+
+## 🛡️ Trava de ambiente (proteção automática)
+
+Depois do incidente de 21/ago/2026 o projeto ganhou duas proteções automáticas
+contra deploy apontando para o banco errado. Nenhuma das duas precisa ser
+ligada ou lembrada: elas funcionam sozinhas.
+
+### 1. Trava no build — impede a publicação
+
+`scripts/check-supabase-env.js` roda sozinho antes de todo `npm run build`
+(script `prebuild` no `package.json`). Ele compara o banco configurado com o
+que `supabase-environments.json` diz que aquele ambiente deveria usar, e
+**derruba o build** em dois casos:
+
+- deploy de **Production** apontando para um banco que não é o de produção;
+- deploy de **Preview** apontando para o banco de produção (teste mexendo em
+  dado real dos clientes).
+
+Quando isso acontece o deploy falha na Vercel com um texto explicando o que
+está errado e o passo a passo para corrigir. Nada é publicado.
+
+Para conferir na mão, a qualquer momento:
+
+```bash
+npm run check:env
+```
+
+### 2. Tarja de aviso na tela — segunda linha de defesa
+
+`src/components/EnvironmentWarningBanner.tsx` mostra uma tarja vermelha no topo
+do sistema se a página abrir conectada ao banco errado (por exemplo, um deploy
+antigo ainda em cache no navegador do usuário). O objetivo é que ninguém edite
+dado real acreditando que está tudo certo — o erro fica visível na hora, em vez
+de silencioso.
 
 ---
 
@@ -508,6 +563,30 @@ psql $DATABASE_URL -c "SELECT COUNT(*) FROM properties;"
 
 ---
 
+### Problema: site de produção mostrando dados errados (banco trocado)
+
+**Sintoma:** os números do sistema não batem com a realidade (ex.: quantidade de
+imóveis diferente do esperado), ou usuários diferentes veem dados diferentes.
+Pode aparecer também uma tarja vermelha no topo da tela avisando sobre o banco.
+
+**Causa:** o site foi publicado apontando para o banco de desenvolvimento em vez
+do de produção — normalmente porque as variáveis da Vercel estavam com um único
+valor compartilhado entre Production e Preview.
+
+**Solução:**
+1. Na Vercel, em Settings > Environment Variables, confira se
+   `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` têm uma entrada
+   **separada** para Production e outra para Preview (ver tabela em
+   "Variáveis de Ambiente").
+2. Rode um **novo deploy** — só mudar a variável não basta.
+3. Peça aos usuários para recarregar a página segurando `Ctrl+Shift+R`: quem já
+   estava com a versão antiga aberta continua nela até recarregar.
+4. Confira se todos os endereços do site (com e sem `www`) pertencem ao mesmo
+   projeto na Vercel. Um endereço registrado em outro projeto/conta continua
+   servindo a versão antiga mesmo depois da correção.
+
+---
+
 ### Erro: "RLS policy violation"
 
 **Causa:** Permissões insuficientes no banco
@@ -622,6 +701,10 @@ Antes de ir para produção:
 - [ ] **Rate limiting**: Configurado no Supabase (API)
 - [ ] **CORS configurado**: Apenas domínios permitidos
 - [ ] **Variáveis de ambiente**: Não commitadas no Git
+- [ ] **Ambientes separados**: Production e Preview com entradas próprias na
+      Vercel, cada uma no seu banco (rodar `npm run check:env` para confirmar)
+- [ ] **Domínios**: Todos os endereços do site (com e sem `www`) apontando para
+      o mesmo projeto na Vercel
 - [ ] **Backup automático**: Verificado e testado
 - [ ] **Monitoramento**: Sentry ou similar configurado
 - [ ] **SSL/TLS**: Certificado válido (Vercel faz automaticamente)

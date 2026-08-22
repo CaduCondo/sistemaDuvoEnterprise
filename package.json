@@ -14,7 +14,8 @@
     "test:bdd": "cucumber-js --config e2e/cucumber.config.cjs",
     "test:bdd:dry": "cucumber-js --config e2e/cucumber.config.cjs --dry-run",
     "prebuild": "node scripts/check-supabase-env.js",
-    "check:env": "node scripts/check-supabase-env.js"
+    "check:env": "node scripts/check-supabase-env.js",
+    "check:env:test": "node scripts/check-supabase-env.js --self-test"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
