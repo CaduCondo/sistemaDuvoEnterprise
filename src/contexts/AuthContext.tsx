@@ -29,8 +29,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // Lista de rotas públicas que não requerem autenticação
-  const publicRoutes = ["/", "/login", "/redefinir-senha"];
+  /**
+   * Rotas que qualquer visitante pode abrir sem estar logado.
+   *
+   * ⚠️ Os valores aqui são o PADRÃO da rota (`router.pathname`), e não o
+   * endereço que aparece na barra do navegador. Para uma página dinâmica o
+   * padrão é "/imovel/[id]" — a URL real ("/imovel/0139") nunca vai bater
+   * com esta lista.
+   *
+   * Bug encontrado em 23/ago/2026: "/imovel/[id]" — o anúncio individual,
+   * justamente a página que a gente divulga — não estava nesta lista.
+   * Resultado: TODO visitante que não estivesse logado era jogado para a
+   * home ao abrir um link de anúncio, ou seja, todo cliente em potencial.
+   * Quem estava logado no Gerenciador não via o problema, por isso passou
+   * despercebido até os links curtos começarem a ser compartilhados.
+   */
+  const publicRoutes = ["/", "/login", "/redefinir-senha", "/imovel/[id]"];
 
   const refreshUser = () => {
     const currentUser = getCurrentUser();
