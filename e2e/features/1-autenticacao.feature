@@ -12,6 +12,10 @@ Funcionalidade: Autenticação de Usuários
   Contexto:
     Dado que estou na página de login
 
+  # Marcado com @smoke: e o unico cenario deste arquivo que roda a cada
+  # push. Login do admin e pre-requisito de praticamente todo o resto da
+  # suite — se ele quebrar, tudo quebra junto.
+  @smoke
   Cenário: Login com sucesso - Usuário Admin
     Quando preencho o campo "Usuário" com "admin@teste.com"
     E preencho o campo "Senha" com "Admin@123"

@@ -1,0 +1,78 @@
+name: Smoke Test
+
+# A suite RAPIDA. E a unica que roda sozinha a cada push, e e ela que diz
+# "pode seguir" ou "parou de pe".
+#
+# Por que existe:
+#   O workflow "E2E Tests" rodava a suite inteira a cada push, levava ~60
+#   minutos e falhava sempre. Um teste que falha sempre nao avisa nada — vira
+#   ruido, e todo mundo aprende a ignorar. Este aqui e o contrario: pequeno,
+#   rapido e confiavel. Se ficar vermelho, quebrou alguma coisa de verdade.
+#
+# A suite antiga continua no repositorio e pode ser rodada a qualquer momento
+# pela aba Actions -> "E2E Tests" -> "Run workflow". A ideia e ir trazendo
+# aquela cobertura de volta para ca aos poucos, pedaco por pedaco.
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+# Se chegar um push novo enquanto o anterior ainda esta rodando, cancela o
+# anterior — nao adianta testar um commit que ja foi substituido, e evita
+# fila de execucoes empilhadas.
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar o Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar o navegador de teste
+        run: npx playwright install --with-deps chromium
+
+      # Compila a aplicacao de verdade, como em producao. Os testes rodam
+      # em cima deste build, e nao em modo de desenvolvimento — ver o
+      # comentario em scripts/smoke.js.
+      - name: Compilar a aplicacao
+        run: npm run build
+
+      # `npm run test:smoke` (scripts/smoke.js) sobe a aplicacao compilada,
+      # espera ela responder, roda os cenarios marcados com @smoke em
+      # paralelo e derruba a aplicacao no fim.
+      - name: Rodar o smoke test (BDD)
+        run: npm run test:smoke
+
+      - name: Guardar o relatorio (so quando falha)
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: smoke-report
+          path: |
+            e2e/reports/smoke-report.html
+            e2e/reports/smoke-report.json
+            e2e/reports/screenshots/
+          retention-days: 14

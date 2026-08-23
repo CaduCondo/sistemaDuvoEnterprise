@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:smoke": "node scripts/smoke.js",
+    "test:bdd:smoke": "cucumber-js --config e2e/cucumber.smoke.config.cjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",

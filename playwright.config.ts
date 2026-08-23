@@ -14,6 +14,7 @@ dotenv.config({ path: path.resolve(__dirname, '.env.local') });
  */
 export default defineConfig({
   testDir: './e2e',
+
   
   /* Executar testes em paralelo */
   fullyParallel: true,
@@ -24,11 +25,30 @@ export default defineConfig({
   /* Falhar no CI se você acidentalmente deixou test.only */
   forbidOnly: !!process.env.CI,
   
-  /* Retry em CI apenas */
-  retries: process.env.CI ? 2 : 0,
+  /*
+   * Retry em CI.
+   *
+   * ⚠️ Era 2 (ou seja: cada teste que falha rodava 3 vezes). Como o limite
+   * de cada teste e 60s, cada falha custava ate 3 minutos, um teste atras do
+   * outro. Com ~20 testes falhando isso passa dos 60 minutos que o job
+   * aceita — era por isso que o resultado era sempre "falhou em 59m14s": o
+   * job era cortado pelo relogio, e nem chegava a rodar os testes BDD.
+   *
+   * 1 retry ainda protege contra uma oscilacao de rede pontual, sem
+   * triplicar o custo de uma falha de verdade.
+   */
+  retries: process.env.CI ? 1 : 0,
   
-  /* Workers - controla paralelismo */
-  workers: process.env.CI ? 1 : 4,
+  /*
+   * Workers — quantos testes rodam ao mesmo tempo.
+   *
+   * ⚠️ Era 1 em CI: `fullyParallel: true` logo acima nao servia para nada,
+   * porque com um worker so os testes rodam em fila de qualquer jeito. A
+   * maquina do GitHub Actions tem 2 nucleos, entao 2 e o numero que
+   * realmente ajuda; acima disso os testes so disputam CPU entre si e
+   * comecam a falhar por lentidao, nao por defeito.
+   */
+  workers: process.env.CI ? 2 : 4,
   
   /* Timeout por teste */
   timeout: 60 * 1000, // 60 segundos
@@ -129,9 +149,31 @@ export default defineConfig({
     },
   ],
 
-  /* Executar servidor de desenvolvimento antes dos testes */
+  /*
+   * Como a aplicacao sobe para os testes.
+   *
+   * ⚠️ Antes era sempre `npm run dev`, inclusive em CI — mesmo o workflow
+   * tendo acabado de rodar `npm run build` (o build era jogado fora). Em
+   * modo dev o Next compila cada tela na PRIMEIRA vez que ela e aberta, e
+   * esse tempo conta dentro do limite do clique do teste. Medido numa
+   * maquina de 2 nucleos, do mesmo tamanho da do GitHub:
+   *
+   *     tela          modo dev (1a abertura)   ja compilada
+   *     /                      9.298 ms             35 ms
+   *     /dashboard             7.988 ms             14 ms
+   *     /financial             2.825 ms             13 ms
+   *     /rentals               3.978 ms             12 ms
+   *
+   * Em CI agora sobe `npm run start`, que serve o build pronto. Na maquina
+   * do desenvolvedor continua `npm run dev` (para nao ter que buildar a
+   * cada rodada); para forcar o modo compilado localmente, rode com
+   * PLAYWRIGHT_USE_BUILD=1 depois de um `npm run build`.
+   */
   webServer: {
-    command: 'npm run dev',
+    command:
+      process.env.PLAYWRIGHT_USE_BUILD === '1' || process.env.CI
+        ? 'npm run start'
+        : 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

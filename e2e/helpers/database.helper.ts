@@ -102,7 +102,23 @@ export class DatabaseHelper {
       .select()
       .single();
 
-    if (error) throw new Error(`Falha ao criar usuário de teste: ${error.message}`);
+    if (error) {
+      // Com os cenários rodando em paralelo, dois workers podem chegar
+      // aqui ao mesmo tempo: os dois consultam, os dois não encontram o
+      // usuário, e os dois tentam inserir. O segundo bate na restrição de
+      // e-mail único e falharia — mas o usuário que ele queria JÁ EXISTE,
+      // que é tudo o que este método promete. Então consulta de novo e
+      // devolve o que o outro worker acabou de criar.
+      const { data: criadoPorOutroWorker } = await supabaseAdmin
+        .from('system_users')
+        .select('id')
+        .eq('email', userData.email)
+        .maybeSingle();
+
+      if (criadoPorOutroWorker) return criadoPorOutroWorker;
+
+      throw new Error(`Falha ao criar usuário de teste: ${error.message}`);
+    }
     track('systemUsers', data.id);
     return data;
   }

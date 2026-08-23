@@ -1,19 +1,54 @@
-name: E2E Tests
+name: E2E Tests (suite completa - manual)
 
-# Este workflow roda AUTOMATICAMENTE em:
-# - Push para main/develop
-# - Pull Requests
-# - Manualmente (workflow_dispatch)
+# ============================================================================
+# ATENCAO: esta suite NAO roda mais sozinha a cada push. Ela so roda quando
+# alguem manda rodar (aba Actions -> "E2E Tests (suite completa - manual)"
+# -> botao "Run workflow").
 #
-# NÃO CONFLITA com o workflow de sync (sync-from-vercel.yml)
-# Ambos podem rodar em paralelo sem problemas!
+# POR QUE FOI DESLIGADA (23/ago/2026)
+#
+# Ela vinha falhando em TODOS os pushes ha semanas, levando cerca de 60
+# minutos por execucao. Um teste que falha sempre nao avisa nada: vira ruido,
+# e todo mundo aprende a ignorar o vermelho. Pior, ela travava qualquer
+# mudanca nova sem apontar nenhum problema real.
+#
+# Tres defeitos concretos foram encontrados nesta esteira:
+#
+#   1. `workers: 1` em CI (playwright.config.ts) — os 64 testes rodavam um
+#      atras do outro, sem aproveitar a maquina.
+#   2. `retries: 2` em CI — cada teste que falha era repetido 3 vezes. Como
+#      o limite de cada teste e 60s, cada falha custava 3 minutos. Com ~20
+#      falhas isso passa dos 60 minutos que o proprio job aceita — por isso
+#      o resultado era sempre "falhou em 59m14s": o job era cortado pelo
+#      relogio, nao pelos testes.
+#   3. A aplicacao subia em modo desenvolvimento (`npm run dev`), onde cada
+#      tela e compilada na primeira vez que e aberta. Medido numa maquina de
+#      2 nucleos (do mesmo tamanho da do GitHub): a home levou 9,3 segundos
+#      para abrir a primeira vez em modo dev, contra 35 milissegundos com a
+#      aplicacao ja compilada. Esse tempo de compilacao conta dentro do
+#      limite do clique — e o clique estoura.
+#
+# Os itens 1 e 2 foram corrigidos em playwright.config.ts. O item 3 foi
+# corrigido aqui (o passo abaixo agora sobe a aplicacao compilada). Mesmo
+# assim, esta suite continua manual ate ser revisada arquivo por arquivo:
+# consertar a esteira nao conserta automaticamente cada teste que estava
+# escrito errado.
+#
+# O QUE RODA AUTOMATICO AGORA
+#
+# `.github/workflows/smoke.yml` — uma suite pequena e rapida (poucos
+# minutos). A ideia e ir trazendo a cobertura daqui para la aos poucos:
+# cada arquivo que for revisado e passar a ser confiavel volta a rodar
+# automaticamente.
+# ============================================================================
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
-  workflow_dispatch:  # Permite rodar manualmente
+  workflow_dispatch:
+    inputs:
+      rodar_projetos_por_tag:
+        description: 'Rodar tambem os projetos por tag (smoke/security/permissions/...). Demora bem mais.'
+        type: boolean
+        default: false
 
 jobs:
   # Job principal: roda testes no Chromium (mais rápido)
@@ -47,8 +82,30 @@ jobs:
       run: npm run build
     
     - name: Rodar testes E2E (Playwright)
+      # PLAYWRIGHT_USE_BUILD=1 faz o playwright.config.ts subir a aplicacao
+      # com `npm run start` (build pronto) em vez de `npm run dev`.
+      env:
+        PLAYWRIGHT_USE_BUILD: '1'
       run: npm run test:e2e
       continue-on-error: false  # Falha se testes falharem
+
+    # ⚠️ Defeito encontrado em 23/ago/2026: este passo rodava SEM aplicacao
+    # no ar. Quem subia o servidor era o Playwright (opcao `webServer` do
+    # playwright.config.ts), e o Playwright derruba esse servidor quando
+    # termina. Os testes BDD (Cucumber) nao passam por aquele arquivo, entao
+    # tentavam abrir http://localhost:3000 sem nada escutando ali — todos os
+    # cenarios falhavam por motivo nenhum. Agora o servidor e subido aqui.
+    - name: Subir a aplicacao para os testes BDD
+      run: |
+        npm run start &
+        echo "Esperando a aplicacao responder..."
+        for i in $(seq 1 60); do
+          if curl -sf http://localhost:3000/api/health > /dev/null; then
+            echo "Aplicacao no ar."; exit 0
+          fi
+          sleep 2
+        done
+        echo "A aplicacao nao subiu em 120 segundos."; exit 1
 
     - name: Rodar testes BDD (Cucumber)
       run: npm run test:bdd
@@ -112,7 +169,7 @@ jobs:
   test-tagged-projects:
     timeout-minutes: 60
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: inputs.rodar_projetos_por_tag
 
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
