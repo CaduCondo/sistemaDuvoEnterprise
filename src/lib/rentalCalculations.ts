@@ -62,6 +62,66 @@ export function calculateProportionalRent(
 }
 
 /**
+ * ============================================================================
+ * O CÁLCULO PROPORCIONAL DO SISTEMA — UM LUGAR SÓ
+ * ============================================================================
+ *
+ * A regra do negócio é sempre a mesma: o mês vale 30 dias, e cobra-se
+ * `valor / 30 x dias`. Isso aparece no primeiro aluguel (quando o contrato
+ * começa fora do dia de vencimento), na rescisão, e quando o valor da locação
+ * é corrigido no meio do caminho.
+ *
+ * ⚠️ POR QUE ISTO EXISTE, E POR QUE NINGUÉM DEVE ESCREVER A CONTA DE NOVO
+ *
+ * Em 24/ago/2026 essa mesma conta estava escrita SEIS vezes na mão, espalhada
+ * pelo sistema. Quatro cópias somavam a garagem; duas — as duas da rescisão —
+ * esqueceram. Resultado: em toda rescisão de imóvel com garagem, a garagem
+ * simplesmente sumia da cobrança. O erro não foi encontrado por auditoria:
+ * foi encontrado porque o Cadu conferiu a conta de um cenário de teste e
+ * perguntou onde estava a garagem.
+ *
+ * Uma conta com uma implementação só não tem como divergir assim. Se precisar
+ * de proporcional em algum lugar novo, chame daqui.
+ */
+
+/** Proporcional de um valor mensal qualquer, sobre um mês de 30 dias. */
+export function calcularProporcional(valorMensal: number, dias: number): number {
+  if (!valorMensal || !dias) return 0;
+  return Math.round(((valorMensal / 30) * dias) * 100) / 100;
+}
+
+export interface ProporcionalAluguelEGaragem {
+  dias: number;
+  aluguel: number;
+  garagem: number;
+  total: number;
+}
+
+/**
+ * Proporcional do aluguel e da garagem, calculados SEPARADAMENTE.
+ *
+ * Separados de propósito: é assim que o recebimento mensal normal já monta o
+ * detalhamento (uma linha "Aluguel" e uma linha "Garagem"), e é assim que o
+ * Cadu confere a conta. Somar os dois antes de proporcionalizar dá o mesmo
+ * número, mas esconde a garagem — e foi exatamente escondida que ela sumiu.
+ */
+export function calcularProporcionalAluguelEGaragem(
+  aluguelMensal: number,
+  garagemMensal: number,
+  dias: number
+): ProporcionalAluguelEGaragem {
+  const aluguel = calcularProporcional(aluguelMensal, dias);
+  const garagem = calcularProporcional(garagemMensal, dias);
+
+  return {
+    dias,
+    aluguel,
+    garagem,
+    total: Math.round((aluguel + garagem) * 100) / 100,
+  };
+}
+
+/**
  * Verifica se a primeira parcela deve ser proporcional
  */
 export function shouldUseProportionalRent(startDate: string, paymentDay: number): boolean {

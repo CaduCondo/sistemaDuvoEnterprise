@@ -24,6 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { calcularProporcionalAluguelEGaragem } from "@/lib/rentalCalculations";
 
 interface RentalTerminationDialogProps {
   open: boolean;
@@ -204,6 +205,9 @@ export function RentalTerminationDialog({
       const remaining = Math.max(0, differenceInMonths(endDate, termDate));
 
       const monthlyRent = rental.value || 0;
+      // A garagem entra na conta junto com o aluguel — antes de 24/ago/2026 a
+      // prévia mostrava um valor menor do que o devido porque a ignorava (#49).
+      const garageValue = rental.hasGarage ? (rental.garageValue || 0) : 0;
       const paymentDay = rental.paymentDay || 1;
       
       const terminationMonth = termDate.getMonth();
@@ -221,16 +225,16 @@ export function RentalTerminationDialog({
       if (termDate >= dueDateOfTerminationMonth) {
         afterDue = true;
         lastPaymentDate = dueDateOfTerminationMonth;
-        fullMonth = monthlyRent;
+        fullMonth = monthlyRent + garageValue;
         daysUsed = differenceInDays(termDate, lastPaymentDate) + 1;
-        proportional = (monthlyRent / 30) * daysUsed;
+        proportional = calcularProporcionalAluguelEGaragem(monthlyRent, garageValue, daysUsed).total;
       } else {
         afterDue = false;
         const previousMonth = terminationMonth === 0 ? 11 : terminationMonth - 1;
         const previousYear = terminationMonth === 0 ? terminationYear - 1 : terminationYear;
         lastPaymentDate = new Date(previousYear, previousMonth, paymentDay);
         daysUsed = differenceInDays(termDate, lastPaymentDate) + 1;
-        proportional = (monthlyRent / 30) * daysUsed;
+        proportional = calcularProporcionalAluguelEGaragem(monthlyRent, garageValue, daysUsed).total;
       }
       
       setProportionalDays(daysUsed);

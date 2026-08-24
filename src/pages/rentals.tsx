@@ -359,6 +359,9 @@ export default function RentalsPage() {
         paymentDay: rentalToEnd.paymentDay || 1,
         depositAmount: data.depositAmount,
         monthlyRent: rentalToEnd.value || 0,
+        // A garagem tem que entrar na conta da rescisao: sem ela, o valor
+        // proporcional sai menor e a vaga deixa de ser cobrada (#49).
+        garageValue: rentalToEnd.hasGarage ? (rentalToEnd.garageValue || 0) : 0,
       });
 
       showAlert({

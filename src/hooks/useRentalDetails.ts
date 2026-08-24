@@ -187,6 +187,9 @@ export function useRentalDetails(rentalId: string) {
         depositAmount: data.depositAmount, // Este já deve vir corrigido do diálogo
         paymentDay: rental.paymentDay || 1,
         monthlyRent: rental.value || 0,
+        // A garagem tem que entrar na conta da rescisao: sem ela, o valor
+        // proporcional sai menor e a vaga deixa de ser cobrada (#49).
+        garageValue: rental.hasGarage ? (rental.garageValue || 0) : 0,
       });
 
       console.log("✅ HOOK: Rescisão processada!");

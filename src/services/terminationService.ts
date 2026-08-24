@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { parseISO, getMonth, getYear, differenceInDays } from "date-fns";
 import { calculateCorrectedDeposit } from "./igpmService";
+import { calcularProporcionalAluguelEGaragem } from "@/lib/rentalCalculations";
 
 export interface TerminationData {
   rentalId: string;
@@ -9,6 +10,13 @@ export interface TerminationData {
   depositAmount: number;
   paymentDay: number;
   monthlyRent: number;
+  /**
+   * Valor mensal da garagem. ⚠️ Até 24/ago/2026 este campo não existia, e a
+   * garagem simplesmente não entrava na conta da rescisão — sumia da
+   * cobrança em todo imóvel que tinha vaga. Ver #49 e
+   * docs/tickets/rescisao-caucao.md, decisão 5.
+   */
+  garageValue?: number;
 }
 
 /**
@@ -36,7 +44,8 @@ export async function processContractTermination(data: TerminationData): Promise
     penaltyAmount, 
     depositAmount,
     paymentDay,
-    monthlyRent
+    monthlyRent,
+    garageValue = 0
   } = data;
 
   // ==========================================
@@ -77,6 +86,8 @@ export async function processContractTermination(data: TerminationData): Promise
   let lastPaymentDate: Date;
   let fullMonthRent = 0;
   let proportionalRent = 0;
+  let proportionalRentOnly = 0;
+  let proportionalGarage = 0;
   let daysUsed = 0;
 
   if (isAfterDueDate) {
@@ -87,13 +98,19 @@ export async function processContractTermination(data: TerminationData): Promise
     console.log(`  Último vencimento: ${lastPaymentDate.toISOString().split("T")[0]}`);
     
     // Cobra mês cheio (já venceu) + proporcional dos dias extras
-    fullMonthRent = monthlyRent;
+    fullMonthRent = monthlyRent + garageValue;
     daysUsed = differenceInDays(terminationDateObj, lastPaymentDate) + 1;
-    proportionalRent = (monthlyRent / 30) * daysUsed;
-    
+
+    const proporcional = calcularProporcionalAluguelEGaragem(monthlyRent, garageValue, daysUsed);
+    proportionalRentOnly = proporcional.aluguel;
+    proportionalGarage = proporcional.garagem;
+    proportionalRent = proporcional.total;
+
     console.log(`  Mês cheio (recebimento 1): R$ ${fullMonthRent.toFixed(2)}`);
     console.log(`  Dias extras (${lastPaymentDate.toISOString().split("T")[0]} a ${terminationDate}): ${daysUsed}`);
-    console.log(`  Valor proporcional (recebimento 2): R$ ${proportionalRent.toFixed(2)}`);
+    console.log(`  Proporcional do aluguel: R$ ${proportionalRentOnly.toFixed(2)}`);
+    console.log(`  Proporcional da garagem: R$ ${proportionalGarage.toFixed(2)}`);
+    console.log(`  Valor proporcional total (recebimento 2): R$ ${proportionalRent.toFixed(2)}`);
   } else {
     // Rescisão ANTES do vencimento
     const previousMonth = terminationMonth === 1 ? 12 : terminationMonth - 1;
@@ -105,11 +122,17 @@ export async function processContractTermination(data: TerminationData): Promise
     
     // Apenas proporcional desde o último vencimento até a rescisão
     daysUsed = differenceInDays(terminationDateObj, lastPaymentDate) + 1;
-    proportionalRent = (monthlyRent / 30) * daysUsed;
-    
+
+    const proporcional = calcularProporcionalAluguelEGaragem(monthlyRent, garageValue, daysUsed);
+    proportionalRentOnly = proporcional.aluguel;
+    proportionalGarage = proporcional.garagem;
+    proportionalRent = proporcional.total;
+
     console.log(`  Período: ${lastPaymentDate.toISOString().split("T")[0]} até ${terminationDate}`);
     console.log(`  Total de dias: ${daysUsed}`);
-    console.log(`  Valor proporcional: R$ ${proportionalRent.toFixed(2)}`);
+    console.log(`  Proporcional do aluguel: R$ ${proportionalRentOnly.toFixed(2)}`);
+    console.log(`  Proporcional da garagem: R$ ${proportionalGarage.toFixed(2)}`);
+    console.log(`  Valor proporcional total: R$ ${proportionalRent.toFixed(2)}`);
   }
 
   // ==========================================
@@ -206,11 +229,26 @@ export async function processContractTermination(data: TerminationData): Promise
         status: "pending",
         installment: 1, // ✅ CORREÇÃO DEFINITIVA: usar installment 1
         total_installments: 2, // ✅ Total de 2 recebimentos neste mês
-        breakdown: [{
-          description: `Aluguel Mês ${terminationMonth}/${terminationYear}`,
-          amount: fullMonthRent,
-          type: "addition"
-        }]
+        breakdown: garageValue > 0
+          ? [
+              {
+                description: `Aluguel Mês ${terminationMonth}/${terminationYear}`,
+                amount: monthlyRent,
+                type: "addition"
+              },
+              {
+                description: `Garagem Mês ${terminationMonth}/${terminationYear}`,
+                amount: garageValue,
+                type: "addition"
+              }
+            ]
+          : [
+              {
+                description: `Aluguel Mês ${terminationMonth}/${terminationYear}`,
+                amount: fullMonthRent,
+                type: "addition"
+              }
+            ]
       });
 
     if (createError1) {
@@ -230,11 +268,22 @@ export async function processContractTermination(data: TerminationData): Promise
     
     const breakdown2 = [];
     
+    const periodo2 = `${daysUsed} dias - ${lastPaymentDate.toISOString().split("T")[0]} a ${terminationDate}`;
+
     breakdown2.push({
-      description: `Aluguel Proporcional - Dias Extras (${daysUsed} dias - ${lastPaymentDate.toISOString().split("T")[0]} a ${terminationDate})`,
-      amount: proportionalRent,
+      description: `Aluguel Proporcional - Dias Extras (${periodo2})`,
+      amount: proportionalRentOnly,
       type: "addition"
     });
+
+    // Linha própria para a garagem, como no recebimento mensal normal.
+    if (proportionalGarage > 0) {
+      breakdown2.push({
+        description: `Garagem Proporcional - Dias Extras (${periodo2})`,
+        amount: proportionalGarage,
+        type: "addition"
+      });
+    }
 
     if (penaltyAmount > 0) {
       breakdown2.push({
@@ -294,11 +343,22 @@ export async function processContractTermination(data: TerminationData): Promise
     
     const breakdown = [];
     
+    const periodo = `${daysUsed} dias - ${lastPaymentDate.toISOString().split("T")[0]} até ${terminationDate}`;
+
     breakdown.push({
-      description: `Aluguel Proporcional (${daysUsed} dias - ${lastPaymentDate.toISOString().split("T")[0]} até ${terminationDate})`,
-      amount: proportionalRent,
+      description: `Aluguel Proporcional (${periodo})`,
+      amount: proportionalRentOnly,
       type: "addition"
     });
+
+    // Linha própria para a garagem, como no recebimento mensal normal.
+    if (proportionalGarage > 0) {
+      breakdown.push({
+        description: `Garagem Proporcional (${periodo})`,
+        amount: proportionalGarage,
+        type: "addition"
+      });
+    }
 
     if (penaltyAmount > 0) {
       breakdown.push({

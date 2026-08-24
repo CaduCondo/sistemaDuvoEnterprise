@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Rental } from "@/types";
+import { calcularProporcional } from "@/lib/rentalCalculations";
 
 /**
  * Service para gerenciar atualizações de recebimentos quando uma locação é editada
@@ -21,10 +22,14 @@ interface RentalUpdateChanges {
 }
 
 /**
- * Calcula valor proporcional baseado em dias
+ * Calcula valor proporcional baseado em dias.
+ *
+ * Delega para `calcularProporcional`, em src/lib/rentalCalculations.ts: a
+ * conta do proporcional tem UMA implementação no sistema. Ver o comentário
+ * de lá para entender por que isso importa.
  */
 function calculateProportionalAmount(monthlyRent: number, days: number): number {
-  return Number(((monthlyRent / 30) * days).toFixed(2));
+  return calcularProporcional(monthlyRent, days);
 }
 
 /**
