@@ -154,9 +154,38 @@ export function DepositInstallmentsTable({
         return;
       }
 
+      /**
+       * Recebimentos de Rescisao (#49).
+       *
+       * Sao recebimentos de verdade, em `payments`, com payment_kind =
+       * 'termination'. Guardam os tres valores que aparecem nas colunas
+       * novas desta aba. Ficam numa busca separada de proposito: nem toda
+       * locacao tem rescisao, e o join na query das parcelas so encareceria
+       * o carregamento.
+       */
+      // `supabase as any` porque as colunas novas (payment_kind e as tres do
+      // Recebimento de Rescisao) ainda nao estao em database.types.ts. Sai
+      // quando os tipos forem regerados depois da migracao.
+      const { data: recebimentosRescisao, error: erroRescisao } = await (supabase as any)
+        .from("payments")
+        .select("rental_id, termination_corrected_deposit, termination_additional_expenses, termination_discount, expected_amount")
+        .eq("payment_kind", "termination");
+
+      if (erroRescisao) {
+        // Nao derruba a tela: sem isso as 4 colunas ficam vazias, e o resto
+        // da aba continua funcionando.
+        console.warn("⚠️ Nao foi possivel buscar os Recebimentos de Rescisao:", erroRescisao);
+      }
+
+      const rescisaoPorLocacao = new Map<string, any>();
+      (recebimentosRescisao || []).forEach((r: any) => {
+        rescisaoPorLocacao.set(r.rental_id, r);
+      });
+
       const mappedInstallments = installmentsData.map((item: any) => ({
         ...item,
         total_installments: item.installment_total,
+        rescisao: rescisaoPorLocacao.get(item.rental_id) || null,
       }));
 
       console.log("✅ Dados mapeados, total:", mappedInstallments.length);
@@ -707,9 +736,16 @@ export function DepositInstallmentsTable({
                     <TableHead className="text-center font-semibold">Data Pagamento</TableHead>
                     <TableHead className="text-center font-semibold">Valor Pago</TableHead>
                     <TableHead className="text-center font-semibold">Código PIX</TableHead>
-                    {statusFilter !== "active" && (
-                      <TableHead className="text-center font-semibold">Valor Devolvido</TableHead>
-                    )}
+                    {/* As 4 colunas do Recebimento de Rescisao (#49).
+                        Aparecem SEMPRE, inclusive em locacao ativa — vazias
+                        enquanto nao houver rescisao (decisao 3 do ticket).
+                        "Valor Corrigido p/ Devolucao" SUBSTITUI a antiga
+                        "Valor Devolvido": e o mesmo dado, e nao faz sentido
+                        ter duas colunas com a mesma informacao. */}
+                    <TableHead className="text-center font-semibold">Valor Corrigido p/ Devolução</TableHead>
+                    <TableHead className="text-center font-semibold">Despesas Adicionais</TableHead>
+                    <TableHead className="text-center font-semibold">Valor Desconto</TableHead>
+                    <TableHead className="text-center font-semibold">Valor Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -947,34 +983,55 @@ export function DepositInstallmentsTable({
                           )}
                         </TableCell>
 
-                        {/* Valor Devolvido - mesclado - somente para contratos cancelados - EDITÁVEL */}
-                        {statusFilter !== "active" && shouldRenderCell(rentalId, index) && (
-                          <TableCell className="text-right font-semibold text-red-600 whitespace-nowrap" rowSpan={getRowSpan(rentalId)}>
-                            {editingCell?.id === installment.id && editingCell?.field === "returned_deposit_amount" ? (
-                              <Input
-                                type="text"
-                                className="w-full h-9 text-right text-sm font-semibold border-blue-500 text-red-600"
-                                value={editingValue}
-                                onChange={(e) => setEditingValue(formatCurrencyInput(e.target.value))}
-                                onBlur={handleSaveEdit}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleSaveEdit();
-                                  if (e.key === "Escape") handleCancelEdit();
-                                }}
-                                autoFocus
-                              />
-                            ) : (
-                              <span
-                                className="cursor-pointer hover:bg-blue-50 px-3 py-2 rounded block text-right"
-                                onClick={() => handleStartEdit(installment, "returned_deposit_amount")}
+                        {/* ==========================================================
+                            As 4 colunas do Recebimento de Rescisao (#49)
+
+                            Mescladas por locacao, no mesmo padrao da antiga
+                            "Valor Devolvido": o dado e da locacao, nao da
+                            parcela. Aparecem sempre — vazias com "-" enquanto
+                            a locacao nao tiver sido rescindida.
+
+                            Sinais, como gravados no banco: devolucao negativa,
+                            despesas positivas, desconto negativo. Negativo em
+                            vermelho, para nao restar duvida de quem paga quem.
+                           ========================================================== */}
+                        {shouldRenderCell(rentalId, index) && (() => {
+                          const rescisao = (installment as any).rescisao;
+
+                          const devolucao = Number(rescisao?.termination_corrected_deposit ?? 0);
+                          const despesas = Number(rescisao?.termination_additional_expenses ?? 0);
+                          const desconto = Number(rescisao?.termination_discount ?? 0);
+                          const total = Math.round((devolucao + despesas + desconto) * 100) / 100;
+
+                          const celula = (valor: number, temRescisao: boolean) => (
+                            <TableCell
+                              className={`text-right font-semibold whitespace-nowrap ${
+                                valor < 0 ? "text-red-600" : ""
+                              }`}
+                              rowSpan={getRowSpan(rentalId)}
+                            >
+                              {temRescisao ? formatCurrency(valor) : "-"}
+                            </TableCell>
+                          );
+
+                          const temRescisao = !!rescisao;
+
+                          return (
+                            <>
+                              {celula(devolucao, temRescisao)}
+                              {celula(despesas, temRescisao)}
+                              {celula(desconto, temRescisao)}
+                              <TableCell
+                                className={`text-right font-bold whitespace-nowrap ${
+                                  total < 0 ? "text-red-600" : ""
+                                }`}
+                                rowSpan={getRowSpan(rentalId)}
                               >
-                                {rental?.status !== "active" && rental?.returned_deposit_amount 
-                                  ? formatCurrency(rental.returned_deposit_amount)
-                                  : "-"}
-                              </span>
-                            )}
-                          </TableCell>
-                        )}
+                                {temRescisao ? formatCurrency(total) : "-"}
+                              </TableCell>
+                            </>
+                          );
+                        })()}
                       </TableRow>
                     );
                   })}

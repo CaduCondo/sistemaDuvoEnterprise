@@ -346,6 +346,10 @@ export default function RentalsPage() {
     applyPenalty: boolean;
     penaltyAmount: number;
     depositAmount: number;
+    /** Despesas adicionais do Recebimento de Rescisao. Positivo (#49). */
+    additionalExpenses?: number;
+    /** Desconto concedido ao inquilino. Digitado sem sinal (#49). */
+    discount?: number;
   }) => {
     if (!rentalToEnd) return;
 
@@ -362,6 +366,8 @@ export default function RentalsPage() {
         // A garagem tem que entrar na conta da rescisao: sem ela, o valor
         // proporcional sai menor e a vaga deixa de ser cobrada (#49).
         garageValue: rentalToEnd.hasGarage ? (rentalToEnd.garageValue || 0) : 0,
+        additionalExpenses: data.additionalExpenses ?? 0,
+        discount: data.discount ?? 0,
       });
 
       showAlert({
@@ -383,6 +389,10 @@ export default function RentalsPage() {
     applyPenalty: boolean;
     penaltyAmount: number;
     depositAmount: number;
+    /** Despesas adicionais do Recebimento de Rescisao. Positivo (#49). */
+    additionalExpenses?: number;
+    /** Desconto concedido ao inquilino. Digitado sem sinal (#49). */
+    discount?: number;
   }) => {
     try {
       await handleTerminateRental(data);
