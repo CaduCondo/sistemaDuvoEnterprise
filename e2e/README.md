@@ -1,5 +1,19 @@
 # Testes E2E — Duvo Enterprise
 
+> ## ⚠️ Desatualizado a partir de 23/ago/2026
+>
+> A esteira mudou de forma profunda: a suíte completa **não roda mais a cada
+> push** (virou manual), e quem roda automaticamente agora é uma suíte de
+> smoke pequena, definida pela marca `@smoke` nos cenários.
+>
+> Leia primeiro:
+> **[e2e/SMOKE.md](./SMOKE.md)** e
+> **[docs/GITHUB_ACTIONS_TESTES.md](../docs/GITHUB_ACTIONS_TESTES.md)**.
+>
+> O que estiver escrito abaixo sobre *quando* os testes rodam está errado.
+> O que estiver escrito sobre *como escrever* testes continua valendo.
+
+
 Suíte de testes automatizados end-to-end: **Playwright** (`.spec.ts`) e **Cucumber/Gherkin (BDD)** (`.feature`), cobrindo login, permissões por perfil, CRUD de imóveis/inquilinos, locações, cauções e pagamentos.
 
 > ℹ️ **Revisão de 2026-08:** toda a suíte foi reconstruída contra a UI e o schema reais do sistema (não existe mais rota `/login` dedicada — o login é o dropdown "Gerenciador" na home pública `/`, ver `src/components/public/PublicHeader.tsx`). Arquivos antigos que ainda assumiam a UI anterior foram corrigidos; os que eram puramente duplicados/mortos (specs `.skip` na raiz de `e2e/`, apontando para uma rota `/login` inexistente) foram removidos.

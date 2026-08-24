@@ -1,5 +1,19 @@
 # 🚀 Executar Testes em CI/CD (GitHub Actions)
 
+> ## ⚠️ Desatualizado a partir de 23/ago/2026
+>
+> A esteira mudou de forma profunda: a suíte completa **não roda mais a cada
+> push** (virou manual), e quem roda automaticamente agora é uma suíte de
+> smoke pequena, definida pela marca `@smoke` nos cenários.
+>
+> Leia primeiro:
+> **[e2e/SMOKE.md](./SMOKE.md)** e
+> **[docs/GITHUB_ACTIONS_TESTES.md](../docs/GITHUB_ACTIONS_TESTES.md)**.
+>
+> O que estiver escrito abaixo sobre *quando* os testes rodam está errado.
+> O que estiver escrito sobre *como escrever* testes continua valendo.
+
+
 Este documento explica como os testes E2E são executados automaticamente no GitHub Actions.
 
 > ℹ️ **Revisão de 2026-08:** o workflow tinha dois bugs que o deixavam efetivamente quebrado — path de relatório errado (`playwright-report/` em vez de `e2e/reports/playwright-report/`, conforme `playwright.config.ts`) e um job de matriz `chromium/firefox/webkit` usando `--project=<browser>`, quando `playwright.config.ts` nunca definiu projetos por navegador (só por tag, todos em Desktop Chrome). Ambos foram corrigidos — ver `.github/workflows/e2e-tests.yml`. O workflow agora também roda a suíte BDD (`npm run test:bdd`), que antes nunca era executada em CI.

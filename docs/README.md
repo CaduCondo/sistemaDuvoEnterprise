@@ -118,25 +118,42 @@ Análise de viabilidade para integrar um gateway de pagamento (Asaas) — ainda 
 7. **7-locacoes-regras.feature** - Criação de locações e regras
 8. **8-pagamentos-calculos.feature** - Cálculos de pagamentos
 9. **9-regressao-visual.feature** - Testes visuais
-10. **10-caucoes.feature** - Sistema de cauções (18 cenários)
+10. **10-caucoes.feature** - Sistema de cauções
+11. **11-anuncio-publico.feature** - Anúncio público aberto sem login
+0. **0-smoke.feature** - Fundação da esteira (aplicação no ar, tela abre, login entra)
+
+**O que roda sozinho a cada push:** só os cenários marcados com `@smoke`,
+pelo workflow `Smoke Test` (~2 min). A suíte completa continua no
+repositório, mas virou **manual** — ela falhava em todos os pushes e levava
+60 minutos, o que não dizia nada a ninguém. A volta é por partes: marcar
+mais cenários com `@smoke`. Ver [e2e/SMOKE.md](../e2e/SMOKE.md).
 
 **Executar testes:**
 ```bash
-# Todos os testes
+# A suíte rápida: sobe a aplicação compilada e roda os cenários @smoke
+npm run test:smoke
+
+# Só os cenários @smoke, com a aplicação já rodando em outra janela
+npm run test:bdd:smoke
+
+# A suíte BDD completa
+npm run test:bdd
+
+# A suíte Playwright completa
 npm run test:e2e
-
-# Testes específicos
-npm run test:e2e -- --grep "Cauções"
-
-# Modo headless
-npm run test:e2e:ci
 ```
 
 **Documentação de testes:**
-- [e2e/README.md](../e2e/README.md) - Guia completo de testes E2E
-- [e2e/GUIA_RAPIDO.md](../e2e/GUIA_RAPIDO.md) - Guia rápido
+- [e2e/SMOKE.md](../e2e/SMOKE.md) - **Comece por aqui**: como a suíte rápida funciona e como religar a antiga
+- [docs/GITHUB_ACTIONS_TESTES.md](./GITHUB_ACTIONS_TESTES.md) - Os workflows do GitHub Actions
+- [e2e/README.md](../e2e/README.md) - Guia geral de testes E2E
 - [e2e/COMANDOS.md](../e2e/COMANDOS.md) - Comandos úteis
 - [e2e/SETUP_SIMPLES.md](../e2e/SETUP_SIMPLES.md) - Setup simplificado
+
+> Nota: há seis guias de teste em `e2e/` com conteúdo sobreposto
+> (README, GUIA_RAPIDO, GUIA_TESTES_LOCAL, COMANDOS, SETUP_SIMPLES,
+> EXECUTAR_TESTES_CI). Consolidar isso está no backlog; enquanto não
+> acontece, `e2e/SMOKE.md` é a fonte mais atual.
 
 ---
 

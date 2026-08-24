@@ -786,9 +786,12 @@ Gerenciar cadastro completo de imóveis disponíveis para locação.
 - **Atalho de URL**: `/properties?novo=1` abre a tela de Novo Imóvel já
   aberta, sem precisar clicar no botão.
 - **Link de compartilhamento com código curto** (`public_code`): a URL
-  pública do imóvel (`/imovel/[código]`) passou a usar um código curto
-  (ex: `AB12`) em vez do UUID completo, mais fácil de compartilhar por
-  WhatsApp. Gerado automaticamente no cadastro (`src/lib/propertyCode.ts`).
+  pública do imóvel (`/imovel/[código]`) usa um código curto **numérico e
+  sequencial, com 4 dígitos** — ex.: `/imovel/0139` — em vez do UUID
+  completo, bem mais fácil de compartilhar por WhatsApp. O código é gerado
+  automaticamente no cadastro; a formatação (completar com zeros à esquerda)
+  fica em `src/lib/propertyCode.ts`. A URL antiga, com o UUID, **continua
+  funcionando**, para não quebrar links já compartilhados.
 
 ---
 
@@ -2455,10 +2458,18 @@ WHERE reference_month = X
 ### Objetivo
 Exibir imóveis disponíveis para locação em uma página pública, permitindo que potenciais inquilinos vejam e demonstrem interesse.
 
-### URL
-`/locations/[location_id]`
+### URLs
 
-**Exemplo**: `/locations/123e4567-e89b-12d3-a456-426614174000`
+| Página | URL | O que mostra |
+|---|---|---|
+| Lista de anúncios | `/` | Todos os imóveis com status `available` |
+| Anúncio individual | `/imovel/[código]` | Um imóvel só — é este o link que se divulga |
+
+**Exemplo**: `https://duvoenterprise.com.br/imovel/0139`
+
+> ⚠️ Corrigido em 23/ago/2026: esta seção documentava a rota
+> `/locations/[location_id]`, que **não existe no sistema**. A lista de
+> anúncios é a própria página inicial.
 
 ### Layout da Página
 
@@ -2485,9 +2496,31 @@ Exibir imóveis disponíveis para locação em uma página pública, permitindo 
 ### Regras de Negócio
 
 #### 1. Acesso Público
-- **SEM autenticação**: Qualquer pessoa pode acessar
-- **SEM menu lateral**: Layout simplificado
-- **URL compartilhável**: Pode ser enviada via WhatsApp, email, etc.
+- **SEM autenticação**: qualquer pessoa pode acessar, e isso vale tanto para
+  a lista (`/`) quanto para o anúncio individual (`/imovel/[código]`).
+- **SEM menu lateral**: layout simplificado.
+- **URL compartilhável**: pode ser enviada via WhatsApp, e-mail, etc.
+
+> ⚠️ **Onde isso é decidido no código, e a armadilha que já custou caro.**
+>
+> Quem libera uma página para visitante sem login é a lista `publicRoutes`,
+> em `src/contexts/AuthContext.tsx`. Quem não está nessa lista é mandado para
+> a home.
+>
+> A lista compara com `router.pathname`, que é o **padrão** da rota
+> (`/imovel/[id]`), e **não** o endereço que aparece na barra do navegador
+> (`/imovel/0139`). Página nova que precise ser pública tem que entrar ali
+> com o padrão, do jeito que o arquivo aparece em `src/pages/`.
+>
+> Em 23/ago/2026 (issue #56) descobriu-se que `/imovel/[id]` nunca tinha sido
+> incluída: **todo visitante sem login que abrisse um link de anúncio era
+> jogado para a home**, e o imóvel nunca aparecia. Quem estava logado no
+> Gerenciador não via o problema — ou seja, o único público afetado era
+> exatamente o público-alvo do anúncio.
+>
+> Coberto agora por um cenário automático marcado com `@smoke`, em
+> `e2e/features/11-anuncio-publico.feature`, que abre o link curto **sem
+> sessão** e exige continuar na página do anúncio.
 
 #### 2. Imóveis Exibidos
 - **Filtro**: Apenas imóveis com `availability = 'available'`
