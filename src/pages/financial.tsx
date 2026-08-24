@@ -1616,7 +1616,25 @@ export default function Financial() {
 
   // KPI Calculations (MEMOIZADOS COM FILTRO DE LOCALIZAÇÃO!)
   const kpiCalculations = useMemo(() => {
-    const paymentsToCalculate = locationFilteredPayments;
+    /**
+     * ⚠️ O Recebimento de Rescisão fica DE FORA de todo cálculo daqui (#49).
+     *
+     * Ele guarda devolução de caução, despesas adicionais e desconto. Caução
+     * é dinheiro do inquilino em custódia, não é receita da imobiliária —
+     * então não pode entrar na base das taxas de administração (5%) e
+     * gerenciamento (3%), nem nos totais de recebido/esperado.
+     *
+     * Antes da #49 esses valores vinham grudados no recebimento do aluguel,
+     * e era exatamente isso que distorcia as taxas.
+     *
+     * `payment_kind` só existe a partir da migração 20260824120000; os
+     * recebimentos antigos vêm com 'rent' pelo default da coluna. As
+     * rescisões antigas continuam contaminadas até a migração de dados
+     * (issue #51) — o relatório da #50 é que vai medir o tamanho disso.
+     */
+    const paymentsToCalculate = locationFilteredPayments.filter(
+      (p: any) => p.payment_kind !== "termination"
+    );
     
     // ✅ CORREÇÃO: Filtrar despesas considerando permissões do usuário financeiro
     let filteredExpenses = locationExpensesData;

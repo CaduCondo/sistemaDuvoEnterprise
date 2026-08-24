@@ -17,6 +17,10 @@ export interface TerminationData {
    * docs/tickets/rescisao-caucao.md, decisão 5.
    */
   garageValue?: number;
+  /** Despesas adicionais cobradas do inquilino na rescisao. Positivo. */
+  additionalExpenses?: number;
+  /** Desconto concedido ao inquilino. O usuario digita so o numero; gravamos negativo. */
+  discount?: number;
 }
 
 /**
@@ -45,7 +49,9 @@ export async function processContractTermination(data: TerminationData): Promise
     depositAmount,
     paymentDay,
     monthlyRent,
-    garageValue = 0
+    garageValue = 0,
+    additionalExpenses = 0,
+    discount = 0
   } = data;
 
   // ==========================================
@@ -147,19 +153,59 @@ export async function processContractTermination(data: TerminationData): Promise
     .single();
 
   const startDate = rentalStartDate.data?.start_date || terminationDate;
-  
+
+  // ⚠️ A correcao incide sobre o que o inquilino EFETIVAMENTE PAGOU, e nao
+  // sobre o valor contratado. Decisao 4 do ticket (docs/tickets/rescisao-caucao.md):
+  // se o caucao foi contratado em 3 parcelas e so 2 foram pagas, devolve-se
+  // sobre as 2. Se nao foi pago nada, nao ha o que devolver.
+  const { data: parcelasCaucao, error: erroParcelas } = await supabase
+    .from("deposit_installments")
+    .select("paid_amount, status")
+    .eq("rental_id", rentalId);
+
+  if (erroParcelas) {
+    console.error("  ❌ Erro ao buscar parcelas de caucao:", erroParcelas);
+    throw erroParcelas;
+  }
+
+  const caucaoPago = (parcelasCaucao || []).reduce(
+    (soma, parcela) => soma + Number(parcela.paid_amount || 0),
+    0
+  );
+
+  console.log(`  Caucao contratado: R$ ${depositAmount.toFixed(2)}`);
+  console.log(`  Caucao efetivamente pago: R$ ${caucaoPago.toFixed(2)} (${(parcelasCaucao || []).length} parcelas)`);
+
   const igpmCorrection = calculateCorrectedDeposit(
-    depositAmount,
+    caucaoPago,
     startDate,
     terminationDate
   );
 
   const correctedDeposit = igpmCorrection.correctedAmount;
 
-  console.log(`  Valor original: R$ ${depositAmount.toFixed(2)}`);
+  console.log(`  Valor base da correcao: R$ ${caucaoPago.toFixed(2)}`);
   console.log(`  Meses ativos: ${igpmCorrection.months}`);
   console.log(`  IGPM acumulado: ${igpmCorrection.poupancaPercentage.toFixed(2)}%`);
   console.log(`  Valor corrigido: R$ ${correctedDeposit.toFixed(2)}`);
+
+  // Identificador que liga os DOIS recebimentos desta rescisao (#49).
+  const grupoRescisao = (globalThis.crypto?.randomUUID?.() ??
+    `${rentalId}-${terminationDate}-${Date.now()}`);
+
+  // Os tres valores do Recebimento de Rescisao, com os sinais combinados:
+  //   devolucao NEGATIVA, despesas POSITIVAS, desconto NEGATIVO.
+  const valorDevolucao = correctedDeposit > 0 ? -correctedDeposit : 0;
+  const valorDespesas = Math.abs(additionalExpenses);
+  const valorDesconto = discount === 0 ? 0 : -Math.abs(discount);
+  const totalRescisao =
+    Math.round((valorDevolucao + valorDespesas + valorDesconto) * 100) / 100;
+
+  console.log("\n💰 Recebimento de Rescisao (aba Caucoes):");
+  console.log(`  Valor corrigido p/ devolucao: R$ ${valorDevolucao.toFixed(2)}`);
+  console.log(`  Despesas adicionais:          R$ ${valorDespesas.toFixed(2)}`);
+  console.log(`  Valor desconto:               R$ ${valorDesconto.toFixed(2)}`);
+  console.log(`  TOTAL:                        R$ ${totalRescisao.toFixed(2)}`);
 
   // ==========================================
   // PASSO 5: NOVA LÓGICA - Criar/Atualizar recebimentos
@@ -229,6 +275,8 @@ export async function processContractTermination(data: TerminationData): Promise
         status: "pending",
         installment: 1, // ✅ CORREÇÃO DEFINITIVA: usar installment 1
         total_installments: 2, // ✅ Total de 2 recebimentos neste mês
+        payment_kind: "rent",
+        termination_group_id: grupoRescisao,
         breakdown: garageValue > 0
           ? [
               {
@@ -293,15 +341,12 @@ export async function processContractTermination(data: TerminationData): Promise
       });
     }
 
-    if (correctedDeposit > 0) {
-      breakdown2.push({
-        description: "Devolução de Caução (corrigido pela Taxa da Poupança)",
-        amount: -correctedDeposit,
-        type: "deduction"
-      });
-    }
+    // ⚠️ A devolucao do caucao NAO entra mais aqui (#49). Ela virou um
+    // recebimento proprio, na aba Caucoes, criado no final desta funcao.
+    // Enquanto ficava neste recebimento, o caucao (dinheiro de terceiro)
+    // entrava na base das taxas de adm e gerenciamento.
 
-    const totalAmount2 = proportionalRent + penaltyAmount - correctedDeposit;
+    const totalAmount2 = Math.round((proportionalRent + penaltyAmount) * 100) / 100;
     
     console.log("    Breakdown:");
     breakdown2.forEach(item => {
@@ -319,6 +364,8 @@ export async function processContractTermination(data: TerminationData): Promise
         reference_year: String(terminationYear),
         status: "pending",
         installment: 2, // ✅ CORREÇÃO DEFINITIVA: usar installment 2 (diferente do primeiro)
+        payment_kind: "rent",
+        termination_group_id: grupoRescisao,
         total_installments: 2, // ✅ Total de 2 recebimentos neste mês
         breakdown: breakdown2,
         notes: `Rescisão de Contrato - Data de saída: ${terminationDate}. Despesas de reforma podem ser adicionadas na tela de Recebimentos.`
@@ -368,15 +415,9 @@ export async function processContractTermination(data: TerminationData): Promise
       });
     }
 
-    if (correctedDeposit > 0) {
-      breakdown.push({
-        description: "Devolução de Caução (corrigido pela Taxa da Poupança)",
-        amount: -correctedDeposit,
-        type: "deduction"
-      });
-    }
+    // ⚠️ A devolucao do caucao NAO entra mais aqui (#49) — ver comentario acima.
 
-    const totalAmount = proportionalRent + penaltyAmount - correctedDeposit;
+    const totalAmount = Math.round((proportionalRent + penaltyAmount) * 100) / 100;
     
     console.log("    Breakdown:");
     breakdown.forEach(item => {
@@ -407,7 +448,9 @@ export async function processContractTermination(data: TerminationData): Promise
           due_date: dueDateStr,
           expected_amount: totalAmount,
           breakdown: breakdown,
-          notes: `Rescisão de Contrato - Data de saída: ${terminationDate}. Despesas de reforma podem ser adicionadas na tela de Recebimentos.`,
+          payment_kind: "rent",
+          termination_group_id: grupoRescisao,
+          notes: `Rescisão de Contrato - Data de saída: ${terminationDate}.`,
           updated_at: new Date().toISOString()
         })
         .eq("id", existingPayment.id);
@@ -431,7 +474,9 @@ export async function processContractTermination(data: TerminationData): Promise
           reference_year: String(terminationYear),
           status: "pending",
           breakdown: breakdown,
-          notes: `Rescisão de Contrato - Data de saída: ${terminationDate}. Despesas de reforma podem ser adicionadas na tela de Recebimentos.`
+          payment_kind: "rent",
+          termination_group_id: grupoRescisao,
+          notes: `Rescisão de Contrato - Data de saída: ${terminationDate}.`
         });
 
       if (createError) {
@@ -441,6 +486,73 @@ export async function processContractTermination(data: TerminationData): Promise
       
       console.log("    ✅ Recebimento criado com sucesso!");
     }
+  }
+
+  // ==========================================
+  // PASSO 5B: Criar o Recebimento de Rescisao (aba Caucoes)
+  //
+  // Este e o segundo recebimento da rescisao (#49). Ele guarda a devolucao do
+  // caucao, as despesas adicionais e o desconto — e NAO entra na base das
+  // taxas de adm e gerenciamento, porque nada disso e receita da imobiliaria.
+  //
+  // Vence no mesmo dia da rescisao, ou seja, cai no mesmo periodo da ultima
+  // parcela de aluguel.
+  // ==========================================
+  console.log("\n📝 PASSO 5B: Criar o Recebimento de Rescisao (aba Cauções)");
+
+  if (valorDevolucao !== 0 || valorDespesas !== 0 || valorDesconto !== 0) {
+    const breakdownRescisao: Array<{ description: string; amount: number; type: string }> = [];
+
+    if (valorDevolucao !== 0) {
+      breakdownRescisao.push({
+        description: "Valor Corrigido p/ Devolução (Taxa da Poupança)",
+        amount: valorDevolucao,
+        type: "deduction"
+      });
+    }
+
+    if (valorDespesas !== 0) {
+      breakdownRescisao.push({
+        description: "Despesas Adicionais",
+        amount: valorDespesas,
+        type: "addition"
+      });
+    }
+
+    if (valorDesconto !== 0) {
+      breakdownRescisao.push({
+        description: "Valor Desconto",
+        amount: valorDesconto,
+        type: "deduction"
+      });
+    }
+
+    const { error: erroRescisao } = await supabase
+      .from("payments")
+      .insert({
+        rental_id: rentalId,
+        due_date: terminationDate,
+        expected_amount: totalRescisao,
+        reference_month: String(terminationMonth).padStart(2, "0"),
+        reference_year: String(terminationYear),
+        status: "pending",
+        payment_kind: "termination",
+        termination_group_id: grupoRescisao,
+        termination_corrected_deposit: valorDevolucao,
+        termination_additional_expenses: valorDespesas,
+        termination_discount: valorDesconto,
+        breakdown: breakdownRescisao,
+        notes: `Recebimento de Rescisão - Data de saída: ${terminationDate}. Devolução de caução, despesas adicionais e desconto. Não entra na base das taxas de administração e gerenciamento.`
+      });
+
+    if (erroRescisao) {
+      console.error("  ❌ Erro ao criar o Recebimento de Rescisão:", erroRescisao);
+      throw erroRescisao;
+    }
+
+    console.log(`  ✅ Recebimento de Rescisão criado: R$ ${totalRescisao.toFixed(2)}`);
+  } else {
+    console.log("  ℹ️ Nada a devolver, nenhuma despesa e nenhum desconto: recebimento não criado.");
   }
 
   // ==========================================
@@ -569,10 +681,12 @@ export async function processContractTermination(data: TerminationData): Promise
   if (isAfterDueDate) {
     console.log("✅ RESCISÃO POSTERIOR AO VENCIMENTO:");
     console.log(`   - Recebimento 1 (dia ${paymentDay}): R$ ${fullMonthRent.toFixed(2)} (aluguel cheio)`);
-    console.log(`   - Recebimento 2 (${terminationDate}): R$ ${(proportionalRent + penaltyAmount - correctedDeposit).toFixed(2)} (rescisão)`);
+    console.log(`   - Recebimento 2 de aluguel (${terminationDate}): R$ ${(proportionalRent + penaltyAmount).toFixed(2)}`);
+    console.log(`   - Recebimento de Rescisão (${terminationDate}): R$ ${totalRescisao.toFixed(2)} (aba Cauções)`);
   } else {
     console.log("✅ RESCISÃO ANTERIOR AO VENCIMENTO:");
-    console.log(`   - Recebimento (${terminationDate}): R$ ${(proportionalRent + penaltyAmount - correctedDeposit).toFixed(2)}`);
+    console.log(`   - Recebimento de aluguel (${terminationDate}): R$ ${(proportionalRent + penaltyAmount).toFixed(2)}`);
+    console.log(`   - Recebimento de Rescisão (${terminationDate}): R$ ${totalRescisao.toFixed(2)} (aba Cauções)`);
   }
   
   console.log(`✅ Dias proporcionais cobrados: ${daysUsed} dias`);
