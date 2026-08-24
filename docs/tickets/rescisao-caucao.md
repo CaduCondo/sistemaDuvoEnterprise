@@ -31,6 +31,25 @@ que deveriam gerar taxa. Ou seja, além de distorcer, deixa de cobrar taxa devid
 4. O caução a devolver passa a ser calculado sobre o valor EFETIVAMENTE PAGO
    pelo inquilino, não sobre o valor contratado.
 5. A garagem entra no recebimento do aluguel.
+
+   ⚠️ **Descoberto em 24/ago/2026:** hoje a garagem não está no lugar errado
+   — ela está AUSENTE. `terminationService.ts` calcula
+   `proportionalRent = (monthlyRent / 30) * daysUsed`, e `monthlyRent` é
+   `rental.value`, que não inclui `garage_value`. O arquivo seleciona
+   `garage_value` do banco (linha 546) e nunca usa. Em toda rescisão de
+   imóvel com garagem, a garagem some da cobrança.
+
+   O aluguel e a garagem devem ser proporcionalizados SEPARADAMENTE, cada um
+   com a sua linha no detalhamento, como o pagamento mensal normal já faz
+   (`rentalUpdateService.ts` monta o breakdown com "Aluguel" e "Garagem" em
+   linhas distintas). Exemplo conferido com o Cadu: aluguel 1.200,00 +
+   garagem 300,00, rescisão com 25 dias de uso →
+   (1.200/30 × 25) + (300/30 × 25) = 1.000,00 + 250,00 = 1.250,00, mais a
+   multa de 500,00 = 1.750,00 no recebimento de aluguel.
+
+   Causa de fundo: o cálculo do proporcional está escrito seis vezes na mão
+   pelo sistema, e duas dessas cópias (as duas da rescisão) esqueceram a
+   garagem. Ver `docs/tickets/refatoracao-duplicacao.md`.
 6. Na migração das rescisões antigas, os dois recebimentos gerados ficam com
    status PENDENTE, para que todos sejam revistos manualmente.
 7. Os anexos do recebimento antigo são DUPLICADOS para os dois recebimentos

@@ -32,7 +32,7 @@ Funcionalidade: Rescisão separada da devolução do caução
   Contexto:
     Dado que estou logado como "admin"
     E existe uma locação de teste com:
-      | aluguel            | 900,00     |
+      | aluguel            | 1200,00    |
       | garagem            | 300,00     |
       | dia_vencimento     | 10         |
       | data_início        | 01/01/2026 |
@@ -50,21 +50,38 @@ Funcionalidade: Rescisão separada da devolução do caução
     E deve existir um Recebimento de Rescisão na aba "Cauções"
     E a devolução do caução NÃO deve aparecer na aba "Locações"
 
-  Cenário: O recebimento de aluguel soma proporcional, garagem e multa
+  Cenário: O recebimento de aluguel soma proporcional do aluguel, proporcional da garagem e multa
     # Rescisão dia 04/05, vencimento dia 10: é ANTES do vencimento, então
     # conta-se só o proporcional desde o último vencimento (10/04/2026).
-    # Dias usados: de 10/04 a 04/05 = 25 dias.
-    # Base mensal: aluguel 900 + garagem 300 = 1.200,00.
-    # Proporcional: (1.200,00 / 30) x 25 = 1.000,00.
-    # Com a multa de 500,00, o recebimento de aluguel fecha em 1.500,00.
+    # Dias usados: de 10/04 a 04/05 = 25 dias, sobre um mês de 30.
+    #
+    # O aluguel e a garagem são proporcionalizados SEPARADAMENTE, cada um
+    # com a sua linha no detalhamento — é assim que o pagamento mensal
+    # normal já funciona (ver rentalUpdateService.ts, que monta o breakdown
+    # com "Aluguel" e "Garagem" em linhas distintas).
+    #
+    #   proporcional do aluguel:  (1.200,00 / 30) x 25 = 1.000,00
+    #   proporcional da garagem:  (  300,00 / 30) x 25 =   250,00
+    #   multa                                          =   500,00
+    #                                                    ----------
+    #   recebimento de aluguel                           1.750,00
+    #
+    # ⚠️ HOJE A GARAGEM SIMPLESMENTE NÃO ENTRA. terminationService.ts calcula
+    # `proportionalRent = (monthlyRent / 30) * daysUsed`, e monthlyRent é
+    # `rental.value`, que NÃO inclui garage_value. O arquivo até seleciona
+    # garage_value do banco (linha 546) e nunca usa. Ou seja: em toda
+    # rescisão de imóvel com garagem, a garagem some da cobrança.
+    # Encontrado em 24/ago/2026, quando o Cadu conferiu a conta deste
+    # cenário e perguntou onde estava a garagem.
     Quando eu registrar a rescisão em "04/05/2026" com multa de 500,00
-    Então o recebimento de aluguel deve ter valor 1500,00
-    E o recebimento de aluguel deve detalhar o proporcional de 1000,00
+    Então o recebimento de aluguel deve ter valor 1750,00
+    E o recebimento de aluguel deve detalhar o proporcional do aluguel de 1000,00
+    E o recebimento de aluguel deve detalhar o proporcional da garagem de 250,00
     E o recebimento de aluguel deve detalhar a multa de 500,00
 
   Cenário: A devolução do caução não entra na base das taxas
     Quando eu registrar a rescisão em "04/05/2026" com multa de 500,00
-    Então a base de cálculo das taxas de administração e gerenciamento deve ser 1500,00
+    Então a base de cálculo das taxas de administração e gerenciamento deve ser 1750,00
     E a devolução do caução não deve influenciar nenhuma das duas taxas
 
   Cenário: A multa entra na base das taxas
