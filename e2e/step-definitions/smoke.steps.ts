@@ -50,7 +50,7 @@ Given('que estou na página inicial pública', async function (this: CustomWorld
   this.page.on('pageerror', (erro) => erros.push(erro.message));
 
   await this.page.goto('/');
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 Then('a página não deve ter erros de JavaScript', async function (this: CustomWorld) {

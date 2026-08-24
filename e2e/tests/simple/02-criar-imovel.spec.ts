@@ -26,7 +26,7 @@ test.describe('02. Criar Imóvel', () => {
 
     await page.getByRole('link', { name: /imóveis/i }).click();
     await page.waitForURL('**/properties');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test.afterEach(async () => {

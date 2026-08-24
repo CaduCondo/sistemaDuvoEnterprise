@@ -14,6 +14,26 @@ import { CustomWorld } from '../support/world';
  * nos respectivos arquivos.
  */
 
+/**
+ * ⚠️ NADA DE `waitForLoadState('networkidle')` NESTE PROJETO.
+ *
+ * `networkidle` espera a página passar 500ms SEM NENHUMA requisição de rede.
+ * Numa tela que carrega fotos, faz polling ou mantém conexão aberta, esse
+ * silêncio nunca acontece — e o passo fica parado até estourar o tempo, sem
+ * nenhum defeito real por trás.
+ *
+ * Foi o que aconteceu em 24/ago/2026 no cenário "A página pública abre sem
+ * erro": a home carrega 16 anúncios com foto, a rede nunca fica quieta, e o
+ * passo morreu com "page.waitForLoadState: Timeout 30000ms exceeded". Havia
+ * 27 usos de `networkidle` na suíte, 11 deles neste arquivo — por onde passa
+ * praticamente todo cenário. É um forte candidato a explicar boa parte das
+ * falhas por tempo esgotado "em telas sem relação com a mudança" (issue #48).
+ *
+ * O certo é `domcontentloaded` (determinístico, rápido) e deixar a espera de
+ * verdade para a asserção seguinte: `expect(...).toBeVisible()` já espera o
+ * elemento aparecer, pelo tempo configurado, e falha dizendo o que faltou.
+ */
+
 /** =================== NAVEGAÇÃO =================== */
 
 Given('que estou na página de login', async function (this: CustomWorld) {
@@ -26,37 +46,37 @@ Given('que estou na página de login', async function (this: CustomWorld) {
 
 Given('que estou na página {string}', async function (this: CustomWorld, url: string) {
   await this.page.goto(url);
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 Given('estou na página {string}', async function (this: CustomWorld, url: string) {
   await this.page.goto(url);
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 When('acesso o dashboard', async function (this: CustomWorld) {
   await this.page.goto('/dashboard');
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 When('acesso a página {string}', async function (this: CustomWorld, url: string) {
   await this.page.goto(url);
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 When('acesso {string}', async function (this: CustomWorld, url: string) {
   await this.page.goto(url);
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 When('navego para {string}', async function (this: CustomWorld, url: string) {
   await this.page.goto(url);
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 When('retorno para {string}', async function (this: CustomWorld, url: string) {
   await this.page.goto(url);
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 When('navego entre as páginas:', async function (this: CustomWorld, dataTable: any) {
@@ -65,7 +85,7 @@ When('navego entre as páginas:', async function (this: CustomWorld, dataTable: 
   this.testData.visitedPages = [];
   for (const path of pages) {
     await this.page.goto(path);
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('domcontentloaded');
     this.testData.visitedPages.push(path);
   }
 });
@@ -224,7 +244,7 @@ Then('devo ver {string}', async function (this: CustomWorld, text: string) {
 When('clico no menu {string}', async function (this: CustomWorld, menuName: string) {
   const menu = this.page.getByRole('link', { name: new RegExp(escapeRegex(menuName), 'i') });
   await menu.click();
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 Then('devo ver os seguintes menus:', async function (this: CustomWorld, dataTable: any) {
@@ -446,7 +466,7 @@ Then('a página deve carregar normalmente', async function (this: CustomWorld) {
 
 When('ao acessar {string}', async function (this: CustomWorld, url: string) {
   await this.page.goto(url);
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 Then('todos os elementos devem estar presentes', async function (this: CustomWorld) {
@@ -607,7 +627,7 @@ Given('que existe um inquilino {string} sem dados opcionais', async function (th
 
 When('abro o inquilino {string} para edição', async function (this: CustomWorld, name: string) {
   await this.page.reload();
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
   const row = this.page.getByText(name).first();
   await row.click();
   await this.page.waitForTimeout(1000);

@@ -44,7 +44,7 @@ When('abro o link curto do anúncio sem estar logado', async function (this: Cus
   });
 
   await this.page.goto(`/imovel/${this.testData.linkCurto}`);
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 Then('devo continuar na página do anúncio', async function (this: CustomWorld) {

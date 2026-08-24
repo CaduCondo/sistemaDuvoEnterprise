@@ -25,7 +25,7 @@ test.describe('03. Criar Inquilino', () => {
 
     await page.getByRole('link', { name: /inquilinos/i }).click();
     await page.waitForURL('**/tenants');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test.afterEach(async () => {

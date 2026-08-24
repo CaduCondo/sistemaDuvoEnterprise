@@ -351,7 +351,7 @@ Then('na aba {string} da página Financeiro devo ver:', async function(tabName: 
   
   // Navegar para Financial
   await this.page.goto('/financial');
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
   
   // Clicar na aba
   const tab = this.page.getByRole('tab', { name: new RegExp(tabName, 'i') });
@@ -444,7 +444,7 @@ Then('devo ver os campos:', async function(dataTable: any) {
 
 Then('devem ser criados {int} pagamentos', async function(count: number) {
   await this.page.goto('/payments');
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
   
   const payments = this.page.locator('[data-testid="payment-card"]');
   await expect(payments).toHaveCount(count, { timeout: 5000 });
@@ -556,7 +556,7 @@ Then('os pagamentos após {string} devem ser cancelados', async function(date: s
 Then('o imóvel deve ficar {string}', async function(status: string) {
   // Verificar status do imóvel
   await this.page.goto('/properties');
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
   
   const statusBadge = this.page.getByText(new RegExp(status, 'i'));
   await expect(statusBadge).toBeVisible({ timeout: 5000 });

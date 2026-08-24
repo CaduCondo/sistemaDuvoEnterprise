@@ -12,7 +12,7 @@ Given('que crio uma locação com:', async function(dataTable: any) {
   
   // Navegar para página de locações
   await this.page.goto('/rentals');
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
   
   // Clicar em "Nova Locação"
   await this.page.getByRole('button', { name: /nova locação/i }).click();
@@ -90,12 +90,12 @@ Given('a taxa de administração é {string}', async function(rate: string) {
 Given('que existe um pagamento pendente', async function() {
   // Assumir que já existe um pagamento na lista
   await this.page.goto('/payments');
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 Given('que existe um pagamento {string}', async function(status: string) {
   await this.page.goto('/payments');
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
   
   this.testData = {
     ...this.testData,
@@ -115,7 +115,7 @@ Given('que existem múltiplas locações com diferentes datas de início', async
 
 When('vou para a página de Recebimentos', async function() {
   await this.page.goto('/payments');
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 When('visualizo o detalhamento do pagamento', async function() {

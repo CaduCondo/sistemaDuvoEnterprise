@@ -19,7 +19,7 @@ Given('que existe um imóvel {string}', async function (this: CustomWorld, ident
   this.propertyId = property.id;
   this.testData.propertyIdentifier = identifier;
   await this.page.reload();
-  await this.page.waitForLoadState('networkidle');
+  await this.page.waitForLoadState('domcontentloaded');
 });
 
 Given('existe um imóvel {string} disponível', async function (this: CustomWorld, identifier: string) {

@@ -212,7 +212,7 @@ When("marco a parcela {int} como recebida:", async function (this: CustomWorld, 
 
 When("acesso o relatório financeiro de cauções", async function (this: CustomWorld) {
   await this.page.goto("/financial");
-  await this.page.waitForLoadState("networkidle");
+  await this.page.waitForLoadState("domcontentloaded");
   await this.page.getByRole("tab", { name: /parcelas de caução|cauções/i }).click();
   await this.page.waitForTimeout(500);
 });
