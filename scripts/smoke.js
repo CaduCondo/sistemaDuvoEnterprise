@@ -35,6 +35,28 @@ const path = require("path");
 const http = require("http");
 
 const RAIZ = path.resolve(__dirname, "..");
+
+/**
+ * Opcoes de linha de comando.
+ *
+ *   --headed   abre o navegador na tela, para assistir a automacao
+ *   --slow[=N] atrasa cada acao em N ms (padrao 250) para dar pra acompanhar
+ *
+ * Sao lidas aqui, e nao por variavel de ambiente, porque no PowerShell do
+ * Windows definir variavel na mesma linha do comando nao funciona como no
+ * Linux (`HEADED=true npm run ...` nao existe la).
+ */
+const argumentosCli = process.argv.slice(2);
+const querVer = argumentosCli.includes("--headed");
+const argSlow = argumentosCli.find((a) => a.startsWith("--slow"));
+
+if (querVer) {
+  process.env.HEADED = "true";
+}
+if (argSlow) {
+  const [, valor] = argSlow.split("=");
+  process.env.SLOW_MO = valor || "250";
+}
 const PORTA = process.env.PORT || 3000;
 const SAUDE = `http://localhost:${PORTA}/api/health`;
 const ESPERA_MAXIMA_MS = 120000;
@@ -130,13 +152,24 @@ async function principal() {
   let codigoFinal = 1;
   try {
     await esperarAplicacaoSubir(servidor);
-    log("Aplicação no ar. Rodando os cenários marcados com @smoke...");
+    log(
+      querVer
+        ? "Aplicação no ar. Abrindo o navegador para você assistir..."
+        : "Aplicação no ar. Rodando os cenários marcados com @smoke..."
+    );
 
-    const testes = rodarAteOFim("npx", [
+    // No modo visivel roda UM cenario por vez: dois navegadores abrindo ao
+    // mesmo tempo e impossivel de acompanhar.
+    const argsCucumber = [
       "cucumber-js",
       "--config",
       "e2e/cucumber.smoke.config.cjs",
-    ]);
+    ];
+    if (querVer) {
+      argsCucumber.push("--parallel", "0");
+    }
+
+    const testes = rodarAteOFim("npx", argsCucumber);
     codigoFinal = testes.status === null ? 1 : testes.status;
   } catch (erro) {
     log(`Erro: ${erro.message}`);

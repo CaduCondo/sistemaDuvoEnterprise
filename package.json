@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:smoke": "node scripts/smoke.js",
+    "test:smoke:ver": "node scripts/smoke.js --headed --slow=400",
     "test:bdd:smoke": "cucumber-js --config e2e/cucumber.smoke.config.cjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",

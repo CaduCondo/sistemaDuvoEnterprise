@@ -15,7 +15,12 @@ BeforeAll(async function () {
 });
 
 Before(async function (this: CustomWorld) {
-  this.browser = await chromium.launch({ headless: process.env.HEADED !== 'true' });
+  // HEADED=true abre o navegador na tela; SLOW_MO atrasa cada acao para dar
+  // tempo de acompanhar. Os dois sao ligados por `npm run test:smoke:ver`.
+  this.browser = await chromium.launch({
+    headless: process.env.HEADED !== 'true',
+    slowMo: Number(process.env.SLOW_MO || 0),
+  });
   // ✅ CORREÇÃO: sem baseURL, todo page.goto('/') (ou qualquer caminho
   // relativo) quebrava com "Cannot navigate to invalid URL" - os testes BDD
   // (cucumber) não passam por playwright.config.ts (que só vale pra
