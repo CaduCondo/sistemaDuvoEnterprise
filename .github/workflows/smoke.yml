@@ -42,10 +42,16 @@ jobs:
       - name: Baixar o codigo
         uses: actions/checkout@v4
 
+      # Node 22, e nao 20: o Cucumber 13 (o programa que roda os cenarios
+      # BDD) so funciona em Node 22, 24 ou 26+. Com Node 20 ele nem comeca:
+      # "Cucumber can only run on Node.js versions 22 || 24 || >=26".
+      # Foi assim que a primeira execucao deste workflow falhou — em 1m49s,
+      # com a mensagem exata na tela. Antes, o mesmo erro ficava escondido
+      # atras de 60 minutos de testes.
       - name: Preparar o Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Instalar dependencias
