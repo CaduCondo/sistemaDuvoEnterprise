@@ -465,16 +465,30 @@ export async function processContractTermination(data: TerminationData): Promise
   // ==========================================
   console.log("\n📝 PASSO 5B: Criar o Recebimento de Rescisao (aba Cauções)");
 
-  if (valorDevolucao !== 0 || valorDespesas !== 0 || valorDesconto !== 0) {
-    const breakdownRescisao: Array<{ description: string; amount: number; type: string }> = [];
+  /**
+   * ⚠️ O Recebimento de Rescisao e criado SEMPRE, mesmo que nao haja nada a
+   * devolver.
+   *
+   * Ate 25/ago/2026 havia um `if` aqui que so criava o registro quando um dos
+   * tres valores fosse diferente de zero. Como o caucao pode nunca ter sido
+   * pago (devolucao = 0), a rescisao gerava um recebimento so, e o usuario
+   * ficava sem lugar para digitar Despesas Adicionais e Desconto — que sao
+   * justamente os campos que ele preenche DEPOIS, na hora de acertar as
+   * contas com o inquilino.
+   *
+   * A rescisao gera dois recebimentos. Sempre.
+   */
+  {
+    const breakdownRescisao: Array<any> = [];
 
-    if (valorDevolucao !== 0) {
-      breakdownRescisao.push({
-        description: "Valor Corrigido p/ Devolução (Taxa da Poupança)",
-        amount: valorDevolucao,
-        type: "deduction"
-      });
-    }
+    // Aparece sempre, mesmo zerada: e a primeira linha da conta, e sumir
+    // com ela deixaria a tela sem explicar de onde sai o total.
+    breakdownRescisao.push({
+      description: "Valor Devolução Caução",
+      amount: valorDevolucao,
+      type: "deduction",
+      nota: "corrigido pela Taxa da Poupança"
+    });
 
     if (valorDespesas !== 0) {
       breakdownRescisao.push({
@@ -516,8 +530,6 @@ export async function processContractTermination(data: TerminationData): Promise
     }
 
     console.log(`  ✅ Recebimento de Rescisão criado: R$ ${totalRescisao.toFixed(2)}`);
-  } else {
-    console.log("  ℹ️ Nada a devolver, nenhuma despesa e nenhum desconto: recebimento não criado.");
   }
 
   // ==========================================
