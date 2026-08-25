@@ -546,7 +546,10 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         .from("payments")
         .select("id, expected_amount, payment_kind")
         .eq("termination_group_id", grupo)
-        .neq("id", payment.id)
+        // O irmao e o do OUTRO tipo. Sem este filtro, quando o grupo tinha
+        // mais de dois registros o TOTAL GERAL somava o par errado.
+        .neq("payment_kind", (payment as any).payment_kind || "rent")
+        .limit(1)
         .maybeSingle();
 
       if (cancelado) return;

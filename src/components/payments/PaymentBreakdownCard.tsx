@@ -224,6 +224,16 @@ export function PaymentBreakdownCard({
                   />
                 ))}
 
+              {/* Nota de rodape do periodo proporcional. Fica embaixo, e nao
+                  grudada no nome da linha, para o rotulo ficar curto e a
+                  coluna de valores alinhada (pedido do Cadu em 25/ago/2026). */}
+              {(() => {
+                const nota = originalBreakdown.find((i: any) => i.nota)?.nota;
+                return nota ? (
+                  <p className="text-xs text-muted-foreground pt-1">* {nota}</p>
+                ) : null;
+              })()}
+
               <div className="border-t border-dashed my-2"></div>
 
               {/* Despesas Adicionais so existem no Recebimento de Rescisao.
