@@ -227,14 +227,14 @@ export function RentalTerminationDialog({
         afterDue = true;
         lastPaymentDate = dueDateOfTerminationMonth;
         fullMonth = monthlyRent + garageValue;
-        daysUsed = differenceInDays(termDate, lastPaymentDate) + 1;
+        daysUsed = differenceInDays(termDate, lastPaymentDate);
         proportional = calcularProporcionalAluguelEGaragem(monthlyRent, garageValue, daysUsed).total;
       } else {
         afterDue = false;
         const previousMonth = terminationMonth === 0 ? 11 : terminationMonth - 1;
         const previousYear = terminationMonth === 0 ? terminationYear - 1 : terminationYear;
         lastPaymentDate = new Date(previousYear, previousMonth, paymentDay);
-        daysUsed = differenceInDays(termDate, lastPaymentDate) + 1;
+        daysUsed = differenceInDays(termDate, lastPaymentDate);
         proportional = calcularProporcionalAluguelEGaragem(monthlyRent, garageValue, daysUsed).total;
       }
       

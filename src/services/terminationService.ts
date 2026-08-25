@@ -112,7 +112,7 @@ export async function processContractTermination(data: TerminationData): Promise
     
     // Cobra mês cheio (já venceu) + proporcional dos dias extras
     fullMonthRent = monthlyRent + garageValue;
-    daysUsed = differenceInDays(terminationDateObj, lastPaymentDate) + 1;
+    daysUsed = differenceInDays(terminationDateObj, lastPaymentDate);
 
     const proporcional = calcularProporcionalAluguelEGaragem(monthlyRent, garageValue, daysUsed);
     proportionalRentOnly = proporcional.aluguel;
@@ -134,7 +134,7 @@ export async function processContractTermination(data: TerminationData): Promise
     console.log(`  Último vencimento: ${lastPaymentDate.toISOString().split("T")[0]}`);
     
     // Apenas proporcional desde o último vencimento até a rescisão
-    daysUsed = differenceInDays(terminationDateObj, lastPaymentDate) + 1;
+    daysUsed = differenceInDays(terminationDateObj, lastPaymentDate);
 
     const proporcional = calcularProporcionalAluguelEGaragem(monthlyRent, garageValue, daysUsed);
     proportionalRentOnly = proporcional.aluguel;
