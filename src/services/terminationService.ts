@@ -224,8 +224,15 @@ export async function processContractTermination(data: TerminationData): Promise
     console.log("\n  🔵 REGRA 1: Criar 2 recebimentos no mesmo mês");
     
     // ✅ SOLUÇÃO DEFINITIVA: DELETAR TODOS os recebimentos PENDING do mês ANTES de criar os novos
-    console.log("\n  🗑️ PASSO CRÍTICO: Deletar TODOS os recebimentos PENDING do mês da rescisão");
-    
+    console.log("\n  🗑️ PASSO CRÍTICO: Deletar TODOS os recebimentos PENDING/OVERDUE do mês da rescisão");
+
+    // ⚠️ Ate 25/ago/2026 este filtro so pegava status='pending'. Um pagamento
+    // ATRASADO do mes da rescisao (status='overdue' -- comum, e ate motivo
+    // frequente da rescisao) ficava para tras, e o INSERT do novo Recebimento
+    // de Aluguel esbarrava na constraint unique_payment_per_rental_period_installment
+    // (o mesmo rental_id/mes/ano ja tinha uma linha). pending e overdue sao
+    // tratados como equivalentes ('nao pago ainda') no resto do sistema --
+    // ver rentalUpdateService.ts e paymentService.ts.
     const { data: pendingPayments, error: fetchPendingError } = await supabase
       .from("payments")
       .select("id, due_date, status, expected_amount, installment")
@@ -233,9 +240,9 @@ export async function processContractTermination(data: TerminationData): Promise
         rental_id: rentalId,
         reference_month: String(terminationMonth).padStart(2, "0"),
         reference_year: String(terminationYear),
-        payment_kind: "rent",
-        status: "pending"
-      });
+        payment_kind: "rent"
+      })
+      .in("status", ["pending", "overdue"]);
 
     if (fetchPendingError) {
       console.error("    ❌ Erro ao buscar recebimentos pending:", fetchPendingError);
