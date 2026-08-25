@@ -108,6 +108,25 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [discountAmountInput, setDiscountAmountInput] = useState<string>("R$ 0,00");
   const [isTerminationPayment, setIsTerminationPayment] = useState(false);
+
+  /**
+   * Qual dos DOIS recebimentos da rescisao e este (#49).
+   *
+   *   'rent'        -> Recebimento de Aluguel: proporcional do aluguel,
+   *                    proporcional da garagem e multa. Tem campo de
+   *                    Desconto, NAO tem Despesas Adicionais.
+   *   'termination' -> Recebimento de Rescisao: devolucao do caucao. Tem
+   *                    Despesas Adicionais E Desconto.
+   *
+   * Vem de payments.payment_kind. Antes isso era adivinhado pelo TEXTO da
+   * observacao (`notes.includes("Rescisão de Contrato")`) — o que quebrou
+   * assim que o texto mudou, e foi o que deixou as duas telas invertidas em
+   * 24/ago/2026.
+   */
+  const [paymentKind, setPaymentKind] = useState<"rent" | "termination">("rent");
+
+  /** VALOR TOTAL do OUTRO recebimento da mesma rescisao, para o TOTAL GERAL. */
+  const [totalDoOutroRecebimento, setTotalDoOutroRecebimento] = useState<number | null>(null);
   const [originalBreakdown, setOriginalBreakdown] = useState<any[]>([]);
   const [calculatedTotal, setCalculatedTotal] = useState<number>(0);
   const [igpmCorrection, setIgpmCorrection] = useState<{
@@ -294,8 +313,18 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       setIsPaid(alreadyPaid);
       setIsEditMode(!alreadyPaid);
 
-      const isTermination = validatedPayment.notes?.includes("Rescisão de Contrato") || false;
+      // Recebimentos criados antes da migracao 20260824120000 nao tem
+      // payment_kind nem termination_group_id: para eles vale o criterio
+      // antigo, pelo texto da observacao.
+      const kind = (validatedPayment as any).payment_kind as "rent" | "termination" | undefined;
+      const grupo = (validatedPayment as any).termination_group_id as string | undefined;
+
+      const isTermination = kind
+        ? (kind === "termination" || !!grupo)
+        : (validatedPayment.notes?.includes("Rescisão de Contrato") || false);
+
       setIsTerminationPayment(isTermination);
+      setPaymentKind(kind === "termination" ? "termination" : "rent");
       
       const waiveLateFee = validatedPayment.late_fee_waived || false;
       const waiveInterest = validatedPayment.interest_waived || false;
@@ -496,6 +525,46 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     }
   }, [payment, displayBreakdown, effectiveRentalValue, effectiveGarageValue]);
 
+  /**
+   * Busca o VALOR TOTAL do OUTRO recebimento da mesma rescisao.
+   *
+   * Os dois nascem juntos e compartilham termination_group_id (#49). O
+   * usuario precisa ver, nas duas telas, quanto da o encontro de contas —
+   * porque na pratica o inquilino acerta tudo de uma vez.
+   */
+  useEffect(() => {
+    const grupo = (payment as any)?.termination_group_id;
+    if (!grupo || !payment?.id) {
+      setTotalDoOutroRecebimento(null);
+      return;
+    }
+
+    let cancelado = false;
+
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("payments")
+        .select("id, expected_amount, payment_kind")
+        .eq("termination_group_id", grupo)
+        .neq("id", payment.id)
+        .maybeSingle();
+
+      if (cancelado) return;
+
+      if (error) {
+        console.warn("⚠️ Nao foi possivel buscar o recebimento irmao da rescisao:", error);
+        setTotalDoOutroRecebimento(null);
+        return;
+      }
+
+      setTotalDoOutroRecebimento(data ? Number(data.expected_amount || 0) : null);
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [payment]);
+
   useEffect(() => {
     if (loading || !payment) return;
     
@@ -524,7 +593,25 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       
       const breakdownTotal = cleanBreakdown.reduce((sum, item) => sum + item.amount, 0);
       const lateFees = (removeLateFee ? 0 : values.multa) + (removeInterest ? 0 : values.juros);
-      const newTotal = breakdownTotal + repairExpenses + lateFees - discountAmount;
+
+      /**
+       * A conta muda conforme o recebimento (#49), confirmado com o Cadu em
+       * 24/ago/2026:
+       *
+       *   Recebimento de Aluguel
+       *     aluguel proporcional + garagem proporcional + multa − desconto
+       *
+       *   Recebimento de Rescisao
+       *     devolucao do caucao − despesas adicionais + desconto
+       *
+       * Repare no sinal do desconto: no aluguel ele TIRA (a imobiliaria abre
+       * mao de receber). Na rescisao ele SOMA, porque o que se esta perdoando
+       * sao as despesas — entao o valor volta para o inquilino.
+       */
+      const newTotal =
+        paymentKind === "termination"
+          ? Math.abs(breakdownTotal) - repairExpenses + discountAmount
+          : breakdownTotal + lateFees - discountAmount;
       
       setCalculatedTotal(newTotal);
       
@@ -550,6 +637,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     }
   }, [
     isTerminationPayment,
+    paymentKind,
     originalBreakdown,
     repairExpenses,
     discountAmount,
@@ -1187,7 +1275,8 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     <div className="space-y-6">
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold">
-          Registrar Recebimento{isTerminationPayment ? " - Rescisão de Contrato" : ""}
+          Registrar Recebimento
+          {isTerminationPayment && (paymentKind === "termination" ? " de Rescisão" : " de Aluguel")}
         </h1>
       </div>
 
@@ -1239,6 +1328,8 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <PaymentBreakdownCard
           isTerminationPayment={isTerminationPayment}
+          paymentKind={paymentKind}
+          totalDoOutroRecebimento={totalDoOutroRecebimento}
           originalBreakdown={originalBreakdown}
           igpmCorrection={igpmCorrection}
           repairExpenses={repairExpenses}

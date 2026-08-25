@@ -124,6 +124,10 @@ BreakdownItem.displayName = "BreakdownItem";
 
 interface PaymentBreakdownCardProps {
   isTerminationPayment: boolean;
+  /** Qual dos dois recebimentos da rescisao e este (#49). */
+  paymentKind?: "rent" | "termination";
+  /** VALOR TOTAL do outro recebimento da mesma rescisao, para o TOTAL GERAL. */
+  totalDoOutroRecebimento?: number | null;
   originalBreakdown: any[];
   igpmCorrection: any;
   repairExpenses: number;
@@ -154,6 +158,8 @@ interface PaymentBreakdownCardProps {
 
 export function PaymentBreakdownCard({
   isTerminationPayment,
+  paymentKind = "rent",
+  totalDoOutroRecebimento = null,
   originalBreakdown,
   igpmCorrection,
   repairExpenses,
@@ -194,7 +200,8 @@ export function PaymentBreakdownCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <DollarSign className="h-5 w-5" />
-          Formação de Valores {isTerminationPayment && "- Rescisão"}
+          Formação de Valores
+          {isTerminationPayment && (paymentKind === "termination" ? " - Rescisão" : " - Aluguel")}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -219,6 +226,10 @@ export function PaymentBreakdownCard({
 
               <div className="border-t border-dashed my-2"></div>
 
+              {/* Despesas Adicionais so existem no Recebimento de Rescisao.
+                  No de Aluguel a unica coisa que o usuario digita e o
+                  desconto (confirmado com o Cadu em 24/ago/2026). */}
+              {paymentKind === "termination" && (
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-4 items-center text-sm">
                   <span>Despesas Adicionais *</span>
@@ -240,6 +251,7 @@ export function PaymentBreakdownCard({
                   )}
                 </div>
               </div>
+              )}
 
               {values.diasAtraso > 0 && (
                 <>
@@ -278,8 +290,12 @@ export function PaymentBreakdownCard({
                       disabled={isReadOnly}
                     />
                   ) : (
-                    <span className="font-medium text-right text-red-600">
-                      {discountAmount > 0 ? "- " : ""}
+                    <span
+                      className={`font-medium text-right ${
+                        paymentKind === "termination" ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      {discountAmount > 0 ? (paymentKind === "termination" ? "+ " : "- ") : ""}
                       {formatCurrency(discountAmount)}
                     </span>
                   )}
@@ -293,6 +309,33 @@ export function PaymentBreakdownCard({
                   {formatCurrency(Math.abs(finalTotal))}
                 </span>
               </div>
+
+              {/* O encontro de contas das duas telas (#49). Na pratica o
+                  inquilino acerta os dois de uma vez, entao o usuario precisa
+                  ver o numero final sem ter que abrir a outra tela. */}
+              {totalDoOutroRecebimento !== null && (
+                <div className="flex justify-between pt-2 mt-1 border-t border-dashed">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-base">VALOR TOTAL GERAL</span>
+                    <span className="text-xs text-muted-foreground font-normal">
+                      Recebimento de Aluguel + Recebimento de Rescisão
+                    </span>
+                  </div>
+                  {(() => {
+                    const geral = finalTotal + totalDoOutroRecebimento;
+                    return (
+                      <span
+                        className={`font-bold text-base ${
+                          geral < 0 ? "text-red-600" : "text-primary"
+                        }`}
+                      >
+                        {geral < 0 ? "- " : ""}
+                        {formatCurrency(Math.abs(geral))}
+                      </span>
+                    );
+                  })()}
+                </div>
+              )}
 
               {showPartialInfo && (
                 <div className="mt-4 pt-4 border-t border-dashed bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md">
