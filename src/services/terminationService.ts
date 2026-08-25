@@ -229,10 +229,13 @@ export async function processContractTermination(data: TerminationData): Promise
     const { data: pendingPayments, error: fetchPendingError } = await supabase
       .from("payments")
       .select("id, due_date, status, expected_amount, installment")
-      .eq("rental_id", rentalId)
-      .eq("reference_month", String(terminationMonth).padStart(2, "0"))
-      .eq("reference_year", String(terminationYear))
-      .eq("status", "pending");
+      .match({
+        rental_id: rentalId,
+        reference_month: String(terminationMonth).padStart(2, "0"),
+        reference_year: String(terminationYear),
+        payment_kind: "rent",
+        status: "pending"
+      });
 
     if (fetchPendingError) {
       console.error("    ❌ Erro ao buscar recebimentos pending:", fetchPendingError);
@@ -394,9 +397,12 @@ export async function processContractTermination(data: TerminationData): Promise
     const { data: existingPayment, error: fetchError } = await supabase
       .from("payments")
       .select("*")
-      .eq("rental_id", rentalId)
-      .eq("reference_month", String(terminationMonth).padStart(2, "0"))
-      .eq("reference_year", String(terminationYear))
+      .match({
+        rental_id: rentalId,
+        reference_month: String(terminationMonth).padStart(2, "0"),
+        reference_year: String(terminationYear),
+        payment_kind: "rent"
+      })
       .maybeSingle();
 
     if (fetchError) {
@@ -479,6 +485,23 @@ export async function processContractTermination(data: TerminationData): Promise
    * A rescisao gera dois recebimentos. Sempre.
    */
   {
+    console.log("  🗑️ Apagando Recebimento de Rescisão anterior deste mês (se houver, de uma tentativa anterior)");
+
+    const { error: erroDeletarRescisaoAntiga } = await supabase
+      .from("payments")
+      .delete()
+      .match({
+        rental_id: rentalId,
+        reference_month: String(terminationMonth).padStart(2, "0"),
+        reference_year: String(terminationYear),
+        payment_kind: "termination"
+      });
+
+    if (erroDeletarRescisaoAntiga) {
+      console.error("    ❌ Erro ao apagar Recebimento de Rescisão anterior:", erroDeletarRescisaoAntiga);
+      throw erroDeletarRescisaoAntiga;
+    }
+
     const breakdownRescisao: Array<any> = [];
 
     // Aparece sempre, mesmo zerada: e a primeira linha da conta, e sumir
