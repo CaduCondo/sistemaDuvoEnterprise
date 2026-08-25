@@ -35,10 +35,6 @@ interface RentalTerminationDialogProps {
     applyPenalty: boolean;
     penaltyAmount: number;
     depositAmount: number;
-    /** Despesas adicionais cobradas do inquilino. Sempre positivo. */
-    additionalExpenses: number;
-    /** Desconto concedido ao inquilino. O usuario digita so o numero. */
-    discount: number;
   }) => Promise<void>;
 }
 
@@ -67,11 +63,6 @@ export function RentalTerminationDialog({
   const [poupancaPercentage, setPoupancaPercentage] = useState<number>(0);
   const [lastInstallmentDate, setLastInstallmentDate] = useState<string>("");
 
-  // Os dois valores do Recebimento de Rescisao que o usuario digita (#49).
-  // Os dois sao digitados SEM sinal: o desconto ja aparece com o "-" preso no
-  // campo, e quem grava o negativo e o servico (decisao 1 do ticket).
-  const [additionalExpenses, setAdditionalExpenses] = useState<number>(0);
-  const [discount, setDiscount] = useState<number>(0);
 
   useEffect(() => {
     if (!rental || !open) {
@@ -301,8 +292,6 @@ export function RentalTerminationDialog({
         applyPenalty: applyFullContractPenalty || apply12MonthsPenalty,
         penaltyAmount,
         depositAmount: finalDepositAmount,
-        additionalExpenses,
-        discount,
       });
       onOpenChange(false);
     } catch (error) {
@@ -568,115 +557,6 @@ export function RentalTerminationDialog({
                     </span>
                   </div>
                 )}
-              </div>
-            </div>
-
-            {/* ================================================================
-                Recebimento de Rescisao (aba Caucoes) — #49
-
-                Fica separado do recebimento de aluguel de proposito: o que
-                esta aqui e devolucao de caucao, despesa e desconto, e nada
-                disso e receita da imobiliaria. Por isso nao entra na conta
-                das taxas de administracao e gerenciamento.
-               ================================================================ */}
-            <div className="space-y-3 border rounded-lg p-3">
-              <div>
-                <Label className="text-base font-semibold">Recebimento de Rescisão</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Aparece na aba Cauções. Não entra na conta das taxas de administração e gerenciamento.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="termination-additional-expenses">Despesas Adicionais</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                      R$
-                    </span>
-                    <Input
-                      id="termination-additional-expenses"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="pl-10"
-                      placeholder="0,00"
-                      value={additionalExpenses === 0 ? "" : additionalExpenses}
-                      onChange={(e) => setAdditionalExpenses(Math.abs(Number(e.target.value) || 0))}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    O que o inquilino ainda deve (reparos, limpeza…).
-                  </p>
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="termination-discount">Valor de Desconto</Label>
-                  <div className="relative">
-                    {/* O sinal fica preso no campo: o usuario digita so o
-                        numero e nunca precisa pensar em sinal (decisao 1). */}
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-red-600 dark:text-red-400 font-medium">
-                      − R$
-                    </span>
-                    <Input
-                      id="termination-discount"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="pl-16"
-                      placeholder="0,00"
-                      value={discount === 0 ? "" : discount}
-                      onChange={(e) => setDiscount(Math.abs(Number(e.target.value) || 0))}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    O que você está abrindo mão de cobrar. Digite só o número.
-                  </p>
-                </div>
-              </div>
-
-              {/* Previa da conta, com os mesmos sinais que vao para o banco */}
-              <div className="space-y-1 text-sm bg-muted/50 rounded p-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Valor Corrigido p/ Devolução</span>
-                  <span className={correctedDepositAmount > 0 ? "text-red-600 dark:text-red-400" : ""}>
-                    {correctedDepositAmount > 0 ? "− " : ""}
-                    R$ {correctedDepositAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Despesas Adicionais</span>
-                  <span>
-                    R$ {additionalExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Valor Desconto</span>
-                  <span className={discount > 0 ? "text-red-600 dark:text-red-400" : ""}>
-                    {discount > 0 ? "− " : ""}
-                    R$ {discount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                {(() => {
-                  const total = -correctedDepositAmount + additionalExpenses - discount;
-                  const negativo = total < 0;
-                  return (
-                    <div className="flex justify-between border-t pt-1 mt-1 font-bold">
-                      <span>Valor Total</span>
-                      <span className={negativo ? "text-red-600 dark:text-red-400" : ""}>
-                        {negativo ? "− " : ""}
-                        R$ {Math.abs(total).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  );
-                })()}
-
-                <p className="text-xs text-muted-foreground pt-1">
-                  {-correctedDepositAmount + additionalExpenses - discount < 0
-                    ? "Negativo: a imobiliária paga o inquilino."
-                    : "Positivo: o inquilino paga a imobiliária."}
-                </p>
               </div>
             </div>
 

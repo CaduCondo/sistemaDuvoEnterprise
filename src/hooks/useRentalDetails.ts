@@ -194,8 +194,6 @@ export function useRentalDetails(rentalId: string) {
         // A garagem tem que entrar na conta da rescisao: sem ela, o valor
         // proporcional sai menor e a vaga deixa de ser cobrada (#49).
         garageValue: rental.hasGarage ? (rental.garageValue || 0) : 0,
-        additionalExpenses: data.additionalExpenses ?? 0,
-        discount: data.discount ?? 0,
       });
 
       console.log("✅ HOOK: Rescisão processada!");
