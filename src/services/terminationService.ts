@@ -233,7 +233,7 @@ export async function processContractTermination(data: TerminationData): Promise
     // (o mesmo rental_id/mes/ano ja tinha uma linha). pending e overdue sao
     // tratados como equivalentes ('nao pago ainda') no resto do sistema --
     // ver rentalUpdateService.ts e paymentService.ts.
-    const { data: pendingPayments, error: fetchPendingError } = await supabase
+    const { data: recebimentosDoMes, error: fetchPendingError } = await supabase
       .from("payments")
       .select("id, due_date, status, expected_amount, installment")
       .match({
@@ -241,13 +241,44 @@ export async function processContractTermination(data: TerminationData): Promise
         reference_month: String(terminationMonth).padStart(2, "0"),
         reference_year: String(terminationYear),
         payment_kind: "rent"
-      })
-      .in("status", ["pending", "overdue"]);
+      });
 
     if (fetchPendingError) {
-      console.error("    ❌ Erro ao buscar recebimentos pending:", fetchPendingError);
+      console.error("    ❌ Erro ao buscar recebimentos do mês:", fetchPendingError);
       throw fetchPendingError;
     }
+
+    /**
+     * O recebimento que JA existe no mes da rescisao decide se o mes cheio
+     * entra ou nao no recebimento novo (regra do Cadu, 25/ago/2026):
+     *
+     *   pendente/atrasado -> ninguem pagou ainda. Apaga o antigo e o mes
+     *                        cheio entra no recebimento novo. Ficam 2
+     *                        recebimentos no periodo (aluguel + rescisao).
+     *
+     *   pago/parcial      -> o dinheiro do mes cheio JA entrou. Nao se
+     *                        apaga nem se cobra de novo: o recebimento novo
+     *                        leva so o proporcional + multa + desconto.
+     *                        Ficam 3 recebimentos no periodo (o antigo
+     *                        quitado + o novo de aluguel + o de rescisao).
+     */
+    const emAberto = (recebimentosDoMes || []).filter(
+      (p) => p.status === "pending" || p.status === "overdue"
+    );
+    const jaQuitados = (recebimentosDoMes || []).filter(
+      (p) => p.status === "paid" || p.status === "partial"
+    );
+
+    const cobrarMesCheio = jaQuitados.length === 0;
+
+    if (jaQuitados.length > 0) {
+      console.log(`  💰 ${jaQuitados.length} recebimento(s) do mês JÁ PAGO(S)/PARCIAL(IS) — preservados, e o mês cheio NÃO será cobrado de novo:`);
+      jaQuitados.forEach((p, idx) => {
+        console.log(`    ${idx + 1}. ID: ${p.id} | ${p.status} | R$ ${p.expected_amount}`);
+      });
+    }
+
+    const pendingPayments = emAberto;
 
     if (pendingPayments && pendingPayments.length > 0) {
       console.log(`  ⚠️ Encontrados ${pendingPayments.length} recebimento(s) PENDING no mês ${terminationMonth}/${terminationYear}`);
@@ -287,11 +318,13 @@ export async function processContractTermination(data: TerminationData): Promise
 
     const breakdownAluguel: Array<any> = [];
 
-    breakdownAluguel.push({
-      description: "Aluguel - Mês Cheio",
-      amount: monthlyRent,
-      type: "addition"
-    });
+    if (cobrarMesCheio) {
+      breakdownAluguel.push({
+        description: "Aluguel - Mês Cheio",
+        amount: monthlyRent,
+        type: "addition"
+      });
+    }
 
     breakdownAluguel.push({
       description: "Aluguel - Proporcional",
@@ -301,11 +334,13 @@ export async function processContractTermination(data: TerminationData): Promise
     });
 
     if (garageValue > 0) {
-      breakdownAluguel.push({
-        description: "Garagem - Mês Cheio",
-        amount: garageValue,
-        type: "addition"
-      });
+      if (cobrarMesCheio) {
+        breakdownAluguel.push({
+          description: "Garagem - Mês Cheio",
+          amount: garageValue,
+          type: "addition"
+        });
+      }
 
       breakdownAluguel.push({
         description: "Garagem - Proporcional",
@@ -325,7 +360,8 @@ export async function processContractTermination(data: TerminationData): Promise
 
     const totalAluguel =
       Math.round(
-        (monthlyRent + garageValue + proportionalRentOnly + proportionalGarage + penaltyAmount) * 100
+        ((cobrarMesCheio ? monthlyRent + garageValue : 0) +
+          proportionalRentOnly + proportionalGarage + penaltyAmount) * 100
       ) / 100;
 
     console.log(`    Vencimento: ${terminationDate}`);
@@ -400,8 +436,10 @@ export async function processContractTermination(data: TerminationData): Promise
     });
     console.log(`    Total: R$ ${totalAmount.toFixed(2)}`);
 
-    // Buscar recebimento do mês
-    const { data: existingPayment, error: fetchError } = await supabase
+    // Buscar recebimento do mês. Pode haver mais de um (uma rescisao
+    // anterior no mesmo mes ja pode ter deixado o quitado + o novo), entao
+    // pegamos o mais recente em vez de exigir exatamente um.
+    const { data: recebimentosDoMes, error: fetchError } = await supabase
       .from("payments")
       .select("*")
       .match({
@@ -410,11 +448,29 @@ export async function processContractTermination(data: TerminationData): Promise
         reference_year: String(terminationYear),
         payment_kind: "rent"
       })
-      .maybeSingle();
+      .order("created_at", { ascending: false });
 
     if (fetchError) {
       console.error("    ❌ Erro ao buscar recebimento:", fetchError);
       throw fetchError;
+    }
+
+    /**
+     * Mesma regra da REGRA 1 (Cadu, 25/ago/2026): recebimento ja PAGO ou
+     * PARCIAL nao se mexe -- o dinheiro entrou. Sem isto, o update abaixo
+     * sobrescreveria valor e breakdown de um recebimento quitado, apagando o
+     * historico do que o inquilino pagou.
+     */
+    const existingPayment = (recebimentosDoMes || []).find(
+      (p: any) => p.status === "pending" || p.status === "overdue"
+    ) || null;
+
+    const quitadosNoMes = (recebimentosDoMes || []).filter(
+      (p: any) => p.status === "paid" || p.status === "partial"
+    );
+
+    if (quitadosNoMes.length > 0) {
+      console.log(`    💰 ${quitadosNoMes.length} recebimento(s) do mês já PAGO(S)/PARCIAL(IS) — preservados intactos.`);
     }
 
     if (existingPayment) {
@@ -547,6 +603,10 @@ export async function processContractTermination(data: TerminationData): Promise
         status: "pending",
         payment_kind: "termination",
         termination_group_id: grupoRescisao,
+        // So existe UMA cobranca de rescisao, entao ela e 1/1 -- e nao entra
+        // na contagem de parcelas do aluguel (PASSO 8 pula os de rescisao).
+        installment: 1,
+        total_installments: 1,
         termination_corrected_deposit: valorDevolucao,
         termination_additional_expenses: valorDespesas,
         termination_discount: valorDesconto,
@@ -639,10 +699,13 @@ export async function processContractTermination(data: TerminationData): Promise
   // ==========================================
   console.log("\n🔢 PASSO 8: RECALCULAR números de parcelas");
 
+  // ⚠️ So os recebimentos de ALUGUEL entram na contagem de parcelas. O
+  // Recebimento de Rescisao e sempre 1/1 -- se ele entrasse aqui, virava
+  // "2/2" na lista, como se fosse a segunda parcela do aluguel.
   const { data: remainingPayments, error: remainingError } = await supabase
     .from("payments")
     .select("id, due_date, installment, total_installments")
-    .eq("rental_id", rentalId)
+    .match({ rental_id: rentalId, payment_kind: "rent" })
     .order("due_date", { ascending: true });
 
   if (remainingError) {

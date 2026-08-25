@@ -211,6 +211,12 @@ export const usePayments = () => {
           expectedAmount: payment.expected_amount || 0,
           paidAmount: payment.paid_amount || 0,
           status: payment.status as "pending" | "paid" | "overdue" | "partial",
+          // ⚠️ Sem isto a lista de Recebimentos nao conseguia distinguir os
+          // dois recebimentos de uma rescisao: caia no criterio antigo (o
+          // TEXTO das observacoes) e a etiqueta roxa "Rescisão" acabava no
+          // recebimento de ALUGUEL, que e justamente quem tem "Rescisão de
+          // Contrato" escrito nas observacoes. Issue #49.
+          payment_kind: (payment as any).payment_kind ?? undefined,
           paymentMethod: payment.payment_method || null,
           notes: payment.notes || null,
           lateFee: 0,

@@ -227,3 +227,24 @@ export function prepareRentalData(
 export function formatPropertyDisplay(locationName: string, complement?: string): string {
   return complement ? `${locationName} - ${complement}` : locationName;
 }
+
+/**
+ * A linha do breakdown que representa a devolucao do caucao ao inquilino.
+ *
+ * ⚠️ Existe porque o rotulo dessa linha mudou ao longo do tempo: os
+ * recebimentos antigos gravaram "Devolução de Caução" e os criados a partir
+ * da #49 gravam "Valor Devolução Caução" (sem o "de"). O codigo que procurava
+ * pelo texto exato antigo simplesmente parava de achar a linha nos
+ * recebimentos novos -- e com isso sumia o tooltip da correcao pela poupanca
+ * e a atualizacao do valor corrigido na tela.
+ *
+ * Casar por "devolução" + "caução", sem acento e sem caixa, cobre os dois.
+ */
+export function ehLinhaDeDevolucaoDeCaucao(descricao?: string | null): boolean {
+  if (!descricao) return false;
+  const normalizado = descricao
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return normalizado.includes("devolucao") && normalizado.includes("caucao");
+}

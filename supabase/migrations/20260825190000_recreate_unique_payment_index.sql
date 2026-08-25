@@ -1,18 +1,31 @@
 -- ============================================================================
--- PASSO 2 do conserto da regra unica de recebimentos (#49)
+-- CANCELADA -- nao roda nada de proposito. Nao apague o arquivo: ele registra
+-- por que a regra unica NAO volta.
 --
--- Recria unique_payment_per_rental_period_installment, agora incluindo
--- payment_kind: continua impedindo dois recebimentos do MESMO tipo no mesmo
--- rental/mes/ano, mas passa a permitir exatamente 1 de aluguel + 1 de
--- rescisao, que e o desenho da #49.
+-- A ideia original era recriar unique_payment_per_rental_period_installment
+-- incluindo payment_kind, permitindo 1 recebimento de aluguel + 1 de rescisao
+-- por rental/mes/ano.
 --
--- ⚠️ SO RODA depois que as duplicatas antigas forem resolvidas. Para ver
--- quais sao: docs/sql/diagnostico-recebimentos-duplicados.sql
+-- Isso deixou de valer em 25/ago/2026, com a regra do mes cheio (Cadu):
 --
--- Se este arquivo falhar com
---   "23505: could not create unique index ... Key (...) is duplicated"
--- ainda ha duplicata. Rode o diagnostico e resolva antes.
+--   Se o recebimento que ja existe no mes da rescisao estiver PAGO ou
+--   PARCIAL, ele NAO e apagado -- o dinheiro ja entrou. A rescisao cria um
+--   segundo recebimento de aluguel no mesmo mes, so com o proporcional +
+--   multa + desconto.
+--
+-- Ou seja: DOIS recebimentos com payment_kind='rent' no mesmo rental/mes/ano
+-- passaram a ser um resultado correto e esperado. Uma regra unica sobre
+-- (rental_id, reference_month, reference_year, payment_kind) barraria
+-- exatamente esse caso.
+--
+-- O que protege contra duplicata hoje e o proprio codigo da rescisao
+-- (src/services/terminationService.ts): ele apaga o que esta em aberto antes
+-- de criar o novo, e apaga um Recebimento de Rescisao anterior antes de
+-- gravar outro.
+--
+-- As duplicatas antigas continuam mapeadas em
+-- docs/sql/diagnostico-recebimentos-duplicados.sql, mas deixaram de ser um
+-- impedimento -- viraram so um retrato do que existe.
 -- ============================================================================
 
-create unique index if not exists unique_payment_per_rental_period_installment
-  on public.payments (rental_id, reference_month, reference_year, payment_kind);
+-- (sem DDL de proposito)

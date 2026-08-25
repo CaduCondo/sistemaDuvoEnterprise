@@ -6,6 +6,7 @@ import { DollarSign, Loader2, Save } from "lucide-react";
 import { memo } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LateFeeInterestBlock } from "@/components/payments/LateFeeInterestBlock";
+import { ehLinhaDeDevolucaoDeCaucao } from "@/lib/rentalCalculations";
 
 interface BreakdownItemProps {
   item: any;
@@ -22,7 +23,7 @@ const cleanLabel = (text: string): string => {
 };
 
 export const BreakdownItem = memo(({ item, isDeduction, igpmCorrection, formatCurrency }: BreakdownItemProps) => {
-  const isDepositDeduction = item.description?.includes("Devolução de Caução");
+  const isDepositDeduction = ehLinhaDeDevolucaoDeCaucao(item.description);
   
   const displayAmount = isDepositDeduction && igpmCorrection && igpmCorrection.correctedAmount > 0
     ? igpmCorrection.correctedAmount 
@@ -57,6 +58,9 @@ export const BreakdownItem = memo(({ item, isDeduction, igpmCorrection, formatCu
           <div className="flex-1">
             <span className={isDepositDeduction ? "block" : ""}>
               {cleanedLabel}
+              {/* O asterisco amarra esta linha a nota no rodape do bloco
+                  (ex: "* 15 Dias Extras - 10/08/2026 a 25/08/2026"). */}
+              {item.nota ? " *" : ""}
             </span>
             {isDepositDeduction && igpmCorrection && (
               <span className="block text-xs text-muted-foreground mt-1">
@@ -234,7 +238,9 @@ export function PaymentBreakdownCard({
                 ) : null;
               })()}
 
-              <div className="border-t border-dashed my-2"></div>
+              {paymentKind === "termination" && (
+                <div className="border-t border-dashed my-2"></div>
+              )}
 
               {/* Despesas Adicionais so existem no Recebimento de Rescisao.
                   No de Aluguel a unica coisa que o usuario digita e o
@@ -283,7 +289,9 @@ export function PaymentBreakdownCard({
                 </>
               )}
 
-              <div className="border-t border-dashed my-2"></div>
+              {paymentKind === "termination" && (
+                <div className="border-t border-dashed my-2"></div>
+              )}
 
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-4 items-center text-sm">
@@ -368,9 +376,15 @@ export function PaymentBreakdownCard({
                 </div>
               )}
 
-              <div className="text-xs text-muted-foreground pt-2 border-t mt-2">
-                * Despesas Adicionais de Reforma/Limpeza/Pinturas ou reparos necessários após a saída do inquilino
-              </div>
+              {/* Este rodape explica o campo "Despesas Adicionais", que so
+                  existe na tela de Rescisao. Na de Aluguel ele nao tem a que
+                  se referir -- e o asterisco de la aponta para a nota do
+                  periodo proporcional, logo acima. */}
+              {paymentKind === "termination" && (
+                <div className="text-xs text-muted-foreground pt-2 border-t mt-2">
+                  * Despesas Adicionais de Reforma/Limpeza/Pinturas ou reparos necessários após a saída do inquilino
+                </div>
+              )}
             </>
           ) : (
             <>

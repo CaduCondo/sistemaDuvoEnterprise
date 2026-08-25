@@ -21,6 +21,7 @@ import { useAlert } from "@/contexts/AlertContext";
 import { Camera, Paperclip, CreditCard, Edit, X, Upload, FileText, Loader2, ImageIcon, Trash2 } from "lucide-react";
 import type { Payment, Rental, Property, Tenant } from "@/types";
 import { calculateCorrectedDeposit } from "@/services/igpmService";
+import { ehLinhaDeDevolucaoDeCaucao } from "@/lib/rentalCalculations";
 import { PaymentInfoCards } from "./PaymentInfoCards";
 import { PaymentBreakdownCard } from "./PaymentBreakdownCard";
 import { PaymentFormFields } from "./PaymentFormFields";
@@ -578,7 +579,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       
       if (igpmCorrection && igpmCorrection.correctedAmount > 0) {
         workingBreakdown = workingBreakdown.map((item: any) => {
-          if (item.description?.includes("Devolução de Caução")) {
+          if (ehLinhaDeDevolucaoDeCaucao(item.description)) {
             return {
               ...item,
               amount: -igpmCorrection.correctedAmount,
@@ -613,7 +614,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
        */
       const newTotal =
         paymentKind === "termination"
-          ? Math.abs(breakdownTotal) - repairExpenses + discountAmount
+          ? breakdownTotal + repairExpenses - discountAmount
           : breakdownTotal + lateFees - discountAmount;
       
       setCalculatedTotal(newTotal);
