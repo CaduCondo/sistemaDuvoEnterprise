@@ -328,3 +328,124 @@ Cenário: total somado da rescisão
   Então devo ver "Total da Rescisão: −R$ 500,00"
   E devo ver os dois valores que compõem esse total
   E deve estar claro que o valor é a pagar ao inquilino
+
+---
+
+# O QUE FOI CONSTRUÍDO (26/ago/2026)
+
+A História 1 está implementada e testada na branch `feat/rescisao-caucao-49`.
+Esta seção registra o que ficou diferente do planejado e os defeitos que só
+apareceram construindo — vários deles fora da rescisão.
+
+## Como a rescisão funciona hoje
+
+Uma rescisão gera **dois** recebimentos ligados por `termination_group_id`:
+
+| | `payment_kind` | Conteúdo | Entra na base das taxas? |
+|---|---|---|---|
+| Recebimento de Aluguel | `rent` | mês cheio (condicional) + proporcional do aluguel + proporcional da garagem + multa − desconto | **sim** |
+| Recebimento de Rescisão | `termination` | devolução do caução corrigida + despesas adicionais − desconto | **não** |
+
+O de rescisão é sempre parcela **1/1** e não entra na renumeração das parcelas
+do aluguel. Ele não aparece na aba Locações do Financeiro: seu lugar é nas
+quatro colunas do Detalhamento de Cauções.
+
+### A regra do mês cheio (decidida em 25/ago/2026)
+
+O recebimento que já existe no mês da rescisão decide o que o recebimento novo
+cobra:
+
+- **pendente ou atrasado** → é apagado, e o mês cheio entra no recebimento
+  novo. Ficam 2 recebimentos no período.
+- **pago ou parcial** → não se apaga nem se cobra o mês cheio de novo. O novo
+  leva só proporcional + multa + desconto. Ficam **3** recebimentos no período.
+
+Consequência: dois recebimentos `payment_kind='rent'` no mesmo
+rental/mês/ano passaram a ser um resultado **correto**. Por isso o índice único
+`unique_payment_per_rental_period_installment` foi removido e **não volta** —
+ver `20260825190000_recreate_unique_payment_index.sql`, que é uma migration
+cancelada de propósito, mantida como registro da decisão.
+
+## Defeitos encontrados que não eram da rescisão
+
+A rescisão foi o primeiro código a ler campos que ninguém lia. Isso revelou
+problemas antigos:
+
+1. **`markDepositInstallmentAsPaid()` nunca gravava `paid_amount`.** Toda
+   parcela de caução marcada como paga ficava "paga por R$ 0,00". Ninguém
+   notava porque as telas de caução exibem `amount`. A rescisão é o único lugar
+   que lê `paid_amount` — e por isso a devolução dava zero em **qualquer**
+   contrato. Corrigido no código e nos dados
+   (`20260826100000_fix_paid_amount_parcelas_caucao.sql`).
+
+2. **Trigger `validate_payment_status` cravava 'paid' no que valia zero.** O
+   Recebimento de Rescisão nasce legitimamente zerado; o trigger lia isso como
+   quitado, inclusive por cima do 'pending' que o cancelamento acabara de
+   gravar — um laço sem saída pela tela. O trigger passa a ignorar
+   `payment_kind='termination'`.
+
+3. **A migration `20260216223935` no repositório está desatualizada em relação
+   ao banco.** O corpo dela usa `NEW.discount`, coluna que nunca existiu (é
+   `discount_amount`); alguém corrigiu direto no SQL Editor sem trazer de
+   volta. Copiar aquele corpo derrubou todo insert/update em `payments`. Para
+   mexer nessa função, tire o corpo atual do **banco** (`pg_get_functiondef`),
+   nunca do arquivo.
+
+4. **Duas implementações do Histórico de Pagamentos.**
+   `RentalPaymentHistoryDialog.tsx` não é importado por ninguém; o histórico
+   que abre é um pop-up montado à mão em `rentals.tsx`. Alterações no
+   componente não mudam nada na tela.
+
+5. **`payment_kind` não era copiado nos mapeamentos** de `usePayments.ts` e
+   `financial.tsx`. O campo chegava `undefined` e os filtros que dependem dele
+   silenciosamente não funcionavam — foi assim que a etiqueta "Rescisão"
+   apareceu no recebimento errado e que a rescisão continuou visível na aba
+   Locações mesmo com o filtro escrito.
+
+## A lição que mais custou: uma conta, um lugar
+
+O cálculo do total do recebimento estava escrito **três vezes** em
+`ManagePaymentForm.tsx` — exibição, auto-save e salvar do pagamento — e as três
+divergiam. Duas delas ainda tinham `Math.abs` no `expected_amount`, o que
+transformava uma devolução em cobrança dentro do banco, e procuravam a linha do
+caução por um rótulo que a #49 tinha trocado.
+
+O sintoma: a lista mostrava R$ 6.201,25 e o mesmo recebimento, aberto, mostrava
+−R$ 5.201,25.
+
+Hoje os três chamam `montarRecebimentoRescisao()` em
+`src/lib/rentalCalculations.ts`. **Qualquer mudança na conta da rescisão deve
+ser feita lá**, e não no componente.
+
+Na mesma linha, `ehLinhaDeDevolucaoDeCaucao()` e `caucaoEfetivamentePago()`
+existem porque o mesmo dado era lido de jeitos diferentes em lugares
+diferentes.
+
+## Testes
+
+`e2e/features/12-rescisao-caucao.feature` tem 14 cenários, todos com `@smoke`
+por enquanto — ver `e2e/SMOKE.md` para quando e como reduzir para dois.
+
+Cada cenário nasceu de um defeito real; o comentário de cada um diz qual foi.
+As verificações leem o **banco**, não a tela, justamente porque nesta issue a
+tela já mostrou valor diferente do gravado.
+
+## Migrations desta entrega (rodar em ordem)
+
+| Arquivo | O que faz |
+|---|---|
+| `20260824120000_add_termination_split_columns.sql` | colunas `payment_kind`, `termination_group_id` e as três `termination_*` |
+| `20260825180000_fix_unique_payment_constraint_for_termination.sql` | remove o índice único que barrava o segundo recebimento |
+| `20260825190000_recreate_unique_payment_index.sql` | **cancelada** — não roda nada, registra por que o índice não volta |
+| `20260825200000_termination_payment_status_nao_automatico.sql` | trigger deixa de mexer no status da rescisão |
+| `20260826100000_fix_paid_amount_parcelas_caucao.sql` | conserta as parcelas de caução pagas por R$ 0,00 |
+| `20260826110000_kanban_recibo_recebimento_rescisao.sql` | card do recibo da rescisão |
+| `20260826120000_corrige_recebimentos_rescisao_gravados.sql` | conserta os recebimentos já gravados com sinal invertido e colunas zeradas |
+
+## O que continua em aberto
+
+- **Histórias 2, 3 e 4**: relatório das rescisões antigas, migração dos dados
+  e remoção do remendo em `financial.tsx` seguem pendentes.
+- **Recibo do Recebimento de Rescisão**: card criado no Kanban. O recibo atual
+  assume aluguel, parcela X/Y e total positivo — nada disso vale para a
+  rescisão.

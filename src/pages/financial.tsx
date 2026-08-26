@@ -675,6 +675,15 @@ export default function Financial() {
           paymentDate: payment.payment_date,
           paymentTime: payment.payment_time,
           status: payment.status as "paid" | "pending" | "overdue" | "partial",
+          /**
+           * ⚠️ Sem isto o filtro que tira o Recebimento de Rescisao da aba
+           * Locacoes nao funciona: ele testa p.payment_kind, que chegava
+           * sempre undefined porque o mapeamento nao copiava a coluna.
+           *
+           * Foi o mesmo esquecimento que fez a etiqueta "Rescisão" aparecer
+           * no recebimento errado na lista de Recebimentos (usePayments.ts).
+           */
+          payment_kind: (payment as any).payment_kind ?? undefined,
           referenceMonth: Number(payment.reference_month),
           referenceYear: Number(payment.reference_year),
           lateFee: payment.late_fee || 0,
