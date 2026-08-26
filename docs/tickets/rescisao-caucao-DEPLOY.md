@@ -1,182 +1,97 @@
-# Subir a #49 para produção — passo a passo
+# Subir a #49 para produção — 3 passos
 
-> **A ordem importa e não é a intuitiva.** As migrations rodam **ANTES** do
-> deploy do código, não depois. O código novo lê colunas (`payment_kind`,
-> `termination_group_id`, as três `termination_*`) que hoje **não existem** no
-> banco de produção. Se o deploy sair primeiro, a página de Recebimentos, a de
-> Financeiro e a rescisão quebram no ar até a migration rodar.
->
-> Todas as migrations do passo 2 são retrocompatíveis: adicionam colunas e
-> ajustam um trigger. O código que está em produção hoje continua funcionando
-> normalmente com elas aplicadas. Por isso é seguro rodá-las antes.
+> A versão anterior deste guia tinha 5 passos com conferências no meio e era
+> difícil de seguir na prática. Foi reduzida a isto. As migrations individuais
+> continuam no repositório para consulta, mas **você não precisa abrir nenhuma
+> delas**: o passo 1 já faz todas na ordem certa.
 
 ---
 
-## Passo 1 — Conferir o que falta em produção
+## Passo 1 — Banco de produção
 
-No SQL Editor do projeto de **PRODUÇÃO**:
+Abra `docs/tickets/PROD-rescisao-49.sql`, copie o arquivo **inteiro**, cole no
+SQL Editor de **PRODUÇÃO** e clique em Run. Uma vez só.
 
-```sql
--- O que já existe? Tudo 'false' = nenhuma migration da #49 rodou ainda.
-SELECT
-  EXISTS (SELECT 1 FROM information_schema.columns
-           WHERE table_name='payments' AND column_name='payment_kind')            AS tem_payment_kind,
-  EXISTS (SELECT 1 FROM information_schema.columns
-           WHERE table_name='payments' AND column_name='termination_group_id')    AS tem_grupo,
-  EXISTS (SELECT 1 FROM information_schema.columns
-           WHERE table_name='payments' AND column_name='termination_corrected_deposit') AS tem_colunas_rescisao,
-  EXISTS (SELECT 1 FROM pg_indexes
-           WHERE tablename='payments'
-             AND indexname='unique_payment_per_rental_period_installment')        AS indice_antigo_ainda_existe;
-```
+Ele faz as cinco migrations da #49 na ordem certa e imprime um relatório no
+fim. **As cinco linhas têm que dizer `OK`.**
 
-### ⚠️ A função do trigger é diferente em DEV e em PROD — já resolvido
-
-Conferido em 26/ago/2026: `validate_payment_status()` existe em **três versões
-diferentes** no projeto.
-
-| Onde | Como funciona |
+| etapa | resultado |
 |---|---|
-| arquivo `20260216223935` | chama `calculate_correct_payment_status()` e usa `NEW.discount` — coluna que **nunca existiu**. Este arquivo está morto: nunca poderia ter funcionado como está escrito. |
-| DEV (depois da `20260825200000`) | chama `calculate_correct_payment_status()`, que força `'paid'`, `'partial'` **e** `'pending'` |
-| **PRODUÇÃO** | lógica inline, sem função auxiliar; força **só** `'paid'` quando o restante é ~zero. Quando não é, **não mexe** no status. |
+| 1. colunas novas | OK |
+| 2. indice antigo removido | OK |
+| 3. trigger com o desvio da rescisao | OK |
+| 4. caucoes com paid_amount zerado | OK |
+| 5. card do Kanban | OK |
 
-A diferença não é cosmética: em produção o trigger só intervém para marcar como
-pago; em DEV ele reescrevia o status em qualquer situação. Testar em DEV e subir
-para PROD com essa divergência é testar outro sistema.
+Se alguma disser `FALTOU`, **pare e mande o relatório** — não siga para o passo
+2.
 
-**Decisão:** vale o comportamento de PRODUÇÃO, que atende usuários reais há
-meses. A migration `20260826130000` parte do corpo de produção e apenas
-acrescenta o desvio do Recebimento de Rescisão — e roda nos **dois** ambientes,
-para que passem a ser idênticos.
-
-Por isso a `20260825200000` está marcada como superada e **não deve ser
-rodada**.
+É seguro: roda tudo numa transação só (se qualquer parte falhar, nada é
+aplicado) e pode ser rodado de novo sem estragar nada.
 
 ---
 
-## Passo 1.5 — Alinhar o DEV e rodar os testes ANTES de tocar em produção
-
-Este passo existe por causa da divergência do trigger. Enquanto DEV e PROD se
-comportarem diferente, passar nos testes em DEV **não** garante nada sobre
-produção.
-
-**1.** No SQL Editor do **DEV** — e **somente no DEV** — rodar
-`20260826130000_alinha_validate_payment_status_com_producao.sql`.
-
-> 🚨 **Não rode esta migration em produção agora.** Ela é o item 3 da lista do
-> passo 2 e depende do item 1, que cria a coluna `payment_kind`. Rodada antes,
-> falha com `column "payment_kind" does not exist`. Aconteceu em 26/ago/2026,
-> por causa da redação anterior deste passo. Hoje o arquivo tem uma trava que
-> aborta com mensagem clara e não altera nada.
-
-**2.** Conferir o resultado **no DEV**:
-
-```sql
-SELECT pg_get_functiondef('validate_payment_status()'::regprocedure);
-```
-
-O corpo tem que ter o desvio `IF NEW.payment_kind = 'termination'` **e** a
-lógica inline (`total_expected := COALESCE(...)`) — e **nenhuma** chamada a
-`calculate_correct_payment_status`.
-
-Produção só recebe esta migration no passo 2, na ordem certa. Os dois ambientes
-ficam idênticos ao fim daquele passo, não agora.
-
-**3.** Com o DEV já se comportando como produção, rodar a suíte:
+## Passo 2 — Testes
 
 ```bash
-npm run test:smoke     # 19 cenários (14 da rescisão + 5 que já existiam)
-npm run test:bdd       # a suíte completa
+npm run test:smoke
 ```
 
-Os dois precisam passar. Se algum cenário quebrar agora e não quebrava antes,
-ele estava passando por causa do trigger de DEV, que reescrevia status onde
-produção não reescreve — ou seja, era um teste passando por motivo errado.
-Corrigir **antes** de seguir.
+Tem que passar. Se quebrar, mande o erro antes de seguir.
 
 ---
 
-## Passo 2 — Rodar as migrations em PRODUÇÃO, nesta ordem
-
-| # | Arquivo | Por que agora |
-|---|---|---|
-| 1 | `20260824120000_add_termination_split_columns.sql` | cria as colunas que o código novo lê. **Sem esta, tudo quebra.** |
-| 2 | `20260825180000_fix_unique_payment_constraint_for_termination.sql` | remove o índice único que barra o 2º recebimento (erro 409) |
-| 3 | `20260826130000_alinha_validate_payment_status_com_producao.sql` | trigger para de cravar 'paid' no recebimento zerado, **preservando o comportamento de produção** — depende da #1 |
-| 4 | `20260826100000_fix_paid_amount_parcelas_caucao.sql` | conserta as parcelas de caução pagas por R$ 0,00 |
-| 5 | `20260826110000_kanban_recibo_recebimento_rescisao.sql` | cria o card do recibo no Kanban |
-
-**Não rodar:**
-
-- `20260825190000_recreate_unique_payment_index.sql` — cancelada de propósito,
-  não tem DDL; é o registro de por que o índice não volta.
-- `20260825200000_termination_payment_status_nao_automatico.sql` — **superada**
-  pela `20260826130000`. Rodá-la em produção mudaria o comportamento de todo
-  recebimento de aluguel.
-
-**Ainda não precisa:** `20260826120000_corrige_recebimentos_rescisao_gravados.sql`
-conserta Recebimentos de Rescisão já gravados errado. Em produção **não existe
-nenhum** (a #49 nunca rodou lá), então ela não tem o que fazer hoje. Rodar não
-causa dano; só não é necessária agora.
-
-### Conferências obrigatórias
-
-- **Migration #3:** o `SELECT` do fim imprime o corpo novo da função. Confira
-  que ele tem o desvio `IF NEW.payment_kind = 'termination'` **e** a lógica
-  inline (`total_expected := COALESCE(...)`) — e que **não** aparece nenhuma
-  chamada a `calculate_correct_payment_status`.
-- **Migration #4:** o `SELECT` do fim tem que voltar **vazio**. Se voltar
-  linhas, alguma parcela de caução ficou para trás — não siga adiante antes de
-  entender por quê.
-
----
-
-## Passo 3 — Levar o código para produção
+## Passo 3 — Código
 
 ```bash
 gh pr create --base main --head feat/rescisao-caucao-49 \
   --title "Rescisão separada da devolução do caução (#49)"
 ```
 
-O que roda sozinho ao abrir o PR:
-
-- **Trava de ambiente** — impede que um deploy suba apontando para o banco
-  errado (a proteção criada depois do incidente de 21/ago/2026).
-- **Smoke** — os 19 cenários (`.github/workflows/smoke.yml`).
-
-⚠️ O smoke do CI roda contra o banco configurado nos *secrets* do GitHub. Por
-isso o passo 1.5 vem antes: se o DEV ainda estiver com o trigger antigo, o
-smoke valida um comportamento que produção não tem.
-
-Só faça o merge com os dois **verdes**. O merge em `main` dispara o deploy de
-produção na Vercel.
+Ao abrir o PR rodam sozinhos a **trava de ambiente** e o **smoke**. Faça o
+merge só com os dois verdes — o merge em `main` dispara o deploy na Vercel.
 
 ---
 
-## Passo 4 — Conferir em produção depois do deploy
+## Depois do deploy
 
-1. Abrir Recebimentos e confirmar que a página carrega normalmente.
-2. Fazer **uma** rescisão de teste e conferir que nascem **dois** recebimentos,
-   com a etiqueta "Rescisão" no de rescisão (e não no de aluguel).
-3. Abrir o de rescisão e conferir que o VALOR TOTAL bate com o da lista.
-4. Financeiro → aba Locações: o Recebimento de Rescisão **não** deve aparecer.
-5. Financeiro → aba Cauções: as quatro colunas do Detalhamento devem estar
-   preenchidas.
+Faça **uma** rescisão de teste em produção e confira:
+
+- nascem **dois** recebimentos;
+- a etiqueta "Rescisão" está no recebimento de rescisão (não no de aluguel);
+- o VALOR TOTAL da lista é igual ao da tela quando você abre o recebimento;
+- Financeiro → aba Locações **não** mostra o Recebimento de Rescisão;
+- Financeiro → aba Cauções mostra as quatro colunas preenchidas.
 
 ---
 
-## O que continua pendente depois desta subida
+## O que esta subida NÃO resolve
 
-**As rescisões antigas continuam contaminadas.** Tudo que foi rescindido em
-produção antes desta subida está no formato antigo — um recebimento só, com o
+**As rescisões antigas de produção continuam contaminadas.** Tudo que foi
+rescindido antes desta subida está no formato antigo — um recebimento só, com o
 caução misturado — e segue distorcendo a base das taxas de administração e
 gerenciamento. Esta entrega conserta as rescisões **novas**.
 
-O conserto das antigas é a História 3 do ticket (migração dos dados), que
-depende da História 2 (relatório para medir o tamanho do problema). Nenhuma das
-duas foi feita.
+Consertar as antigas é a História 3 do ticket, que depende da História 2
+(relatório para medir o tamanho do problema). Nenhuma das duas foi feita.
 
-**O recibo do Recebimento de Rescisão** ainda é o recibo de aluguel: fala em
-aluguel, parcela X/Y e assume total positivo. Card criado no Kanban pelo passo
-2 acima.
+**O recibo do Recebimento de Rescisão** ainda é o de aluguel. O card criado
+pelo passo 1 está no Kanban.
+
+---
+
+## Detalhes técnicos
+
+Ficaram em `rescisao-caucao.md` (seção "O QUE FOI CONSTRUÍDO"): a lista das
+migrations individuais, os defeitos encontrados que não eram da rescisão, e por
+que o índice único não volta.
+
+Duas armadilhas que valem ser lembradas se alguém mexer nisso de novo:
+
+- **`validate_payment_status()` tinha três versões diferentes** — a do arquivo
+  `20260216223935` (morta, usa uma coluna que nunca existiu), a de DEV e a de
+  produção. Para alterar essa função, tire o corpo atual do **banco**
+  (`pg_get_functiondef`), nunca do arquivo de migration.
+- **A ordem das migrations importa**: o trigger referencia `payment_kind`, então
+  só pode ser criado depois da coluna. O passo 1 já resolve isso; rodar os
+  arquivos soltos, não.
