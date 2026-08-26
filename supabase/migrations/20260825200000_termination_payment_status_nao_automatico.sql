@@ -25,6 +25,16 @@
 -- Recebimento de Rescisao pode valer 0,00 e ainda assim estar em aberto.
 --
 -- Os recebimentos de aluguel continuam exatamente como antes.
+--
+-- ⚠️ ARMADILHA: a coluna e discount_amount, NAO discount. O corpo da funcao
+-- na migration 20260216223935 (de onde este CREATE OR REPLACE foi copiado)
+-- usa "NEW.discount", que nao existe na tabela -- aquele arquivo esta
+-- desatualizado em relacao ao que roda no banco, corrigido a mao em algum
+-- momento pelo SQL Editor. Copiar o corpo de la sem conferir derruba QUALQUER
+-- insert/update em payments com:
+--     42703: record "new" has no field "discount"
+-- Foi o que aconteceu em 25/ago/2026. Se for mexer nesta funcao de novo, tire
+-- o corpo atual do banco (pg_get_functiondef), e nao do arquivo de migration.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION validate_payment_status()
@@ -41,7 +51,7 @@ BEGIN
   correct_status := calculate_correct_payment_status(
     NEW.expected_amount,
     NEW.paid_amount,
-    NEW.discount,
+    NEW.discount_amount,
     NEW.late_fee,
     NEW.interest,
     NEW.payment_date
