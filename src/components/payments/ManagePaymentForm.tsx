@@ -21,7 +21,7 @@ import { useAlert } from "@/contexts/AlertContext";
 import { Camera, Paperclip, CreditCard, Edit, X, Upload, FileText, Loader2, ImageIcon, Trash2 } from "lucide-react";
 import type { Payment, Rental, Property, Tenant } from "@/types";
 import { calculateCorrectedDeposit } from "@/services/igpmService";
-import { ehLinhaDeDevolucaoDeCaucao, caucaoEfetivamentePago } from "@/lib/rentalCalculations";
+import { ehLinhaDeDevolucaoDeCaucao, caucaoEfetivamentePago, montarRecebimentoRescisao } from "@/lib/rentalCalculations";
 import { PaymentInfoCards } from "./PaymentInfoCards";
 import { PaymentBreakdownCard } from "./PaymentBreakdownCard";
 import { PaymentFormFields } from "./PaymentFormFields";
@@ -600,48 +600,24 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     const values = calculateValues;
     
     if (isTerminationPayment && originalBreakdown.length > 0) {
-      let workingBreakdown = [...originalBreakdown];
-      
-      if (igpmCorrection && igpmCorrection.correctedAmount > 0) {
-        workingBreakdown = workingBreakdown.map((item: any) => {
-          if (ehLinhaDeDevolucaoDeCaucao(item.description)) {
-            return {
-              ...item,
-              amount: -igpmCorrection.correctedAmount,
-            };
-          }
-          return item;
-        });
-      }
-      
-      const cleanBreakdown = workingBreakdown.filter((item: any) => 
-        !item.description?.includes("Despesas") && 
-        !item.description?.includes("Multa por Atraso") && 
-        !item.description?.includes("Juros por Atraso")
-      );
-      
-      const breakdownTotal = cleanBreakdown.reduce((sum, item) => sum + item.amount, 0);
       const lateFees = (removeLateFee ? 0 : values.multa) + (removeInterest ? 0 : values.juros);
 
       /**
-       * A conta muda conforme o recebimento (#49), confirmado com o Cadu em
-       * 24/ago/2026:
+       * ⚠️ MESMA funcao usada pelo auto-save e pelo salvar do pagamento.
        *
-       *   Recebimento de Aluguel
-       *     aluguel proporcional + garagem proporcional + multa − desconto
-       *
-       *   Recebimento de Rescisao
-       *     devolucao do caucao − despesas adicionais + desconto
-       *
-       * Repare no sinal do desconto: no aluguel ele TIRA (a imobiliaria abre
-       * mao de receber). Na rescisao ele SOMA, porque o que se esta perdoando
-       * sao as despesas — entao o valor volta para o inquilino.
+       * Antes cada um desses tres pontos tinha a sua propria versao da conta,
+       * e elas divergiam -- a lista de Recebimentos mostrava um valor e o
+       * recebimento aberto mostrava outro. Ver montarRecebimentoRescisao().
        */
-      const newTotal =
-        paymentKind === "termination"
-          ? breakdownTotal + repairExpenses - discountAmount
-          : breakdownTotal + lateFees - discountAmount;
-      
+      const { total: newTotal } = montarRecebimentoRescisao({
+        breakdown: originalBreakdown,
+        caucaoCorrigido: igpmCorrection?.correctedAmount || 0,
+        multaAtraso: removeLateFee ? 0 : values.multa,
+        jurosAtraso: removeInterest ? 0 : values.juros,
+        despesasAdicionais: paymentKind === "termination" ? repairExpenses : 0,
+        desconto: discountAmount,
+      });
+
       setCalculatedTotal(newTotal);
       
       if (isEditMode && !isPaid) {
@@ -914,72 +890,29 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     try {
       setIsSavingExpenses(true);
       
-      let breakdownData = payment.breakdown;
-      if (typeof breakdownData === 'string') {
-        breakdownData = JSON.parse(breakdownData);
-      }
-      
-      if (!Array.isArray(breakdownData)) {
-        breakdownData = [];
-      }
-      
-      if (igpmCorrection && igpmCorrection.correctedAmount > 0) {
-        breakdownData = breakdownData.map((item: any) => {
-          if (item.description?.includes("Devolução de Caução")) {
-            return {
-              ...item,
-              amount: -igpmCorrection.correctedAmount,
-            };
-          }
-          return item;
+      const { breakdown: breakdownData, total: newExpectedTotal } =
+        montarRecebimentoRescisao({
+          breakdown: payment.breakdown,
+          caucaoCorrigido: igpmCorrection?.correctedAmount || 0,
+          multaAtraso: removeLateFee ? 0 : calculateValues.multa,
+          jurosAtraso: removeInterest ? 0 : calculateValues.juros,
+          despesasAdicionais: paymentKind === "termination" ? repairExpenses : 0,
+          desconto: discountAmount,
         });
-      }
-      
-      breakdownData = breakdownData.filter((item: any) => 
-        !item.description?.includes("Despesas") &&
-        !item.description?.includes("Multa por Atraso") &&
-        !item.description?.includes("Juros por Atraso") &&
-        !item.description?.includes("Desconto")
-      );
-      
-      if (!removeLateFee && calculateValues.multa > 0) {
-        breakdownData.push({
-          description: "Multa por Atraso",
-          amount: calculateValues.multa,
-          type: "addition"
-        });
-      }
-      
-      if (!removeInterest && calculateValues.juros > 0) {
-        breakdownData.push({
-          description: "Juros por Atraso",
-          amount: calculateValues.juros,
-          type: "addition"
-        });
-      }
-      
-      if (repairExpenses > 0) {
-        breakdownData.push({
-          description: "Despesas Adicionais*",
-          amount: repairExpenses,
-          type: "addition"
-        });
-      }
-      
-      const breakdownTotal = breakdownData.reduce((sum: number, item: any) => sum + item.amount, 0);
-      const newExpectedTotal = breakdownTotal - discountAmount;
-      
+
       console.log("💾 AUTO-SAVE - Despesas:", repairExpenses, "Desconto:", discountAmount);
-      console.log("💾 AUTO-SAVE - Breakdown Total:", breakdownTotal);
-      console.log("💾 AUTO-SAVE - Novo Expected Total (com desconto):", newExpectedTotal);
-      
+      console.log("💾 AUTO-SAVE - Novo Expected Total:", newExpectedTotal);
+
       const updateData = {
         // ✅ CORREÇÃO: salvar a lista de verdade (não texto). O banco já guarda
         // esse campo como jsonb; convertendo para string aqui, quem lê depois
         // (ex.: tela de Recibo) recebia um texto em vez de lista e quebrava ao
         // tentar usar métodos de lista como .find().
         breakdown: breakdownData,
-        expected_amount: Math.abs(newExpectedTotal),
+        // ⚠️ SEM Math.abs. Havia um aqui, e ele transformava uma devolucao
+        // (negativa) em cobranca dentro do banco -- a lista de Recebimentos
+        // mostrava R$ 6.201,25 onde a tela mostrava -R$ 5.201,25.
+        expected_amount: newExpectedTotal,
         discount_amount: discountAmount,
         updated_at: new Date().toISOString(),
       };
@@ -1054,63 +987,18 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
       if (isTerminationPayment) {
         try {
-          let breakdownData = payment.breakdown;
-          if (typeof breakdownData === 'string') {
-            breakdownData = JSON.parse(breakdownData);
-          }
-          
-          if (!Array.isArray(breakdownData)) {
-            breakdownData = [];
-          }
-          
-          if (igpmCorrection && igpmCorrection.correctedAmount > 0) {
-            breakdownData = breakdownData.map((item: any) => {
-              if (item.description?.includes("Devolução de Caução")) {
-                return {
-                  ...item,
-                  amount: -igpmCorrection.correctedAmount,
-                };
-              }
-              return item;
-            });
-          }
-          
-          breakdownData = breakdownData.filter((item: any) => 
-            !item.description?.includes("Despesas") &&
-            !item.description?.includes("Multa por Atraso") &&
-            !item.description?.includes("Juros por Atraso") &&
-            !item.description?.includes("Desconto")
-          );
-          
-          if (!removeLateFee && values.multa > 0) {
-            breakdownData.push({
-              description: "Multa por Atraso",
-              amount: values.multa,
-              type: "addition"
-            });
-          }
-          
-          if (!removeInterest && values.juros > 0) {
-            breakdownData.push({
-              description: "Juros por Atraso",
-              amount: values.juros,
-              type: "addition"
-            });
-          }
-          
-          if (repairExpenses > 0) {
-            breakdownData.push({
-              description: "Despesas Adicionais*",
-              amount: repairExpenses,
-              type: "addition"
-            });
-          }
-          
-          // ✅ CORREÇÃO: mesma causa do outro ponto acima - salvar a lista, não texto.
-          updatedBreakdown = breakdownData;
-          
-          const breakdownTotal = breakdownData.reduce((sum: number, item: any) => sum + item.amount, 0);
-          expectedTotal = breakdownTotal - discountAmount;
+          const montado = montarRecebimentoRescisao({
+            breakdown: payment.breakdown,
+            caucaoCorrigido: igpmCorrection?.correctedAmount || 0,
+            multaAtraso: removeLateFee ? 0 : values.multa,
+            jurosAtraso: removeInterest ? 0 : values.juros,
+            despesasAdicionais: paymentKind === "termination" ? repairExpenses : 0,
+            desconto: discountAmount,
+          });
+
+          // ✅ salvar a lista, não texto (o banco guarda jsonb).
+          updatedBreakdown = montado.breakdown;
+          expectedTotal = montado.total;
           
         } catch (error) {
           console.error("❌ Erro ao atualizar breakdown:", error);

@@ -277,3 +277,115 @@ export function caucaoEfetivamentePago(
     return soma;
   }, 0);
 }
+
+
+/**
+ * Monta o breakdown e o TOTAL de um recebimento de rescisao (os dois: o de
+ * aluguel e o de rescisao propriamente dito).
+ *
+ * ⚠️ EXISTE PARA HAVER UMA CONTA SO.
+ *
+ * Ate 26/ago/2026 este calculo estava escrito TRES vezes dentro de
+ * ManagePaymentForm.tsx -- uma para exibir na tela, uma no auto-save e uma no
+ * salvar do pagamento -- e as tres divergiam:
+ *
+ *   exibicao       breakdown + despesas - desconto     (caucao atualizado)
+ *   auto-save      Math.abs(breakdown - desconto)      (caucao NAO atualizado)
+ *   salvar         breakdown - desconto                (caucao NAO atualizado)
+ *
+ * O resultado apareceu na tela do Cadu: a lista de Recebimentos mostrava
+ * R$ 6.201,25 e o mesmo recebimento, aberto, mostrava -R$ 5.201,25.
+ *
+ * Dois erros somados nas versoes de gravacao:
+ *
+ * 1. \`Math.abs\` no expected_amount. O sinal NAO e ruido: negativo significa
+ *    que a imobiliaria devolve dinheiro ao inquilino. Jogar o sinal fora
+ *    transformava uma devolucao em cobranca dentro do banco.
+ *
+ * 2. As duas procuravam a linha do caucao por "Devolução de Caução", texto
+ *    que a #49 trocou por "Valor Devolução Caução". Nunca achavam a linha, e
+ *    gravavam o valor velho do caucao enquanto a tela exibia o novo.
+ *
+ * Agora e uma funcao pura, chamada pelos tres pontos. Divergir de novo exige
+ * alterar isto aqui, e ai muda em todos ao mesmo tempo.
+ */
+export interface EntradaRecebimentoRescisao {
+  /** O breakdown como esta gravado no recebimento. */
+  breakdown: unknown;
+  /** Caucao corrigido pela poupanca, POSITIVO. Vira linha negativa. */
+  caucaoCorrigido?: number;
+  /** Multa por atraso, se houver e se nao tiver sido perdoada. */
+  multaAtraso?: number;
+  /** Juros por atraso, se houver e se nao tiverem sido perdoados. */
+  jurosAtraso?: number;
+  /** Despesas adicionais digitadas pelo usuario. Positivo. */
+  despesasAdicionais?: number;
+  /** Desconto digitado pelo usuario, sem sinal. Sempre subtrai. */
+  desconto?: number;
+}
+
+export function montarRecebimentoRescisao({
+  breakdown,
+  caucaoCorrigido = 0,
+  multaAtraso = 0,
+  jurosAtraso = 0,
+  despesasAdicionais = 0,
+  desconto = 0,
+}: EntradaRecebimentoRescisao): { breakdown: any[]; total: number } {
+  let itens: any[] = [];
+
+  if (typeof breakdown === "string") {
+    try {
+      itens = JSON.parse(breakdown);
+    } catch {
+      itens = [];
+    }
+  } else if (Array.isArray(breakdown)) {
+    itens = [...breakdown];
+  }
+
+  if (!Array.isArray(itens)) itens = [];
+
+  // O caucao corrigido manda sobre o que estiver gravado: ele muda conforme a
+  // taxa da poupanca do periodo e conforme o que o inquilino pagou de fato.
+  if (caucaoCorrigido > 0) {
+    itens = itens.map((item) =>
+      ehLinhaDeDevolucaoDeCaucao(item?.description)
+        ? { ...item, amount: -Math.abs(caucaoCorrigido) }
+        : item
+    );
+  }
+
+  // Fora as linhas que sao recalculadas a cada abertura da tela. O desconto
+  // nunca vira linha: ele entra no total, e so.
+  itens = itens.filter(
+    (item) =>
+      !item?.description?.includes("Despesas") &&
+      !item?.description?.includes("Multa por Atraso") &&
+      !item?.description?.includes("Juros por Atraso") &&
+      !item?.description?.includes("Desconto")
+  );
+
+  if (multaAtraso > 0) {
+    itens.push({ description: "Multa por Atraso", amount: multaAtraso, type: "addition" });
+  }
+
+  if (jurosAtraso > 0) {
+    itens.push({ description: "Juros por Atraso", amount: jurosAtraso, type: "addition" });
+  }
+
+  if (despesasAdicionais > 0) {
+    itens.push({
+      description: "Despesas Adicionais",
+      amount: despesasAdicionais,
+      type: "addition",
+    });
+  }
+
+  const soma = itens.reduce((total, item) => total + Number(item?.amount || 0), 0);
+
+  // Sem Math.abs. Total negativo = a imobiliaria devolve dinheiro.
+  const total = Math.round((soma - Math.abs(desconto)) * 100) / 100;
+
+  return { breakdown: itens, total };
+}
