@@ -75,6 +75,12 @@ export function DepositInstallmentsTable({
 }: DepositInstallmentsTableProps) {
   const [data, setData] = useState<DepositInstallment[]>([]);
   const [loading, setLoading] = useState(true);
+  // Recebimento de Rescisão mais recente de cada locação (payment_kind
+  // 'termination' em `payments`) — alimenta as 4 colunas novas da aba
+  // Cauções (#49). Fica vazio (undefined) para locação nunca rescindida.
+  const [terminationByRental, setTerminationByRental] = useState<
+    Record<string, { corrected: number; expenses: number; discount: number }>
+  >({});
   const [statusFilter, setStatusFilter] = useState<string>("active"); // ✅ CORRIGIDO: Padrão "active"
   const [editingCell, setEditingCell] = useState<{ id: string; field: string; rentalId: string } | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
@@ -161,6 +167,40 @@ export function DepositInstallmentsTable({
 
       console.log("✅ Dados mapeados, total:", mappedInstallments.length);
       setData(mappedInstallments as unknown as DepositInstallment[]);
+
+      // Recebimento de Rescisão de cada locação (#49) - as 4 colunas novas.
+      // Uma locação pode, em tese, ter mais de um (ex.: rescisão refeita) -
+      // ordenando por due_date desc e mantendo só a primeira ocorrência de
+      // cada rental_id, ficamos com o mais recente.
+      // `(supabase as any)` a partir do primeiro `.from(...)`: os tipos
+      // gerados do Supabase (src/integrations/supabase/types.ts) ainda não
+      // conhecem as colunas de rescisão em "payments" (#49) - um `: any` só
+      // na variável de destino não basta (o TS ainda infere a cadeia toda
+      // antes de descartar o tipo), e a query de deposit_installments logo
+      // acima já é pesada o bastante para estourar o limite de profundidade
+      // de inferência do TS somada a mais uma cadeia .from/.select/.eq/.order
+      // tipada. Cortando o tipo já no `supabase` evita a inferência inteira.
+      const { data: terminationData, error: terminationError } = await (supabase as any)
+        .from("payments")
+        .select("rental_id, termination_corrected_deposit, termination_additional_expenses, termination_discount, due_date")
+        .eq("payment_kind", "termination")
+        .order("due_date", { ascending: false });
+
+      if (terminationError) {
+        console.error("❌ Erro ao buscar Recebimentos de Rescisão:", terminationError);
+      } else {
+        const porLocacao: Record<string, { corrected: number; expenses: number; discount: number }> = {};
+        for (const pagamento of terminationData || []) {
+          if (porLocacao[pagamento.rental_id]) continue;
+          porLocacao[pagamento.rental_id] = {
+            corrected: Number(pagamento.termination_corrected_deposit) || 0,
+            expenses: Number(pagamento.termination_additional_expenses) || 0,
+            discount: Number(pagamento.termination_discount) || 0,
+          };
+        }
+        setTerminationByRental(porLocacao);
+      }
+
       setLoading(false);
     } catch (error) {
       console.error("❌ Erro ao buscar dados:", error);
@@ -698,6 +738,10 @@ export function DepositInstallmentsTable({
                     </TableHead>
                     <TableHead className="text-center font-semibold">Valor Aluguel</TableHead>
                     <TableHead className="text-center font-semibold">Valor Total Caução</TableHead>
+                    <TableHead className="text-center font-semibold">Valor Corrigido p/ Devolução</TableHead>
+                    <TableHead className="text-center font-semibold">Despesas Adicionais</TableHead>
+                    <TableHead className="text-center font-semibold">Valor Desconto</TableHead>
+                    <TableHead className="text-center font-semibold">Valor Total</TableHead>
                     <TableHead className="text-center font-semibold">Corretor Parceiro</TableHead>
                     <TableHead className="text-center font-semibold">Valor Parceiro</TableHead>
                     <TableHead className="text-center font-semibold">Valor Corretor</TableHead>
@@ -763,6 +807,46 @@ export function DepositInstallmentsTable({
                             {formatCurrency(totalDepositValue)}
                           </TableCell>
                         )}
+
+                        {/* As 4 colunas da rescisão (#49) - mesclado, vazio até a locação ser rescindida */}
+                        {shouldRenderCell(rentalId, index) && (() => {
+                          const rescisao = terminationByRental[rentalId];
+                          const totalRescisao = rescisao
+                            ? rescisao.corrected + rescisao.expenses + rescisao.discount
+                            : null;
+                          const span = getRowSpan(rentalId);
+                          const corDoValor = (valor: number | null) =>
+                            valor !== null && valor < 0 ? "text-red-600 font-semibold" : "";
+
+                          return (
+                            <>
+                              <TableCell
+                                className={`text-right whitespace-nowrap ${corDoValor(rescisao ? rescisao.corrected : null)}`}
+                                rowSpan={span}
+                              >
+                                {rescisao ? formatCurrency(rescisao.corrected) : "-"}
+                              </TableCell>
+                              <TableCell
+                                className={`text-right whitespace-nowrap ${corDoValor(rescisao ? rescisao.expenses : null)}`}
+                                rowSpan={span}
+                              >
+                                {rescisao ? formatCurrency(rescisao.expenses) : "-"}
+                              </TableCell>
+                              <TableCell
+                                className={`text-right whitespace-nowrap ${corDoValor(rescisao ? rescisao.discount : null)}`}
+                                rowSpan={span}
+                              >
+                                {rescisao ? formatCurrency(rescisao.discount) : "-"}
+                              </TableCell>
+                              <TableCell
+                                className={`text-right font-semibold whitespace-nowrap ${corDoValor(totalRescisao)}`}
+                                rowSpan={span}
+                              >
+                                {totalRescisao !== null ? formatCurrency(totalRescisao) : "-"}
+                              </TableCell>
+                            </>
+                          );
+                        })()}
                         
                         {/* Corretor Parceiro - mesclado - SEM COLORAÇÃO */}
                         {shouldRenderCell(rentalId, index) && (

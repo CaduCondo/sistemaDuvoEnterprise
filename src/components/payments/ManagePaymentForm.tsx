@@ -62,6 +62,11 @@ interface PaymentFormData {
   late_fee?: number;
   interest?: number;
   discount_amount?: number;
+  // Campos do Recebimento de Rescisão (#49) - só presentes quando
+  // payment_kind === 'termination'.
+  termination_corrected_deposit?: number;
+  termination_additional_expenses?: number;
+  termination_discount?: number;
   attachments?: any;
   rentals?: any;
   rental_terminations?: any;
@@ -856,16 +861,39 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       console.log("💾 AUTO-SAVE - Breakdown Total:", breakdownTotal);
       console.log("💾 AUTO-SAVE - Novo Expected Total (com desconto):", newExpectedTotal);
       
-      const updateData = {
-        // ✅ CORREÇÃO: salvar a lista de verdade (não texto). O banco já guarda
-        // esse campo como jsonb; convertendo para string aqui, quem lê depois
-        // (ex.: tela de Recibo) recebia um texto em vez de lista e quebrava ao
-        // tentar usar métodos de lista como .find().
-        breakdown: breakdownData,
-        expected_amount: Math.abs(newExpectedTotal),
-        discount_amount: discountAmount,
-        updated_at: new Date().toISOString(),
-      };
+      // O Recebimento de Rescisão (#49) NÃO usa os campos genéricos
+      // `breakdown`/`discount_amount`/`expected_amount` (com Math.abs) que
+      // servem para atraso em pagamento normal. Ele tem colunas próprias -
+      // `termination_additional_expenses` e `termination_discount` -, e o
+      // total TEM sinal (pode ficar negativo quando a imobiliária devolve
+      // mais do que recebe). Mesma fórmula e mesma convenção de sinal que
+      // terminationService.ts usa ao criar o recebimento (valorDesconto =
+      // discount === 0 ? 0 : -Math.abs(discount); totalRescisao = soma das
+      // três, sem Math.abs).
+      const updateData: Record<string, any> = isTerminationPayment
+        ? (() => {
+            const correctedDeposit = Number(payment.termination_corrected_deposit) || 0;
+            const additionalExpenses = repairExpenses;
+            const discount = discountAmount === 0 ? 0 : -Math.abs(discountAmount);
+            const totalRescisao = correctedDeposit + additionalExpenses + discount;
+
+            return {
+              termination_additional_expenses: additionalExpenses,
+              termination_discount: discount,
+              expected_amount: totalRescisao,
+              updated_at: new Date().toISOString(),
+            };
+          })()
+        : {
+            // ✅ CORREÇÃO: salvar a lista de verdade (não texto). O banco já
+            // guarda esse campo como jsonb; convertendo para string aqui, quem
+            // lê depois (ex.: tela de Recibo) recebia um texto em vez de lista
+            // e quebrava ao tentar usar métodos de lista como .find().
+            breakdown: breakdownData,
+            expected_amount: Math.abs(newExpectedTotal),
+            discount_amount: discountAmount,
+            updated_at: new Date().toISOString(),
+          };
       
       console.log("💾 SALVANDO NO BANCO:", updateData);
       

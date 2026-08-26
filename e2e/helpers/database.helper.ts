@@ -502,6 +502,54 @@ export class DatabaseHelper {
     return data;
   }
 
+  /**
+   * Cria diretamente um "Recebimento de Rescisão" (payment_kind='termination'),
+   * exatamente como terminationService.ts grava na aba Cauções (#49) — usado
+   * por cenários que testam a EXIBIÇÃO desse recebimento (colunas, cor) sem
+   * precisar rodar uma rescisão inteira pela tela.
+   */
+  static async createTerminationPayment(overrides: {
+    rental_id: string; due_date: string; reference_month: string; reference_year: string;
+    termination_corrected_deposit?: number; termination_additional_expenses?: number;
+    termination_discount?: number; expected_amount?: number; status?: string;
+    notes?: string; breakdown?: any[];
+  }) {
+    const correctedDeposit = overrides.termination_corrected_deposit ?? 0;
+    const additionalExpenses = overrides.termination_additional_expenses ?? 0;
+    const discount = overrides.termination_discount ?? 0;
+    const expectedAmount = overrides.expected_amount ??
+      Math.round((correctedDeposit + additionalExpenses + discount) * 100) / 100;
+
+    const { data, error } = await supabaseAdmin
+      .from('payments')
+      .insert({
+        rental_id: overrides.rental_id,
+        due_date: overrides.due_date,
+        reference_month: overrides.reference_month,
+        reference_year: overrides.reference_year,
+        expected_amount: expectedAmount,
+        status: overrides.status || 'pending',
+        payment_kind: 'termination',
+        termination_corrected_deposit: correctedDeposit,
+        termination_additional_expenses: additionalExpenses,
+        termination_discount: discount,
+        breakdown: overrides.breakdown || [],
+        notes: overrides.notes ||
+          `Recebimento de Rescisão - Rescisão de Contrato - Data de saída: ${overrides.due_date}.`,
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(`Falha ao criar Recebimento de Rescisão: ${error.message}`);
+    return data;
+  }
+
+  static async getPaymentById(id: string) {
+    const { data, error } = await supabaseAdmin.from('payments').select('*').eq('id', id).single();
+    if (error) throw new Error(`Falha ao buscar pagamento: ${error.message}`);
+    return data;
+  }
+
   // ==================== ESTATÍSTICAS ====================
 
   static getTestDataStats() {

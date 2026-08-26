@@ -89,6 +89,14 @@ export class CustomWorld extends World {
   async upsertPayment(...args: Parameters<typeof DatabaseHelper.upsertPayment>) {
     return DatabaseHelper.upsertPayment(...args);
   }
+
+  async createTerminationPayment(...args: Parameters<typeof DatabaseHelper.createTerminationPayment>) {
+    return DatabaseHelper.createTerminationPayment(...args);
+  }
+
+  async getPaymentById(id: string) {
+    return DatabaseHelper.getPaymentById(id);
+  }
 }
 
 setWorldConstructor(CustomWorld);

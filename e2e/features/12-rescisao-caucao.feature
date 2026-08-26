@@ -5,26 +5,22 @@ Funcionalidade: Rescisão separada da devolução do caução
   Para que a devolução do caução não contamine as taxas de administração e gerenciamento
 
   # ============================================================================
-  # ⚠️ ESTES CENÁRIOS AINDA NÃO PASSAM. É DE PROPÓSITO.
-  #
-  # Eles são o CONTRATO da issue #49: descrevem como a rescisão tem que
-  # funcionar depois da correção, e hoje o sistema não funciona assim.
-  #
-  # A marca @smoke entra quando a #49 começar a ser construída — aí eles ficam
-  # vermelhos no CI de propósito, e a #49 está pronta quando ficarem verdes.
-  # Enquanto isso, sem marca, para não confundir o sinal da esteira.
+  # A #49 já foi construída e testada manualmente com o Cadu. Este arquivo é
+  # a primeira vez que estes cenários ganham automação de verdade — até aqui
+  # eles existiam só como o CONTRATO em texto, descrevendo como a rescisão
+  # tem que se comportar.
   #
   # O problema que eles cobrem (relatado pelo Cadu em 21/ago/2026): a rescisão
-  # monta UM recebimento só, com a conta
+  # montava UM recebimento só, com a conta
   #
   #     aluguel proporcional + multa − caução devolvido
   #
-  # e grava na aba Locações. O caução é dinheiro de terceiro, não é receita,
-  # mas entra na mesma base sobre a qual as taxas de adm (5%) e gerenciamento
-  # (3%) são calculadas. Pior: quando o total fica negativo, um remendo em
-  # financial.tsx joga fora o registro INTEIRO da conta das taxas — levando
+  # e gravava na aba Locações. O caução é dinheiro de terceiro, não é receita,
+  # mas entrava na mesma base sobre a qual as taxas de adm (5%) e gerenciamento
+  # (3%) são calculadas. Pior: quando o total ficava negativo, um remendo em
+  # financial.tsx jogava fora o registro INTEIRO da conta das taxas — levando
   # junto o aluguel e a multa, que deveriam gerar taxa. Ou seja, além de
-  # distorcer, deixa de cobrar taxa devida.
+  # distorcer, deixava de cobrar taxa devida.
   #
   # Decisões fechadas com o Cadu estão em docs/tickets/rescisao-caucao.md.
   # ============================================================================

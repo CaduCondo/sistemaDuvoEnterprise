@@ -609,6 +609,10 @@ export default function Financial() {
           late_fee,
           interest,
           breakdown,
+          payment_kind,
+          termination_corrected_deposit,
+          termination_additional_expenses,
+          termination_discount,
           payment_method,
           installment,
           total_installments,
@@ -680,6 +684,13 @@ export default function Financial() {
           lateFee: payment.late_fee || 0,
           interest: payment.interest || 0,
           breakdown: payment.breakdown,
+          // payment_kind so existe a partir da migracao 20260824120000;
+          // recebimentos antigos vem undefined, tratados como 'rent' por
+          // quem consome (ver paymentsToCalculate/getSortedPayments abaixo).
+          paymentKind: payment.payment_kind,
+          terminationCorrectedDeposit: payment.termination_corrected_deposit,
+          terminationAdditionalExpenses: payment.termination_additional_expenses,
+          terminationDiscount: payment.termination_discount,
           paymentMethod: payment.payment_method,
           installment: payment.installment,
           totalInstallments: payment.total_installments,
@@ -1040,6 +1051,14 @@ export default function Financial() {
   // Memoizar pagamentos ordenados COM FILTRO DE LOCALIZAÇÃO
   const getSortedPayments = useMemo(() => {
     const filtered = payments.filter(p => {
+      // O Recebimento de Rescisao (payment_kind 'termination') e dinheiro
+      // de terceiro (devolucao de caucao) + despesas/desconto da rescisao -
+      // nao e um recebimento de aluguel e nao deve aparecer na aba Locacoes
+      // (#49). Ele continua existindo em `payments`/no banco para quem
+      // precisar (a aba Caucoes busca esses registros direto por rental_id).
+      if ((p as any).paymentKind === "termination") {
+        return false;
+      }
       if (selectedLocationIds.length > 0) {
         const locationId = p.property?.locationId;
         if (!locationId || !selectedLocationIds.includes(locationId)) return false;
@@ -1633,7 +1652,7 @@ export default function Financial() {
      * (issue #51) — o relatório da #50 é que vai medir o tamanho disso.
      */
     const paymentsToCalculate = locationFilteredPayments.filter(
-      (p: any) => p.payment_kind !== "termination"
+      (p: any) => p.paymentKind !== "termination"
     );
     
     // ✅ CORREÇÃO: Filtrar despesas considerando permissões do usuário financeiro
