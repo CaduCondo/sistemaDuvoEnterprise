@@ -21,7 +21,7 @@ import { useAlert } from "@/contexts/AlertContext";
 import { Camera, Paperclip, CreditCard, Edit, X, Upload, FileText, Loader2, ImageIcon, Trash2 } from "lucide-react";
 import type { Payment, Rental, Property, Tenant } from "@/types";
 import { calculateCorrectedDeposit } from "@/services/igpmService";
-import { ehLinhaDeDevolucaoDeCaucao } from "@/lib/rentalCalculations";
+import { ehLinhaDeDevolucaoDeCaucao, caucaoEfetivamentePago } from "@/lib/rentalCalculations";
 import { PaymentInfoCards } from "./PaymentInfoCards";
 import { PaymentBreakdownCard } from "./PaymentBreakdownCard";
 import { PaymentFormFields } from "./PaymentFormFields";
@@ -383,7 +383,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
         const { data: installments, error: installmentsError } = await supabase
           .from("deposit_installments")
-          .select("amount, paid_amount, payment_date, installment_number")
+          .select("amount, paid_amount, status, payment_date, installment_number")
           .eq("rental_id", rentalId)
           .order("payment_date", { ascending: true });
 
@@ -402,7 +402,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
              * contratado corrigido), sem nenhum aviso de que eram contas
              * diferentes.
              */
-            const totalDeposit = installments.reduce((sum, inst) => sum + ((inst as any).paid_amount || 0), 0);
+            const totalDeposit = caucaoEfetivamentePago(installments as any);
             
             const startDate = validatedPayment.rentals.start_date;
             const endDate = validatedPayment.rentals.end_date;

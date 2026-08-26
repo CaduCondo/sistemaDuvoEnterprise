@@ -248,3 +248,32 @@ export function ehLinhaDeDevolucaoDeCaucao(descricao?: string | null): boolean {
     .toLowerCase();
   return normalizado.includes("devolucao") && normalizado.includes("caucao");
 }
+
+
+/**
+ * Quanto do caucao o inquilino EFETIVAMENTE PAGOU.
+ *
+ * E sobre este valor que incide a correcao pela poupanca na rescisao
+ * (decisao 4 do ticket, docs/tickets/rescisao-caucao.md): se o caucao foi
+ * contratado em 3 parcelas e so 2 foram pagas, devolve-se sobre as 2.
+ *
+ * ⚠️ O \`|| amount\` nao e paranoia. Ate 26/ago/2026
+ * markDepositInstallmentAsPaid() gravava status='paid' sem gravar
+ * paid_amount, que ficava no default 0. As parcelas pagas ate essa data estao
+ * no banco como "pagas por R$ 0,00", e somar paid_amount cru daria zero em
+ * todo contrato antigo. Para uma parcela marcada como paga, o valor pago e o
+ * valor da parcela.
+ *
+ * Parcela PARCIAL fica de fora dessa regra: ali o paid_amount e gravado
+ * corretamente e vale o que esta nele.
+ */
+export function caucaoEfetivamentePago(
+  parcelas: Array<{ amount?: number | null; paid_amount?: number | null; status?: string | null }> | null | undefined
+): number {
+  return (parcelas || []).reduce((soma, parcela) => {
+    const pago = Number(parcela.paid_amount || 0);
+    if (pago > 0) return soma + pago;
+    if (parcela.status === "paid") return soma + Number(parcela.amount || 0);
+    return soma;
+  }, 0);
+}

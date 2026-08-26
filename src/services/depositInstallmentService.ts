@@ -524,10 +524,36 @@ export async function markDepositInstallmentAsPaid(
   attachments?: string[]
 ): Promise<DepositInstallment> {
   try {
+    /**
+     * ⚠️ `paid_amount` PRECISA ser gravado aqui.
+     *
+     * Ate 26/ago/2026 esta funcao gravava so status='paid' e a data. O valor
+     * pago ficava em 0,00 (o default da coluna), e a parcela ficava "paga por
+     * zero reais". Ninguem notava, porque as telas de caucao exibem
+     * `amount` (o valor da parcela) e nao `paid_amount".
+     *
+     * A conta que quebrou por causa disso foi a da rescisao: a devolucao do
+     * caucao incide sobre o que o inquilino EFETIVAMENTE PAGOU (decisao 4 do
+     * ticket), somando paid_amount -- e dava sempre 0,00, em contrato nenhum
+     * havia o que devolver.
+     *
+     * Buscamos o valor da parcela antes para gravar o pago igual ao devido,
+     * que e o que "marcar como paga" significa. Pagamento parcial tem
+     * caminho proprio (registerPartialDepositPayment) e nao passa por aqui.
+     */
+    const { data: parcela, error: erroParcela } = await supabase
+      .from("deposit_installments")
+      .select("amount")
+      .eq("id", id)
+      .single();
+
+    if (erroParcela) throw erroParcela;
+
     const updates: any = {
       status: "paid",
       payment_date: paymentDate,
       payment_method: paymentMethod,
+      paid_amount: parcela?.amount ?? 0,
     };
 
     if (notes) updates.notes = notes;

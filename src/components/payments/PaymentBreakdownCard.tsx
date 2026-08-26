@@ -304,23 +304,29 @@ export function PaymentBreakdownCard({
                 <div className="grid grid-cols-2 gap-4 items-center text-sm">
                   <span>Valor de Desconto</span>
                   
+                  {/* Desconto e dinheiro que a imobiliaria deixa de receber:
+                      aparece em vermelho e com o sinal na frente, igual a linha
+                      da Devolucao de Caucao. O "-" fica FORA do input, colado
+                      a esquerda: dentro do campo ele seria comido pela mascara
+                      de moeda na digitacao seguinte. */}
                   {isEditMode ? (
-                    <Input
-                      id="breakdown-discount-termination"
-                      type="text"
-                      placeholder="R$ 0,00"
-                      value={discountAmountInput}
-                      onChange={(e) => onDiscountAmountChange(e.target.value)}
-                      className="text-right"
-                      disabled={isReadOnly}
-                    />
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-red-600">
+                        −
+                      </span>
+                      <Input
+                        id="breakdown-discount-termination"
+                        type="text"
+                        placeholder="R$ 0,00"
+                        value={discountAmountInput}
+                        onChange={(e) => onDiscountAmountChange(e.target.value)}
+                        className="pl-7 text-right text-red-600"
+                        disabled={isReadOnly}
+                      />
+                    </div>
                   ) : (
-                    <span
-                      className={`font-medium text-right ${
-                        paymentKind === "termination" ? "text-green-600" : "text-red-600"
-                      }`}
-                    >
-                      {discountAmount > 0 ? (paymentKind === "termination" ? "+ " : "- ") : ""}
+                    <span className="font-medium text-right text-red-600">
+                      {"- "}
                       {formatCurrency(discountAmount)}
                     </span>
                   )}

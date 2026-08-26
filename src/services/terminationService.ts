@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { parseISO, getMonth, getYear, differenceInDays } from "date-fns";
 import { calculateCorrectedDeposit } from "./igpmService";
-import { calcularProporcionalAluguelEGaragem } from "@/lib/rentalCalculations";
+import { calcularProporcionalAluguelEGaragem, caucaoEfetivamentePago } from "@/lib/rentalCalculations";
 
 /** dd/mm/aaaa — o formato que o Cadu le. Datas ISO nao aparecem para o usuario. */
 function formatarData(data: Date): string {
@@ -167,7 +167,7 @@ export async function processContractTermination(data: TerminationData): Promise
   // sobre as 2. Se nao foi pago nada, nao ha o que devolver.
   const { data: parcelasCaucao, error: erroParcelas } = await supabase
     .from("deposit_installments")
-    .select("paid_amount, status")
+    .select("amount, paid_amount, status")
     .eq("rental_id", rentalId);
 
   if (erroParcelas) {
@@ -175,10 +175,7 @@ export async function processContractTermination(data: TerminationData): Promise
     throw erroParcelas;
   }
 
-  const caucaoPago = (parcelasCaucao || []).reduce(
-    (soma, parcela) => soma + Number(parcela.paid_amount || 0),
-    0
-  );
+  const caucaoPago = caucaoEfetivamentePago(parcelasCaucao);
 
   console.log(`  Caucao contratado: R$ ${depositAmount.toFixed(2)}`);
   console.log(`  Caucao efetivamente pago: R$ ${caucaoPago.toFixed(2)} (${(parcelasCaucao || []).length} parcelas)`);
