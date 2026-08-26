@@ -40,6 +40,32 @@
 -- Recebimentos de aluguel: comportamento IDÊNTICO ao de produção hoje.
 -- ============================================================================
 
+-- ----------------------------------------------------------------------------
+-- TRAVA DE ORDEM
+--
+-- Esta migration só pode rodar DEPOIS da 20260824120000, que cria a coluna
+-- `payment_kind`. A função abaixo referencia essa coluna: criá-la antes faria
+-- o trigger apontar para algo que não existe e derrubaria TODO insert/update
+-- em `payments`.
+--
+-- Sem esta trava, o erro que aparece é "column payment_kind does not exist"
+-- vindo do UPDATE lá no fim -- que não diz nada sobre a causa e assusta em
+-- produção. Aconteceu em 26/ago/2026.
+-- ----------------------------------------------------------------------------
+DO $trava$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name   = 'payments'
+       AND column_name  = 'payment_kind'
+  ) THEN
+    RAISE EXCEPTION
+      'FORA DE ORDEM: a coluna payments.payment_kind ainda não existe. Rode primeiro 20260824120000_add_termination_split_columns.sql. Nada foi alterado.';
+  END IF;
+END
+$trava$;
+
 CREATE OR REPLACE FUNCTION public.validate_payment_status()
  RETURNS trigger
  LANGUAGE plpgsql

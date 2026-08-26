@@ -61,16 +61,27 @@ Este passo existe por causa da divergência do trigger. Enquanto DEV e PROD se
 comportarem diferente, passar nos testes em DEV **não** garante nada sobre
 produção.
 
-**1.** No SQL Editor do **DEV**, rodar
+**1.** No SQL Editor do **DEV** — e **somente no DEV** — rodar
 `20260826130000_alinha_validate_payment_status_com_producao.sql`.
 
-**2.** Conferir que os dois ambientes ficaram iguais. Rodar em **DEV** e em
-**PROD** e comparar o resultado — tem que sair idêntico nos dois (à parte do
-desvio da rescisão, que só existirá em DEV até o passo 2):
+> 🚨 **Não rode esta migration em produção agora.** Ela é o item 3 da lista do
+> passo 2 e depende do item 1, que cria a coluna `payment_kind`. Rodada antes,
+> falha com `column "payment_kind" does not exist`. Aconteceu em 26/ago/2026,
+> por causa da redação anterior deste passo. Hoje o arquivo tem uma trava que
+> aborta com mensagem clara e não altera nada.
+
+**2.** Conferir o resultado **no DEV**:
 
 ```sql
 SELECT pg_get_functiondef('validate_payment_status()'::regprocedure);
 ```
+
+O corpo tem que ter o desvio `IF NEW.payment_kind = 'termination'` **e** a
+lógica inline (`total_expected := COALESCE(...)`) — e **nenhuma** chamada a
+`calculate_correct_payment_status`.
+
+Produção só recebe esta migration no passo 2, na ordem certa. Os dois ambientes
+ficam idênticos ao fim daquele passo, não agora.
 
 **3.** Com o DEV já se comportando como produção, rodar a suíte:
 
