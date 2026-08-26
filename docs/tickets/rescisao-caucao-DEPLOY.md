@@ -30,22 +30,59 @@ SELECT
              AND indexname='unique_payment_per_rental_period_installment')        AS indice_antigo_ainda_existe;
 ```
 
-### ⚠️ Antes de tocar no trigger, veja o corpo REAL da função em produção
+### ⚠️ A função do trigger é diferente em DEV e em PROD — já resolvido
 
-Foi exatamente isto que derrubou o DEV em 25/ago/2026: o corpo da função no
-arquivo de migration do repositório está **desatualizado** em relação ao que
-roda no banco (usa `NEW.discount`, coluna que nunca existiu — é
-`discount_amount`). Alguém corrigiu direto no SQL Editor e nunca trouxe de
-volta para o repositório.
+Conferido em 26/ago/2026: `validate_payment_status()` existe em **três versões
+diferentes** no projeto.
+
+| Onde | Como funciona |
+|---|---|
+| arquivo `20260216223935` | chama `calculate_correct_payment_status()` e usa `NEW.discount` — coluna que **nunca existiu**. Este arquivo está morto: nunca poderia ter funcionado como está escrito. |
+| DEV (depois da `20260825200000`) | chama `calculate_correct_payment_status()`, que força `'paid'`, `'partial'` **e** `'pending'` |
+| **PRODUÇÃO** | lógica inline, sem função auxiliar; força **só** `'paid'` quando o restante é ~zero. Quando não é, **não mexe** no status. |
+
+A diferença não é cosmética: em produção o trigger só intervém para marcar como
+pago; em DEV ele reescrevia o status em qualquer situação. Testar em DEV e subir
+para PROD com essa divergência é testar outro sistema.
+
+**Decisão:** vale o comportamento de PRODUÇÃO, que atende usuários reais há
+meses. A migration `20260826130000` parte do corpo de produção e apenas
+acrescenta o desvio do Recebimento de Rescisão — e roda nos **dois** ambientes,
+para que passem a ser idênticos.
+
+Por isso a `20260825200000` está marcada como superada e **não deve ser
+rodada**.
+
+---
+
+## Passo 1.5 — Alinhar o DEV e rodar os testes ANTES de tocar em produção
+
+Este passo existe por causa da divergência do trigger. Enquanto DEV e PROD se
+comportarem diferente, passar nos testes em DEV **não** garante nada sobre
+produção.
+
+**1.** No SQL Editor do **DEV**, rodar
+`20260826130000_alinha_validate_payment_status_com_producao.sql`.
+
+**2.** Conferir que os dois ambientes ficaram iguais. Rodar em **DEV** e em
+**PROD** e comparar o resultado — tem que sair idêntico nos dois (à parte do
+desvio da rescisão, que só existirá em DEV até o passo 2):
 
 ```sql
 SELECT pg_get_functiondef('validate_payment_status()'::regprocedure);
 ```
 
-Compare com `supabase/migrations/20260825200000_termination_payment_status_nao_automatico.sql`.
-Se o corpo de produção tiver **qualquer diferença** além do `IF NEW.payment_kind
-= 'termination' THEN RETURN NEW; END IF;` que a migration acrescenta, ajuste a
-migration para partir do corpo de produção — nunca o contrário.
+**3.** Com o DEV já se comportando como produção, rodar a suíte:
+
+```bash
+npm run test:smoke     # 19 cenários (14 da rescisão + 5 que já existiam)
+npm run test:bdd       # a suíte completa
+```
+
+Os dois precisam passar. Se algum cenário quebrar agora e não quebrava antes,
+ele estava passando por causa do trigger de DEV, que reescrevia status onde
+produção não reescreve — ou seja, era um teste passando por motivo errado.
+Corrigir **antes** de seguir.
 
 ---
 
@@ -55,23 +92,32 @@ migration para partir do corpo de produção — nunca o contrário.
 |---|---|---|
 | 1 | `20260824120000_add_termination_split_columns.sql` | cria as colunas que o código novo lê. **Sem esta, tudo quebra.** |
 | 2 | `20260825180000_fix_unique_payment_constraint_for_termination.sql` | remove o índice único que barra o 2º recebimento (erro 409) |
-| 3 | `20260825200000_termination_payment_status_nao_automatico.sql` | trigger para de cravar 'paid' no recebimento zerado — depende da #1 |
+| 3 | `20260826130000_alinha_validate_payment_status_com_producao.sql` | trigger para de cravar 'paid' no recebimento zerado, **preservando o comportamento de produção** — depende da #1 |
 | 4 | `20260826100000_fix_paid_amount_parcelas_caucao.sql` | conserta as parcelas de caução pagas por R$ 0,00 |
 | 5 | `20260826110000_kanban_recibo_recebimento_rescisao.sql` | cria o card do recibo no Kanban |
 
-**Não rodar:** `20260825190000_recreate_unique_payment_index.sql` é uma
-migration cancelada de propósito — não tem DDL, só o registro de por que o
-índice não volta.
+**Não rodar:**
+
+- `20260825190000_recreate_unique_payment_index.sql` — cancelada de propósito,
+  não tem DDL; é o registro de por que o índice não volta.
+- `20260825200000_termination_payment_status_nao_automatico.sql` — **superada**
+  pela `20260826130000`. Rodá-la em produção mudaria o comportamento de todo
+  recebimento de aluguel.
 
 **Ainda não precisa:** `20260826120000_corrige_recebimentos_rescisao_gravados.sql`
 conserta Recebimentos de Rescisão já gravados errado. Em produção **não existe
 nenhum** (a #49 nunca rodou lá), então ela não tem o que fazer hoje. Rodar não
 causa dano; só não é necessária agora.
 
-### Conferência do passo 4
+### Conferências obrigatórias
 
-O `SELECT` no fim da migration #4 tem que voltar **vazio**. Se voltar linhas,
-alguma parcela ficou para trás — não siga para o passo 3 antes de entender.
+- **Migration #3:** o `SELECT` do fim imprime o corpo novo da função. Confira
+  que ele tem o desvio `IF NEW.payment_kind = 'termination'` **e** a lógica
+  inline (`total_expected := COALESCE(...)`) — e que **não** aparece nenhuma
+  chamada a `calculate_correct_payment_status`.
+- **Migration #4:** o `SELECT` do fim tem que voltar **vazio**. Se voltar
+  linhas, alguma parcela de caução ficou para trás — não siga adiante antes de
+  entender por quê.
 
 ---
 
@@ -86,7 +132,11 @@ O que roda sozinho ao abrir o PR:
 
 - **Trava de ambiente** — impede que um deploy suba apontando para o banco
   errado (a proteção criada depois do incidente de 21/ago/2026).
-- **Smoke** — os 14 cenários da rescisão + os 5 que já existiam.
+- **Smoke** — os 19 cenários (`.github/workflows/smoke.yml`).
+
+⚠️ O smoke do CI roda contra o banco configurado nos *secrets* do GitHub. Por
+isso o passo 1.5 vem antes: se o DEV ainda estiver com o trigger antigo, o
+smoke valida um comportamento que produção não tem.
 
 Só faça o merge com os dois **verdes**. O merge em `main` dispara o deploy de
 produção na Vercel.

@@ -1,4 +1,20 @@
 -- ============================================================================
+-- ⚠️ SUPERADA PELA 20260826130000. NÃO RODE ESTE ARQUIVO.
+--
+-- Esta migration rodou em DEV em 25/ago/2026 e gravou lá uma versão da função
+-- que NÃO corresponde à que roda em produção: esta chama
+-- calculate_correct_payment_status(), que força 'paid', 'partial' e 'pending';
+-- a de produção tem a lógica inline e só força 'paid'.
+--
+-- A divergência foi descoberta em 26/ago/2026, ao ler o corpo real da função
+-- em produção antes de subir a #49. Rodar este arquivo em PROD mudaria o
+-- comportamento de todo recebimento de aluguel.
+--
+-- A 20260826130000 corrige os dois ambientes, partindo do corpo de produção.
+-- Arquivo mantido como registro do que foi aplicado em DEV.
+-- ============================================================================
+
+-- ============================================================================
 -- O Recebimento de Rescisao nasce "Pago" com valor zerado (#49)
 --
 -- SINTOMA: a rescisao criava o Recebimento de Rescisao com status 'pending',
