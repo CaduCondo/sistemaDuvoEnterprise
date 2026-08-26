@@ -1040,6 +1040,21 @@ export default function Financial() {
   // Memoizar pagamentos ordenados COM FILTRO DE LOCALIZAÇÃO
   const getSortedPayments = useMemo(() => {
     const filtered = payments.filter(p => {
+      /**
+       * O Recebimento de Rescisao NAO aparece na aba Locacoes (#49).
+       *
+       * Ele e devolucao de caucao, despesas e desconto -- dinheiro de
+       * terceiro, que a partir da #49 tem lugar proprio: as quatro colunas
+       * novas do Detalhamento de Cauções, na aba Cauções. Listar aqui
+       * duplicava a informacao em duas abas e punha uma linha negativa no
+       * meio dos alugueis.
+       *
+       * O calculo das taxas ja excluia esses registros (paymentsToCalculate),
+       * mas a TABELA vem daqui e nao passava por aquele filtro -- por isso
+       * ele continuava visivel mesmo sem entrar em nenhuma conta.
+       */
+      if ((p as any).payment_kind === "termination") return false;
+
       if (selectedLocationIds.length > 0) {
         const locationId = p.property?.locationId;
         if (!locationId || !selectedLocationIds.includes(locationId)) return false;

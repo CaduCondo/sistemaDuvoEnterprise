@@ -903,7 +903,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       console.log("💾 AUTO-SAVE - Despesas:", repairExpenses, "Desconto:", discountAmount);
       console.log("💾 AUTO-SAVE - Novo Expected Total:", newExpectedTotal);
 
-      const updateData = {
+      const updateData: Record<string, any> = {
         // ✅ CORREÇÃO: salvar a lista de verdade (não texto). O banco já guarda
         // esse campo como jsonb; convertendo para string aqui, quem lê depois
         // (ex.: tela de Recibo) recebia um texto em vez de lista e quebrava ao
@@ -916,6 +916,30 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         discount_amount: discountAmount,
         updated_at: new Date().toISOString(),
       };
+
+      /**
+       * ⚠️ As tres colunas termination_* PRECISAM ser gravadas aqui.
+       *
+       * Sao elas que alimentam as quatro colunas novas do Detalhamento de
+       * Cauções (DepositInstallmentsTable.tsx). Ate 26/ago/2026 so recebiam
+       * valor na CRIACAO da rescisao, quando ainda sao todas zero: o usuario
+       * digitava Despesas Adicionais e Desconto, salvava, e a aba Cauções
+       * continuava mostrando 0,00 nas duas -- enquanto a tela do recebimento
+       * mostrava os valores certos. Dois lugares, a mesma informacao,
+       * discordando.
+       */
+      if (paymentKind === "termination") {
+        const linhaCaucao = breakdownData.find((item: any) =>
+          ehLinhaDeDevolucaoDeCaucao(item?.description)
+        );
+
+        updateData.termination_corrected_deposit = linhaCaucao
+          ? -Math.abs(Number(linhaCaucao.amount || 0))
+          : 0;
+        updateData.termination_additional_expenses = Math.abs(repairExpenses);
+        updateData.termination_discount =
+          discountAmount === 0 ? 0 : -Math.abs(discountAmount);
+      }
       
       console.log("💾 SALVANDO NO BANCO:", updateData);
       
@@ -1096,10 +1120,31 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         expected_amount: expectedTotal,
       };
 
+      /**
+       * ⚠️ Mesmas tres colunas do auto-save. Sao elas que alimentam as quatro
+       * colunas do Detalhamento de Cauções -- sem gravar aqui, registrar o
+       * PAGAMENTO da rescisao deixava a aba Cauções zerada de novo.
+       */
+      const colunasRescisao: Record<string, any> = {};
+      if (paymentKind === "termination") {
+        const linhas = Array.isArray(updatedBreakdown) ? updatedBreakdown : [];
+        const linhaCaucao = linhas.find((item: any) =>
+          ehLinhaDeDevolucaoDeCaucao(item?.description)
+        );
+
+        colunasRescisao.termination_corrected_deposit = linhaCaucao
+          ? -Math.abs(Number(linhaCaucao.amount || 0))
+          : 0;
+        colunasRescisao.termination_additional_expenses = Math.abs(repairExpenses);
+        colunasRescisao.termination_discount =
+          discountAmount === 0 ? 0 : -Math.abs(discountAmount);
+      }
+
       const { error: updateError } = await supabase
         .from("payments")
         .update({
           ...paymentDataUpdate,
+          ...colunasRescisao,
           discount_amount: discountAmount,
         })
         .eq("id", paymentId);

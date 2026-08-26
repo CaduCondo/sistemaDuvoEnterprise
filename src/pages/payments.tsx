@@ -808,6 +808,14 @@ export default function Payments() {
           );
         }
 
+        // Valor negativo e dinheiro que SAI (Recebimento de Rescisao em que a
+        // devolucao do caucao supera o que o inquilino deve). Vermelho, para
+        // nao passar por cobranca comum na leitura rapida da lista -- a cor
+        // por vencimento nao serve aqui, ja que nao ha nada a receber.
+        if (expected < 0) {
+          return <span className="font-bold text-lg text-red-600">{expected.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>;
+        }
+
         return <span className={`font-bold text-lg ${textColor}`}>{expected.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>;
       }
     }
