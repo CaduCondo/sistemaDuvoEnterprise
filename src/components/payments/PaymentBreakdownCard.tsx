@@ -319,8 +319,8 @@ export function PaymentBreakdownCard({
                     <Input
                       id="breakdown-discount-termination"
                       type="text"
-                      placeholder="R$ 0,00"
-                      value={discountAmount > 0 ? `− ${discountAmountInput}` : discountAmountInput}
+                      placeholder="− R$ 0,00"
+                      value={discountAmountInput ? `− ${discountAmountInput}` : ""}
                       onChange={(e) => onDiscountAmountChange(e.target.value)}
                       className="text-right text-red-600"
                       disabled={isReadOnly}

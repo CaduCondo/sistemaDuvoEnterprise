@@ -708,6 +708,13 @@ export default function RentalsPage() {
                 color: #6b21a8;
                 border: 1px solid #d8b4fe;
               }
+              /* Valor negativo e dinheiro que SAI (devolucao de caucao maior
+                 que o que o inquilino deve). Em vermelho para nao passar por
+                 uma cobranca comum na leitura rapida da tabela. */
+              .valor-negativo {
+                color: #dc2626;
+                font-weight: 600;
+              }
               .status-pago {
                 background-color: #dcfce7;
                 color: #15803d;
@@ -786,8 +793,8 @@ export default function RentalsPage() {
                         ${payment.status === "pago" ? "Pago" : "Pendente"}
                       </span>
                     </td>
-                    <td class="text-right">${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.expected_amount)}</td>
-                    <td class="text-right text-green">
+                    <td class="text-right ${payment.expected_amount < 0 ? 'valor-negativo' : ''}">${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.expected_amount)}</td>
+                    <td class="text-right ${payment.amount_paid < 0 ? 'valor-negativo' : 'text-green'}">
                       ${payment.status === "pago" ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount_paid) : "-"}
                     </td>
                   </tr>

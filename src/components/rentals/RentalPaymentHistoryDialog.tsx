@@ -284,8 +284,8 @@ export function RentalPaymentHistoryDialog({
                       ${payment.status === "pago" ? "Pago" : "Pendente"}
                     </span>
                   </td>
-                  <td class="text-right">${formatCurrency(payment.expected_amount)}</td>
-                  <td class="text-right text-green">
+                  <td class="text-right ${payment.expected_amount < 0 ? 'valor-negativo' : ''}">${formatCurrency(payment.expected_amount)}</td>
+                  <td class="text-right ${payment.amount_paid < 0 ? 'valor-negativo' : 'text-green'}">
                     ${payment.status === "pago" ? formatCurrency(payment.amount_paid) : "-"}
                   </td>
                 </tr>
@@ -440,10 +440,18 @@ export function RentalPaymentHistoryDialog({
                             {payment.status === "pago" ? "Pago" : "Pendente"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-base text-right">
+                        <TableCell
+                          className={`text-base text-right ${
+                            payment.expected_amount < 0 ? "text-red-600 font-semibold" : ""
+                          }`}
+                        >
                           {formatCurrency(payment.expected_amount)}
                         </TableCell>
-                        <TableCell className="text-base text-right text-green-600 font-semibold">
+                        <TableCell
+                          className={`text-base text-right font-semibold ${
+                            payment.amount_paid < 0 ? "text-red-600" : "text-green-600"
+                          }`}
+                        >
                           {payment.status === "pago" ? formatCurrency(payment.amount_paid) : "-"}
                         </TableCell>
                       </TableRow>

@@ -93,7 +93,21 @@ interface ManagePaymentFormProps {
 export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = false, onCancelPayment }: ManagePaymentFormProps) {
   const router = useRouter();
   const { showAlert } = useAlert();
-  const [loading, setLoading] = useState(false);
+  /**
+   * ⚠️ Comeca em TRUE de proposito.
+   *
+   * Ate 26/ago/2026 nascia `false` e nenhum setLoading(true) existia no
+   * arquivo -- so o setLoading(false) do finally. Resultado: o `if (loading)`
+   * la embaixo nunca chegava a rodar, e o formulario aparecia INTEIRO e vazio
+   * ate a busca terminar: "Não informado" em todos os campos, valores
+   * zerados, e o bloco de Formacao de Valores no formato de aluguel comum
+   * (fundo amarelo no Valor de Desconto) porque, sem `payment` carregado,
+   * isTerminationPayment ainda era false. Quando os dados chegavam, a tela
+   * inteira trocava na frente do usuario.
+   *
+   * O finally do carregamento sempre desliga isto, inclusive no erro.
+   */
+  const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [attachments, setAttachments] = useState<Attachment[]>([]);
