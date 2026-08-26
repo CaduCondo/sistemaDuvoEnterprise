@@ -305,25 +305,26 @@ export function PaymentBreakdownCard({
                   <span>Valor de Desconto</span>
                   
                   {/* Desconto e dinheiro que a imobiliaria deixa de receber:
-                      aparece em vermelho e com o sinal na frente, igual a linha
-                      da Devolucao de Caucao. O "-" fica FORA do input, colado
-                      a esquerda: dentro do campo ele seria comido pela mascara
-                      de moeda na digitacao seguinte. */}
+                      aparece em vermelho e com o sinal colado no valor, igual a
+                      linha da Devolucao de Caucao.
+                
+                      O "−" entra no proprio texto exibido (e nao como um
+                      elemento a parte na esquerda) para acompanhar o valor, que
+                      e alinhado a direita. Isso e seguro porque applyMoneyMask
+                      faz replace(/\D/g, "") -- descarta tudo que nao e digito,
+                      inclusive este sinal, antes de reformatar. Se um dia a
+                      mascara passar a aceitar outros caracteres, este value
+                      precisa ser revisto. */}
                   {isEditMode ? (
-                    <div className="relative">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-red-600">
-                        −
-                      </span>
-                      <Input
-                        id="breakdown-discount-termination"
-                        type="text"
-                        placeholder="R$ 0,00"
-                        value={discountAmountInput}
-                        onChange={(e) => onDiscountAmountChange(e.target.value)}
-                        className="pl-7 text-right text-red-600"
-                        disabled={isReadOnly}
-                      />
-                    </div>
+                    <Input
+                      id="breakdown-discount-termination"
+                      type="text"
+                      placeholder="R$ 0,00"
+                      value={discountAmount > 0 ? `− ${discountAmountInput}` : discountAmountInput}
+                      onChange={(e) => onDiscountAmountChange(e.target.value)}
+                      className="text-right text-red-600"
+                      disabled={isReadOnly}
+                    />
                   ) : (
                     <span className="font-medium text-right text-red-600">
                       {"- "}

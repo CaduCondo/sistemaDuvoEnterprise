@@ -1,3 +1,16 @@
+/**
+ * ⚠️ COMPONENTE SEM USO. Nada no projeto importa este arquivo.
+ *
+ * O "Histórico de Pagamentos" que abre de verdade e montado a mao em
+ * src/pages/rentals.tsx (handleViewHistory), como um pop-up de HTML puro.
+ * Mexer aqui NAO muda o que o usuario ve -- foi o que aconteceu em
+ * 26/ago/2026, quando as alteracoes da issue #49 foram feitas neste arquivo e
+ * a tela continuou igual.
+ *
+ * Mantido em paridade com a versao de rentals.tsx para nao virar uma armadilha
+ * pior do que ja e. Se for reativar, prefira substituir o pop-up por este
+ * componente em vez de manter as duas implementacoes.
+ */
 import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
