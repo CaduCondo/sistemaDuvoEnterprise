@@ -1,16 +1,3 @@
-/**
- * ⚠️ COMPONENTE SEM USO. Nada no projeto importa este arquivo.
- *
- * O "Histórico de Pagamentos" que abre de verdade e montado a mao em
- * src/pages/rentals.tsx (handleViewHistory), como um pop-up de HTML puro.
- * Mexer aqui NAO muda o que o usuario ve -- foi o que aconteceu em
- * 26/ago/2026, quando as alteracoes da issue #49 foram feitas neste arquivo e
- * a tela continuou igual.
- *
- * Mantido em paridade com a versao de rentals.tsx para nao virar uma armadilha
- * pior do que ja e. Se for reativar, prefira substituir o pop-up por este
- * componente em vez de manter as duas implementacoes.
- */
 import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -21,9 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Rental } from "@/types";
 import { Badge } from "@/components/ui/badge";
 
-/** Aluguel e Rescisao vem de `payments`; Caucao vem de `deposit_installments`. */
-type TipoRecebimento = "Aluguel" | "Caução" | "Rescisão";
-
 interface Payment {
   id: string;
   due_date: string;
@@ -32,7 +16,6 @@ interface Payment {
   expected_amount: number;
   status: string;
   installment_number: number;
-  tipo: TipoRecebimento;
 }
 
 interface RentalPaymentHistoryDialogProps {
@@ -68,30 +51,15 @@ export function RentalPaymentHistoryDialog({
 
     try {
       setLoading(true);
-      /**
-       * O historico mostra TUDO que o inquilino paga nesta locacao, e nao so
-       * o aluguel: as parcelas do caucao vivem em outra tabela
-       * (`deposit_installments`) e por isso nunca apareciam aqui. O
-       * Recebimento de Rescisao ja estava em `payments`, mas sem distincao
-       * ficava indistinguivel de uma parcela de aluguel.
-       */
-      const [recebimentos, parcelasCaucao] = await Promise.all([
-        supabase
-          .from("payments")
-          .select("*")
-          .eq("rental_id", rental.id)
-          .order("installment", { ascending: true }),
-        supabase
-          .from("deposit_installments")
-          .select("*")
-          .eq("rental_id", rental.id)
-          .order("installment_number", { ascending: true }),
-      ]);
+      const { data, error } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("rental_id", rental.id)
+        .order("installment", { ascending: true });
 
-      if (recebimentos.error) throw recebimentos.error;
-      if (parcelasCaucao.error) throw parcelasCaucao.error;
+      if (error) throw error;
 
-      const doAluguel: Payment[] = (recebimentos.data || []).map((p: any) => ({
+      const mappedPayments: Payment[] = (data || []).map((p) => ({
         id: p.id,
         due_date: p.due_date,
         payment_date: p.payment_date,
@@ -99,34 +67,9 @@ export function RentalPaymentHistoryDialog({
         expected_amount: p.expected_amount || 0,
         status: p.status === "paid" || p.status === "partial" ? "pago" : "pendente",
         installment_number: p.installment || 0,
-        tipo: p.payment_kind === "termination" ? "Rescisão" : "Aluguel",
       }));
 
-      const doCaucao: Payment[] = (parcelasCaucao.data || []).map((c: any) => ({
-        id: c.id,
-        due_date: c.due_date,
-        payment_date: c.payment_date,
-        // ⚠️ Parcelas pagas antes de 26/ago/2026 tem paid_amount zerado
-        // (ver 20260826100000_fix_paid_amount_parcelas_caucao.sql). Para uma
-        // parcela marcada como paga, o valor pago e o valor da parcela.
-        amount_paid: Number(c.paid_amount || 0) > 0
-          ? Number(c.paid_amount)
-          : c.status === "paid"
-            ? Number(c.amount || 0)
-            : 0,
-        expected_amount: Number(c.amount || 0),
-        status: c.status === "paid" || c.status === "partial" ? "pago" : "pendente",
-        installment_number: c.installment_number || 0,
-        tipo: "Caução",
-      }));
-
-      // Ordem padrao por vencimento: misturando duas origens, o numero da
-      // parcela sozinho nao diz nada (existe "1" de aluguel e "1" de caucao).
-      const todos = [...doAluguel, ...doCaucao].sort((a, b) =>
-        a.due_date.localeCompare(b.due_date)
-      );
-
-      setPayments(todos);
+      setPayments(mappedPayments);
     } catch (error) {
       console.error("Erro ao carregar pagamentos:", error);
       setPayments([]);
@@ -263,7 +206,6 @@ export function RentalPaymentHistoryDialog({
           <table>
             <thead>
               <tr>
-                <th>Tipo</th>
                 <th>Parcela</th>
                 <th>Vencimento</th>
                 <th>Pagamento</th>
@@ -275,7 +217,6 @@ export function RentalPaymentHistoryDialog({
             <tbody>
               ${sortedPayments.map(payment => `
                 <tr>
-                  <td>${payment.tipo}</td>
                   <td>${payment.installment_number}</td>
                   <td>${new Date(payment.due_date + "T00:00:00").toLocaleDateString("pt-BR")}</td>
                   <td>${payment.payment_date ? new Date(payment.payment_date + "T00:00:00").toLocaleDateString("pt-BR") : "-"}</td>
@@ -284,14 +225,14 @@ export function RentalPaymentHistoryDialog({
                       ${payment.status === "pago" ? "Pago" : "Pendente"}
                     </span>
                   </td>
-                  <td class="text-right ${payment.expected_amount < 0 ? 'valor-negativo' : ''}">${formatCurrency(payment.expected_amount)}</td>
-                  <td class="text-right ${payment.amount_paid < 0 ? 'valor-negativo' : 'text-green'}">
+                  <td class="text-right">${formatCurrency(payment.expected_amount)}</td>
+                  <td class="text-right text-green">
                     ${payment.status === "pago" ? formatCurrency(payment.amount_paid) : "-"}
                   </td>
                 </tr>
               `).join("")}
               <tr class="total-row">
-                <td colspan="6" class="text-right">Total Pago:</td>
+                <td colspan="5" class="text-right">Total Pago:</td>
                 <td class="text-right text-green">${formatCurrency(totalPaid)}</td>
               </tr>
             </tbody>
@@ -358,12 +299,6 @@ export function RentalPaymentHistoryDialog({
                     <TableRow>
                       <TableHead
                         className="cursor-pointer text-base text-center"
-                        onClick={() => handleSort("tipo")}
-                      >
-                        Tipo
-                      </TableHead>
-                      <TableHead
-                        className="cursor-pointer text-base text-center"
                         onClick={() => handleSort("installment_number")}
                       >
                         Parcela
@@ -404,20 +339,6 @@ export function RentalPaymentHistoryDialog({
                     {sortedPayments.map((payment) => (
                       <TableRow key={payment.id}>
                         <TableCell className="text-base text-center">
-                          <Badge
-                            variant="outline"
-                            className={
-                              payment.tipo === "Caução"
-                                ? "bg-indigo-100 text-indigo-800 border-indigo-300"
-                                : payment.tipo === "Rescisão"
-                                  ? "bg-purple-100 text-purple-800 border-purple-300"
-                                  : "bg-slate-100 text-slate-700 border-slate-300"
-                            }
-                          >
-                            {payment.tipo}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-base text-center">
                           {payment.installment_number}
                         </TableCell>
                         <TableCell className="text-base text-center">
@@ -440,24 +361,16 @@ export function RentalPaymentHistoryDialog({
                             {payment.status === "pago" ? "Pago" : "Pendente"}
                           </Badge>
                         </TableCell>
-                        <TableCell
-                          className={`text-base text-right ${
-                            payment.expected_amount < 0 ? "text-red-600 font-semibold" : ""
-                          }`}
-                        >
+                        <TableCell className="text-base text-right">
                           {formatCurrency(payment.expected_amount)}
                         </TableCell>
-                        <TableCell
-                          className={`text-base text-right font-semibold ${
-                            payment.amount_paid < 0 ? "text-red-600" : "text-green-600"
-                          }`}
-                        >
+                        <TableCell className="text-base text-right text-green-600 font-semibold">
                           {payment.status === "pago" ? formatCurrency(payment.amount_paid) : "-"}
                         </TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="font-bold bg-muted/50">
-                      <TableCell colSpan={6} className="text-base text-right">
+                      <TableCell colSpan={5} className="text-base text-right">
                         Total Pago:
                       </TableCell>
                       <TableCell className="text-base text-right text-green-600">

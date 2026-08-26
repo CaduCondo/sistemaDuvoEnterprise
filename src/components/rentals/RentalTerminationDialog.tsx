@@ -63,7 +63,6 @@ export function RentalTerminationDialog({
   const [poupancaPercentage, setPoupancaPercentage] = useState<number>(0);
   const [lastInstallmentDate, setLastInstallmentDate] = useState<string>("");
 
-
   useEffect(() => {
     if (!rental || !open) {
       setTerminationDate("");
@@ -227,14 +226,14 @@ export function RentalTerminationDialog({
         afterDue = true;
         lastPaymentDate = dueDateOfTerminationMonth;
         fullMonth = monthlyRent + garageValue;
-        daysUsed = differenceInDays(termDate, lastPaymentDate);
+        daysUsed = differenceInDays(termDate, lastPaymentDate) + 1;
         proportional = calcularProporcionalAluguelEGaragem(monthlyRent, garageValue, daysUsed).total;
       } else {
         afterDue = false;
         const previousMonth = terminationMonth === 0 ? 11 : terminationMonth - 1;
         const previousYear = terminationMonth === 0 ? terminationYear - 1 : terminationYear;
         lastPaymentDate = new Date(previousYear, previousMonth, paymentDay);
-        daysUsed = differenceInDays(termDate, lastPaymentDate);
+        daysUsed = differenceInDays(termDate, lastPaymentDate) + 1;
         proportional = calcularProporcionalAluguelEGaragem(monthlyRent, garageValue, daysUsed).total;
       }
       
@@ -568,9 +567,8 @@ export function RentalTerminationDialog({
                   <li>Se rescisão APÓS vencimento: mês cheio + dias extras desde vencimento</li>
                   <li>Se rescisão ANTES do vencimento: proporcional desde último vencimento</li>
                   <li>Recebimentos futuros serão excluídos</li>
-                  <li>A multa entra no recebimento do aluguel e gera taxa de adm e gerenciamento</li>
-                  <li>A devolução do caução vira um <strong>Recebimento de Rescisão</strong> separado, na aba Cauções, que NÃO gera taxa</li>
-                  <li>A devolução é calculada sobre o caução que o inquilino realmente pagou</li>
+                  <li>Multa e caução serão adicionados ao recebimento</li>
+                  <li>Despesas de reforma podem ser adicionadas depois na tela de Recebimentos</li>
                 </ul>
               </AlertDescription>
             </Alert>

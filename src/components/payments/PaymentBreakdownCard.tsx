@@ -6,7 +6,6 @@ import { DollarSign, Loader2, Save } from "lucide-react";
 import { memo } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LateFeeInterestBlock } from "@/components/payments/LateFeeInterestBlock";
-import { ehLinhaDeDevolucaoDeCaucao } from "@/lib/rentalCalculations";
 
 interface BreakdownItemProps {
   item: any;
@@ -23,7 +22,7 @@ const cleanLabel = (text: string): string => {
 };
 
 export const BreakdownItem = memo(({ item, isDeduction, igpmCorrection, formatCurrency }: BreakdownItemProps) => {
-  const isDepositDeduction = ehLinhaDeDevolucaoDeCaucao(item.description);
+  const isDepositDeduction = item.description?.includes("Devolução de Caução");
   
   const displayAmount = isDepositDeduction && igpmCorrection && igpmCorrection.correctedAmount > 0
     ? igpmCorrection.correctedAmount 
@@ -59,20 +58,6 @@ export const BreakdownItem = memo(({ item, isDeduction, igpmCorrection, formatCu
             <span className={isDepositDeduction ? "block" : ""}>
               {cleanedLabel}
             </span>
-
-            {/* A nota fica logo embaixo do item que ela explica (ex: "16
-                Dias Extras - 10/08/2026 a 26/08/2026" sob o Aluguel
-                Proporcional). Sem asterisco: colada no item, ela nao precisa
-                de marcador para dizer a que se refere.
-
-                Na linha do caucao a nota e pulada porque o tooltip logo
-                abaixo ja diz "corrigido pela Taxa da Poupanca" -- sem isto
-                o mesmo texto aparecia duas vezes seguidas. */}
-            {item.nota && !isDepositDeduction && (
-              <span className="block text-xs text-muted-foreground mt-0.5">
-                {item.nota}
-              </span>
-            )}
             {isDepositDeduction && igpmCorrection && (
               <span className="block text-xs text-muted-foreground mt-1">
                 <TooltipProvider>
@@ -139,10 +124,6 @@ BreakdownItem.displayName = "BreakdownItem";
 
 interface PaymentBreakdownCardProps {
   isTerminationPayment: boolean;
-  /** Qual dos dois recebimentos da rescisao e este (#49). */
-  paymentKind?: "rent" | "termination";
-  /** VALOR TOTAL do outro recebimento da mesma rescisao, para o TOTAL GERAL. */
-  totalDoOutroRecebimento?: number | null;
   originalBreakdown: any[];
   igpmCorrection: any;
   repairExpenses: number;
@@ -173,8 +154,6 @@ interface PaymentBreakdownCardProps {
 
 export function PaymentBreakdownCard({
   isTerminationPayment,
-  paymentKind = "rent",
-  totalDoOutroRecebimento = null,
   originalBreakdown,
   igpmCorrection,
   repairExpenses,
@@ -215,8 +194,7 @@ export function PaymentBreakdownCard({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <DollarSign className="h-5 w-5" />
-          Formação de Valores
-          {isTerminationPayment && (paymentKind === "termination" ? " - Rescisão" : " - Aluguel")}
+          Formação de Valores {isTerminationPayment && "- Rescisão"}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -239,17 +217,11 @@ export function PaymentBreakdownCard({
                   />
                 ))}
 
-              {paymentKind === "termination" && (
-                <div className="border-t border-dashed my-2"></div>
-              )}
+              <div className="border-t border-dashed my-2"></div>
 
-              {/* Despesas Adicionais so existem no Recebimento de Rescisao.
-                  No de Aluguel a unica coisa que o usuario digita e o
-                  desconto (confirmado com o Cadu em 24/ago/2026). */}
-              {paymentKind === "termination" && (
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-4 items-center text-sm">
-                  <span>Despesas Adicionais</span>
+                  <span>Despesas Adicionais *</span>
                   
                   {isEditMode ? (
                     <Input
@@ -267,14 +239,7 @@ export function PaymentBreakdownCard({
                     </span>
                   )}
                 </div>
-
-                {/* Explicacao colada no campo que ela descreve. Antes vivia
-                    solta no rodape do bloco, marcada com asterisco. */}
-                <p className="text-xs text-muted-foreground">
-                  Reforma/Limpeza/Pinturas ou reparos necessários após a saída do inquilino
-                </p>
               </div>
-              )}
 
               {values.diasAtraso > 0 && (
                 <>
@@ -296,38 +261,25 @@ export function PaymentBreakdownCard({
                 </>
               )}
 
-              {paymentKind === "termination" && (
-                <div className="border-t border-dashed my-2"></div>
-              )}
+              <div className="border-t border-dashed my-2"></div>
 
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-4 items-center text-sm">
                   <span>Valor de Desconto</span>
                   
-                  {/* Desconto e dinheiro que a imobiliaria deixa de receber:
-                      aparece em vermelho e com o sinal colado no valor, igual a
-                      linha da Devolucao de Caucao.
-                
-                      O "−" entra no proprio texto exibido (e nao como um
-                      elemento a parte na esquerda) para acompanhar o valor, que
-                      e alinhado a direita. Isso e seguro porque applyMoneyMask
-                      faz replace(/\D/g, "") -- descarta tudo que nao e digito,
-                      inclusive este sinal, antes de reformatar. Se um dia a
-                      mascara passar a aceitar outros caracteres, este value
-                      precisa ser revisto. */}
                   {isEditMode ? (
                     <Input
                       id="breakdown-discount-termination"
                       type="text"
-                      placeholder="− R$ 0,00"
-                      value={discountAmountInput ? `− ${discountAmountInput}` : ""}
+                      placeholder="R$ 0,00"
+                      value={discountAmountInput}
                       onChange={(e) => onDiscountAmountChange(e.target.value)}
-                      className="text-right text-red-600"
+                      className="text-right"
                       disabled={isReadOnly}
                     />
                   ) : (
                     <span className="font-medium text-right text-red-600">
-                      {"- "}
+                      {discountAmount > 0 ? "- " : ""}
                       {formatCurrency(discountAmount)}
                     </span>
                   )}
@@ -341,33 +293,6 @@ export function PaymentBreakdownCard({
                   {formatCurrency(Math.abs(finalTotal))}
                 </span>
               </div>
-
-              {/* O encontro de contas das duas telas (#49). Na pratica o
-                  inquilino acerta os dois de uma vez, entao o usuario precisa
-                  ver o numero final sem ter que abrir a outra tela. */}
-              {totalDoOutroRecebimento !== null && (
-                <div className="flex justify-between pt-2 mt-1 border-t border-dashed">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-base">VALOR TOTAL GERAL</span>
-                    <span className="text-xs text-muted-foreground font-normal">
-                      Recebimento de Aluguel + Recebimento de Rescisão
-                    </span>
-                  </div>
-                  {(() => {
-                    const geral = finalTotal + totalDoOutroRecebimento;
-                    return (
-                      <span
-                        className={`font-bold text-base ${
-                          geral < 0 ? "text-red-600" : "text-primary"
-                        }`}
-                      >
-                        {geral < 0 ? "- " : ""}
-                        {formatCurrency(Math.abs(geral))}
-                      </span>
-                    );
-                  })()}
-                </div>
-              )}
 
               {showPartialInfo && (
                 <div className="mt-4 pt-4 border-t border-dashed bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md">
@@ -390,6 +315,9 @@ export function PaymentBreakdownCard({
                 </div>
               )}
 
+              <div className="text-xs text-muted-foreground pt-2 border-t mt-2">
+                * Despesas Adicionais de Reforma/Limpeza/Pinturas ou reparos necessários após a saída do inquilino
+              </div>
             </>
           ) : (
             <>

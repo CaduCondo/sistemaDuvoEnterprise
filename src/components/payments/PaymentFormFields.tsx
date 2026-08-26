@@ -1,5 +1,4 @@
 import { memo } from "react";
-import type { ReactNode } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,8 +15,6 @@ interface PaymentFormFieldsProps {
   paymentMinute: string;
   paymentSecond: string;
   installmentInfo: string;
-  /** Combo de Forma de Pagamento, renderizado ao lado do Valor a Pagar. */
-  paymentMethodField?: ReactNode;
   isReadOnly: boolean;
   onFormDataChange: (data: any) => void;
   onPaymentHourChange: (value: string) => void;
@@ -33,7 +30,6 @@ export const PaymentFormFields = memo(function PaymentFormFields({
   paymentMinute,
   paymentSecond,
   installmentInfo,
-  paymentMethodField,
   isReadOnly,
   onFormDataChange,
   onPaymentHourChange,
@@ -47,7 +43,7 @@ export const PaymentFormFields = memo(function PaymentFormFields({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="payment_date">
-            Data do Pagamento *
+            Data do Pagamento <span className="text-red-500">*</span>
           </Label>
           <Input
             id="payment_date"
@@ -61,7 +57,7 @@ export const PaymentFormFields = memo(function PaymentFormFields({
 
         {formData.payment_method === "pix" && (
           <div>
-            <Label htmlFor="payment_time">Horário do Recebimento *</Label>
+            <Label htmlFor="payment_time">Horário do Recebimento</Label>
             <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] gap-2 items-center">
               <Input
                 id="payment_hour"
@@ -118,7 +114,7 @@ export const PaymentFormFields = memo(function PaymentFormFields({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="amount_to_pay">
-            Valor a Pagar *
+            Valor a Pagar <span className="text-red-500">*</span>
           </Label>
           <Input
             id="amount_to_pay"
@@ -158,11 +154,16 @@ export const PaymentFormFields = memo(function PaymentFormFields({
           />
         </div>
 
-        {/* Aqui ficava o campo "Parcela", so de leitura. A parcela passou a
-            ser exibida sob o titulo da tela, e este espaco -- ao lado do
-            Valor a Pagar -- foi para a Forma de Pagamento, que antes ficava
-            solta embaixo do bloco. */}
-        <div>{paymentMethodField}</div>
+        <div>
+          <Label htmlFor="installment_info">Parcela</Label>
+          <Input
+            id="installment_info"
+            type="text"
+            value={installmentInfo}
+            disabled
+            className="bg-muted"
+          />
+        </div>
       </div>
 
       <div>

@@ -1,77 +1,92 @@
-# Suíte de smoke
+# A suíte de smoke — como funciona e como religar os testes
 
-A suíte rápida, que roda sozinha a cada push. Existe para responder uma
-pergunta só: **a subida quebrou alguma coisa essencial?**
+## A ideia em uma frase
 
-Não existe uma "pasta de smoke". O que decide quem roda é a marca `@smoke` no
-cenário — mesmos arquivos `.feature`, mesmos step definitions e mesmo
-vocabulário da suíte completa.
+Um cenário BDD só roda automaticamente a cada push se estiver **marcado com
+`@smoke`**. Religar cobertura é marcar mais cenários.
 
-```bash
-npm run test:smoke        # roda a suíte de smoke
-npm run test:smoke:ver    # a mesma coisa, com o browser à vista
-npm run test:bdd          # a suíte COMPLETA (tudo, com ou sem @smoke)
+## Por que foi feito assim
+
+A suíte completa vinha falhando em **todos** os pushes há semanas, levando
+cerca de 60 minutos por execução. Um teste que falha sempre não avisa nada:
+vira ruído, e todo mundo aprende a ignorar o vermelho. Pior, ela travava
+qualquer mudança nova sem apontar nenhum problema real.
+
+Em vez de apagar a suíte (ela guarda muito conhecimento do negócio), ela foi
+**tirada do caminho**: continua aqui, continua podendo ser rodada, mas não
+bloqueia mais nada. No lugar dela entrou uma suíte pequena que roda em
+poucos minutos e em que dá para confiar.
+
+## O que foi encontrado na esteira antiga
+
+Três defeitos, todos medidos antes de serem corrigidos:
+
+1. **Os testes rodavam em fila.** A configuração dizia "rode em paralelo" e,
+   duas linhas abaixo, "use 1 trabalhador no GitHub". Com 1 trabalhador, os
+   64 testes rodavam um atrás do outro.
+
+2. **Cada falha custava 3 minutos.** Todo teste que falhava era repetido 2
+   vezes. Como o limite de cada teste é 60 segundos, um teste quebrado
+   consumia 3 minutos sozinho. Com cerca de 20 quebrados, isso passa dos 60
+   minutos que o próprio serviço aceita — por isso o resultado era sempre
+   "falhou em 59m14s": o serviço cortava por tempo, não pelos testes. Os
+   testes BDD, que rodam depois, nunca chegavam a rodar.
+
+3. **A aplicação subia em modo de desenvolvimento.** O GitHub gastava tempo
+   compilando a aplicação e depois jogava esse trabalho fora, subindo a
+   versão não compilada — onde cada tela é montada na hora em que é aberta
+   pela primeira vez. Medido numa máquina do mesmo tamanho da do GitHub
+   (2 núcleos):
+
+   | Tela          | Modo desenvolvimento (1ª abertura) | Já compilada |
+   |---------------|-----------------------------------:|-------------:|
+   | Página inicial |                          9.298 ms |        35 ms |
+   | Dashboard      |                          7.988 ms |        14 ms |
+   | Locações       |                          3.978 ms |        12 ms |
+   | Financeiro     |                          2.825 ms |        13 ms |
+
+   Esse tempo conta **dentro** do limite do clique do teste.
+
+E um quarto, à parte: **os testes BDD rodavam sem aplicação no ar.** Quem
+subia o servidor era o Playwright, que o derruba ao terminar. O passo de BDD
+vinha depois e não tinha nada escutando na porta.
+
+## Como rodar
+
+```
+npm run test:smoke
 ```
 
-## O que entra no smoke
+Um comando só: compila (se precisar), sobe a aplicação, espera ela
+responder, roda os cenários `@smoke` em paralelo e derruba a aplicação no
+fim. Ver `scripts/smoke.js`.
 
-Um cenário merece a marca quando falhar nele significa que **o sistema está
-quebrado para o usuário**, não apenas que um detalhe mudou:
+Se a aplicação já estiver rodando em outra janela:
 
-- o caminho crítico do dinheiro (registrar recebimento, rescindir contrato);
-- o que já quebrou em produção antes — regressão que voltou uma vez volta duas;
-- o que ninguém percebe rápido olhando a tela (sinal de valor, base de cálculo
-  de taxa, dado gravado diferente do exibido).
+```
+npm run test:bdd:smoke
+```
 
-Um cenário NÃO merece a marca quando cobre detalhe de layout, texto de
-mensagem, ou uma variação que a suíte completa já cobre com outro exemplo.
+E a suíte completa, quando você quiser: aba **Actions** do GitHub →
+**E2E Tests (suíte completa - manual)** → **Run workflow**. Ou, na sua
+máquina, `npm run test:bdd` e `npm run test:e2e`.
 
-O smoke roda `parallel: 2` (a máquina do GitHub Actions tem 2 núcleos). Por
-isso **cada cenário precisa criar os próprios dados e validar só o que ele
-criou** — nunca depender do que já estava no banco nem do que outro cenário
-fez.
+## Como religar um pedaço da suíte
 
-## Situação atual: a rescisão está com todos os cenários no smoke
+1. Escolha um cenário em `e2e/features/*.feature`.
+2. Rode ele sozinho e conserte até passar de forma confiável:
+   ```
+   npx cucumber-js --config e2e/cucumber.config.cjs --name "parte do nome do cenário"
+   ```
+3. Escreva `@smoke` na linha acima do `Cenário:`.
+4. Pronto — ele passa a rodar a cada push.
 
-Decisão do Cadu em 26/ago/2026, e é **temporária de propósito**.
+## As regras de quem entra no smoke
 
-A rescisão (issue #49) foi reescrita quase inteira e quebrou muitas vezes
-seguidas durante os testes — 409 de constraint, PGRST116, trigger de status
-sobrescrevendo, sinal invertido gravado no banco, contagem de dias errada.
-Enquanto ela não se firmar, os **14 cenários** de
-`features/12-rescisao-caucao.feature` rodam a cada push.
-
-Isso deixa o smoke mais lento do que ele deveria ser, e é um preço aceitável
-por enquanto — mas não para sempre.
-
-### Quando reduzir
-
-Quando a rescisão passar algumas subidas seguidas sem quebrar, tirar o `@smoke`
-do arquivo e deixar a marca apenas nos **dois** cenários assinalados com o
-comentário `GUARDAR NO SMOKE`:
-
-1. **A rescisão gera exatamente dois recebimentos, de tipos diferentes** — é a
-   razão de existir da issue: se voltar a gerar um só, a devolução do caução
-   volta a contaminar a base das taxas de administração e gerenciamento.
-2. **A devolução é calculada sobre o caução efetivamente pago** — a regra de
-   dinheiro mais cara de errar da issue. Devolver sobre o valor contratado
-   quando o inquilino pagou menos significa pagar a mais, e ninguém percebe
-   olhando a tela.
-
-Os outros 12 continuam existindo e rodando na suíte completa (`npm run
-test:bdd`). Tirar a marca não é apagar cobertura — é tirar do caminho do push.
-
-Como a marca hoje está na **Funcionalidade** (vale para todos os cenários do
-arquivo), reduzir é: remover `@smoke` da linha da Funcionalidade e colocá-la
-sobre os dois cenários citados.
-
-## Por que os cenários da rescisão verificam o banco, e não a tela
-
-Nesta issue a tela mostrou valor diferente do gravado mais de uma vez — a lista
-de Recebimentos exibia R$ 6.201,25 e o mesmo recebimento, aberto, mostrava
-−R$ 5.201,25. Um teste que só olhasse a tela teria passado nas duas vezes.
-
-O setup vai direto no banco (`DatabaseHelper`) por velocidade, mas a **rescisão
-em si é sempre feita pela tela**: todos os erros graves apareceram no caminho
-real até o banco, e nenhum apareceria chamando `processContractTermination()`
-direto.
+1. **Rápido.** A suíte inteira tem que terminar em poucos minutos.
+2. **Confiável.** Um cenário que só passa às vezes está com defeito e
+   precisa ser corrigido — não repetido até passar. É por isso que a suíte
+   de smoke não tem repetição automática.
+3. **Cada cenário cuida do próprio dado.** Quem precisa de uma locação cria
+   a locação dele e valida só ela. Nunca depende de um dado que já estava no
+   banco, nem do que outro cenário criou — porque eles rodam ao mesmo tempo.

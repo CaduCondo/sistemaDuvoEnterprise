@@ -43,28 +43,13 @@ const MONTH_NAMES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ];
 
-/**
- * A etiqueta roxa "Rescisão" na listagem.
- *
- * ⚠️ Ela marca APENAS o Recebimento de Rescisão — aquele que tem a devolução
- * do caução, as despesas adicionais e o desconto (#49). O recebimento de
- * ALUGUEL de uma rescisão NÃO leva etiqueta: ele é um recebimento de aluguel
- * como qualquer outro, só que com as linhas de proporcional e multa.
- *
- * Antes isso era decidido pelo TEXTO da observação
- * (`notes.includes("Rescisão de Contrato")`). Como os DOIS recebimentos da
- * rescisão trazem esse texto na observação, os dois ganhavam a etiqueta — e
- * o usuário abria o que estava marcado como "Rescisão" e encontrava a tela de
- * aluguel. Foi o que o Cadu viu no teste de 25/ago/2026.
- *
- * Recebimentos criados antes da migração 20260824120000 não têm
- * payment_kind: para eles vale o critério antigo.
- */
-const isTerminationPayment = (payment: Payment) => {
-  const kind = (payment as any).payment_kind as string | undefined;
-  if (kind) return kind === "termination";
-  return payment.notes?.includes("Rescisão de Contrato") || false;
-};
+// ✅ Recebimento de rescisão de contrato: junta aluguel proporcional +
+// despesas - devolução de caução em UM recebimento só (pode até dar negativo,
+// quando o Duvo tem que devolver dinheiro pro inquilino). Como ele fica na
+// mesma listagem dos recebimentos normais de aluguel, marcamos com uma
+// etiqueta "Rescisão" pra não parecer um recebimento comum.
+const isTerminationPayment = (payment: Payment) =>
+  payment.notes?.includes("Rescisão de Contrato") || false;
 
 export default function Payments() {
   const router = useRouter();
@@ -806,14 +791,6 @@ export default function Payments() {
               </div>
             </div>
           );
-        }
-
-        // Valor negativo e dinheiro que SAI (Recebimento de Rescisao em que a
-        // devolucao do caucao supera o que o inquilino deve). Vermelho, para
-        // nao passar por cobranca comum na leitura rapida da lista -- a cor
-        // por vencimento nao serve aqui, ja que nao ha nada a receber.
-        if (expected < 0) {
-          return <span className="font-bold text-lg text-red-600">{expected.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>;
         }
 
         return <span className={`font-bold text-lg ${textColor}`}>{expected.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>;

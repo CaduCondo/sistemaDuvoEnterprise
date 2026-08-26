@@ -346,10 +346,6 @@ export default function RentalsPage() {
     applyPenalty: boolean;
     penaltyAmount: number;
     depositAmount: number;
-    /** Despesas adicionais do Recebimento de Rescisao. Positivo (#49). */
-    additionalExpenses?: number;
-    /** Desconto concedido ao inquilino. Digitado sem sinal (#49). */
-    discount?: number;
   }) => {
     if (!rentalToEnd) return;
 
@@ -387,10 +383,6 @@ export default function RentalsPage() {
     applyPenalty: boolean;
     penaltyAmount: number;
     depositAmount: number;
-    /** Despesas adicionais do Recebimento de Rescisao. Positivo (#49). */
-    additionalExpenses?: number;
-    /** Desconto concedido ao inquilino. Digitado sem sinal (#49). */
-    discount?: number;
   }) => {
     try {
       await handleTerminateRental(data);
@@ -542,30 +534,16 @@ export default function RentalsPage() {
     const rental = rentalForPaymentHistory;
     
     try {
-      /**
-       * O historico mostra TUDO que o inquilino paga nesta locacao, e nao so
-       * o aluguel: as parcelas do caucao vivem em outra tabela
-       * (`deposit_installments`) e por isso nunca apareciam aqui. O
-       * Recebimento de Rescisao ja vinha de `payments`, mas sem distincao
-       * ficava indistinguivel de uma parcela de aluguel. Issue #49.
-       */
-      const [recebimentos, parcelasCaucao] = await Promise.all([
-        supabase
-          .from("payments")
-          .select("*")
-          .eq("rental_id", rental.id)
-          .order("installment", { ascending: true }),
-        supabase
-          .from("deposit_installments")
-          .select("*")
-          .eq("rental_id", rental.id)
-          .order("installment_number", { ascending: true }),
-      ]);
+      // Buscar pagamentos do rental
+      const { data, error } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("rental_id", rental.id)
+        .order("installment", { ascending: true });
 
-      if (recebimentos.error) throw recebimentos.error;
-      if (parcelasCaucao.error) throw parcelasCaucao.error;
+      if (error) throw error;
 
-      const doAluguel = (recebimentos.data || []).map((p: any) => ({
+      const payments = (data || []).map((p) => ({
         id: p.id,
         due_date: p.due_date,
         payment_date: p.payment_date,
@@ -573,33 +551,7 @@ export default function RentalsPage() {
         expected_amount: p.expected_amount || 0,
         status: p.status === "paid" || p.status === "partial" ? "pago" : "pendente",
         installment_number: p.installment || 0,
-        tipo: p.payment_kind === "termination" ? "Rescisão" : "Aluguel",
       }));
-
-      const doCaucao = (parcelasCaucao.data || []).map((c: any) => ({
-        id: c.id,
-        due_date: c.due_date,
-        payment_date: c.payment_date,
-        // ⚠️ Parcelas pagas antes de 26/ago/2026 tem paid_amount zerado (ver
-        // 20260826100000_fix_paid_amount_parcelas_caucao.sql). Para uma
-        // parcela marcada como paga, o valor pago e o valor da parcela.
-        amount_paid:
-          Number(c.paid_amount || 0) > 0
-            ? Number(c.paid_amount)
-            : c.status === "paid"
-              ? Number(c.amount || 0)
-              : 0,
-        expected_amount: Number(c.amount || 0),
-        status: c.status === "paid" || c.status === "partial" ? "pago" : "pendente",
-        installment_number: c.installment_number || 0,
-        tipo: "Caução",
-      }));
-
-      // Ordem por vencimento: misturando duas origens, o numero da parcela
-      // sozinho nao diz nada (existe "1" de aluguel e "1" de caucao).
-      const payments = [...doAluguel, ...doCaucao].sort((a, b) =>
-        String(a.due_date).localeCompare(String(b.due_date))
-      );
 
       const location = rental?.property?.location || "-";
       const complement = rental?.property?.complement || "-";
@@ -684,37 +636,6 @@ export default function RentalsPage() {
                 background-color: #f0f0f0;
                 font-weight: 600;
               }
-              /* Etiquetas da coluna Tipo (Aluguel / Caucao / Rescisao),
-                 nas mesmas cores que a lista de Recebimentos usa. */
-              .tipo-aluguel, .tipo-caucao, .tipo-rescisao {
-                padding: 4px 12px;
-                border-radius: 4px;
-                display: inline-block;
-                font-size: 12px;
-                font-weight: 600;
-              }
-              .tipo-aluguel {
-                background-color: #f1f5f9;
-                color: #334155;
-                border: 1px solid #cbd5e1;
-              }
-              .tipo-caucao {
-                background-color: #e0e7ff;
-                color: #3730a3;
-                border: 1px solid #a5b4fc;
-              }
-              .tipo-rescisao {
-                background-color: #f3e8ff;
-                color: #6b21a8;
-                border: 1px solid #d8b4fe;
-              }
-              /* Valor negativo e dinheiro que SAI (devolucao de caucao maior
-                 que o que o inquilino deve). Em vermelho para nao passar por
-                 uma cobranca comum na leitura rapida da tabela. */
-              .valor-negativo {
-                color: #dc2626;
-                font-weight: 600;
-              }
               .status-pago {
                 background-color: #dcfce7;
                 color: #15803d;
@@ -772,7 +693,6 @@ export default function RentalsPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Tipo</th>
                   <th>Parcela</th>
                   <th>Vencimento</th>
                   <th>Pagamento</th>
@@ -784,7 +704,6 @@ export default function RentalsPage() {
               <tbody>
                 ${payments.map(payment => `
                   <tr>
-                    <td><span class="tipo-${payment.tipo === "Caução" ? "caucao" : payment.tipo === "Rescisão" ? "rescisao" : "aluguel"}">${payment.tipo}</span></td>
                     <td>${payment.installment_number}</td>
                     <td>${new Date(payment.due_date + "T00:00:00").toLocaleDateString("pt-BR")}</td>
                     <td>${payment.payment_date ? new Date(payment.payment_date + "T00:00:00").toLocaleDateString("pt-BR") : "-"}</td>
@@ -793,14 +712,14 @@ export default function RentalsPage() {
                         ${payment.status === "pago" ? "Pago" : "Pendente"}
                       </span>
                     </td>
-                    <td class="text-right ${payment.expected_amount < 0 ? 'valor-negativo' : ''}">${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.expected_amount)}</td>
-                    <td class="text-right ${payment.amount_paid < 0 ? 'valor-negativo' : 'text-green'}">
+                    <td class="text-right">${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.expected_amount)}</td>
+                    <td class="text-right text-green">
                       ${payment.status === "pago" ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount_paid) : "-"}
                     </td>
                   </tr>
                 `).join("")}
                 <tr class="total-row">
-                  <td colspan="6" class="text-right">Total Pago:</td>
+                  <td colspan="5" class="text-right">Total Pago:</td>
                   <td class="text-right text-green">${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPaid)}</td>
                 </tr>
               </tbody>

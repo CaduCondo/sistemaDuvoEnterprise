@@ -21,7 +21,6 @@ import { useAlert } from "@/contexts/AlertContext";
 import { Camera, Paperclip, CreditCard, Edit, X, Upload, FileText, Loader2, ImageIcon, Trash2 } from "lucide-react";
 import type { Payment, Rental, Property, Tenant } from "@/types";
 import { calculateCorrectedDeposit } from "@/services/igpmService";
-import { ehLinhaDeDevolucaoDeCaucao, caucaoEfetivamentePago, montarRecebimentoRescisao } from "@/lib/rentalCalculations";
 import { PaymentInfoCards } from "./PaymentInfoCards";
 import { PaymentBreakdownCard } from "./PaymentBreakdownCard";
 import { PaymentFormFields } from "./PaymentFormFields";
@@ -93,21 +92,7 @@ interface ManagePaymentFormProps {
 export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = false, onCancelPayment }: ManagePaymentFormProps) {
   const router = useRouter();
   const { showAlert } = useAlert();
-  /**
-   * ⚠️ Comeca em TRUE de proposito.
-   *
-   * Ate 26/ago/2026 nascia `false` e nenhum setLoading(true) existia no
-   * arquivo -- so o setLoading(false) do finally. Resultado: o `if (loading)`
-   * la embaixo nunca chegava a rodar, e o formulario aparecia INTEIRO e vazio
-   * ate a busca terminar: "Não informado" em todos os campos, valores
-   * zerados, e o bloco de Formacao de Valores no formato de aluguel comum
-   * (fundo amarelo no Valor de Desconto) porque, sem `payment` carregado,
-   * isTerminationPayment ainda era false. Quando os dados chegavam, a tela
-   * inteira trocava na frente do usuario.
-   *
-   * O finally do carregamento sempre desliga isto, inclusive no erro.
-   */
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -123,25 +108,6 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [discountAmountInput, setDiscountAmountInput] = useState<string>("R$ 0,00");
   const [isTerminationPayment, setIsTerminationPayment] = useState(false);
-
-  /**
-   * Qual dos DOIS recebimentos da rescisao e este (#49).
-   *
-   *   'rent'        -> Recebimento de Aluguel: proporcional do aluguel,
-   *                    proporcional da garagem e multa. Tem campo de
-   *                    Desconto, NAO tem Despesas Adicionais.
-   *   'termination' -> Recebimento de Rescisao: devolucao do caucao. Tem
-   *                    Despesas Adicionais E Desconto.
-   *
-   * Vem de payments.payment_kind. Antes isso era adivinhado pelo TEXTO da
-   * observacao (`notes.includes("Rescisão de Contrato")`) — o que quebrou
-   * assim que o texto mudou, e foi o que deixou as duas telas invertidas em
-   * 24/ago/2026.
-   */
-  const [paymentKind, setPaymentKind] = useState<"rent" | "termination">("rent");
-
-  /** VALOR TOTAL do OUTRO recebimento da mesma rescisao, para o TOTAL GERAL. */
-  const [totalDoOutroRecebimento, setTotalDoOutroRecebimento] = useState<number | null>(null);
   const [originalBreakdown, setOriginalBreakdown] = useState<any[]>([]);
   const [calculatedTotal, setCalculatedTotal] = useState<number>(0);
   const [igpmCorrection, setIgpmCorrection] = useState<{
@@ -328,18 +294,8 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       setIsPaid(alreadyPaid);
       setIsEditMode(!alreadyPaid);
 
-      // Recebimentos criados antes da migracao 20260824120000 nao tem
-      // payment_kind nem termination_group_id: para eles vale o criterio
-      // antigo, pelo texto da observacao.
-      const kind = (validatedPayment as any).payment_kind as "rent" | "termination" | undefined;
-      const grupo = (validatedPayment as any).termination_group_id as string | undefined;
-
-      const isTermination = kind
-        ? (kind === "termination" || !!grupo)
-        : (validatedPayment.notes?.includes("Rescisão de Contrato") || false);
-
+      const isTermination = validatedPayment.notes?.includes("Rescisão de Contrato") || false;
       setIsTerminationPayment(isTermination);
-      setPaymentKind(kind === "termination" ? "termination" : "rent");
       
       const waiveLateFee = validatedPayment.late_fee_waived || false;
       const waiveInterest = validatedPayment.interest_waived || false;
@@ -397,7 +353,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
         const { data: installments, error: installmentsError } = await supabase
           .from("deposit_installments")
-          .select("amount, paid_amount, status, payment_date, installment_number")
+          .select("amount, payment_date, installment_number")
           .eq("rental_id", rentalId)
           .order("payment_date", { ascending: true });
 
@@ -405,18 +361,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
           console.error("Erro ao buscar parcelas do caução:", installmentsError);
         } else {
           if (installments && installments.length > 0) {
-            /**
-             * ⚠️ A correcao incide sobre o que o inquilino EFETIVAMENTE PAGOU
-             * (paid_amount), e nao sobre o valor contratado (amount) --
-             * decisao 4 do ticket, docs/tickets/rescisao-caucao.md.
-             *
-             * Esta tela somava `amount` enquanto o terminationService somava
-             * `paid_amount`. Os dois discordavam: o banco gravava devolucao
-             * 0,00 (nada pago) e a tela exibia milhares de reais (valor
-             * contratado corrigido), sem nenhum aviso de que eram contas
-             * diferentes.
-             */
-            const totalDeposit = caucaoEfetivamentePago(installments as any);
+            const totalDeposit = installments.reduce((sum, inst) => sum + (inst.amount || 0), 0);
             
             const startDate = validatedPayment.rentals.start_date;
             const endDate = validatedPayment.rentals.end_date;
@@ -551,73 +496,36 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     }
   }, [payment, displayBreakdown, effectiveRentalValue, effectiveGarageValue]);
 
-  /**
-   * Busca o VALOR TOTAL do OUTRO recebimento da mesma rescisao.
-   *
-   * Os dois nascem juntos e compartilham termination_group_id (#49). O
-   * usuario precisa ver, nas duas telas, quanto da o encontro de contas —
-   * porque na pratica o inquilino acerta tudo de uma vez.
-   */
-  useEffect(() => {
-    const grupo = (payment as any)?.termination_group_id;
-    if (!grupo || !payment?.id) {
-      setTotalDoOutroRecebimento(null);
-      return;
-    }
-
-    let cancelado = false;
-
-    (async () => {
-      const { data, error } = await (supabase as any)
-        .from("payments")
-        .select("id, expected_amount, payment_kind")
-        .eq("termination_group_id", grupo)
-        // O irmao e o do OUTRO tipo. Sem este filtro, quando o grupo tinha
-        // mais de dois registros o TOTAL GERAL somava o par errado.
-        .neq("payment_kind", (payment as any).payment_kind || "rent")
-        .limit(1)
-        .maybeSingle();
-
-      if (cancelado) return;
-
-      if (error) {
-        console.warn("⚠️ Nao foi possivel buscar o recebimento irmao da rescisao:", error);
-        setTotalDoOutroRecebimento(null);
-        return;
-      }
-
-      setTotalDoOutroRecebimento(data ? Number(data.expected_amount || 0) : null);
-    })();
-
-    return () => {
-      cancelado = true;
-    };
-  }, [payment]);
-
   useEffect(() => {
     if (loading || !payment) return;
     
     const values = calculateValues;
     
     if (isTerminationPayment && originalBreakdown.length > 0) {
+      let workingBreakdown = [...originalBreakdown];
+      
+      if (igpmCorrection && igpmCorrection.correctedAmount > 0) {
+        workingBreakdown = workingBreakdown.map((item: any) => {
+          if (item.description?.includes("Devolução de Caução")) {
+            return {
+              ...item,
+              amount: -igpmCorrection.correctedAmount,
+            };
+          }
+          return item;
+        });
+      }
+      
+      const cleanBreakdown = workingBreakdown.filter((item: any) => 
+        !item.description?.includes("Despesas") && 
+        !item.description?.includes("Multa por Atraso") && 
+        !item.description?.includes("Juros por Atraso")
+      );
+      
+      const breakdownTotal = cleanBreakdown.reduce((sum, item) => sum + item.amount, 0);
       const lateFees = (removeLateFee ? 0 : values.multa) + (removeInterest ? 0 : values.juros);
-
-      /**
-       * ⚠️ MESMA funcao usada pelo auto-save e pelo salvar do pagamento.
-       *
-       * Antes cada um desses tres pontos tinha a sua propria versao da conta,
-       * e elas divergiam -- a lista de Recebimentos mostrava um valor e o
-       * recebimento aberto mostrava outro. Ver montarRecebimentoRescisao().
-       */
-      const { total: newTotal } = montarRecebimentoRescisao({
-        breakdown: originalBreakdown,
-        caucaoCorrigido: igpmCorrection?.correctedAmount || 0,
-        multaAtraso: removeLateFee ? 0 : values.multa,
-        jurosAtraso: removeInterest ? 0 : values.juros,
-        despesasAdicionais: paymentKind === "termination" ? repairExpenses : 0,
-        desconto: discountAmount,
-      });
-
+      const newTotal = breakdownTotal + repairExpenses + lateFees - discountAmount;
+      
       setCalculatedTotal(newTotal);
       
       if (isEditMode && !isPaid) {
@@ -642,7 +550,6 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     }
   }, [
     isTerminationPayment,
-    paymentKind,
     originalBreakdown,
     repairExpenses,
     discountAmount,
@@ -890,56 +797,75 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     try {
       setIsSavingExpenses(true);
       
-      const { breakdown: breakdownData, total: newExpectedTotal } =
-        montarRecebimentoRescisao({
-          breakdown: payment.breakdown,
-          caucaoCorrigido: igpmCorrection?.correctedAmount || 0,
-          multaAtraso: removeLateFee ? 0 : calculateValues.multa,
-          jurosAtraso: removeInterest ? 0 : calculateValues.juros,
-          despesasAdicionais: paymentKind === "termination" ? repairExpenses : 0,
-          desconto: discountAmount,
+      let breakdownData = payment.breakdown;
+      if (typeof breakdownData === 'string') {
+        breakdownData = JSON.parse(breakdownData);
+      }
+      
+      if (!Array.isArray(breakdownData)) {
+        breakdownData = [];
+      }
+      
+      if (igpmCorrection && igpmCorrection.correctedAmount > 0) {
+        breakdownData = breakdownData.map((item: any) => {
+          if (item.description?.includes("Devolução de Caução")) {
+            return {
+              ...item,
+              amount: -igpmCorrection.correctedAmount,
+            };
+          }
+          return item;
         });
-
+      }
+      
+      breakdownData = breakdownData.filter((item: any) => 
+        !item.description?.includes("Despesas") &&
+        !item.description?.includes("Multa por Atraso") &&
+        !item.description?.includes("Juros por Atraso") &&
+        !item.description?.includes("Desconto")
+      );
+      
+      if (!removeLateFee && calculateValues.multa > 0) {
+        breakdownData.push({
+          description: "Multa por Atraso",
+          amount: calculateValues.multa,
+          type: "addition"
+        });
+      }
+      
+      if (!removeInterest && calculateValues.juros > 0) {
+        breakdownData.push({
+          description: "Juros por Atraso",
+          amount: calculateValues.juros,
+          type: "addition"
+        });
+      }
+      
+      if (repairExpenses > 0) {
+        breakdownData.push({
+          description: "Despesas Adicionais*",
+          amount: repairExpenses,
+          type: "addition"
+        });
+      }
+      
+      const breakdownTotal = breakdownData.reduce((sum: number, item: any) => sum + item.amount, 0);
+      const newExpectedTotal = breakdownTotal - discountAmount;
+      
       console.log("💾 AUTO-SAVE - Despesas:", repairExpenses, "Desconto:", discountAmount);
-      console.log("💾 AUTO-SAVE - Novo Expected Total:", newExpectedTotal);
-
-      const updateData: Record<string, any> = {
+      console.log("💾 AUTO-SAVE - Breakdown Total:", breakdownTotal);
+      console.log("💾 AUTO-SAVE - Novo Expected Total (com desconto):", newExpectedTotal);
+      
+      const updateData = {
         // ✅ CORREÇÃO: salvar a lista de verdade (não texto). O banco já guarda
         // esse campo como jsonb; convertendo para string aqui, quem lê depois
         // (ex.: tela de Recibo) recebia um texto em vez de lista e quebrava ao
         // tentar usar métodos de lista como .find().
         breakdown: breakdownData,
-        // ⚠️ SEM Math.abs. Havia um aqui, e ele transformava uma devolucao
-        // (negativa) em cobranca dentro do banco -- a lista de Recebimentos
-        // mostrava R$ 6.201,25 onde a tela mostrava -R$ 5.201,25.
-        expected_amount: newExpectedTotal,
+        expected_amount: Math.abs(newExpectedTotal),
         discount_amount: discountAmount,
         updated_at: new Date().toISOString(),
       };
-
-      /**
-       * ⚠️ As tres colunas termination_* PRECISAM ser gravadas aqui.
-       *
-       * Sao elas que alimentam as quatro colunas novas do Detalhamento de
-       * Cauções (DepositInstallmentsTable.tsx). Ate 26/ago/2026 so recebiam
-       * valor na CRIACAO da rescisao, quando ainda sao todas zero: o usuario
-       * digitava Despesas Adicionais e Desconto, salvava, e a aba Cauções
-       * continuava mostrando 0,00 nas duas -- enquanto a tela do recebimento
-       * mostrava os valores certos. Dois lugares, a mesma informacao,
-       * discordando.
-       */
-      if (paymentKind === "termination") {
-        const linhaCaucao = breakdownData.find((item: any) =>
-          ehLinhaDeDevolucaoDeCaucao(item?.description)
-        );
-
-        updateData.termination_corrected_deposit = linhaCaucao
-          ? -Math.abs(Number(linhaCaucao.amount || 0))
-          : 0;
-        updateData.termination_additional_expenses = Math.abs(repairExpenses);
-        updateData.termination_discount =
-          discountAmount === 0 ? 0 : -Math.abs(discountAmount);
-      }
       
       console.log("💾 SALVANDO NO BANCO:", updateData);
       
@@ -1011,18 +937,63 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
       if (isTerminationPayment) {
         try {
-          const montado = montarRecebimentoRescisao({
-            breakdown: payment.breakdown,
-            caucaoCorrigido: igpmCorrection?.correctedAmount || 0,
-            multaAtraso: removeLateFee ? 0 : values.multa,
-            jurosAtraso: removeInterest ? 0 : values.juros,
-            despesasAdicionais: paymentKind === "termination" ? repairExpenses : 0,
-            desconto: discountAmount,
-          });
-
-          // ✅ salvar a lista, não texto (o banco guarda jsonb).
-          updatedBreakdown = montado.breakdown;
-          expectedTotal = montado.total;
+          let breakdownData = payment.breakdown;
+          if (typeof breakdownData === 'string') {
+            breakdownData = JSON.parse(breakdownData);
+          }
+          
+          if (!Array.isArray(breakdownData)) {
+            breakdownData = [];
+          }
+          
+          if (igpmCorrection && igpmCorrection.correctedAmount > 0) {
+            breakdownData = breakdownData.map((item: any) => {
+              if (item.description?.includes("Devolução de Caução")) {
+                return {
+                  ...item,
+                  amount: -igpmCorrection.correctedAmount,
+                };
+              }
+              return item;
+            });
+          }
+          
+          breakdownData = breakdownData.filter((item: any) => 
+            !item.description?.includes("Despesas") &&
+            !item.description?.includes("Multa por Atraso") &&
+            !item.description?.includes("Juros por Atraso") &&
+            !item.description?.includes("Desconto")
+          );
+          
+          if (!removeLateFee && values.multa > 0) {
+            breakdownData.push({
+              description: "Multa por Atraso",
+              amount: values.multa,
+              type: "addition"
+            });
+          }
+          
+          if (!removeInterest && values.juros > 0) {
+            breakdownData.push({
+              description: "Juros por Atraso",
+              amount: values.juros,
+              type: "addition"
+            });
+          }
+          
+          if (repairExpenses > 0) {
+            breakdownData.push({
+              description: "Despesas Adicionais*",
+              amount: repairExpenses,
+              type: "addition"
+            });
+          }
+          
+          // ✅ CORREÇÃO: mesma causa do outro ponto acima - salvar a lista, não texto.
+          updatedBreakdown = breakdownData;
+          
+          const breakdownTotal = breakdownData.reduce((sum: number, item: any) => sum + item.amount, 0);
+          expectedTotal = breakdownTotal - discountAmount;
           
         } catch (error) {
           console.error("❌ Erro ao atualizar breakdown:", error);
@@ -1120,31 +1091,10 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         expected_amount: expectedTotal,
       };
 
-      /**
-       * ⚠️ Mesmas tres colunas do auto-save. Sao elas que alimentam as quatro
-       * colunas do Detalhamento de Cauções -- sem gravar aqui, registrar o
-       * PAGAMENTO da rescisao deixava a aba Cauções zerada de novo.
-       */
-      const colunasRescisao: Record<string, any> = {};
-      if (paymentKind === "termination") {
-        const linhas = Array.isArray(updatedBreakdown) ? updatedBreakdown : [];
-        const linhaCaucao = linhas.find((item: any) =>
-          ehLinhaDeDevolucaoDeCaucao(item?.description)
-        );
-
-        colunasRescisao.termination_corrected_deposit = linhaCaucao
-          ? -Math.abs(Number(linhaCaucao.amount || 0))
-          : 0;
-        colunasRescisao.termination_additional_expenses = Math.abs(repairExpenses);
-        colunasRescisao.termination_discount =
-          discountAmount === 0 ? 0 : -Math.abs(discountAmount);
-      }
-
       const { error: updateError } = await supabase
         .from("payments")
         .update({
           ...paymentDataUpdate,
-          ...colunasRescisao,
           discount_amount: discountAmount,
         })
         .eq("id", paymentId);
@@ -1237,15 +1187,8 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     <div className="space-y-6">
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold">
-          Registrar Recebimento
-          {isTerminationPayment && (paymentKind === "termination" ? " de Rescisão" : " de Aluguel")}
+          Registrar Recebimento{isTerminationPayment ? " - Rescisão de Contrato" : ""}
         </h1>
-        {/* A parcela era um campo so-de-leitura dentro do formulario, ocupando
-            espaco de um campo editavel. Como e informacao de contexto, e nao
-            algo que se preencha, subiu para debaixo do titulo. */}
-        {installmentInfo && (
-          <p className="text-sm text-muted-foreground mt-1">{installmentInfo}</p>
-        )}
       </div>
 
       <PaymentInfoCards rental={rental} property={property} tenant={tenant} />
@@ -1296,8 +1239,6 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <PaymentBreakdownCard
           isTerminationPayment={isTerminationPayment}
-          paymentKind={paymentKind}
-          totalDoOutroRecebimento={totalDoOutroRecebimento}
           originalBreakdown={originalBreakdown}
           igpmCorrection={igpmCorrection}
           repairExpenses={repairExpenses}
@@ -1347,28 +1288,26 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
               onPaymentSecondChange={setPaymentSecond}
               formatCurrency={formatCurrency}
               isTerminationPayment={isTerminationPayment}
-              paymentMethodField={
-                <>
-                  <Label htmlFor="payment-method">Forma de Pagamento *</Label>
-                  <Select
-                    value={formData.payment_method || ""}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, payment_method: value }))}
-                    disabled={isReadOnly}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a forma de pagamento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {paymentMethods.map((method) => (
-                        <SelectItem key={method.code} value={method.code}>
-                          {method.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </>
-              }
             />
+            <div>
+              <Label htmlFor="payment-method">Forma de Pagamento *</Label>
+              <Select
+                value={formData.payment_method || ""}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, payment_method: value }))}
+                disabled={isReadOnly}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentMethods.map((method) => (
+                    <SelectItem key={method.code} value={method.code}>
+                      {method.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
       </div>

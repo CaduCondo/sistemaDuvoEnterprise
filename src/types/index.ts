@@ -285,13 +285,6 @@ export interface Payment {
   // aluguel. isDeposit distingue os dois na hora de exibir/etiquetar/clicar.
   isDeposit?: boolean;
   depositInstallment?: DepositInstallment;
-  /**
-   * Qual dos dois recebimentos de uma rescisao e este (#49):
-   *   "rent"        -> Recebimento de Aluguel (entra na base das taxas)
-   *   "termination" -> Recebimento de Rescisao (nao entra)
-   * Fica undefined nos recebimentos criados antes da migracao 20260824120000.
-   */
-  payment_kind?: "rent" | "termination";
 }
 
 export interface PaymentInstallment {

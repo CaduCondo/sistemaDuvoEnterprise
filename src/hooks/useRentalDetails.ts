@@ -157,10 +157,6 @@ export function useRentalDetails(rentalId: string) {
     applyPenalty: boolean;
     penaltyAmount: number;
     depositAmount: number;
-    /** Despesas adicionais do Recebimento de Rescisao. Positivo (#49). */
-    additionalExpenses?: number;
-    /** Desconto concedido ao inquilino. Digitado sem sinal (#49). */
-    discount?: number;
   }) => {
     if (!rental) return;
 
