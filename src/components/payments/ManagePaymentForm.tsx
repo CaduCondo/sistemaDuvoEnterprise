@@ -383,7 +383,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
         const { data: installments, error: installmentsError } = await supabase
           .from("deposit_installments")
-          .select("amount, payment_date, installment_number")
+          .select("amount, paid_amount, payment_date, installment_number")
           .eq("rental_id", rentalId)
           .order("payment_date", { ascending: true });
 
@@ -391,7 +391,18 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
           console.error("Erro ao buscar parcelas do caução:", installmentsError);
         } else {
           if (installments && installments.length > 0) {
-            const totalDeposit = installments.reduce((sum, inst) => sum + (inst.amount || 0), 0);
+            /**
+             * ⚠️ A correcao incide sobre o que o inquilino EFETIVAMENTE PAGOU
+             * (paid_amount), e nao sobre o valor contratado (amount) --
+             * decisao 4 do ticket, docs/tickets/rescisao-caucao.md.
+             *
+             * Esta tela somava `amount` enquanto o terminationService somava
+             * `paid_amount`. Os dois discordavam: o banco gravava devolucao
+             * 0,00 (nada pago) e a tela exibia milhares de reais (valor
+             * contratado corrigido), sem nenhum aviso de que eram contas
+             * diferentes.
+             */
+            const totalDeposit = installments.reduce((sum, inst) => sum + ((inst as any).paid_amount || 0), 0);
             
             const startDate = validatedPayment.rentals.start_date;
             const endDate = validatedPayment.rentals.end_date;
@@ -1282,6 +1293,12 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
           Registrar Recebimento
           {isTerminationPayment && (paymentKind === "termination" ? " de Rescisão" : " de Aluguel")}
         </h1>
+        {/* A parcela era um campo so-de-leitura dentro do formulario, ocupando
+            espaco de um campo editavel. Como e informacao de contexto, e nao
+            algo que se preencha, subiu para debaixo do titulo. */}
+        {installmentInfo && (
+          <p className="text-sm text-muted-foreground mt-1">{installmentInfo}</p>
+        )}
       </div>
 
       <PaymentInfoCards rental={rental} property={property} tenant={tenant} />
@@ -1383,26 +1400,28 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
               onPaymentSecondChange={setPaymentSecond}
               formatCurrency={formatCurrency}
               isTerminationPayment={isTerminationPayment}
+              paymentMethodField={
+                <>
+                  <Label htmlFor="payment-method">Forma de Pagamento *</Label>
+                  <Select
+                    value={formData.payment_method || ""}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, payment_method: value }))}
+                    disabled={isReadOnly}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a forma de pagamento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map((method) => (
+                        <SelectItem key={method.code} value={method.code}>
+                          {method.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
+              }
             />
-            <div>
-              <Label htmlFor="payment-method">Forma de Pagamento *</Label>
-              <Select
-                value={formData.payment_method || ""}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, payment_method: value }))}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a forma de pagamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.map((method) => (
-                    <SelectItem key={method.code} value={method.code}>
-                      {method.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </CardContent>
         </Card>
       </div>

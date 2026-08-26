@@ -58,10 +58,21 @@ export const BreakdownItem = memo(({ item, isDeduction, igpmCorrection, formatCu
           <div className="flex-1">
             <span className={isDepositDeduction ? "block" : ""}>
               {cleanedLabel}
-              {/* O asterisco amarra esta linha a nota no rodape do bloco
-                  (ex: "* 15 Dias Extras - 10/08/2026 a 25/08/2026"). */}
-              {item.nota ? " *" : ""}
             </span>
+
+            {/* A nota fica logo embaixo do item que ela explica (ex: "16
+                Dias Extras - 10/08/2026 a 26/08/2026" sob o Aluguel
+                Proporcional). Sem asterisco: colada no item, ela nao precisa
+                de marcador para dizer a que se refere.
+
+                Na linha do caucao a nota e pulada porque o tooltip logo
+                abaixo ja diz "corrigido pela Taxa da Poupanca" -- sem isto
+                o mesmo texto aparecia duas vezes seguidas. */}
+            {item.nota && !isDepositDeduction && (
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                {item.nota}
+              </span>
+            )}
             {isDepositDeduction && igpmCorrection && (
               <span className="block text-xs text-muted-foreground mt-1">
                 <TooltipProvider>
@@ -228,16 +239,6 @@ export function PaymentBreakdownCard({
                   />
                 ))}
 
-              {/* Nota de rodape do periodo proporcional. Fica embaixo, e nao
-                  grudada no nome da linha, para o rotulo ficar curto e a
-                  coluna de valores alinhada (pedido do Cadu em 25/ago/2026). */}
-              {(() => {
-                const nota = originalBreakdown.find((i: any) => i.nota)?.nota;
-                return nota ? (
-                  <p className="text-xs text-muted-foreground pt-1">* {nota}</p>
-                ) : null;
-              })()}
-
               {paymentKind === "termination" && (
                 <div className="border-t border-dashed my-2"></div>
               )}
@@ -248,7 +249,7 @@ export function PaymentBreakdownCard({
               {paymentKind === "termination" && (
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-4 items-center text-sm">
-                  <span>Despesas Adicionais *</span>
+                  <span>Despesas Adicionais</span>
                   
                   {isEditMode ? (
                     <Input
@@ -266,6 +267,12 @@ export function PaymentBreakdownCard({
                     </span>
                   )}
                 </div>
+
+                {/* Explicacao colada no campo que ela descreve. Antes vivia
+                    solta no rodape do bloco, marcada com asterisco. */}
+                <p className="text-xs text-muted-foreground">
+                  Reforma/Limpeza/Pinturas ou reparos necessários após a saída do inquilino
+                </p>
               </div>
               )}
 
@@ -376,15 +383,6 @@ export function PaymentBreakdownCard({
                 </div>
               )}
 
-              {/* Este rodape explica o campo "Despesas Adicionais", que so
-                  existe na tela de Rescisao. Na de Aluguel ele nao tem a que
-                  se referir -- e o asterisco de la aponta para a nota do
-                  periodo proporcional, logo acima. */}
-              {paymentKind === "termination" && (
-                <div className="text-xs text-muted-foreground pt-2 border-t mt-2">
-                  * Despesas Adicionais de Reforma/Limpeza/Pinturas ou reparos necessários após a saída do inquilino
-                </div>
-              )}
             </>
           ) : (
             <>
