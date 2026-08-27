@@ -30,7 +30,21 @@
 ### Autonomia padrão (não precisa perguntar de novo)
 
 - Está liberado, por padrão, alterar código, testes, documentação e configuração de Git (criar branch, `git add`) sem precisar pedir permissão a cada vez. Se der pra mexer direto no banco (Supabase) com segurança, também está liberado — se não der (sem acesso/credencial), avisar e o Cadu faz essa parte.
-- `git commit`: SEMPRE perguntar antes de commitar, mostrando a mensagem de commit que vai usar, e esperar o Cadu confirmar.
+- `git commit`: **COMMITAR SEMPRE, SEM PERGUNTAR** (regra do Cadu, 27/ago/2026 — substitui a
+  regra anterior de pedir autorização). Todo bug corrigido, feature pronta, parte de feature
+  que valha a pena guardar, ajuste de tela, documentação — commita na hora, assim que ficar
+  de pé. Não esperar o fim da conversa, não esperar o Cadu pedir, não juntar várias coisas
+  num commit só para "não incomodar".
+  - Commit **não** é publicação: não sobe nada para o GitHub, não afeta produção, não afeta
+    ninguém. É só salvar. O que exige autorização é o `push`, não o commit.
+  - Avisar o Cadu **no meio da própria resposta**, em uma linha, dizendo o que foi commitado.
+    Não é preciso pedir permissão nem interromper o trabalho para isso.
+  - **Por que essa regra existe:** em 26/ago/2026 uma sessão terminou com horas de ajustes de
+    tela nunca commitados. O trabalho se perdeu inteiro e o Cadu passou por um susto grande
+    achando que três dias tinham sido perdidos. Não deixar trabalho pendente sem commit é
+    obrigação do Claude, não do Cadu.
+  - Antes de terminar QUALQUER resposta, conferir `git status`. Se houver arquivo modificado,
+    commitar antes de responder.
 - `git push`: SEMPRE perguntar antes de dar o push, mesmo quando o ambiente permite fazer direto (ex.: Claude Code local já autenticado). Só dar o push depois do Cadu confirmar.
 - Isso vale como regra permanente: não é preciso o Cadu repetir essa autorização a cada conversa.
 - Push é sempre manual pelo Cadu (Source Control do VS Code) — o Claude não alcança a internet do computador dele. Por isso, para não encavalar pushes enquanto os testes do GitHub Actions de um push anterior ainda estão rodando, o Claude pode ir *commitando* várias mudanças pequenas (sempre com autorização, uma a uma) e deixá-las empilhadas localmente, e o Cadu dá um push só juntando tudo quando quiser — evita poluir o histórico do GitHub com pushs desnecessários.
