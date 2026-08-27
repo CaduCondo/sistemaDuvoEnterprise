@@ -217,12 +217,13 @@ export function PaymentBreakdownCard({
                   />
                 ))}
 
-              <div className="border-t border-dashed my-2"></div>
-
-              <div className="space-y-2">
+              {/* Sem asterisco (nao e obrigatorio) e sem as linhas tracejadas
+                  que existiam acima e abaixo. A explicacao saiu do rodape do
+                  bloco e ficou na linha logo abaixo do proprio campo. */}
+              <div className="space-y-1">
                 <div className="grid grid-cols-2 gap-4 items-center text-sm">
-                  <span>Despesas Adicionais *</span>
-                  
+                  <span>Despesas Adicionais</span>
+
                   {isEditMode ? (
                     <Input
                       id="breakdown-repair-expenses"
@@ -236,6 +237,32 @@ export function PaymentBreakdownCard({
                   ) : (
                     <span className="font-medium text-right">
                       {formatCurrency(repairExpenses)}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Reforma/Limpeza/Pinturas/Reparos necessários
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-4 items-center text-sm">
+                  <span>Valor de Desconto</span>
+                  
+                  {isEditMode ? (
+                    <Input
+                      id="breakdown-discount-termination"
+                      type="text"
+                      placeholder="-R$ 0,00"
+                      value={discountAmountInput}
+                      onChange={(e) => onDiscountAmountChange(e.target.value)}
+                      className="text-right text-red-600 font-medium"
+                      disabled={isReadOnly}
+                    />
+                  ) : (
+                    <span className="font-medium text-right text-red-600">
+                      {discountAmount > 0 ? "- " : ""}
+                      {formatCurrency(discountAmount)}
                     </span>
                   )}
                 </div>
@@ -261,30 +288,6 @@ export function PaymentBreakdownCard({
                 </>
               )}
 
-              <div className="border-t border-dashed my-2"></div>
-
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-4 items-center text-sm">
-                  <span>Valor de Desconto</span>
-                  
-                  {isEditMode ? (
-                    <Input
-                      id="breakdown-discount-termination"
-                      type="text"
-                      placeholder="- R$ 0,00"
-                      value={discountAmountInput}
-                      onChange={(e) => onDiscountAmountChange(e.target.value)}
-                      className="text-right text-red-600 font-medium"
-                      disabled={isReadOnly}
-                    />
-                  ) : (
-                    <span className="font-medium text-right text-red-600">
-                      {discountAmount > 0 ? "- " : ""}
-                      {formatCurrency(discountAmount)}
-                    </span>
-                  )}
-                </div>
-              </div>
 
               <div className="flex justify-between pt-3 border-t-2 border-primary mt-2">
                 <span className="font-bold text-base">VALOR TOTAL</span>
@@ -314,15 +317,26 @@ export function PaymentBreakdownCard({
                   </div>
                 </div>
               )}
-
-              <div className="text-xs text-muted-foreground pt-2 border-t mt-2">
-                * Despesas Adicionais de Reforma/Limpeza/Pinturas ou reparos necessários após a saída do inquilino
-              </div>
             </>
           ) : (
             <>
               <div className="bg-muted/30 p-4 rounded-lg space-y-2">
-                {displayBreakdown.items.map((item: any, index: number) => {
+                {displayBreakdown.items
+                  .filter((item: any) => {
+                    const desc = item.description || "";
+                    // "Multa por Atraso" e "Juros por Atraso" NAO entram aqui:
+                    // ja aparecem, com caixa de selecao, dentro do bloco
+                    // "Atraso no Pagamento". Mostrar nos dois lugares fazia
+                    // parecer que estavam sendo cobrados em dobro.
+                    if (desc.includes("Multa por Atraso")) return false;
+                    if (desc.includes("Juros por Atraso")) return false;
+                    // Devolucao de caucao pertence ao Recebimento de Rescisao,
+                    // nunca ao de aluguel - foi essa mistura que a #49 separou.
+                    if (desc.includes("Devolução de Caução")) return false;
+                    if (desc.includes("Valor Corrigido p/ Devolução")) return false;
+                    return true;
+                  })
+                  .map((item: any, index: number) => {
                   const itemValue = item.value || item.amount || 0;
                   // Limpar a descrição removendo "- Parcela X/Y"
                   const cleanedDescription = cleanLabel(item.description);
@@ -338,6 +352,34 @@ export function PaymentBreakdownCard({
                     </div>
                   );
                 })}
+              </div>
+
+
+              {/* Valor de Desconto vem ANTES do bloco de atraso (27/ago/2026).
+                  Antes ficava sozinho embaixo do bloco vermelho, longe das
+                  outras linhas da conta. Vermelho e com o "-" colado no R$ -
+                  o usuario digita so o numero. */}
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-4 items-center text-sm">
+                  <span className="font-medium">Valor de Desconto</span>
+
+                  {isEditMode ? (
+                    <Input
+                      id="breakdown-discount"
+                      type="text"
+                      placeholder="-R$ 0,00"
+                      value={discountAmountInput}
+                      onChange={(e) => onDiscountAmountChange(e.target.value)}
+                      className="text-right text-red-600 font-medium"
+                      disabled={isReadOnly}
+                    />
+                  ) : (
+                    <span className="font-medium text-right text-red-600">
+                      {discountAmount > 0 ? "-" : ""}
+                      {formatCurrency(discountAmount)}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {values.diasAtraso > 0 && (
@@ -359,31 +401,6 @@ export function PaymentBreakdownCard({
                   />
                 </>
               )}
-
-              <div className="border-t border-dashed my-2"></div>
-
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-4 items-center text-sm">
-                  <span className="font-medium">Valor de Desconto</span>
-                  
-                  {isEditMode ? (
-                    <Input
-                      id="breakdown-discount"
-                      type="text"
-                      placeholder="R$ 0,00"
-                      value={discountAmountInput}
-                      onChange={(e) => onDiscountAmountChange(e.target.value)}
-                      className="text-right"
-                      disabled={isReadOnly}
-                    />
-                  ) : (
-                    <span className="font-medium text-right text-red-600">
-                      {discountAmount > 0 ? "- " : ""}
-                      {formatCurrency(discountAmount)}
-                    </span>
-                  )}
-                </div>
-              </div>
 
               <div className="flex justify-between pt-3 border-t-2 border-primary mt-2">
                 <span className="font-bold text-base">VALOR TOTAL</span>

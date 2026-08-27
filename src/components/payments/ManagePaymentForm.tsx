@@ -299,7 +299,22 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       setIsPaid(alreadyPaid);
       setIsEditMode(!alreadyPaid);
 
-      const isTermination = validatedPayment.notes?.includes("Rescisão de Contrato") || false;
+      // ⚠️ DEFEITO CORRIGIDO EM 27/ago/2026 — as duas telas apareciam TROCADAS.
+      //
+      // Isto lia o TEXTO das observações: notes?.includes("Rescisão de Contrato").
+      // Só que quem escreve essa frase é o recebimento de ALUGUEL da rescisão
+      // ("Rescisão de Contrato - Data de saída: ..."), enquanto o Recebimento de
+      // Rescisão escreve outra ("Recebimento de Rescisão - Data de saída: ...").
+      // Resultado, exatamente invertido:
+      //   - o recebimento de aluguel  -> dava true  -> abria com título "de
+      //     Rescisão de Contrato" e mostrava aluguel proporcional e multa;
+      //   - o Recebimento de Rescisão -> dava false -> abria com título "de
+      //     Aluguel" e mostrava a devolução do caução.
+      //
+      // Agora usa payment_kind, que é o campo criado pela #49 justamente para
+      // dizer o tipo do recebimento. Texto de observação é para o usuário ler,
+      // não para o sistema decidir regra.
+      const isTermination = (validatedPayment as any).payment_kind === "termination";
       setIsTerminationPayment(isTermination);
       
       const waiveLateFee = validatedPayment.late_fee_waived || false;
@@ -1343,7 +1358,6 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
               isTerminationPayment={isTerminationPayment}
               paymentMethodSlot={comboFormaDePagamento}
             />
-            {!isTerminationPayment && comboFormaDePagamento}
           </CardContent>
         </Card>
       </div>

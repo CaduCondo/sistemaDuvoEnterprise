@@ -158,20 +158,10 @@ export const PaymentFormFields = memo(function PaymentFormFields({
           />
         </div>
 
-        {isTerminationPayment && paymentMethodSlot ? (
-          paymentMethodSlot
-        ) : (
-          <div>
-            <Label htmlFor="installment_info">Parcela</Label>
-            <Input
-              id="installment_info"
-              type="text"
-              value={installmentInfo}
-              disabled
-              className="bg-muted"
-            />
-          </div>
-        )}
+        {/* O campo "Parcela" saiu de TODAS as telas (27/ago/2026): era um
+            campo desabilitado, que so repetia a parcela ja mostrada no
+            subtitulo. O combo "Forma de Pagamento" ocupa o lugar dele. */}
+        {paymentMethodSlot}
       </div>
 
       <div>

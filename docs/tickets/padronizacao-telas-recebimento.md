@@ -183,14 +183,48 @@ Formação de Valores
 
 - [x] 1.1 Bloco Atraso: tirar VALOR TOTAL + linha vermelha
 - [x] 1.1 Bloco Atraso: XX com 2 dígitos, singular/plural do "dia"
-- [ ] 1.2 Valor de Desconto: posição acima do bloco Atraso (todas as telas)
-- [ ] 1.2 Valor de Desconto: vermelho com sinal negativo (todas as telas)
+- [x] 1.2 Valor de Desconto: posição acima do bloco Atraso (todas as telas)
+- [x] 1.2 Valor de Desconto: vermelho com sinal negativo (todas as telas)
 - [x] 1.3 Tirar flag roxa "CAUÇÃO"
 - [ ] 2.1 / 2.2 / 2.3 Linhas corretas da Formação de Valores por caso
-- [ ] 2.4 Nunca mostrar Multa/Juros por Atraso soltos
-- [ ] 2.4 Nunca mostrar Devolução de Caução na tela de aluguel
-- [ ] 2.5 Campo Parcela → Forma de Pagamento
+- [x] 2.4 Nunca mostrar Multa/Juros por Atraso soltos
+- [x] 2.4 Nunca mostrar Devolução de Caução na tela de aluguel
+- [x] 2.5 Campo Parcela → Forma de Pagamento
 - [x] 3. Título "Registrar Recebimento de Rescisão de Contrato"
-- [ ] 3. Despesas Adicionais sem asterisco + texto abaixo do campo
-- [ ] 3. Tirar linhas tracejadas do Despesas Adicionais
+- [x] 3. Despesas Adicionais sem asterisco + texto abaixo do campo
+- [x] 3. Tirar linhas tracejadas do Despesas Adicionais
 - [x] 4. Tela de caução sem VALOR TOTAL
+
+---
+
+## Defeito encontrado em 27/ago/2026 — as duas telas apareciam TROCADAS
+
+`ManagePaymentForm.tsx` decidia se um recebimento era de rescisão lendo o
+**texto das observações**:
+
+    notes?.includes("Rescisão de Contrato")
+
+Só que quem escreve essa frase é o recebimento de **aluguel** da rescisão
+("Rescisão de Contrato - Data de saída: ..."), enquanto o Recebimento de
+Rescisão escreve outra ("Recebimento de Rescisão - Data de saída: ...").
+O resultado ficava exatamente invertido:
+
+| registro no banco | o que a tela achava | título que abria | conteúdo que mostrava |
+|---|---|---|---|
+| recebimento de aluguel | rescisão | "de Rescisão de Contrato" | aluguel proporcional + multa |
+| Recebimento de Rescisão | aluguel | "de Aluguel" | devolução do caução |
+
+Corrigido para usar `payment_kind`, que é o campo criado pela #49
+justamente para dizer o tipo do recebimento. **Lição:** texto de observação
+é para o usuário ler, nunca para o sistema decidir regra.
+
+## O que ainda falta (próxima sessão)
+
+- [ ] 2.1/2.2/2.3 — as três composições diferentes da "Formação de Valores"
+      (aluguel comum / rescisão com mês pendente / rescisão com mês já pago).
+      Isso mexe em `terminationService.ts`, no que ele grava em `breakdown`.
+- [ ] Rodapé "Proporcional de XX dia(s) extras - de XX-XX-XXXX até XX-XX-XXXX"
+      nos casos 2.2 e 2.3.
+- [ ] "Corrigido pela Taxa da Poupança" volta a ser link com tooltip
+      mostrando os valores usados na conta do caução (já funcionou antes).
+- [ ] Tela de caução seguir o mesmo layout das outras três.
