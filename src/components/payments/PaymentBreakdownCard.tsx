@@ -271,10 +271,10 @@ export function PaymentBreakdownCard({
                     <Input
                       id="breakdown-discount-termination"
                       type="text"
-                      placeholder="R$ 0,00"
+                      placeholder="- R$ 0,00"
                       value={discountAmountInput}
                       onChange={(e) => onDiscountAmountChange(e.target.value)}
-                      className="text-right"
+                      className="text-right text-red-600 font-medium"
                       disabled={isReadOnly}
                     />
                   ) : (
@@ -363,7 +363,7 @@ export function PaymentBreakdownCard({
               <div className="border-t border-dashed my-2"></div>
 
               <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-4 items-center text-sm bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded">
+                <div className="grid grid-cols-2 gap-4 items-center text-sm">
                   <span className="font-medium">Valor de Desconto</span>
                   
                   {isEditMode ? (

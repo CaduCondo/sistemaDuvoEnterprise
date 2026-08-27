@@ -1,4 +1,5 @@
 # language: pt
+@rescisao49
 Funcionalidade: Rescisão separada da devolução do caução
   Como responsável pela imobiliária
   Quero que a rescisão gere dois recebimentos separados

@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +22,9 @@ interface PaymentFormFieldsProps {
   onPaymentSecondChange: (value: string) => void;
   formatCurrency: (value: string) => string;
   isTerminationPayment?: boolean;
+  // Na tela de rescisao o campo "Parcela" (sempre 1/1) nao informa nada, entao
+  // o combo "Forma de Pagamento" ocupa esse espaco. Ver ManagePaymentForm.
+  paymentMethodSlot?: ReactNode;
 }
 
 export const PaymentFormFields = memo(function PaymentFormFields({
@@ -37,13 +40,14 @@ export const PaymentFormFields = memo(function PaymentFormFields({
   onPaymentSecondChange,
   formatCurrency,
   isTerminationPayment,
+  paymentMethodSlot,
 }: PaymentFormFieldsProps) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="payment_date">
-            Data do Pagamento <span className="text-red-500">*</span>
+            Data do Pagamento <span className="text-muted-foreground">*</span>
           </Label>
           <Input
             id="payment_date"
@@ -114,7 +118,7 @@ export const PaymentFormFields = memo(function PaymentFormFields({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="amount_to_pay">
-            Valor a Pagar <span className="text-red-500">*</span>
+            Valor a Pagar <span className="text-muted-foreground">*</span>
           </Label>
           <Input
             id="amount_to_pay"
@@ -154,16 +158,20 @@ export const PaymentFormFields = memo(function PaymentFormFields({
           />
         </div>
 
-        <div>
-          <Label htmlFor="installment_info">Parcela</Label>
-          <Input
-            id="installment_info"
-            type="text"
-            value={installmentInfo}
-            disabled
-            className="bg-muted"
-          />
-        </div>
+        {isTerminationPayment && paymentMethodSlot ? (
+          paymentMethodSlot
+        ) : (
+          <div>
+            <Label htmlFor="installment_info">Parcela</Label>
+            <Input
+              id="installment_info"
+              type="text"
+              value={installmentInfo}
+              disabled
+              className="bg-muted"
+            />
+          </div>
+        )}
       </div>
 
       <div>

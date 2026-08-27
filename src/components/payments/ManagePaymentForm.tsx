@@ -1211,11 +1211,36 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   const values = calculateValues;
   const isReadOnly = isPaid && !isEditMode;
 
+  // O mesmo combo, montado uma vez so. Na rescisao ele vai para dentro do
+  // PaymentFormFields (no lugar do campo "Parcela", que la e sempre 1/1);
+  // no recebimento de aluguel comum ele fica abaixo, como sempre esteve.
+  const comboFormaDePagamento = (
+    <div>
+      <Label htmlFor="payment-method">Forma de Pagamento *</Label>
+      <Select
+        value={formData.payment_method || ""}
+        onValueChange={(value) => setFormData(prev => ({ ...prev, payment_method: value }))}
+        disabled={isReadOnly}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Selecione a forma de pagamento" />
+        </SelectTrigger>
+        <SelectContent>
+          {paymentMethods.map((method) => (
+            <SelectItem key={method.code} value={method.code}>
+              {method.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold">
-          Registrar Recebimento{isTerminationPayment ? " - Rescisão de Contrato" : ""}
+          Registrar Recebimento{isTerminationPayment ? " - Rescisão de Contrato" : " de Aluguel"}
         </h1>
       </div>
 
@@ -1316,26 +1341,9 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
               onPaymentSecondChange={setPaymentSecond}
               formatCurrency={formatCurrency}
               isTerminationPayment={isTerminationPayment}
+              paymentMethodSlot={comboFormaDePagamento}
             />
-            <div>
-              <Label htmlFor="payment-method">Forma de Pagamento *</Label>
-              <Select
-                value={formData.payment_method || ""}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, payment_method: value }))}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a forma de pagamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.map((method) => (
-                    <SelectItem key={method.code} value={method.code}>
-                      {method.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!isTerminationPayment && comboFormaDePagamento}
           </CardContent>
         </Card>
       </div>
