@@ -160,7 +160,7 @@ export async function processContractTermination(data: TerminationData): Promise
   // sobre as 2. Se nao foi pago nada, nao ha o que devolver.
   const { data: parcelasCaucao, error: erroParcelas } = await supabase
     .from("deposit_installments")
-    .select("paid_amount, status")
+    .select("paid_amount, amount, status")
     .eq("rental_id", rentalId);
 
   if (erroParcelas) {
@@ -168,10 +168,37 @@ export async function processContractTermination(data: TerminationData): Promise
     throw erroParcelas;
   }
 
-  const caucaoPago = (parcelasCaucao || []).reduce(
-    (soma, parcela) => soma + Number(parcela.paid_amount || 0),
-    0
-  );
+  // ⚠️ DEFEITO CORRIGIDO EM 27/ago/2026 — a rescisao nascia ZERADA.
+  //
+  // Somava so `paid_amount`. Existe um defeito antigo em que a parcela de
+  // caucao era marcada como PAGA sem que o valor pago fosse gravado junto
+  // (markDepositInstallmentAsPaid gravava status e data, mas nao o valor) —
+  // ficava "paga por R$ 0,00". Com todas as parcelas assim, a soma dava
+  // zero, a devolucao dava zero, e o Recebimento de Rescisao nascia com
+  // valor R$ 0,00 — foi exatamente o que o Cadu viu na tela.
+  //
+  // Uma parcela marcada como paga valendo zero e um dado inconsistente, nao
+  // um pagamento de zero reais. Nesse caso vale o valor da propria parcela.
+  //
+  // A causa de raiz esta no BANCO e e corrigida pelo passo 4 do
+  // docs/tickets/PROD-rescisao-49.sql (o UPDATE que preenche paid_amount das
+  // parcelas pagas). Esta defesa aqui existe para que uma base que ainda nao
+  // recebeu aquela correcao nao gere rescisao zerada em silencio.
+  const caucaoPago = (parcelasCaucao || []).reduce((soma, parcela: any) => {
+    const valorPago = Number(parcela.paid_amount || 0);
+    const valorDaParcela = Number(parcela.amount || 0);
+
+    if (parcela.status === "paid" && valorPago === 0 && valorDaParcela > 0) {
+      console.warn(
+        `  ⚠️ Parcela de caucao marcada como PAGA com valor R$ 0,00. ` +
+        `Usando o valor da parcela (R$ ${valorDaParcela.toFixed(2)}). ` +
+        `Rode o passo 4 de docs/tickets/PROD-rescisao-49.sql neste banco.`
+      );
+      return soma + valorDaParcela;
+    }
+
+    return soma + valorPago;
+  }, 0);
 
   console.log(`  Caucao contratado: R$ ${depositAmount.toFixed(2)}`);
   console.log(`  Caucao efetivamente pago: R$ ${caucaoPago.toFixed(2)} (${(parcelasCaucao || []).length} parcelas)`);
@@ -548,6 +575,31 @@ export async function processContractTermination(data: TerminationData): Promise
     if (erroRescisao) {
       console.error("  ❌ Erro ao criar o Recebimento de Rescisão:", erroRescisao);
       throw erroRescisao;
+    }
+
+    // ⚠️ Trava contra o trigger antigo do banco (27/ago/2026).
+    //
+    // O Recebimento de Rescisão nasce PENDENTE: quem decide se foi quitado é
+    // a aplicação, não o banco. Só que o trigger validate_payment_status, na
+    // versão anterior à #49, olhava "esperado − pago" e, vendo zero de um
+    // lado e zero do outro, cravava 'paid' por cima do 'pending'.
+    //
+    // O desvio para payment_kind='termination' está no passo 3 do
+    // docs/tickets/PROD-rescisao-49.sql. Num banco que ainda não recebeu
+    // aquele passo, o recebimento nascia marcado como PAGO e não havia como
+    // desmarcar pela tela. Este UPDATE devolve o status correto logo após a
+    // inserção — inofensivo num banco já corrigido.
+    // `(supabase as any)`: os tipos gerados ainda nao conhecem as colunas da
+    // #49 em "payments", e a cadeia tipada estoura o limite de inferencia do TS.
+    const { error: erroStatusRescisao } = await (supabase as any)
+      .from("payments")
+      .update({ status: "pending" })
+      .eq("termination_group_id", grupoRescisao)
+      .eq("payment_kind", "termination")
+      .neq("status", "pending");
+
+    if (erroStatusRescisao) {
+      console.warn("  ⚠️ Nao foi possivel reafirmar o status pendente:", erroStatusRescisao);
     }
 
     console.log(`  ✅ Recebimento de Rescisão criado: R$ ${totalRescisao.toFixed(2)}`);
