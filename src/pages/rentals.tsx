@@ -534,17 +534,28 @@ export default function RentalsPage() {
     const rental = rentalForPaymentHistory;
     
     try {
-      // Buscar pagamentos do rental
-      const { data, error } = await supabase
-        .from("payments")
-        .select("*")
-        .eq("rental_id", rental.id)
-        .order("installment", { ascending: true });
+      // O historico e de TODOS os recebimentos da locacao (27/ago/2026):
+      // aluguel, caucao e rescisao juntos, cada linha dizendo o seu tipo, do
+      // mais recente para o mais antigo. Antes so trazia os de aluguel, e
+      // quem quisesse ver as parcelas de caucao tinha de procurar em outra
+      // tela — sendo que o historico e justamente o lugar de ver tudo.
+      const [recebimentos, parcelasCaucao] = await Promise.all([
+        (supabase as any)
+          .from("payments")
+          .select("*")
+          .eq("rental_id", rental.id),
+        (supabase as any)
+          .from("deposit_installments")
+          .select("*")
+          .eq("rental_id", rental.id),
+      ]);
 
-      if (error) throw error;
+      if (recebimentos.error) throw recebimentos.error;
+      if (parcelasCaucao.error) throw parcelasCaucao.error;
 
-      const payments = (data || []).map((p) => ({
+      const linhasRecebimentos = (recebimentos.data || []).map((p: any) => ({
         id: p.id,
+        tipo: p.payment_kind === "termination" ? "Rescisão" : "Aluguel",
         due_date: p.due_date,
         payment_date: p.payment_date,
         amount_paid: p.paid_amount || 0,
@@ -552,6 +563,27 @@ export default function RentalsPage() {
         status: p.status === "paid" || p.status === "partial" ? "pago" : "pendente",
         installment_number: p.installment || 0,
       }));
+
+      const linhasCaucao = (parcelasCaucao.data || []).map((c: any) => ({
+        id: c.id,
+        tipo: "Caução",
+        due_date: c.due_date,
+        payment_date: c.payment_date,
+        // Parcela marcada como paga sem valor gravado e dado inconsistente:
+        // vale o valor da propria parcela (mesma regra do terminationService).
+        amount_paid:
+          c.status === "paid" && !Number(c.paid_amount || 0)
+            ? Number(c.amount || 0)
+            : Number(c.paid_amount || 0),
+        expected_amount: Number(c.amount || 0),
+        status: c.status === "paid" || c.status === "partial" ? "pago" : "pendente",
+        installment_number: c.installment_number || 0,
+      }));
+
+      // Mais recentes no topo. Sem data de vencimento vai para o fim.
+      const payments = [...linhasRecebimentos, ...linhasCaucao].sort((a, b) =>
+        (b.due_date || "").localeCompare(a.due_date || "")
+      );
 
       const location = rental?.property?.location || "-";
       const complement = rental?.property?.complement || "-";
@@ -663,6 +695,17 @@ export default function RentalsPage() {
                 color: #15803d;
                 font-weight: 600;
               }
+              .tipo {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: 600;
+                white-space: nowrap;
+              }
+              .tipo-aluguel  { background: #e0f2fe; color: #075985; }
+              .tipo-caucao   { background: #ede9fe; color: #5b21b6; }
+              .tipo-rescisao { background: #fef3c7; color: #92400e; }
               @media print {
                 body {
                   padding: 0;
@@ -694,6 +737,7 @@ export default function RentalsPage() {
               <thead>
                 <tr>
                   <th>Parcela</th>
+                  <th>Tipo</th>
                   <th>Vencimento</th>
                   <th>Pagamento</th>
                   <th>Status</th>
@@ -705,7 +749,8 @@ export default function RentalsPage() {
                 ${payments.map(payment => `
                   <tr>
                     <td>${payment.installment_number}</td>
-                    <td>${new Date(payment.due_date + "T00:00:00").toLocaleDateString("pt-BR")}</td>
+                    <td><span class="tipo tipo-${payment.tipo === "Aluguel" ? "aluguel" : payment.tipo === "Caução" ? "caucao" : "rescisao"}">${payment.tipo}</span></td>
+                    <td>${payment.due_date ? new Date(payment.due_date + "T00:00:00").toLocaleDateString("pt-BR") : "-"}</td>
                     <td>${payment.payment_date ? new Date(payment.payment_date + "T00:00:00").toLocaleDateString("pt-BR") : "-"}</td>
                     <td>
                       <span class="${payment.status === "pago" ? "status-pago" : "status-pendente"}">
@@ -719,7 +764,7 @@ export default function RentalsPage() {
                   </tr>
                 `).join("")}
                 <tr class="total-row">
-                  <td colspan="5" class="text-right">Total Pago:</td>
+                  <td colspan="6" class="text-right">Total Pago:</td>
                   <td class="text-right text-green">${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPaid)}</td>
                 </tr>
               </tbody>
