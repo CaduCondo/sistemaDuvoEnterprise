@@ -4,7 +4,8 @@ interface LateFeeInterestBlockProps {
   daysLate: number;
   lateFee: number;
   interest: number;
-  finalTotal: number;
+  /** @deprecated Nao e mais exibido aqui (ver 27/ago/2026). Mantido para nao quebrar quem ainda passa. */
+  finalTotal?: number;
   includeLateFee: boolean;
   includeInterest: boolean;
   onIncludeLateFeeChange: (checked: boolean) => void;
@@ -19,7 +20,7 @@ export function LateFeeInterestBlock({
   daysLate,
   lateFee,
   interest,
-  finalTotal,
+  finalTotal: _finalTotalNaoUsado,
   includeLateFee,
   includeInterest,
   onIncludeLateFeeChange,
@@ -39,7 +40,11 @@ export function LateFeeInterestBlock({
   return (
     <div className="space-y-3 p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
       <div className="text-sm font-semibold text-red-700 dark:text-red-400 mb-3">
-        Atraso no Pagamento: {daysLate} {daysLate === 1 ? "dia" : "dias"}
+        {/* XX sempre com 2 digitos (07, nao 7). "01 dia" no singular;
+            qualquer outro numero, "dias". Padronizacao pedida pelo Cadu
+            em 27/ago/2026 - ver padronizacao-telas-recebimento.md. */}
+        Atraso no Pagamento: {String(daysLate).padStart(2, "0")}{" "}
+        {daysLate === 1 ? "dia" : "dias"}
       </div>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -91,13 +96,10 @@ export function LateFeeInterestBlock({
             {formatCurrency(interest)}
           </span>
         </div>
-        
-        <div className="flex justify-between items-center pt-3 border-t border-red-300 dark:border-red-700 font-bold text-base">
-          <span>VALOR TOTAL</span>
-          <span className="text-red-600">
-            {formatCurrency(finalTotal)}
-          </span>
-        </div>
+
+        {/* O VALOR TOTAL NAO entra aqui (nem a linha vermelha que o separava).
+            O total da tela e um so, no rodape da "Formacao de Valores" - ter
+            dois totais na mesma tela confundia qual era o de verdade. */}
       </div>
     </div>
   );

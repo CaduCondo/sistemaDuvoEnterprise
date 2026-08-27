@@ -181,16 +181,16 @@ Formação de Valores
 
 ## Estado
 
-- [ ] 1.1 Bloco Atraso: tirar VALOR TOTAL + linha vermelha
-- [ ] 1.1 Bloco Atraso: XX com 2 dígitos, singular/plural do "dia"
+- [x] 1.1 Bloco Atraso: tirar VALOR TOTAL + linha vermelha
+- [x] 1.1 Bloco Atraso: XX com 2 dígitos, singular/plural do "dia"
 - [ ] 1.2 Valor de Desconto: posição acima do bloco Atraso (todas as telas)
 - [ ] 1.2 Valor de Desconto: vermelho com sinal negativo (todas as telas)
-- [ ] 1.3 Tirar flag roxa "CAUÇÃO"
+- [x] 1.3 Tirar flag roxa "CAUÇÃO"
 - [ ] 2.1 / 2.2 / 2.3 Linhas corretas da Formação de Valores por caso
 - [ ] 2.4 Nunca mostrar Multa/Juros por Atraso soltos
 - [ ] 2.4 Nunca mostrar Devolução de Caução na tela de aluguel
 - [ ] 2.5 Campo Parcela → Forma de Pagamento
-- [ ] 3. Título "Registrar Recebimento de Rescisão de Contrato"
+- [x] 3. Título "Registrar Recebimento de Rescisão de Contrato"
 - [ ] 3. Despesas Adicionais sem asterisco + texto abaixo do campo
 - [ ] 3. Tirar linhas tracejadas do Despesas Adicionais
-- [ ] 4. Tela de caução sem VALOR TOTAL
+- [x] 4. Tela de caução sem VALOR TOTAL

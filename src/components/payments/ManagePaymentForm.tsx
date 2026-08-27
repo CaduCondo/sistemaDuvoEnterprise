@@ -1240,7 +1240,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     <div className="space-y-6">
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold">
-          Registrar Recebimento{isTerminationPayment ? " - Rescisão de Contrato" : " de Aluguel"}
+          Registrar Recebimento{isTerminationPayment ? " de Rescisão de Contrato" : " de Aluguel"}
         </h1>
       </div>
 

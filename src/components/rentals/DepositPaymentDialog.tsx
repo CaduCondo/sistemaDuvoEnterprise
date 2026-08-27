@@ -648,8 +648,7 @@ export function DepositPaymentDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl font-bold justify-center">
             <ShieldCheck className="h-6 w-6 text-indigo-600" />
-            Recebimento de Caução
-            <Badge className="bg-indigo-600 text-white hover:bg-indigo-600">CAUÇÃO</Badge>
+            Registrar Recebimento de Caução
           </DialogTitle>
         </DialogHeader>
 
