@@ -174,8 +174,8 @@ consciente e temporária, não o estado final.**
 - [x] D1 remover o campo "Valor da Multa (opcional)"
 - [ ] E composição do caso "mês já pago" + rodapé do proporcional
 - [ ] F flag Rescisão no recebimento certo + numeração 1/1 e 10/10
-- [ ] G1 4 colunas para o fim da tabela
-- [ ] G2 linha de TOTAL
-- [ ] G3 "Valor Pago" -> "Valor Recebido"
+- [x] G1 4 colunas para o fim da tabela
+- [x] G2 linha de TOTAL
+- [x] G3 "Valor Pago" -> "Valor Recebido"
 - [ ] H1 testes BDD cobrindo tudo
 - [ ] H2 smoke amplo temporário

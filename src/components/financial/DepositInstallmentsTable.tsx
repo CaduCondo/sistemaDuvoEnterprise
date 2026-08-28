@@ -474,6 +474,60 @@ export function DepositInstallmentsTable({
   // Achatar os grupos para cálculo de totais (MEMOIZADO)
   const visibleData = useMemo(() => sortedGroups.flatMap(group => group), [sortedGroups]);
 
+                          /**
+   * Totais do rodape da tabela (28/ago/2026).
+   *
+   * Cuidado com as colunas MESCLADAS: "Valor Total Caução", "Valor Parceiro",
+   * "Valor Corretor" e as quatro da rescisao aparecem uma vez por LOCACAO
+   * (rowSpan), nao por parcela. Somar linha a linha multiplicaria esses
+   * valores pelo numero de parcelas. Por isso cada locacao entra uma vez so.
+   * "Valor Recebido" e por parcela e soma normalmente.
+   */
+  const totaisDoRodape = useMemo(() => {
+    const locacoesJaSomadas = new Set<string>();
+    let totalCaucao = 0;
+    let totalParceiro = 0;
+    let totalCorretor = 0;
+    let totalRecebido = 0;
+    let totalCorrigido = 0;
+    let totalDespesas = 0;
+    let totalDesconto = 0;
+
+    for (const parcela of visibleData) {
+      const inst = parcela as any;
+
+      // Por parcela.
+      totalRecebido += Number(inst.paid_amount || 0);
+
+      const rentalId = inst.rental_id;
+      if (!rentalId || locacoesJaSomadas.has(rentalId)) continue;
+      locacoesJaSomadas.add(rentalId);
+
+      // Uma vez por locacao (colunas mescladas).
+      totalCaucao += Number(inst.rental?.security_deposit || 0);
+      totalParceiro += Number(inst.partner_commission || 0);
+      totalCorretor += Number(inst.internal_commission || 0);
+
+      const rescisao = terminationByRental[rentalId];
+      if (rescisao) {
+        totalCorrigido += rescisao.corrected;
+        totalDespesas += rescisao.expenses;
+        totalDesconto += rescisao.discount;
+      }
+    }
+
+    return {
+      totalCaucao,
+      totalParceiro,
+      totalCorretor,
+      totalRecebido,
+      totalCorrigido,
+      totalDespesas,
+      totalDesconto,
+      totalRescisao: totalCorrigido + totalDespesas + totalDesconto,
+    };
+  }, [visibleData, terminationByRental]);
+
   // Calcular rowSpan para cada linha (para mesclar células da mesma locação)
   const rowSpanMap = useMemo(() => {
     const map = new Map<string, { start: number; count: number }>();
@@ -738,10 +792,6 @@ export function DepositInstallmentsTable({
                     </TableHead>
                     <TableHead className="text-center font-semibold">Valor Aluguel</TableHead>
                     <TableHead className="text-center font-semibold">Valor Total Caução</TableHead>
-                    <TableHead className="text-center font-semibold">Valor Corrigido p/ Devolução</TableHead>
-                    <TableHead className="text-center font-semibold">Despesas Adicionais</TableHead>
-                    <TableHead className="text-center font-semibold">Valor Desconto</TableHead>
-                    <TableHead className="text-center font-semibold">Valor Total</TableHead>
                     <TableHead className="text-center font-semibold">Corretor Parceiro</TableHead>
                     <TableHead className="text-center font-semibold">Valor Parceiro</TableHead>
                     <TableHead className="text-center font-semibold">Valor Corretor</TableHead>
@@ -749,11 +799,18 @@ export function DepositInstallmentsTable({
                     <TableHead className="text-center font-semibold">Status</TableHead>
                     <TableHead className="text-center font-semibold">Data Vencimento</TableHead>
                     <TableHead className="text-center font-semibold">Data Pagamento</TableHead>
-                    <TableHead className="text-center font-semibold">Valor Pago</TableHead>
+                    <TableHead className="text-center font-semibold">Valor Recebido</TableHead>
                     <TableHead className="text-center font-semibold">Código PIX</TableHead>
                     {statusFilter !== "active" && (
                       <TableHead className="text-center font-semibold">Valor Devolvido</TableHead>
                     )}
+                    {/* As 4 colunas da rescisao ficam no FIM da tabela, depois do
+                        Codigo PIX (28/ago/2026). Estavam no meio, separando as
+                        colunas de caucao das de comissao. */}
+                    <TableHead className="text-center font-semibold">Valor Corrigido p/ Devolução</TableHead>
+                    <TableHead className="text-center font-semibold">Despesas Adicionais</TableHead>
+                    <TableHead className="text-center font-semibold">Valor Desconto</TableHead>
+                    <TableHead className="text-center font-semibold">Valor Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -808,46 +865,6 @@ export function DepositInstallmentsTable({
                           </TableCell>
                         )}
 
-                        {/* As 4 colunas da rescisão (#49) - mesclado, vazio até a locação ser rescindida */}
-                        {shouldRenderCell(rentalId, index) && (() => {
-                          const rescisao = terminationByRental[rentalId];
-                          const totalRescisao = rescisao
-                            ? rescisao.corrected + rescisao.expenses + rescisao.discount
-                            : null;
-                          const span = getRowSpan(rentalId);
-                          const corDoValor = (valor: number | null) =>
-                            valor !== null && valor < 0 ? "text-red-600 font-semibold" : "";
-
-                          return (
-                            <>
-                              <TableCell
-                                className={`text-right whitespace-nowrap ${corDoValor(rescisao ? rescisao.corrected : null)}`}
-                                rowSpan={span}
-                              >
-                                {rescisao ? formatCurrency(rescisao.corrected) : "-"}
-                              </TableCell>
-                              <TableCell
-                                className={`text-right whitespace-nowrap ${corDoValor(rescisao ? rescisao.expenses : null)}`}
-                                rowSpan={span}
-                              >
-                                {rescisao ? formatCurrency(rescisao.expenses) : "-"}
-                              </TableCell>
-                              <TableCell
-                                className={`text-right whitespace-nowrap ${corDoValor(rescisao ? rescisao.discount : null)}`}
-                                rowSpan={span}
-                              >
-                                {rescisao ? formatCurrency(rescisao.discount) : "-"}
-                              </TableCell>
-                              <TableCell
-                                className={`text-right font-semibold whitespace-nowrap ${corDoValor(totalRescisao)}`}
-                                rowSpan={span}
-                              >
-                                {totalRescisao !== null ? formatCurrency(totalRescisao) : "-"}
-                              </TableCell>
-                            </>
-                          );
-                        })()}
-                        
                         {/* Corretor Parceiro - mesclado - SEM COLORAÇÃO */}
                         {shouldRenderCell(rentalId, index) && (
                           <TableCell className="text-center" rowSpan={getRowSpan(rentalId)}>
@@ -1059,9 +1076,89 @@ export function DepositInstallmentsTable({
                             )}
                           </TableCell>
                         )}
+
+                        {/* As 4 colunas da rescisão (#49) — no FIM da tabela, depois do
+                            Código PIX e do Valor Devolvido. Mescladas por locação,
+                            vazias enquanto não houver rescisão. */}
+                        {shouldRenderCell(rentalId, index) && (() => {
+                          const rescisao = terminationByRental[rentalId];
+                          const totalRescisao = rescisao
+                            ? rescisao.corrected + rescisao.expenses + rescisao.discount
+                            : null;
+                          const span = getRowSpan(rentalId);
+                          const corDoValor = (valor: number | null) =>
+                            valor !== null && valor < 0 ? "text-red-600 font-semibold" : "";
+
+  return (
+                            <>
+                              <TableCell
+                                className={`text-right whitespace-nowrap ${corDoValor(rescisao ? rescisao.corrected : null)}`}
+                                rowSpan={span}
+                              >
+                                {rescisao ? formatCurrency(rescisao.corrected) : "-"}
+                              </TableCell>
+                              <TableCell
+                                className={`text-right whitespace-nowrap ${corDoValor(rescisao ? rescisao.expenses : null)}`}
+                                rowSpan={span}
+                              >
+                                {rescisao ? formatCurrency(rescisao.expenses) : "-"}
+                              </TableCell>
+                              <TableCell
+                                className={`text-right whitespace-nowrap ${corDoValor(rescisao ? rescisao.discount : null)}`}
+                                rowSpan={span}
+                              >
+                                {rescisao ? formatCurrency(rescisao.discount) : "-"}
+                              </TableCell>
+                              <TableCell
+                                className={`text-right font-semibold whitespace-nowrap ${corDoValor(totalRescisao)}`}
+                                rowSpan={span}
+                              >
+                                {totalRescisao !== null ? formatCurrency(totalRescisao) : "-"}
+                              </TableCell>
+                            </>
+                          );
+                        })()}
+
                       </TableRow>
                     );
                   })}
+                  {/* Linha de TOTAL (28/ago/2026). As colunas sem soma ficam
+                      vazias de proposito — um traco ali sugeriria "zero". */}
+                  {visibleData.length > 0 && (
+                    <TableRow className="bg-muted/60 font-bold border-t-2 hover:bg-muted/60">
+                      <TableCell className="text-right whitespace-nowrap" colSpan={4}>
+                        TOTAL
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        {formatCurrency(totaisDoRodape.totalCaucao)}
+                      </TableCell>
+                      <TableCell />
+                      <TableCell className="text-right whitespace-nowrap">
+                        {formatCurrency(totaisDoRodape.totalParceiro)}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        {formatCurrency(totaisDoRodape.totalCorretor)}
+                      </TableCell>
+                      <TableCell colSpan={4} />
+                      <TableCell className="text-right whitespace-nowrap text-green-700 dark:text-green-400">
+                        {formatCurrency(totaisDoRodape.totalRecebido)}
+                      </TableCell>
+                      <TableCell />
+                      {statusFilter !== "active" && <TableCell />}
+                      <TableCell className={`text-right whitespace-nowrap ${totaisDoRodape.totalCorrigido < 0 ? "text-red-600" : ""}`}>
+                        {formatCurrency(totaisDoRodape.totalCorrigido)}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        {formatCurrency(totaisDoRodape.totalDespesas)}
+                      </TableCell>
+                      <TableCell className={`text-right whitespace-nowrap ${totaisDoRodape.totalDesconto < 0 ? "text-red-600" : ""}`}>
+                        {formatCurrency(totaisDoRodape.totalDesconto)}
+                      </TableCell>
+                      <TableCell className={`text-right whitespace-nowrap ${totaisDoRodape.totalRescisao < 0 ? "text-red-600" : ""}`}>
+                        {formatCurrency(totaisDoRodape.totalRescisao)}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
