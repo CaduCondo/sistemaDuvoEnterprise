@@ -164,14 +164,14 @@ consciente e temporária, não o estado final.**
 ## Estado
 
 - [ ] A1 tela de caução com o layout das outras
-- [ ] A2 "-R$" no Valor de Desconto (3 telas)
-- [ ] A3 fundo azul no bloco Formação de Valores
-- [ ] A4 subtítulo "Parcela XX/XX" na tela de aluguel
+- [x] A2 "-R$" no Valor de Desconto (3 telas)
+- [x] A3 fundo azul no bloco Formação de Valores
+- [x] A4 subtítulo "Parcela XX/XX" na tela de aluguel
 - [ ] B1 tooltip da poupança no diálogo de rescisão (está em branco)
 - [ ] B2 duas linhas + link do tooltip na tela de rescisão
-- [ ] C1 confirm() do cancelamento de caução
-- [ ] C2 varredura de alert/confirm/prompt no sistema
-- [ ] D1 remover o campo "Valor da Multa (opcional)"
+- [x] C1 confirm() do cancelamento de caução
+- [x] C2 varredura de alert/confirm/prompt no sistema
+- [x] D1 remover o campo "Valor da Multa (opcional)"
 - [ ] E composição do caso "mês já pago" + rodapé do proporcional
 - [ ] F flag Rescisão no recebimento certo + numeração 1/1 e 10/10
 - [ ] G1 4 colunas para o fim da tabela

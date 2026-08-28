@@ -15,7 +15,8 @@ export const formatCurrency = (value: string | number): string => {
     maximumFractionDigits: 2,
   });
   
-  return isNegative ? `- R$ ${formatted}` : `R$ ${formatted}`;
+  // O "-" fica COLADO no R$ ("-R$ 1.234,56"), padronizacao de 28/ago/2026.
+  return isNegative ? `-R$ ${formatted}` : `R$ ${formatted}`;
 };
 
 export const parseCurrency = (value: string): number => {

@@ -91,6 +91,10 @@ import { LocationExpensesDialog } from "@/components/settings/LocationExpensesDi
 import { HelpDialog } from "@/components/HelpDialog";
 
 export default function Settings() {
+  // Forma de pagamento aguardando confirmacao de exclusao (null = dialogo fechado).
+  const [formaPagamentoParaExcluir, setFormaPagamentoParaExcluir] =
+    useState<{ id: string; name: string } | null>(null);
+
   const { user } = useAuth();
   const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState("company");
@@ -806,25 +810,10 @@ export default function Settings() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={async () => {
-                            if (confirm(`Deseja excluir ${method.name}?`)) {
-                              try {
-                                await deletePaymentMethod(method.id);
-                                showAlert({ 
-                                  title: "Forma de pagamento excluída",
-                                  description: "A forma de pagamento foi excluída com sucesso.",
-                                  type: "success",
-                                });
-                                await fetchPaymentMethods();
-                              } catch (error) {
-                                showAlert({ 
-                                  title: "Erro ao excluir",
-                                  description: "Não foi possível excluir a forma de pagamento.",
-                                  type: "error",
-                                });
-                              }
-                            }
-                          }}
+                          // Era um confirm() cru do navegador (28/ago/2026).
+                          // Agora abre o AlertDialog do sistema, montado no
+                          // fim desta pagina.
+                          onClick={() => setFormaPagamentoParaExcluir(method)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -1139,6 +1128,53 @@ export default function Settings() {
             <LogsTab />
           </TabsContent>
         </Tabs>
+
+      <AlertDialog
+        open={!!formaPagamentoParaExcluir}
+        onOpenChange={(aberto) => !aberto && setFormaPagamentoParaExcluir(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Excluir a forma de pagamento "{formaPagamentoParaExcluir?.name}"?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Ela deixa de aparecer nas telas de recebimento. Recebimentos já
+              registrados com ela não são alterados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                const alvo = formaPagamentoParaExcluir;
+                setFormaPagamentoParaExcluir(null);
+                if (!alvo) return;
+                try {
+                  await deletePaymentMethod(alvo.id);
+                  showAlert({
+                    title: "Forma de pagamento excluída",
+                    description: "A forma de pagamento foi excluída com sucesso.",
+                    type: "success",
+                  });
+                  await fetchPaymentMethods();
+                } catch (error) {
+                  showAlert({
+                    title: "Erro ao excluir",
+                    description: "Não foi possível excluir a forma de pagamento.",
+                    type: "error",
+                  });
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
 
         {/* DIALOG DE LOCAL */}
         <Dialog open={isLocationDialogOpen} onOpenChange={(open) => {

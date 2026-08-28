@@ -1257,6 +1257,11 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         <h1 className="text-2xl font-bold">
           Registrar Recebimento{isTerminationPayment ? " de Rescisão de Contrato" : " de Aluguel"}
         </h1>
+        {/* Subtitulo com a parcela, igual as telas de caucao e rescisao
+            (28/ago/2026). O Recebimento de Rescisao e sempre 1/1. */}
+        <p className="text-sm text-muted-foreground mt-1">
+          Parcela {installmentInfo}
+        </p>
       </div>
 
       <PaymentInfoCards rental={rental} property={property} tenant={tenant} />

@@ -525,11 +525,13 @@ export function DepositPaymentDialog({
 
   // ✅ Reseta a parcela inteira (todos os pagamentos e o histórico) de volta
   // pra Pendente - equivalente ao "Cancelar Pagamento" do aluguel.
-  const handleDelete = async () => {
-    if (!confirm("Deseja realmente excluir todos os recebimentos desta parcela? O status voltará para Pendente e o histórico será apagado.")) {
-      return;
-    }
+  // ⚠️ Era um confirm() cru do navegador ("localhost:3000 diz..."), fora do
+  // visual do sistema (28/ago/2026). Agora abre o AlertDialog do projeto,
+  // que este arquivo ja importa.
+  const [confirmarExclusaoAberto, setConfirmarExclusaoAberto] = useState(false);
 
+  const handleDelete = async () => {
+    setConfirmarExclusaoAberto(false);
     setLoading(true);
     try {
       const { error } = await supabase
@@ -899,7 +901,7 @@ export function DepositPaymentDialog({
                 <Button
                   type="button"
                   variant="destructive"
-                  onClick={handleDelete}
+                  onClick={() => setConfirmarExclusaoAberto(true)}
                   disabled={loading}
                 >
                   <X className="h-4 w-4 mr-2" />
@@ -970,6 +972,30 @@ export function DepositPaymentDialog({
               disabled={isDeletingEntry}
             >
               {isDeletingEntry ? "Excluindo..." : "Excluir recibo"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmacao de "Excluir Todos os Recebimentos" — era um confirm()
+          cru do navegador ate 28/ago/2026. Mesmo padrao do dialogo acima. */}
+      <AlertDialog open={confirmarExclusaoAberto} onOpenChange={setConfirmarExclusaoAberto}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir todos os recebimentos desta parcela?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O status da parcela volta para Pendente e o histórico de recebimentos
+              é apagado. Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={loading}
+            >
+              {loading ? "Excluindo..." : "Excluir todos"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

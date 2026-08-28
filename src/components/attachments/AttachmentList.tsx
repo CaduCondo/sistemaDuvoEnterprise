@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FileText, Image as ImageIcon, Eye, Download, Trash2 } from "lucide-react";
 import { Lightbox } from "@/components/Lightbox";
 import { getAttachmentKind, getWordViewerUrl, normalizeAttachmentUrl } from "@/lib/attachmentDisplay";
+import { useAlert } from "@/contexts/AlertContext";
 
 export interface AttachmentListItem {
   id?: string;
@@ -20,6 +21,7 @@ interface AttachmentListProps {
 // (Locação, Recebimento de Aluguel, Recebimento de Caução). Uma linha por arquivo:
 // ícone, nome, "Visualizar · Baixar" e lixeira (quando não for somente leitura).
 export function AttachmentList({ attachments, isReadOnly, onRemove }: AttachmentListProps) {
+  const { showAlert } = useAlert();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -45,7 +47,11 @@ export function AttachmentList({ attachments, isReadOnly, onRemove }: Attachment
     try {
       const check = await fetch(normalizedUrl, { method: "HEAD" });
       if (check.status === 404) {
-        alert("Este anexo não está mais disponível (arquivo antigo perdido). Não é possível visualizar.");
+        showAlert({
+          type: "error",
+          title: "Anexo indisponível",
+          description: "Este arquivo não está mais no servidor e não pode ser visualizado.",
+        });
         return;
       }
     } catch {
@@ -56,7 +62,11 @@ export function AttachmentList({ attachments, isReadOnly, onRemove }: Attachment
     const target = kind === "word" ? getWordViewerUrl(normalizedUrl) : normalizedUrl;
     const win = window.open(target, "_blank");
     if (!win) {
-      alert("Não foi possível abrir o anexo. Verifique se o arquivo ainda existe.");
+      showAlert({
+        type: "error",
+        title: "Não foi possível abrir o anexo",
+        description: "Verifique se o bloqueador de pop-ups está ativo e se o arquivo ainda existe.",
+      });
     }
   };
 
@@ -75,7 +85,11 @@ export function AttachmentList({ attachments, isReadOnly, onRemove }: Attachment
       // abaixo e abria uma aba nova só com a página de erro 404 - agora avisa
       // com uma mensagem clara em vez de abrir um link quebrado.
       if (response.status === 404) {
-        alert("Este anexo não está mais disponível (arquivo antigo perdido). Não é possível baixar.");
+        showAlert({
+          type: "error",
+          title: "Anexo indisponível",
+          description: "Este arquivo não está mais no servidor e não pode ser baixado.",
+        });
         return;
       }
 
@@ -101,7 +115,11 @@ export function AttachmentList({ attachments, isReadOnly, onRemove }: Attachment
       // Alternativa: abre em nova aba (funciona ainda que não force o download)
       const win = window.open(normalizedUrl, "_blank");
       if (!win) {
-        alert("Não foi possível baixar o anexo. Verifique se o arquivo ainda existe.");
+        showAlert({
+          type: "error",
+          title: "Não foi possível baixar o anexo",
+          description: "Verifique se o arquivo ainda existe.",
+        });
       }
     }
   };

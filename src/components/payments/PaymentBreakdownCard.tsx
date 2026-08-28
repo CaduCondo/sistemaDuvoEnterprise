@@ -152,6 +152,17 @@ interface PaymentBreakdownCardProps {
   rental?: any;
 }
 
+/**
+ * O campo "Valor de Desconto" mostra o "-" preso, colado no R$ ("-R$ 200,00").
+ * O usuario digita so o numero — o sinal nunca e responsabilidade dele
+ * (decisao do Cadu, 21/ago/2026). Como applyMoneyMask descarta tudo que nao e
+ * digito, devolver o valor com "-" no onChange e inofensivo.
+ */
+function comSinalDeDesconto(valorFormatado: string): string {
+  if (!valorFormatado) return "";
+  return valorFormatado.startsWith("-") ? valorFormatado : `-${valorFormatado}`;
+}
+
 export function PaymentBreakdownCard({
   isTerminationPayment,
   originalBreakdown,
@@ -189,8 +200,10 @@ export function PaymentBreakdownCard({
   const remainingDue = Math.max(0, Math.abs(finalTotal) - (paidAmount || 0));
   const showPartialInfo = paymentStatus === 'partial' && (paidAmount || 0) > 0;
 
+  // O fundo azul claro do bloco deixou de ser exclusivo da rescisao
+  // (28/ago/2026): as quatro telas de recebimento usam o mesmo.
   return (
-    <Card className={isTerminationPayment ? "border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950" : ""}>
+    <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <DollarSign className="h-5 w-5" />
@@ -254,7 +267,7 @@ export function PaymentBreakdownCard({
                       id="breakdown-discount-termination"
                       type="text"
                       placeholder="-R$ 0,00"
-                      value={discountAmountInput}
+                      value={comSinalDeDesconto(discountAmountInput)}
                       onChange={(e) => onDiscountAmountChange(e.target.value)}
                       className="text-right text-red-600 font-medium"
                       disabled={isReadOnly}
@@ -368,7 +381,7 @@ export function PaymentBreakdownCard({
                       id="breakdown-discount"
                       type="text"
                       placeholder="-R$ 0,00"
-                      value={discountAmountInput}
+                      value={comSinalDeDesconto(discountAmountInput)}
                       onChange={(e) => onDiscountAmountChange(e.target.value)}
                       className="text-right text-red-600 font-medium"
                       disabled={isReadOnly}

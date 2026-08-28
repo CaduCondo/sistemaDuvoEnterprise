@@ -25,7 +25,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { calcularProporcionalAluguelEGaragem } from "@/lib/rentalCalculations";
-import { parseCurrencyToNumber } from "@/lib/masks";
 
 interface RentalTerminationDialogProps {
   open: boolean;
@@ -49,10 +48,6 @@ export function RentalTerminationDialog({
   const [applyFullContractPenalty, setApplyFullContractPenalty] = useState<boolean>(false);
   const [apply12MonthsPenalty, setApply12MonthsPenalty] = useState<boolean>(false);
   const [penaltyAmount, setPenaltyAmount] = useState<number>(0);
-  // Valor de multa digitado manualmente. Quando preenchido, sobrescreve o
-  // valor calculado pelas duas clausulas abaixo - a rescisao real as vezes
-  // usa um valor negociado que nao e nenhuma das duas formulas do contrato.
-  const [penaltyAmountInput, setPenaltyAmountInput] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [depositAmount, setDepositAmount] = useState<number>(0);
   const [proportionalDays, setProportionalDays] = useState<number>(0);
@@ -74,7 +69,6 @@ export function RentalTerminationDialog({
       setApplyFullContractPenalty(false);
       setApply12MonthsPenalty(false);
       setPenaltyAmount(0);
-      setPenaltyAmountInput("");
       setIsSubmitting(false);
       setCurrentMonth(0);
       setTotalMonths(0);
@@ -292,20 +286,15 @@ export function RentalTerminationDialog({
       // SEMPRE usar o valor corrigido quando disponível
       const finalDepositAmount = correctedDepositAmount > 0 ? correctedDepositAmount : depositAmount;
 
-      // Um valor digitado manualmente sempre vence o calculo automatico das
-      // duas clausulas - e o unico jeito de registrar uma multa negociada que
-      // nao corresponde a nenhuma das duas formulas do contrato.
-      const manualPenalty = penaltyAmountInput.trim()
-        ? parseCurrencyToNumber(penaltyAmountInput)
-        : null;
-      const finalPenaltyAmount = manualPenalty !== null && !isNaN(manualPenalty)
-        ? manualPenalty
-        : penaltyAmount;
-
+      // A multa e SEMPRE uma das duas clausulas do contrato. Um campo de valor
+      // livre existiu aqui por um dia e foi retirado a pedido do Cadu
+      // (28/ago/2026): desconto, arredondamento ou perdao da multa se fazem no
+      // campo "Valor de Desconto" da tela do Recebimento de Rescisao, que fica
+      // registrado como desconto — e nao escondido dentro da multa.
       await onConfirm({
         terminationDate,
-        applyPenalty: finalPenaltyAmount > 0,
-        penaltyAmount: finalPenaltyAmount,
+        applyPenalty: applyFullContractPenalty || apply12MonthsPenalty,
+        penaltyAmount,
         depositAmount: finalDepositAmount,
       });
       onOpenChange(false);
@@ -564,22 +553,9 @@ export function RentalTerminationDialog({
                   </div>
                 </div>
 
-                <div className="space-y-1 pt-1">
-                  <Label htmlFor="termination-penalty-amount" className="font-normal text-sm">
-                    Valor da Multa (opcional - substitui o calculo acima)
-                  </Label>
-                  <Input
-                    id="termination-penalty-amount"
-                    type="text"
-                    placeholder="0,00"
-                    value={penaltyAmountInput}
-                    onChange={(e) => setPenaltyAmountInput(e.target.value)}
-                  />
-                </div>
-
                 {penaltyAmount > 0 && (
                   <div className="flex justify-between items-center bg-red-50 dark:bg-red-950 p-2 rounded">
-                    <span className="text-sm text-red-700 dark:text-red-300 font-medium">Valor da Multa (calculado):</span>
+                    <span className="text-sm text-red-700 dark:text-red-300 font-medium">Valor da Multa:</span>
                     <span className="font-bold text-red-700 dark:text-red-300">
                       R$ {penaltyAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>

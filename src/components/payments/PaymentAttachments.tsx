@@ -2,6 +2,7 @@ import { memo } from "react";
 import { Loader2, Paperclip } from "lucide-react";
 import { AttachmentList } from "@/components/attachments/AttachmentList";
 import { AttachmentUploadButton } from "@/components/attachments/AttachmentUploadButton";
+import { useAlert } from "@/contexts/AlertContext";
 
 interface Attachment {
   url: string;
@@ -31,6 +32,7 @@ export const PaymentAttachments = memo(function PaymentAttachments({
   onRemoveAttachment,
   onAddAttachment,
 }: PaymentAttachmentsProps) {
+  const { showAlert } = useAlert();
   const attachedFiles = attachments.filter((a) => a.url);
 
   // AttachmentUploadButton já valida tamanho/tipo perigoso antes de chamar aqui;
@@ -61,7 +63,9 @@ export const PaymentAttachments = memo(function PaymentAttachments({
           id="payment-file-input"
           disabled={uploadingFile}
           onFilesSelected={handleFilesSelected}
-          onError={(message) => alert(message)}
+          onError={(message) =>
+            showAlert({ type: "error", title: "Não foi possível anexar", description: message })
+          }
         />
       )}
 
