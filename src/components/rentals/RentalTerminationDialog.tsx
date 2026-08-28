@@ -372,7 +372,13 @@ export function RentalTerminationDialog({
                                 Valor corrigido pela Taxa da Poupança
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent className="max-w-md p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg">
+                            {/* ⚠️ `text-foreground` e obrigatorio aqui (28/ago/2026). O TooltipContent
+                                padrao vem com `bg-primary text-primary-foreground` — texto BRANCO.
+                                Este trecho sobrescrevia so o fundo para branco e esquecia a cor do
+                                texto, entao o tooltip abria com texto branco sobre fundo branco: so
+                                as linhas que tinham cor propria (a verde da correcao e as muted das
+                                taxas) apareciam, e o resto ficava invisivel. */}
+                            <TooltipContent className="max-w-md p-4 bg-white dark:bg-gray-800 text-foreground border border-gray-200 dark:border-gray-700 shadow-lg">
                               <div className="space-y-3">
                                 <div className="space-y-2">
                                   <p className="font-semibold text-sm">💰 Resumo da Correção:</p>

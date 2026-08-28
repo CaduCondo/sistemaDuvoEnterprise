@@ -167,8 +167,8 @@ consciente e temporária, não o estado final.**
 - [x] A2 "-R$" no Valor de Desconto (3 telas)
 - [x] A3 fundo azul no bloco Formação de Valores
 - [x] A4 subtítulo "Parcela XX/XX" na tela de aluguel
-- [ ] B1 tooltip da poupança no diálogo de rescisão (está em branco)
-- [ ] B2 duas linhas + link do tooltip na tela de rescisão
+- [x] B1 tooltip da poupança no diálogo de rescisão (está em branco)
+- [x] B2 duas linhas + link do tooltip na tela de rescisão
 - [x] C1 confirm() do cancelamento de caução
 - [x] C2 varredura de alert/confirm/prompt no sistema
 - [x] D1 remover o campo "Valor da Multa (opcional)"

@@ -22,7 +22,12 @@ const cleanLabel = (text: string): string => {
 };
 
 export const BreakdownItem = memo(({ item, isDeduction, igpmCorrection, formatCurrency }: BreakdownItemProps) => {
-  const isDepositDeduction = item.description?.includes("Devolução de Caução");
+  // Aceita os dois textos: o novo ("Caução Corrigido p/ Devolução", 28/ago/2026)
+  // e os dois antigos, que continuam gravados em recebimentos ja criados.
+  const isDepositDeduction =
+    item.description?.includes("Devolução de Caução") ||
+    item.description?.includes("Caução Corrigido p/ Devolução") ||
+    item.description?.includes("Valor Corrigido p/ Devolução");
   
   const displayAmount = isDepositDeduction && igpmCorrection && igpmCorrection.correctedAmount > 0
     ? igpmCorrection.correctedAmount 
@@ -64,10 +69,10 @@ export const BreakdownItem = memo(({ item, isDeduction, igpmCorrection, formatCu
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="cursor-help underline decoration-dotted hover:text-primary transition-colors">
-                        (corrigido pela Taxa da Poupança)
+                        Valor Corrigido pela Taxa da Poupança
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-[450px] p-0 bg-white dark:bg-gray-900 border-2 shadow-xl z-50">
+                    <TooltipContent className="max-w-[450px] p-0 bg-white dark:bg-gray-900 text-foreground border-2 shadow-xl z-50">
                       <div className="space-y-3 p-4">
                         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 space-y-1.5">
                           <p className="font-semibold text-sm text-blue-900 dark:text-blue-100">

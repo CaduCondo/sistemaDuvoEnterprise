@@ -532,7 +532,9 @@ export async function processContractTermination(data: TerminationData): Promise
 
     if (valorDevolucao !== 0) {
       breakdownRescisao.push({
-        description: "Valor Corrigido p/ Devolução (Taxa da Poupança)",
+        // A mencao a poupanca saiu daqui: virou a linha de baixo, que e o
+        // link do tooltip com o detalhe da correcao (28/ago/2026).
+        description: "Caução Corrigido p/ Devolução",
         amount: valorDevolucao,
         type: "deduction"
       });

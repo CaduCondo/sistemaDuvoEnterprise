@@ -526,7 +526,13 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       
       if (igpmCorrection && igpmCorrection.correctedAmount > 0) {
         workingBreakdown = workingBreakdown.map((item: any) => {
-          if (item.description?.includes("Devolução de Caução")) {
+          // Os tres textos que essa linha ja teve — o do banco de recebimentos
+          // antigos e o novo de 28/ago/2026.
+          if (
+            item.description?.includes("Devolução de Caução") ||
+            item.description?.includes("Caução Corrigido p/ Devolução") ||
+            item.description?.includes("Valor Corrigido p/ Devolução")
+          ) {
             return {
               ...item,
               amount: -igpmCorrection.correctedAmount,
