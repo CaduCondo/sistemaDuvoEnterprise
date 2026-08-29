@@ -263,7 +263,11 @@ export function PaymentBreakdownCard({
                 </p>
               </div>
 
-              <div className="space-y-2">
+              {/* Item 6 (28/ago/2026): total NEGATIVO significa que a
+                  imobiliaria devolve dinheiro ao inquilino. Nao ha o que
+                  descontar de quem nao esta pagando, entao o campo some.
+                  Total positivo ou zero: continua. */}
+              <div className="space-y-2" hidden={finalTotal < 0}>
                 <div className="grid grid-cols-2 gap-4 items-center text-sm">
                   <span>Valor de Desconto</span>
                   
@@ -426,6 +430,17 @@ export function PaymentBreakdownCard({
                   {formatCurrency(Math.abs(finalTotal))}
                 </span>
               </div>
+
+              {/* Legenda do proporcional (28/ago/2026). As linhas mostram so
+                  "Aluguel Proporcional *"; o periodo aparece aqui, uma vez so,
+                  em vez de repetido em cada linha. */}
+              {(() => {
+                const legenda = displayBreakdown.items.find((i: any) => i.nota)?.nota;
+                if (!legenda) return null;
+                return (
+                  <p className="text-xs text-muted-foreground pt-2">{legenda}</p>
+                );
+              })()}
 
               {showPartialInfo && (
                 <div className="mt-4 pt-4 border-t border-dashed bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md">

@@ -725,11 +725,15 @@ export function DepositPaymentDialog({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Valores da parcela de caução - equivalente ao card de "Formação de
                 Valores" do aluguel, só que sem Aluguel/Garagem (é um valor fixo). */}
-            <Card>
+            {/* Mesmo bloco das outras tres telas de recebimento (28/ago/2026):
+                mesmo titulo "Formação de Valores" e o mesmo fundo azul. Antes
+                se chamava "Valores da Caução" e nao tinha cor, o que fazia
+                esta tela parecer de outro sistema. */}
+            <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
-                  Valores da Caução
+                  Formação de Valores
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">

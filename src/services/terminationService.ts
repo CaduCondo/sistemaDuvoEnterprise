@@ -343,10 +343,16 @@ export async function processContractTermination(data: TerminationData): Promise
     
     const breakdown2 = [];
     
-    const periodo2 = `${daysUsed} dias - ${lastPaymentDate.toISOString().split("T")[0]} a ${terminationDate}`;
+    // A descricao da linha fica CURTA ("Aluguel Proporcional *") e o periodo
+    // vai uma vez so para a legenda no rodape do bloco (28/ago/2026). Antes o
+    // periodo inteiro era repetido em cada linha, o que estourava a coluna.
+    const diasTexto2 = `${String(daysUsed).padStart(2, "0")} ${daysUsed === 1 ? "dia" : "dias"}`;
+    const legendaProporcional2 =
+      `* Proporcional de ${diasTexto2} extras - de ${lastPaymentDate.toISOString().split("T")[0]} até ${terminationDate}`;
 
     breakdown2.push({
-      description: `Aluguel Proporcional - Dias Extras (${periodo2})`,
+      description: "Aluguel Proporcional *",
+      nota: legendaProporcional2,
       amount: proportionalRentOnly,
       type: "addition"
     });
@@ -354,7 +360,8 @@ export async function processContractTermination(data: TerminationData): Promise
     // Linha própria para a garagem, como no recebimento mensal normal.
     if (proportionalGarage > 0) {
       breakdown2.push({
-        description: `Garagem Proporcional - Dias Extras (${periodo2})`,
+        description: "Garagem Proporcional *",
+        nota: legendaProporcional2,
         amount: proportionalGarage,
         type: "addition"
       });
@@ -417,10 +424,13 @@ export async function processContractTermination(data: TerminationData): Promise
     
     const breakdown = [];
     
-    const periodo = `${daysUsed} dias - ${lastPaymentDate.toISOString().split("T")[0]} até ${terminationDate}`;
+    const diasTexto = `${String(daysUsed).padStart(2, "0")} ${daysUsed === 1 ? "dia" : "dias"}`;
+    const legendaProporcional =
+      `* Proporcional de ${diasTexto} extras - de ${lastPaymentDate.toISOString().split("T")[0]} até ${terminationDate}`;
 
     breakdown.push({
-      description: `Aluguel Proporcional (${periodo})`,
+      description: "Aluguel Proporcional *",
+      nota: legendaProporcional,
       amount: proportionalRentOnly,
       type: "addition"
     });
@@ -428,7 +438,8 @@ export async function processContractTermination(data: TerminationData): Promise
     // Linha própria para a garagem, como no recebimento mensal normal.
     if (proportionalGarage > 0) {
       breakdown.push({
-        description: `Garagem Proporcional (${periodo})`,
+        description: "Garagem Proporcional *",
+        nota: legendaProporcional,
         amount: proportionalGarage,
         type: "addition"
       });
