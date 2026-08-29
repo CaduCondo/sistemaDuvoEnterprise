@@ -103,7 +103,7 @@ export function RentalTerminationDialog({
 
         const { data: installments, error: installmentsError } = await supabase
           .from("deposit_installments")
-          .select("amount, payment_date, installment_number")
+          .select("amount, paid_amount, status, payment_date, installment_number")
           .eq("rental_id", rental.id);
 
         if (installmentsError) {
@@ -120,35 +120,24 @@ export function RentalTerminationDialog({
             lastPaidDate = rental.startDate;
           }
 
-          totalDeposit = installments.reduce((sum, inst) => sum + (inst.amount || 0), 0);
-          source = "deposit_installments (tabela de parcelas)";
+          // ⚠️ DEFEITO CORRIGIDO EM 28/ago/2026 — mesmo caso do
+          // ManagePaymentForm: somava `amount` de TODAS as parcelas, pagas ou
+          // nao, e a correcao da poupanca incidia sobre o caucao CONTRATADO
+          // em vez do efetivamente PAGO. Devolve-se o que entrou (decisao 4
+          // do docs/tickets/rescisao-caucao.md), nunca o que foi combinado.
+          totalDeposit = installments.reduce((sum, inst: any) => {
+            if (inst.status !== "paid") return sum;
+            const pago = Number(inst.paid_amount || 0);
+            const daParcela = Number(inst.amount || 0);
+            return sum + (pago > 0 ? pago : daParcela);
+          }, 0);
+          source = "deposit_installments (somente parcelas PAGAS)";
         }
 
-        if (totalDeposit === 0) {
-          const securityDepositValue = Number(rental.security_deposit) || 0;
-          if (securityDepositValue > 0) {
-            totalDeposit = securityDepositValue;
-            source = "security_deposit";
-            lastPaidDate = rental.startDate;
-          }
-        }
-
-        if (totalDeposit === 0) {
-          const { data: rentalData } = await supabase
-            .from("rentals")
-            .select("deposit_value")
-            .eq("id", rental.id)
-            .single();
-
-          if (rentalData) {
-            const depositValue = Number(rentalData.deposit_value) || 0;
-            if (depositValue > 0) {
-              totalDeposit = depositValue;
-              source = "deposit_value";
-              lastPaidDate = rental.startDate;
-            }
-          }
-        }
+        // ⚠️ Os fallbacks para `security_deposit` e `deposit_value` foram
+        // retirados em 28/ago/2026. Os dois guardam o valor CONTRATADO, e
+        // caiam justamente no caso em que nada foi pago — devolvendo um
+        // caucao que nunca entrou. Caucao nao pago: nada a devolver.
 
         setDepositAmount(totalDeposit);
         setLastInstallmentDate(lastPaidDate);

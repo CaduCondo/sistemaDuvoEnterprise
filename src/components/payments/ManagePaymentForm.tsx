@@ -373,7 +373,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
         const { data: installments, error: installmentsError } = await supabase
           .from("deposit_installments")
-          .select("amount, payment_date, installment_number")
+          .select("amount, paid_amount, status, payment_date, installment_number")
           .eq("rental_id", rentalId)
           .order("payment_date", { ascending: true });
 
@@ -381,7 +381,27 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
           console.error("Erro ao buscar parcelas do caução:", installmentsError);
         } else {
           if (installments && installments.length > 0) {
-            const totalDeposit = installments.reduce((sum, inst) => sum + (inst.amount || 0), 0);
+            // ⚠️ DEFEITO CORRIGIDO EM 28/ago/2026 — a devolucao era calculada
+            // sobre o caucao CONTRATADO e nao sobre o efetivamente PAGO.
+            //
+            // Isto somava `amount` de TODAS as parcelas, pagas ou nao. Num
+            // caucao de R$ 6.000,00 em 3x com so 2 parcelas pagas
+            // (R$ 4.222,22), a tela corrigia sobre os R$ 6.000,00 — a
+            // imobiliaria devolveria dinheiro que nunca recebeu.
+            //
+            // A regra e a decisao 4 do docs/tickets/rescisao-caucao.md, ja
+            // aplicada no terminationService: corrige sobre o que entrou.
+            // A tela recalculava por conta propria e ignorava isso.
+            //
+            // Parcela marcada como paga sem valor gravado e dado
+            // inconsistente: vale o valor da parcela (mesma regra usada no
+            // terminationService).
+            const totalDeposit = installments.reduce((sum, inst: any) => {
+              if (inst.status !== "paid") return sum;
+              const pago = Number(inst.paid_amount || 0);
+              const daParcela = Number(inst.amount || 0);
+              return sum + (pago > 0 ? pago : daParcela);
+            }, 0);
             
             const startDate = validatedPayment.rentals.start_date;
             const endDate = validatedPayment.rentals.end_date;

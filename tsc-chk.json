@@ -1,0 +1,1 @@
+{ "extends": "./tsconfig.json", "include": ["src/components/rentals/RentalTerminationDialog.tsx","src/components/payments/ManagePaymentForm.tsx"] }
