@@ -58,3 +58,6 @@ pm2.config.js
 # real de inquilinos/pagamentos — nenhum dos dois deve ir pro repositório)
 /schema.sql
 /data.sql
+
+# tsconfig temporario usado so para checagem de tipos pontual
+tsc-chk.json
