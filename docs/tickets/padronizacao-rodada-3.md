@@ -111,4 +111,15 @@ vencimento igual.
 - [x] 4 tela de Caução com o bloco "Formação de Valores" padronizado
 - [x] 5 correção da poupança sobre o caução PAGO (não o contratado)
 - [x] 6 esconder "Valor de Desconto" quando o total for negativo
-- [ ] 7 campo "VALOR TOTAL DA RESCISÃO"
+- [x] 7 campo "VALOR TOTAL DA RESCISÃO"
+
+---
+
+## Todos os 7 itens concluídos em 28/ago/2026
+
+Falta ainda, e não é pequeno:
+
+- **Testes BDD** cobrindo estas regras (itens H1/H2 da rodada 2). Os 11
+  cenários existentes foram escritos antes de metade destas mudanças e
+  nenhum está no smoke — hoje nada avisa se a rescisão quebrar.
+- **Rodar o `PROD-rescisao-49.sql`** no banco de DEV e no de produção.

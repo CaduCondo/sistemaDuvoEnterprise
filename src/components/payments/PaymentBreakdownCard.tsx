@@ -151,6 +151,8 @@ interface PaymentBreakdownCardProps {
   onDiscountAmountChange?: (value: string) => void;
   paymentStatus?: string;
   paidAmount?: number;
+  /** Soma dos outros recebimentos que vencem no mesmo dia (ver ManagePaymentForm). */
+  somaOutrosDoMesmoVencimento?: number | null;
   onSaveExpensesAndDiscount?: (e: any) => void;
   isSaving?: boolean;
   payment?: any;
@@ -192,6 +194,7 @@ export function PaymentBreakdownCard({
   onDiscountAmountChange = () => {},
   paymentStatus,
   paidAmount = 0,
+  somaOutrosDoMesmoVencimento = null,
   onSaveExpensesAndDiscount,
   isSaving,
   payment,
@@ -319,6 +322,25 @@ export function PaymentBreakdownCard({
                 </span>
               </div>
 
+              {/* VALOR TOTAL DA RESCISÃO — a soma deste recebimento com os
+                  outros que vencem no mesmo dia. Numa rescisao, o aluguel
+                  proporcional e a devolucao do caucao caem os dois na data da
+                  saida e o inquilino paga tudo de uma vez; sem esta linha
+                  alguem precisa somar na mao. */}
+              {somaOutrosDoMesmoVencimento !== null && (() => {
+                const totalDaRescisao = finalTotal + somaOutrosDoMesmoVencimento;
+                return (
+                  <div className="flex justify-between pt-2 mt-1 border-t border-dashed">
+                    <span className="font-bold text-base">VALOR TOTAL DA RESCISÃO</span>
+                    <span className={`font-bold text-base ${totalDaRescisao < 0 ? "text-red-600" : "text-primary"}`}>
+                      {totalDaRescisao < 0 ? "-" : ""}
+                      {formatCurrency(Math.abs(totalDaRescisao))}
+                    </span>
+                  </div>
+                );
+              })()}
+
+
               {showPartialInfo && (
                 <div className="mt-4 pt-4 border-t border-dashed bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md">
                   <div className="flex justify-between items-center text-sm mb-2">
@@ -430,6 +452,25 @@ export function PaymentBreakdownCard({
                   {formatCurrency(Math.abs(finalTotal))}
                 </span>
               </div>
+
+              {/* VALOR TOTAL DA RESCISÃO — a soma deste recebimento com os
+                  outros que vencem no mesmo dia. Numa rescisao, o aluguel
+                  proporcional e a devolucao do caucao caem os dois na data da
+                  saida e o inquilino paga tudo de uma vez; sem esta linha
+                  alguem precisa somar na mao. */}
+              {somaOutrosDoMesmoVencimento !== null && (() => {
+                const totalDaRescisao = finalTotal + somaOutrosDoMesmoVencimento;
+                return (
+                  <div className="flex justify-between pt-2 mt-1 border-t border-dashed">
+                    <span className="font-bold text-base">VALOR TOTAL DA RESCISÃO</span>
+                    <span className={`font-bold text-base ${totalDaRescisao < 0 ? "text-red-600" : "text-primary"}`}>
+                      {totalDaRescisao < 0 ? "-" : ""}
+                      {formatCurrency(Math.abs(totalDaRescisao))}
+                    </span>
+                  </div>
+                );
+              })()}
+
 
               {/* Legenda do proporcional (28/ago/2026). As linhas mostram so
                   "Aluguel Proporcional *"; o periodo aparece aqui, uma vez so,

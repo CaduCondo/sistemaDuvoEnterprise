@@ -113,6 +113,15 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [discountAmountInput, setDiscountAmountInput] = useState<string>("R$ 0,00");
   const [isTerminationPayment, setIsTerminationPayment] = useState(false);
+  /**
+   * Soma dos OUTROS recebimentos que vencem no mesmo dia que este, quando um
+   * deles e o Recebimento de Rescisao. Fecha o "VALOR TOTAL DA RESCISÃO" da
+   * tela — o inquilino costuma pagar os dois de uma vez e, sem essa soma,
+   * alguem faz a conta na mao (Historia 5 do rescisao-caucao.md).
+   * null = nao ha outro recebimento no mesmo vencimento; a linha nao aparece.
+   */
+  const [somaOutrosDoMesmoVencimento, setSomaOutrosDoMesmoVencimento] =
+    useState<number | null>(null);
   const [originalBreakdown, setOriginalBreakdown] = useState<any[]>([]);
   const [calculatedTotal, setCalculatedTotal] = useState<number>(0);
   const [igpmCorrection, setIgpmCorrection] = useState<{
@@ -316,6 +325,35 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       // não para o sistema decidir regra.
       const isTermination = (validatedPayment as any).payment_kind === "termination";
       setIsTerminationPayment(isTermination);
+
+      // "VALOR TOTAL DA RESCISÃO": so aparece quando existe mais de um
+      // recebimento vencendo no MESMO dia nesta locacao e um deles e o de
+      // rescisao — que e como uma rescisao fecha (o aluguel proporcional e a
+      // devolucao do caucao caem os dois na data da saida).
+      try {
+        const { data: mesmoVencimento } = await (supabase as any)
+          .from("payments")
+          .select("id, expected_amount, payment_kind")
+          .eq("rental_id", validatedPayment.rental_id)
+          .eq("due_date", validatedPayment.due_date);
+
+        const irmaos = (mesmoVencimento || []).filter(
+          (p: any) => p.id !== validatedPayment.id
+        );
+        const temRescisaoNoGrupo =
+          isTermination || irmaos.some((p: any) => p.payment_kind === "termination");
+
+        if (irmaos.length > 0 && temRescisaoNoGrupo) {
+          setSomaOutrosDoMesmoVencimento(
+            irmaos.reduce((s: number, p: any) => s + Number(p.expected_amount || 0), 0)
+          );
+        } else {
+          setSomaOutrosDoMesmoVencimento(null);
+        }
+      } catch (erro) {
+        console.warn("Nao foi possivel somar os recebimentos do mesmo vencimento:", erro);
+        setSomaOutrosDoMesmoVencimento(null);
+      }
       
       const waiveLateFee = validatedPayment.late_fee_waived || false;
       const waiveInterest = validatedPayment.interest_waived || false;
@@ -1340,6 +1378,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
           isTerminationPayment={isTerminationPayment}
           originalBreakdown={originalBreakdown}
           igpmCorrection={igpmCorrection}
+          somaOutrosDoMesmoVencimento={somaOutrosDoMesmoVencimento}
           repairExpenses={repairExpenses}
           repairExpensesInput={repairExpensesInput}
           removeLateFee={removeLateFee}
