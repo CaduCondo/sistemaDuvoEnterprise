@@ -259,6 +259,14 @@ export interface Payment {
   referenceYear: number;
   dueDate: string;
   expectedAmount: number;
+  /**
+   * Tipo do recebimento (#49):
+   *   'rent'        -> recebimento de aluguel, entra na base das taxas;
+   *   'termination' -> Recebimento de Rescisao (devolucao de caucao,
+   *                    despesas e desconto), NAO entra na base das taxas.
+   * Recebimentos anteriores a migracao vem indefinidos e valem como 'rent'.
+   */
+  paymentKind?: "rent" | "termination";
   paidAmount: number;
   status: "paid" | "pending" | "overdue" | "partial";
   paymentDate: string | null;

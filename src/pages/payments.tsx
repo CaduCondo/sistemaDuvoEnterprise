@@ -48,8 +48,21 @@ const MONTH_NAMES = [
 // quando o Duvo tem que devolver dinheiro pro inquilino). Como ele fica na
 // mesma listagem dos recebimentos normais de aluguel, marcamos com uma
 // etiqueta "Rescisão" pra não parecer um recebimento comum.
+// ⚠️ DEFEITO CORRIGIDO EM 28/ago/2026 — a etiqueta aparecia no recebimento
+// ERRADO (no de aluguel proporcional, e nao no da devolucao do caucao).
+//
+// Isto lia o TEXTO das observacoes. Quem escreve "Rescisão de Contrato" ali e
+// o recebimento de ALUGUEL criado pela rescisao ("Rescisão de Contrato - Data
+// de saída: ..."); o Recebimento de Rescisao escreve outra frase
+// ("Recebimento de Rescisão - ..."), que nao casa. Resultado: etiqueta no
+// aluguel, e nenhuma no recebimento que de fato e a rescisao.
+//
+// E o MESMO defeito ja corrigido em ManagePaymentForm.tsx em 27/ago — a
+// leitura por texto estava em dois arquivos e so um foi consertado na epoca.
+// Agora usa payment_kind, o campo que a #49 criou para dizer o tipo.
 const isTerminationPayment = (payment: Payment) =>
-  payment.notes?.includes("Rescisão de Contrato") || false;
+  (payment as any).paymentKind === "termination" ||
+  (payment as any).payment_kind === "termination";
 
 export default function Payments() {
   const router = useRouter();
@@ -775,8 +788,14 @@ export default function Payments() {
       headerClassName: "text-center",
       className: "text-right",
       render: (p: Payment) => {
-        const textColor = getDueDateTextColor(p.dueDate, false);
         const expected = getExpectedAmount(p);
+        // Valor negativo (o Recebimento de Rescisao, quando a imobiliaria
+        // devolve mais do que recebe) sempre em vermelho — 28/ago/2026. A cor
+        // do vencimento so vale para valores a receber; num valor a PAGAR ela
+        // dizia a coisa errada.
+        const textColor = expected < 0
+          ? "text-red-600"
+          : getDueDateTextColor(p.dueDate, false);
         const isPartial = p.status === "partial" && (p.paidAmount || 0) > 0;
 
         if (isPartial) {

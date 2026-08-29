@@ -209,6 +209,11 @@ export const usePayments = () => {
           paymentDate: payment.payment_date || null,
           paymentTime: payment.payment_time || null,
           expectedAmount: payment.expected_amount || 0,
+          // Tipo do recebimento (#49). Sem isto, a lista de Recebimentos nao
+          // consegue distinguir o Recebimento de Rescisao do de aluguel e a
+          // etiqueta "Rescisão" acabava no registro errado. Recebimentos
+          // anteriores a migracao vem nulos e valem como 'rent'.
+          paymentKind: (payment as any).payment_kind || "rent",
           paidAmount: payment.paid_amount || 0,
           status: payment.status as "pending" | "paid" | "overdue" | "partial",
           paymentMethod: payment.payment_method || null,

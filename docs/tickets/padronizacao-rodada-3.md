@@ -105,8 +105,8 @@ vencimento igual.
 
 ## Estado
 
-- [ ] 1 flag Rescisão no recebimento certo
-- [ ] 2 valor negativo em vermelho na lista de Recebimentos
+- [x] 1 flag Rescisão no recebimento certo
+- [x] 2 valor negativo em vermelho na lista de Recebimentos
 - [ ] 3 "Aluguel Proporcional *" + legenda no rodapé
 - [ ] 4 tela de Caução com o bloco "Formação de Valores" padronizado
 - [ ] 5 correção da poupança sobre o caução PAGO (não o contratado)
