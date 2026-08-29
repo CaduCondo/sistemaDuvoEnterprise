@@ -1120,6 +1120,13 @@ Se security_deposit > 0 e deposit_installments > 0:
 
 #### 5. Rescisão de Contrato
 
+> ⚠️ **Esta seção descreve o comportamento ANTERIOR à issue #49
+> (agosto/2026), quando a rescisão gerava um recebimento só.** As regras
+> em vigor estão em [🔚 Rescisão de Contrato](#-rescisão-de-contrato),
+> mais abaixo. Em especial: hoje são **dois** recebimentos, a correção do
+> caução incide sobre o valor **pago** (não o contratado, como diz o item
+> 5.1 abaixo), e não existe mais campo de multa livre.
+
 **5.1 Dialog de Rescisão**
 - Acessível via botão "Rescindir Contrato" na lista ou detalhes
 - Campos:
@@ -1906,6 +1913,93 @@ lá.
   `paid_amount`/status a partir do restante do histórico)
 - Também é possível excluir **todos** os recebimentos da parcela de uma vez
   (zera `partial_payments`, volta a parcela para `pending`)
+
+---
+
+## 🔚 Rescisão de Contrato
+
+> Atualizado em **28/ago/2026** (issue #49). Antes desta entrega, a rescisão
+> gerava **um** recebimento só, misturando aluguel e devolução do caução — e
+> o caução, que é dinheiro de terceiro, entrava na base das taxas de
+> administração e gerenciamento, distorcendo todos os relatórios.
+
+### A regra central: dois recebimentos, nunca um
+
+Toda rescisão gera **dois** registros ligados entre si por
+`termination_group_id`, distinguidos pela coluna `payment_kind`:
+
+| `payment_kind` | O quê | Onde aparece | Entra na base das taxas? |
+|---|---|---|---|
+| `rent` | aluguel proporcional + garagem proporcional + multa rescisória | Financeiro → **Locações** | **Sim** |
+| `termination` | devolução do caução + despesas adicionais + desconto | Financeiro → **Cauções** | **Não** |
+
+> ⚠️ `payment_kind` é a **única** fonte de verdade sobre o tipo de um
+> recebimento. Já houve três defeitos causados por decidir isso lendo o
+> texto do campo Observações — o recebimento de aluguel escreve
+> "Rescisão de Contrato…" e o de rescisão escreve "Recebimento de
+> Rescisão…", então a comparação por texto acerta o registro errado.
+> Texto de observação é para o usuário ler, nunca para o sistema decidir
+> regra.
+
+### O que acontece com o recebimento do mês da rescisão
+
+Depende do status que ele tinha:
+
+| Status do mês | O que acontece | Composição do novo recebimento |
+|---|---|---|
+| **Pendente** | o antigo é **deletado** (não houve pagamento) | Aluguel + Aluguel Proporcional + Garagem + Garagem Proporcional + Multa Rescisória |
+| **Pago** ou **Parcial** | o antigo é **preservado** (é histórico) | Aluguel Proporcional + Garagem Proporcional + Multa Rescisória |
+
+Parcelas com vencimento **posterior** à data da rescisão são apagadas em
+ambos os casos.
+
+### Devolução do caução
+
+- A correção incide sobre o valor **efetivamente pago**, nunca sobre o
+  contratado. Caução de R$ 6.000,00 em 3x com 2 parcelas pagas devolve
+  sobre R$ 4.222,22 — não sobre os R$ 6.000,00.
+- Caução nunca pago: **nada a devolver**.
+- A correção usa a **Taxa da Poupança**, do último pagamento até a data da
+  rescisão. O detalhe mês a mês fica no tooltip da tela.
+- Uma parcela marcada como paga com valor R$ 0,00 é dado inconsistente
+  (defeito antigo do `markDepositInstallmentAsPaid`): vale o valor da
+  parcela.
+
+### Sinais no Recebimento de Rescisão
+
+    Valor Total = Devolução de Caução + Despesas Adicionais + Valor Desconto
+
+| Parcela | Sinal | Significado |
+|---|---|---|
+| Devolução de caução | negativo | dinheiro sai da imobiliária |
+| Despesas adicionais | positivo | cobrança do inquilino (reforma, limpeza, pintura) |
+| Valor de desconto | negativo | concedido ao inquilino |
+
+**Total negativo** = a imobiliária paga o inquilino.
+**Total positivo** = o inquilino paga.
+
+Valores negativos aparecem **em vermelho** em todas as telas e listas.
+
+### Multa rescisória
+
+Sempre uma das duas cláusulas do contrato — proporcional ao tempo restante,
+ou cláusula de 12 meses. **Não existe campo de multa livre.** Desconto,
+arredondamento ou perdão da multa se fazem no campo "Valor de Desconto" do
+Recebimento de Rescisão, onde ficam registrados como desconto em vez de
+escondidos dentro da multa.
+
+### Valor Total da Rescisão
+
+Quando dois recebimentos da mesma locação vencem no mesmo dia — o que é
+como uma rescisão fecha — as telas mostram, abaixo do `VALOR TOTAL`, a
+linha `VALOR TOTAL DA RESCISÃO` com a soma dos dois. O inquilino costuma
+pagar tudo de uma vez.
+
+### O que esta entrega NÃO resolve
+
+**As rescisões anteriores a esta migração continuam no formato antigo**, com
+o caução misturado, e seguem distorcendo a base das taxas. Corrigi-las é
+uma migração de dados própria, ainda não feita.
 
 ---
 
