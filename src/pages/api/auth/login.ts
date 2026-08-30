@@ -116,16 +116,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const tentativas = (usuario.login_attempts || 0) + 1;
       const alteracoes: Record<string, any> = { login_attempts: tentativas };
 
+      // ⚠️ A MENSAGEM NÃO PODE CONTAR TENTATIVAS.
+      //
+      // A primeira versão desta rota dizia "você tem mais 2 tentativa(s)
+      // antes do bloqueio" -- simpático, e um vazamento: só um usuário que
+      // EXISTE tem contagem. Quem estivesse adivinhando logins separava os
+      // válidos dos inválidos só pela diferença de texto. O cenário
+      // "Senha errada não diz se o usuário existe" pegou isso antes de ir
+      // para produção.
+      //
+      // Então: senha errada e usuário inexistente respondem exatamente igual.
       let mensagem = "Usuário ou senha inválidos";
 
       if (tentativas >= TENTATIVAS_ATE_BLOQUEAR) {
         alteracoes.blocked_until = new Date(
           Date.now() + MINUTOS_DE_BLOQUEIO * 60000
         ).toISOString();
+
+        // Esta, sim, é específica -- e de propósito. Ela só aparece para quem
+        // já errou três vezes, e o dono da conta precisa entender por que
+        // parou de conseguir entrar. É a troca consciente entre discrição e
+        // uma pessoa de verdade travada do lado de fora sem explicação.
         mensagem = `Muitas tentativas falhas. Conta bloqueada por ${MINUTOS_DE_BLOQUEIO} minutos.`;
-      } else {
-        const restam = TENTATIVAS_ATE_BLOQUEAR - tentativas;
-        mensagem = `Usuário ou senha inválidos. Você tem mais ${restam} tentativa(s) antes do bloqueio.`;
       }
 
       // Esta gravação é a que estava morta antes: o navegador não tinha

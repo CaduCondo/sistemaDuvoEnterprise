@@ -128,6 +128,36 @@ Funcionalidade: CRUD de Inquilinos
     Então devo ver a mensagem de sucesso
     E o inquilino deve aparecer na lista sem erros
 
+  # ==========================================================================
+  # DEFEITO DE 30/ago/2026 — "cliquei OK e a tela travou"
+  #
+  # Ao criar um usuário e clicar OK na mensagem de sucesso, a tela inteira
+  # parava de responder e só voltava com F5.
+  #
+  # A causa não estava na tela de usuários: estava no componente da mensagem,
+  # usado por TODO o sistema. O botão OK fechava o alerta mexendo no estado
+  # direto, e não pelo caminho que o Radix avisa -- justamente o caminho onde
+  # mora a limpeza que destrava a página. Fechar com Esc funcionava; fechar no
+  # botão, que é o que todo mundo faz, travava.
+  #
+  # Este cenário usa o cadastro de inquilino porque ele já existe e é rápido,
+  # mas o que ele protege vale para toda mensagem de sucesso do sistema.
+  # ==========================================================================
+
+  @smoke
+  Cenário: A tela continua respondendo depois de fechar a mensagem de sucesso
+    Quando clico no botão "Novo Inquilino"
+    E seleciono "Pessoa Física"
+    E preencho todos os campos obrigatórios:
+      | campo    | valor           |
+      | Nome     | Travamento E2E  |
+      | CPF      | 123.456.789-00  |
+      | Telefone | (11) 98765-4321 |
+      | E-mail   | travamento@email.com |
+    E clico em "Salvar"
+    E fecho a mensagem de sucesso no botão OK
+    Então a tela deve continuar respondendo
+
   @smoke
   Cenário: Criar inquilino Pessoa Física
     Quando clico no botão "Novo Inquilino"

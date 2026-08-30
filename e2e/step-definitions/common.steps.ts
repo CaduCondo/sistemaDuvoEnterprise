@@ -685,3 +685,46 @@ When('tento salvar sem preencher o {string}', async function (this: CustomWorld,
   const saveButton = this.page.getByRole('button', { name: /salvar/i });
   await saveButton.click();
 });
+
+
+/**
+ * Fecha a mensagem de sucesso PELO BOTÃO, e não com Esc.
+ *
+ * A diferença importa: o defeito de 30/ago/2026 só acontecia pelo botão. Se
+ * este passo fechasse com Esc, o cenário passaria sem testar nada.
+ */
+When('fecho a mensagem de sucesso no botão OK', async function (this: CustomWorld) {
+  const alerta = this.page.getByRole('alertdialog');
+  await expect(alerta, 'a mensagem de sucesso não apareceu').toBeVisible({ timeout: 15000 });
+
+  await alerta.getByRole('button', { name: /^OK$/i }).click();
+  await expect(alerta).toBeHidden({ timeout: 10000 });
+
+  // A limpeza roda num temporizador curto depois do fechamento.
+  await this.page.waitForTimeout(1000);
+});
+
+/**
+ * "Responder" aqui é literal: a página precisa aceitar clique de novo.
+ *
+ * Conferimos as duas marcas que travavam a tela e, depois, clicamos de
+ * verdade num item do menu -- porque só o clique prova que voltou.
+ */
+Then('a tela deve continuar respondendo', async function (this: CustomWorld) {
+  const travas = await this.page.evaluate(() => {
+    const raiz = document.getElementById('__next');
+    return {
+      corpoSemCliques: getComputedStyle(document.body).pointerEvents === 'none',
+      paginaEscondida: raiz?.getAttribute('aria-hidden') === 'true',
+      sobrouDialogo: document.querySelectorAll('[data-radix-dialog-overlay]').length,
+    };
+  });
+
+  expect(travas.corpoSemCliques, 'a página ficou sem aceitar cliques (pointer-events: none no body)').toBe(false);
+  expect(travas.paginaEscondida, 'a página inteira ficou marcada como escondida (aria-hidden no #__next)').toBe(false);
+  expect(travas.sobrouDialogo, 'sobrou uma cortina de diálogo por cima da tela').toBe(0);
+
+  // A prova final: clicar em alguma coisa e a tela reagir.
+  await this.page.getByRole('link', { name: /Locações/i }).first().click();
+  await expect(this.page).toHaveURL(/\/rentals/, { timeout: 15000 });
+});

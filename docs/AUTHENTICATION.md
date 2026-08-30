@@ -35,8 +35,16 @@ Três coisas, todas valendo em produção até esta data:
   assinado** (`src/lib/sessionToken.ts`) e a validade.
 - A contagem de tentativas e o bloqueio de 30 minutos voltaram a funcionar,
   porque agora quem grava é o servidor.
-- Usuário inexistente e senha errada devolvem **a mesma mensagem**. Respostas
-  diferentes entregam quais logins são válidos.
+- Usuário inexistente e senha errada devolvem **a mesma mensagem**, palavra
+  por palavra: *"Usuário ou senha inválidos"*. Respostas diferentes entregam
+  quais logins são válidos.
+
+  > A primeira versão desta rota dizia *"você tem mais 2 tentativa(s) antes do
+  > bloqueio"*. Simpático, e um vazamento: só um usuário que existe tem
+  > contagem. O cenário `Senha errada não diz se o usuário existe` pegou isso
+  > antes de ir para produção. A contagem some da tela; o bloqueio, quando
+  > acontece, continua sendo explicado — quem errou três vezes é quase sempre o
+  > dono da conta, e precisa entender por que parou de entrar.
 - `authService.getSessionToken()` devolve o token da sessão atual. É ele que
   as rotas de gravação vão exigir.
 

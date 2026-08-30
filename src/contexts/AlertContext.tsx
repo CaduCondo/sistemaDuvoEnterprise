@@ -49,8 +49,21 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setOpen(true), 250);
   }, []);
 
+  /**
+   * ⚠️ DEFEITO CORRIGIDO EM 30/ago/2026 — "cliquei OK e a tela travou".
+   *
+   * Isto fazia `setOpen(false)` direto. Parece igual a fechar o alerta, mas
+   * NÃO é: `onOpenChange` só dispara quando é o próprio Radix que fecha o
+   * diálogo (Esc, clique fora). Fechando pelo estado, ele nunca é chamado --
+   * e é dentro dele que mora a limpeza que destrava a página.
+   *
+   * Resultado: fechar com Esc funcionava, e fechar no botão OK -- que é o que
+   * todo mundo faz -- deixava a página inteira sem responder até um F5.
+   *
+   * Agora o botão passa pelo mesmo caminho de qualquer outro fechamento.
+   */
   const handleConfirm = () => {
-    setOpen(false);
+    handleOpenChange(false);
 
     // Executar callback se existir
     if (alertData.onConfirm) {
