@@ -21,6 +21,70 @@ const cleanLabel = (text: string): string => {
   return text.replace(/\s*-\s*Parcela\s+\d+\/\d+/gi, '').trim();
 };
 
+/**
+ * O período do proporcional NÃO fica na linha — fica na legenda do rodapé.
+ *
+ * As linhas do proporcional vinham assim:
+ *
+ *     Aluguel Proporcional - Dias Extras (21 dias - 2026-09-10 a 2026-09-30)
+ *     Garagem Proporcional - Dias Extras (21 dias - 2026-09-10 a 2026-09-30)
+ *
+ * O período inteiro repetido em cada linha estoura a coluna e diz duas vezes
+ * a mesma coisa. Deve virar:
+ *
+ *     Aluguel Proporcional *
+ *     Garagem Proporcional *
+ *
+ * e, uma vez só, no rodapé do bloco:
+ *
+ *     * Proporcional de 21 dias extras - de 2026-09-10 até 2026-09-30
+ *
+ * ⚠️ Isto TEM de ser feito aqui, na exibição, e não só no terminationService
+ * (que grava a descrição). Os recebimentos criados antes de 28/ago/2026 já
+ * têm o texto longo gravado no banco e não vão ser recriados — corrigir só
+ * na gravação não muda nada do que já existe. Foi o erro que fez esta
+ * correção não aparecer para o Cadu nas primeiras tentativas.
+ */
+const RX_PROPORCIONAL = /^(Aluguel|Garagem)\s+Proporcional\b/i;
+
+/** Extrai "21 dias - 2026-09-10 a 2026-09-30" de dentro dos parênteses. */
+const extrairPeriodoProporcional = (descricao?: string): string | null => {
+  if (!descricao || !RX_PROPORCIONAL.test(descricao)) return null;
+  const entreParenteses = descricao.match(/\(([^)]+)\)/);
+  return entreParenteses ? entreParenteses[1].trim() : null;
+};
+
+/** "Aluguel Proporcional - Dias Extras (...)" -> "Aluguel Proporcional *" */
+const rotuloDaLinha = (descricao?: string): string => {
+  const limpo = cleanLabel(descricao || "");
+  if (!RX_PROPORCIONAL.test(limpo)) return limpo;
+  const tipo = limpo.match(RX_PROPORCIONAL)![1];
+  return `${tipo.charAt(0).toUpperCase()}${tipo.slice(1).toLowerCase()} Proporcional *`;
+};
+
+/**
+ * Monta a legenda do rodapé a partir da primeira linha proporcional que
+ * encontrar. Devolve null quando não há proporcional no recebimento.
+ */
+const legendaDoProporcional = (itens: any[]): string | null => {
+  for (const item of itens || []) {
+    // Descrição nova já traz a legenda pronta no campo `nota`.
+    if (item?.nota) return item.nota;
+
+    const periodo = extrairPeriodoProporcional(item?.description || item?.label);
+    if (!periodo) continue;
+
+    // "21 dias - 2026-09-10 a 2026-09-30" -> partes
+    const casa = periodo.match(/^(\d+)\s*dias?\s*-\s*(\S+)\s+(?:a|até)\s+(\S+)$/i);
+    if (!casa) return `* Proporcional de ${periodo}`;
+
+    const [, dias, de, ate] = casa;
+    const diasFormatado = `${String(dias).padStart(2, "0")} ${Number(dias) === 1 ? "dia" : "dias"}`;
+    return `* Proporcional de ${diasFormatado} extras - de ${de} até ${ate}`;
+  }
+  return null;
+};
+
 export const BreakdownItem = memo(({ item, isDeduction, igpmCorrection, formatCurrency }: BreakdownItemProps) => {
   // Aceita os dois textos: o novo ("Caução Corrigido p/ Devolução", 28/ago/2026)
   // e os dois antigos, que continuam gravados em recebimentos ja criados.
@@ -37,7 +101,7 @@ export const BreakdownItem = memo(({ item, isDeduction, igpmCorrection, formatCu
   const isDueDateChange = item.extraValue && item.extraValue > 0 && item.description && item.description.includes("De dia");
 
   // Limpar o label/description removendo "- Parcela X/Y"
-  const cleanedLabel = cleanLabel(item.label || item.description);
+  const cleanedLabel = rotuloDaLinha(item.label || item.description);
 
   return (
     <div>
@@ -340,6 +404,14 @@ export function PaymentBreakdownCard({
                 );
               })()}
 
+              {/* Legenda do proporcional, tambem nesta tela. */}
+              {(() => {
+                const legenda = legendaDoProporcional(originalBreakdown);
+                if (!legenda) return null;
+                return (
+                  <p className="text-xs text-muted-foreground pt-2">{legenda}</p>
+                );
+              })()}
 
               {showPartialInfo && (
                 <div className="mt-4 pt-4 border-t border-dashed bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md">
@@ -383,7 +455,7 @@ export function PaymentBreakdownCard({
                   .map((item: any, index: number) => {
                   const itemValue = item.value || item.amount || 0;
                   // Limpar a descrição removendo "- Parcela X/Y"
-                  const cleanedDescription = cleanLabel(item.description);
+                  const cleanedDescription = rotuloDaLinha(item.description);
                   
                   return (
                     <div key={index} className="flex justify-between items-center">
@@ -476,7 +548,7 @@ export function PaymentBreakdownCard({
                   "Aluguel Proporcional *"; o periodo aparece aqui, uma vez so,
                   em vez de repetido em cada linha. */}
               {(() => {
-                const legenda = displayBreakdown.items.find((i: any) => i.nota)?.nota;
+                const legenda = legendaDoProporcional(displayBreakdown.items);
                 if (!legenda) return null;
                 return (
                   <p className="text-xs text-muted-foreground pt-2">{legenda}</p>
