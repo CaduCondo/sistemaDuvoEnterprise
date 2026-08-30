@@ -111,6 +111,21 @@ export function DepositPaymentDialog({
     : [];
   const previousPaidTotal = history.reduce((sum, e) => sum + Math.abs(e.amount || 0), 0);
 
+  /**
+   * Todas as parcelas do caução desta locação, para calcular o "Saldo
+   * Restante" — que é do CAUÇÃO INTEIRO, não desta parcela.
+   */
+  // Horário do recebimento — o mesmo campo das outras três telas de
+  // recebimento (28/ago/2026). Gravado em deposit_installments.payment_time,
+  // coluna criada pela migration 20260828120000.
+  const [paymentHour, setPaymentHour] = useState("");
+  const [paymentMinute, setPaymentMinute] = useState("");
+  const [paymentSecond, setPaymentSecond] = useState("");
+
+  const [parcelasDoCaucao, setParcelasDoCaucao] = useState<
+    Array<{ installment_number: number; amount: number }>
+  >([]);
+
   const [entryIndexToDelete, setEntryIndexToDelete] = useState<number | null>(null);
   const [isDeletingEntry, setIsDeletingEntry] = useState(false);
   const [receiptEntry, setReceiptEntry] = useState<DepositPartialPaymentEntry | null>(null);
@@ -121,6 +136,26 @@ export function DepositPaymentDialog({
   // estivesse em aberto.
   const isPaid = installment.status === "paid";
   const isReadOnly = isPaid && !isEditMode;
+
+  useEffect(() => {
+    if (!open || !rental?.id) return;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("deposit_installments")
+        .select("installment_number, amount")
+        .eq("rental_id", rental.id)
+        .order("installment_number", { ascending: true });
+
+      if (error) {
+        console.error("Erro ao buscar as parcelas do caução:", error);
+        setParcelasDoCaucao([]);
+        return;
+      }
+
+      setParcelasDoCaucao((data || []) as any);
+    })();
+  }, [open, rental?.id]);
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -186,6 +221,14 @@ export function DepositPaymentDialog({
     const alreadyPaid = installment.status === "paid";
 
     setPaymentDate(installment.payment_date || new Date().toISOString().split("T")[0]);
+
+    // Horário já registrado, se houver. Parcelas anteriores a 28/ago/2026 não
+    // têm horário gravado e abrem com os campos vazios.
+    const horarioGravado = (installment as any).payment_time as string | null;
+    const [hh = "", mm = "", ss = ""] = (horarioGravado || "").split(":");
+    setPaymentHour(hh);
+    setPaymentMinute(mm);
+    setPaymentSecond(ss);
     setPaymentMethod(installment.payment_method || "pix");
     setNotes(alreadyPaid ? (installment.notes || "") : "");
 
@@ -483,8 +526,16 @@ export function DepositPaymentDialog({
 
       const updatedHistory = [...currentHistory, newEntry];
 
+      // Horário no mesmo formato de payments.payment_time ("HH:MM:SS").
+      // Vazio quando o usuário não preencheu nenhum dos três campos.
+      const horarioDoRecebimento =
+        paymentHour || paymentMinute || paymentSecond
+          ? `${paymentHour.padStart(2, "0")}:${paymentMinute.padStart(2, "0")}:${paymentSecond.padStart(2, "0")}`
+          : null;
+
       const updateData = {
         payment_date: paymentDate,
+        payment_time: horarioDoRecebimento,
         payment_method: paymentMethod,
         paid_amount: finalPaidAmount,
         penalty_amount: calculations.lateFee,
@@ -641,7 +692,41 @@ export function DepositPaymentDialog({
     }
   }, [entryIndexToDelete, installment.id, showAlert, onSuccess, onOpenChange]);
 
-  const remainingBalance = Math.max((installment.amount || 0) - previousPaidTotal, 0);
+  /**
+   * ⚠️ DEFEITO CORRIGIDO EM 28/ago/2026 — o "Saldo Restante" ficava travado.
+   *
+   * Era `(valor desta parcela) − (o que já foi pago DESTA parcela)`, ou seja,
+   * o saldo da própria parcela. Com nada pago ainda, isso repete o valor da
+   * parcela em todas elas — foi o "valor travado" que o Cadu viu.
+   *
+   * O que o campo quer dizer é: quanto do CAUÇÃO INTEIRO ainda falta depois
+   * desta parcela. Num caução de R$ 6.000,00 em 3x de R$ 2.000,00:
+   *
+   *     parcela 1/3 -> R$ 4.000,00
+   *     parcela 2/3 -> R$ 2.000,00
+   *     parcela 3/3 -> R$     0,00
+   *
+   * O cálculo é por POSIÇÃO da parcela (total menos as parcelas até esta,
+   * inclusive), e não pelo que foi pago: assim o valor é o mesmo abrindo a
+   * parcela hoje ou depois de quitada, e não muda se alguém pagar fora de
+   * ordem. Para o caminho normal os dois dariam o mesmo resultado.
+   */
+  const remainingBalance = (() => {
+    if (parcelasDoCaucao.length === 0) {
+      // Ainda carregando (ou locação sem parcelas): não inventa número.
+      return Math.max((installment.amount || 0) - previousPaidTotal, 0);
+    }
+
+    const totalDoCaucao = parcelasDoCaucao.reduce(
+      (soma, p) => soma + Number(p.amount || 0),
+      0
+    );
+    const ateEstaParcela = parcelasDoCaucao
+      .filter((p) => p.installment_number <= (installment.installment_number || 0))
+      .reduce((soma, p) => soma + Number(p.amount || 0), 0);
+
+    return Math.max(totalDoCaucao - ateEstaParcela, 0);
+  })();
   const canRegisterExtra = !isPaid || isEditMode;
 
   return (
@@ -814,16 +899,65 @@ export function DepositPaymentDialog({
                     ✅ Esta parcela já está totalmente paga. Clique em "Editar" pra alterar os dados ou registrar um pagamento adicional.
                   </div>
                 )}
-                <div>
-                  <Label htmlFor="paymentDate">Data do Recebimento *</Label>
-                  <Input
-                    id="paymentDate"
-                    type="date"
-                    value={paymentDate}
-                    onChange={(e) => setPaymentDate(e.target.value)}
-                    disabled={isReadOnly}
-                    required
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="paymentDate">Data do Recebimento *</Label>
+                    <Input
+                      id="paymentDate"
+                      type="date"
+                      value={paymentDate}
+                      onChange={(e) => setPaymentDate(e.target.value)}
+                      disabled={isReadOnly}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="deposit-payment-time">Horário do Recebimento</Label>
+                    <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] gap-2 items-center">
+                      <Input
+                        id="deposit-payment-hour"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="HH"
+                        maxLength={2}
+                        value={paymentHour}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, "");
+                          if (v === "" || (parseInt(v) >= 0 && parseInt(v) <= 23)) setPaymentHour(v);
+                        }}
+                        disabled={isReadOnly}
+                      />
+                      <span>:</span>
+                      <Input
+                        id="deposit-payment-minute"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="MM"
+                        maxLength={2}
+                        value={paymentMinute}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, "");
+                          if (v === "" || (parseInt(v) >= 0 && parseInt(v) <= 59)) setPaymentMinute(v);
+                        }}
+                        disabled={isReadOnly}
+                      />
+                      <span>:</span>
+                      <Input
+                        id="deposit-payment-second"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="SS"
+                        maxLength={2}
+                        value={paymentSecond}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, "");
+                          if (v === "" || (parseInt(v) >= 0 && parseInt(v) <= 59)) setPaymentSecond(v);
+                        }}
+                        disabled={isReadOnly}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
