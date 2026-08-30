@@ -43,8 +43,14 @@ const TEST_CONFIG = {
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || ''
   },
 
-  // URL base da aplicação
-  baseUrl: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+  // URL base da aplicação.
+  //
+  // SMOKE_BASE_URL vem do scripts/smoke.js e ganha de todo o resto: e
+  // ele quem sabe em qual porta a aplicacao realmente subiu. Precisa ser
+  // uma variavel separada porque o .env.local acima e carregado com
+  // `override: true` -- sem isso, a porta escrita no arquivo venceria a
+  // porta de verdade e os testes bateriam no endereco errado.
+  baseUrl: process.env.SMOKE_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
 
   // Usuários de teste (ALTERE estas credenciais conforme seu ambiente)
   users: {

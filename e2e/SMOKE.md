@@ -57,11 +57,33 @@ vinha depois e não tinha nada escutando na porta.
 npm run test:smoke
 ```
 
-Um comando só: compila (se precisar), sobe a aplicação, espera ela
-responder, roda os cenários `@smoke` em paralelo e derruba a aplicação no
-fim. Ver `scripts/smoke.js`.
+Um comando só, e pode rodar com o `npm run dev` aberto do lado.
 
-Se a aplicação já estiver rodando em outra janela:
+Ele começa perguntando na porta 3000 se já tem uma aplicação no ar:
+
+- **Tem** (seu `npm run dev`, por exemplo) — ele usa essa. Não compila e
+  não sobe nada, e no fim deixa ela rodando do jeito que estava.
+- **Não tem** — ele compila (se precisar), sobe a aplicação compilada,
+  espera responder, roda os testes e derruba no fim.
+
+Nos dois casos ele abre cada tela principal uma vez antes de começar, para
+a montagem da tela não contar dentro do limite de tempo do clique do teste.
+
+Ver `scripts/smoke.js`.
+
+> **Por que ele pergunta antes.** Ele não fazia isso, e com o `npm run dev`
+> aberto dava dois estragos de uma vez: o `next build` reescrevia a pasta
+> `.next` embaixo do dev (que passava a reclamar de `ENOENT ...
+> _buildManifest.js`) e logo depois o servidor novo morria com
+> `EADDRINUSE: address already in use :::3000`.
+
+Se a porta 3000 estiver ocupada por outro programa qualquer, rode em outra:
+
+```
+npm run test:smoke -- --porta=3001
+```
+
+E se quiser rodar só os cenários, sem que o script mexa em servidor nenhum:
 
 ```
 npm run test:bdd:smoke
