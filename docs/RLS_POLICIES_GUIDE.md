@@ -10,6 +10,69 @@
 
 ---
 
+## 🚨 LEIA ISTO ANTES DE TUDO — 30/ago/2026
+
+**Este sistema NÃO usa o login do Supabase.** Ele tem login próprio
+(`src/services/authService.ts` + `AuthContext`, usuário guardado no
+navegador). Não existe `signInWithPassword` nem `getSession` em lugar nenhum
+de `src/`.
+
+Consequência prática, e ela é grave:
+
+> Para o banco, **toda visita ao sistema é anônima**. `auth.uid()` é
+> **sempre nulo**, para todo mundo, inclusive para o admin.
+
+Portanto **qualquer política escrita com `auth.uid()` bloqueia 100% das
+gravações** — não protege, apenas quebra a tela. O mesmo vale para
+`auth.role()` e para políticas que consultam `system_users`.
+
+⚠️ **Os exemplos mais abaixo neste guia usam `auth.uid() IS NOT NULL`. NÃO
+COPIE.** Eles foram escritos assumindo o login do Supabase, que este sistema
+não usa.
+
+### O padrão correto neste sistema
+
+O controle de acesso é feito **na tela** (o menu e as rotas só deixam o
+perfil certo chegar na página). No banco, as tabelas do sistema ficam com a
+trava (RLS) **desligada**:
+
+```sql
+ALTER TABLE public.minha_tabela DISABLE ROW LEVEL SECURITY;
+```
+
+Se a trava precisar ficar ligada por algum motivo, a política tem que ser
+livre — nunca amarrada a `auth.uid()`:
+
+```sql
+CREATE POLICY "minha_tabela_livre" ON public.minha_tabela
+  FOR ALL TO public USING (true) WITH CHECK (true);
+```
+
+**O preço disso, dito com todas as letras:** a proteção fica só no sistema,
+não no banco. A chave pública do Supabase está no navegador de quem abre o
+site, então quem souber usá-la alcança essas tabelas sem passar pela tela. É
+uma dívida conhecida; consertar de verdade significa adotar o login do
+Supabase, o que é um projeto à parte.
+
+### O caso que gerou este aviso
+
+Em 30/ago/2026 a tela **Configurações → Isenção de Taxa Admin** parou de
+salvar em produção, com `new row violates row-level security policy`. A
+tabela `admin_fee_exempt_locations` estava com a trava ligada e duas
+políticas: uma de LEITURA livre e uma de GRAVAÇÃO exigindo estar em
+`system_users` como admin.
+
+Por isso o defeito enganava: **a tela abria certinha** (a leitura passava) e
+**só quebrava ao salvar**. Duas tentativas de correção falharam porque
+usaram justamente o `auth.uid() IS NOT NULL` recomendado neste guia. A
+correção final foi desligar a trava, como já estava em DEV desde fevereiro.
+Ver `docs/tickets/PROD-corrige-isencao-taxas-3.sql`.
+
+Para varrer o banco atrás de outros casos iguais:
+`docs/tickets/DIAG-rls-producao.sql`.
+
+---
+
 ## 🎯 INTRODUÇÃO
 
 **Row-Level Security (RLS)** é um recurso do PostgreSQL/Supabase que controla quais linhas (rows) de uma tabela cada usuário pode acessar.
