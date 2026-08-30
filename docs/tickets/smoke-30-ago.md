@@ -160,3 +160,49 @@ gravado. Print da falha confirma o diálogo aberto com tudo em branco.
 ## Como fica o smoke
 
 **32 cenários.** Os 19 de rescisão continuam todos dentro.
+
+---
+
+# Terceira rodada — 28 passaram, 4 falharam
+
+## 10. Recebimento de teste nascia sem "Formação de Valores"
+
+O cenário "Formação de Valores de um recebimento de aluguel comum" abria a tela
+e via só a linha "Valor de Desconto". Motivo: o preparo gravava o recebimento no
+banco **sem a composição** (as linhas Aluguel e Garagem). Nenhum recebimento
+criado pelo sistema de verdade nasce assim — só os do teste nasciam.
+
+**Correção (no teste):** o preparo agora grava a mesma composição que o
+`paymentService` grava num recebimento mensal comum.
+
+## 11. O desconto da rescisão estava sendo lido na coluna errada
+
+O cenário digitava 200 no "Valor de Desconto" e conferia se o sistema gravou
+−200,00. Dava 0.
+
+Não era defeito: num Recebimento de Rescisão o desconto vai para
+`termination_discount`, e a coluna genérica `discount_amount` fica em 0. O teste
+lia `discount_amount ?? termination_discount` — e `??` só pula nulo, nunca zero.
+Ou seja, ele lia o 0 e nunca chegava no −200,00.
+
+**Correção (no teste):** vale a coluna que tiver valor.
+
+## 12. Duas localizações "São Paulo - Centro" no banco
+
+Resto das rodadas em que a limpeza estourava o tempo (item 7). O Playwright
+recusa clicar quando duas opções batem com o mesmo nome.
+
+**Correção (no teste):** clica na primeira.
+
+## 13. O cenário do item E continua vermelho, de propósito
+
+"Formação de Valores da rescisão quando o mês estava PENDENTE" espera **uma** tela
+com a conta inteira:
+
+    Aluguel | Aluguel Proporcional | Garagem | Garagem Proporcional | Multa | Desconto
+
+A tela mostra só a metade proporcional, porque o `terminationService` ainda
+parte esse caso em DOIS recebimentos de aluguel (o mês cheio no dia 10 e o
+proporcional no dia da saída). **É o item E da rodada 2, ainda aberto.** O
+cenário é o contrato do que foi combinado; ele fica vermelho até o item E ser
+feito.

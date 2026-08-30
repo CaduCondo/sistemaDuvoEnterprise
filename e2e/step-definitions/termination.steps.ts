@@ -462,6 +462,16 @@ Given(
     const pago = /pag/i.test(situacao);
     const dia = String(this.testData.diaVencimento).padStart(2, '0');
 
+    // A mesma composição que paymentService.createPaymentsForRental grava num
+    // recebimento mensal comum. Sem ela a tela abre a "Formação de Valores"
+    // vazia -- o que não acontece com nenhum recebimento criado pelo sistema.
+    const composicao = [
+      { description: 'Aluguel', amount: Number(this.testData.aluguel), type: 'addition' },
+    ];
+    if (Number(this.testData.garagem) > 0) {
+      composicao.push({ description: 'Garagem', amount: Number(this.testData.garagem), type: 'addition' });
+    }
+
     const pagamento = await this.upsertPayment({
       rental_id: this.rentalId!,
       reference_month: mes,
@@ -471,6 +481,7 @@ Given(
       status: pago ? 'paid' : 'pending',
       paid_amount: pago ? valor : undefined,
       payment_date: pago ? `${ano}-${mes}-${dia}` : undefined,
+      breakdown: composicao,
     });
 
     this.testData.recebimentoDoMes = pagamento;
@@ -1113,11 +1124,16 @@ Then(/^o sistema deve registrar o valor como (-?[\d.,]+)$/, async function (
   const esperado = paraNumero(valorTexto);
   const pagamento = await this.getPaymentById(this.testData.terminationPaymentId);
 
-  // O campo grava em `discount_amount` (coluna genérica de desconto, também
-  // usada no abatimento de atraso); `termination_discount` é escrita pelo
-  // terminationService. Aceitamos as duas para que o cenário fale de REGRA
-  // (grava negativo sem o usuário digitar o sinal) e não de qual coluna.
-  const gravado = Number(pagamento.discount_amount ?? pagamento.termination_discount ?? 0);
+  // Num Recebimento de Rescisão o desconto vai para `termination_discount`;
+  // num recebimento comum, para `discount_amount` (coluna genérica, também
+  // usada no abatimento de atraso). Aceitamos as duas para que o cenário fale
+  // de REGRA (grava negativo sem o usuário digitar o sinal) e não de coluna.
+  //
+  // Vale a que tiver valor: `??` só pula null, então `discount_amount = 0`
+  // (que é como a coluna genérica fica numa rescisão) escondia o -200,00
+  // gravado em `termination_discount`.
+  const gravado =
+    Number(pagamento.termination_discount || 0) || Number(pagamento.discount_amount || 0);
   expect(gravado).toBeCloseTo(esperado, 2);
 });
 

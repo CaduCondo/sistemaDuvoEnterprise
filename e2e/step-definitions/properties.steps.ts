@@ -175,7 +175,9 @@ When('preencho todos os campos obrigatórios:', async function (this: CustomWorl
     // ---- Campos do formulário de Imóvel ----
     if (campo === 'local') {
       await this.page.locator('#property-location').click();
-      await this.page.getByRole('option', { name: new RegExp(valor, 'i') }).click();
+      // .first(): rodadas antigas deixaram localizações repetidas no banco de
+      // DEV, e sem isso o Playwright recusa por ambiguidade.
+      await this.page.getByRole('option', { name: new RegExp(valor, 'i') }).first().click();
     } else if (campo === 'complemento') {
       await this.page.locator('#property-complement').fill(valor);
     } else if (campo === 'quartos') {

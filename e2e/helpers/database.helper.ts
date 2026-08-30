@@ -467,10 +467,17 @@ export class DatabaseHelper {
    * pagamento já existente com status/valor específicos
    * (ex.: "o pagamento de Janeiro/2026 está 'Pago' com valor de 'X'").
    */
+  /**
+   * `breakdown` e a composicao do recebimento (Aluguel, Garagem, ...). E dela
+   * que a tela monta o bloco "Formacao de Valores": um recebimento gravado sem
+   * ela abre com o bloco vazio, o que nao acontece com nenhum recebimento
+   * criado pelo sistema de verdade.
+   */
   static async upsertPayment(overrides: {
     rental_id: string; reference_month: string; reference_year: string;
     due_date: string; expected_amount: number; status: string;
     paid_amount?: number; payment_date?: string;
+    breakdown?: Array<{ description: string; amount: number; type: string }>;
   }) {
     const { data: existing } = await supabaseAdmin
       .from('payments')
@@ -489,6 +496,7 @@ export class DatabaseHelper {
       status: overrides.status,
       paid_amount: overrides.paid_amount,
       payment_date: overrides.payment_date,
+      ...(overrides.breakdown ? { breakdown: overrides.breakdown } : {}),
     };
 
     if (existing) {
