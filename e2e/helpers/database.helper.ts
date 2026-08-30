@@ -13,7 +13,9 @@ import TEST_CONFIG from '../config/test.config';
  * nunca via `supabase.auth.admin.createUser`.
  */
 
-const supabaseAdmin = createClient(
+// Exportado para os passos que precisam conferir o banco diretamente
+// (ex.: auth-servidor.steps.ts, que confere a contagem de tentativas).
+export const supabaseAdmin = createClient(
   TEST_CONFIG.supabase.url,
   TEST_CONFIG.supabase.serviceRoleKey,
   {

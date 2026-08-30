@@ -24,220 +24,97 @@ interface UserSession {
     theme?: string | null;
   };
   expiresAt: number;
+  /** Token assinado pelo servidor. Sessões antigas não têm; ver getSessionToken. */
+  token?: string;
 }
 
 /**
- * TEMPORARY: Direct password comparison for debugging
- * This will be replaced with proper bcrypt after login works
- */
-async function validatePassword(inputPassword: string, storedPassword: string): Promise<boolean> {
-  try {
-    console.log("🔐 ========== PASSWORD VALIDATION DEBUG ==========");
-    console.log("📝 Input password:", inputPassword);
-    console.log("📝 Input password length:", inputPassword.length);
-    console.log("🔑 Stored password:", storedPassword);
-    console.log("🔑 Stored password length:", storedPassword.length);
-    
-    // TEMPORARY: Direct string comparison
-    const isValid = inputPassword === storedPassword;
-    
-    console.log("✅ Direct compare result:", isValid);
-    console.log("🔐 ========== END PASSWORD VALIDATION ==========");
-    
-    return isValid;
-  } catch (error) {
-    console.error("❌ ========== PASSWORD VALIDATION ERROR ==========");
-    console.error("❌ Error validating password:", error);
-    console.error("❌ ========== END ERROR ==========");
-    return false;
-  }
-}
-
-/**
- * Login using system_users table only
+ * Login.
+ *
+ * A conferência da senha NÃO acontece mais aqui. Ela foi para a rota
+ * `/api/auth/login`, no servidor. Motivo, em uma frase: aqui é o navegador do
+ * visitante, e enquanto a comparação era feita aqui a senha de quem tentava
+ * entrar precisava ser baixada até esta máquina -- e chegava a ser impressa no
+ * console. Ver o cabeçalho de src/pages/api/auth/login.ts.
+ *
+ * Esta função virou o que deveria ter sido desde o começo: manda usuário e
+ * senha para o servidor, recebe de volta o usuário (sem senha) e um token
+ * assinado, e guarda a sessão.
  */
 export async function login(credentials: LoginCredentials): Promise<LoginResult> {
   try {
-    console.log("🔐 ========== LOGIN PROCESS START ==========");
-    console.log("📧 Login attempt with:", credentials.email);
-    console.log("🔑 Password provided:", credentials.password ? "YES" : "NO");
-    console.log("🔑 Password length:", credentials.password?.length || 0);
+    const resposta = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        // O campo se chama `email` no formulário, mas aceita nome de usuário
+        // ou e-mail -- o servidor tenta os dois.
+        identificador: credentials.email,
+        senha: credentials.password,
+      }),
+    });
 
-    // 1. Search for user by username OR email
-    const table = supabase.from("system_users");
-    
-    console.log("🔍 Searching user by username:", credentials.email);
-    
-    // Buscar usuário (username ou email)
-    let { data: users, error: queryError } = await table
-      .select("*")
-      .eq("username", credentials.email)
-      .eq("active", true);
+    const dados = await resposta.json().catch(() => ({}));
 
-    console.log("📊 Query result (by username):", { found: users?.length || 0, error: queryError });
-
-    // If not found by username, try email
-    if (!users || users.length === 0) {
-      console.log("🔍 Not found by username, trying email...");
-      const result = await table
-        .select("*")
-        .eq("email", credentials.email)
-        .eq("active", true);
-        
-      users = result.data;
-      queryError = result.error;
-      
-      console.log("📊 Query result (by email):", { found: users?.length || 0, error: queryError });
-    }
-    
-    const foundUsers = users as SystemUser[];
-
-    if (queryError) {
-      console.error("❌ Database error:", queryError);
-      return { success: false, error: "Erro ao buscar usuário" };
+    if (!resposta.ok) {
+      return { success: false, error: dados?.error || "Erro ao processar login" };
     }
 
-    if (!foundUsers || foundUsers.length === 0) {
-      console.warn("⚠️ User not found or inactive");
-      return { success: false, error: "Usuário não encontrado ou inativo" };
-    }
-
-    const user = foundUsers[0];
-    console.log("✅ User found!");
-    console.log("👤 User ID:", user.id);
-    console.log("👤 Username:", user.username);
-    console.log("👤 Email:", user.email);
-    console.log("👤 Name:", user.name);
-    console.log("👤 Role:", user.role);
-    console.log("👤 Active:", user.active);
-    console.log("🔐 Password hash exists:", !!user.password_hash);
-    console.log("🔐 Password hash preview:", user.password_hash?.substring(0, 20) + "...");
-
-    // 1.5 VERIFICAR SE ESTÁ BLOQUEADO
-    if (user.blocked_until && new Date(user.blocked_until) > new Date()) {
-      const blockedDate = new Date(user.blocked_until);
-      const timeLeft = Math.ceil((blockedDate.getTime() - Date.now()) / 60000);
-      console.warn(`⛔ User blocked until ${blockedDate.toLocaleString()}`);
-      return { 
-        success: false, 
-        error: `Conta bloqueada temporariamente por muitas tentativas falhas. Tente novamente em ${timeLeft} minutos.` 
-      };
-    }
-
-    // 2. Validate password using password_hash (TEMPORARY: direct comparison)
-    console.log("🔐 Starting password validation...");
-    
-    const isPasswordValid = await validatePassword(credentials.password, user.password_hash);
-
-    console.log("🎯 Password validation final result:", isPasswordValid);
-
-    if (!isPasswordValid) {
-      console.warn("⚠️ ========== PASSWORD VALIDATION FAILED ==========");
-      
-      // INCREMENTAR TENTATIVAS FALHAS
-      const newAttempts = (user.login_attempts || 0) + 1;
-      const updates: any = { login_attempts: newAttempts };
-      
-      let errorMsg = "Senha incorreta";
-      
-      console.log("📊 Login attempts:", newAttempts);
-      
-      // SE ATINGIU 3 TENTATIVAS -> BLOQUEAR POR 30 MINUTOS
-      if (newAttempts >= 3) {
-        const blockUntil = new Date(Date.now() + 30 * 60000);
-        updates.blocked_until = blockUntil.toISOString();
-        console.warn(`⛔ BLOCKING USER until ${blockUntil.toLocaleString()}`);
-        errorMsg = "Muitas tentativas falhas. Conta bloqueada por 30 minutos.";
-      } else {
-        const remaining = 3 - newAttempts;
-        errorMsg = `Senha incorreta. Você tem mais ${remaining} tentativa(s) antes do bloqueio.`;
-      }
-      
-      // Atualizar no banco
-      await supabase
-        .from("system_users")
-        .update(updates)
-        .eq("id", user.id);
-        
-      console.log("🔐 ========== LOGIN PROCESS END (FAILED) ==========");
-      return { success: false, error: errorMsg };
-    }
-
-    console.log("✅ Password validated successfully!");
-
-    // 2.5 RESETAR TENTATIVAS EM CASO DE SUCESSO
-    if ((user.login_attempts || 0) > 0 || user.blocked_until) {
-      console.log("🔄 Resetting login attempts...");
-      await supabase
-        .from("system_users")
-        .update({ 
-          login_attempts: 0, 
-          blocked_until: null 
-        })
-        .eq("id", user.id);
-    }
-
-    // 3. Create local session with ALL user data
     const session: UserSession = {
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        username: user.username,
-        role: user.role as "admin" | "financial" | "broker",
-        photo: user.photo,
-        phone: user.phone,
-        cpf: user.cpf,
-        rg: user.rg,
-        theme: user.theme || 'light',
+        id: dados.user.id,
+        email: dados.user.email,
+        name: dados.user.name,
+        username: dados.user.username,
+        role: dados.user.role,
+        photo: dados.user.photo,
+        phone: dados.user.phone,
+        cpf: dados.user.cpf,
+        rg: dados.user.rg,
+        theme: dados.user.theme || "light",
       },
-      expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+      expiresAt: dados.expiresAt,
+      token: dados.token,
     };
 
-    // 4. CLEAR ALL OLD SESSIONS
-    console.log("🧹 Clearing old sessions...");
+    // Limpa sessões antigas antes de gravar a nova.
     localStorage.removeItem("auth_session");
     localStorage.removeItem("auth_user");
     localStorage.removeItem("rental_auth_user");
     localStorage.removeItem("currentUser");
 
-    // 5. Save NEW session
-    console.log("💾 Saving new session...");
     localStorage.setItem("auth_session", JSON.stringify(session));
     localStorage.setItem("auth_user", JSON.stringify(session.user));
-    
-    // ✅ CORREÇÃO CRÍTICA: Salvar TAMBÉM em 'currentUser' para compatibilidade com auditService
+    // `currentUser` existe por compatibilidade com o auditService.
     localStorage.setItem("currentUser", JSON.stringify(session.user));
-    console.log("✅ Session saved in all keys: auth_session, auth_user, currentUser");
 
-    // ✅ Registrar log de login APÓS salvar no localStorage
-    await logLogin(user.id);
-    console.log("✅ Login audit log registered");
+    await logLogin(session.user.id);
 
-    // 6. Return success with properly typed user
-    const userResult: LoginResult["user"] = {
-      id: session.user.id,
-      email: session.user.email,
-      name: session.user.name,
-      username: session.user.username,
-      role: session.user.role as "admin" | "financial" | "broker",
-      photo: session.user.photo,
-      phone: session.user.phone,
-      cpf: session.user.cpf,
-      rg: session.user.rg,
-      theme: session.user.theme,
-    };
-
-    console.log("✅ Login successful!");
-    console.log("🔐 ========== LOGIN PROCESS END (SUCCESS) ==========");
-
-    return { success: true, user: userResult };
-
+    return { success: true, user: { ...session.user } as LoginResult["user"] };
   } catch (error) {
-    console.error("❌ ========== LOGIN PROCESS ERROR ==========");
-    console.error("❌ Error during login:", error);
-    console.error("❌ ========== END ERROR ==========");
+    console.error("Erro ao processar login:", error);
     return { success: false, error: "Erro ao processar login" };
+  }
+}
+
+/**
+ * O token assinado da sessão atual, ou null se não houver sessão.
+ *
+ * É ele que as rotas de servidor exigem para provar quem está chamando. Sem
+ * ele, uma rota que grava com a chave secreta seria uma porta aberta.
+ */
+export function getSessionToken(): string | null {
+  try {
+    const bruto = localStorage.getItem("auth_session");
+    if (!bruto) return null;
+
+    const session: UserSession = JSON.parse(bruto);
+    if (!session?.token) return null;
+    if (session.expiresAt && Date.now() > session.expiresAt) return null;
+
+    return session.token;
+  } catch {
+    return null;
   }
 }
 

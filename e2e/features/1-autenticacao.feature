@@ -64,3 +64,48 @@ Funcionalidade: Autenticação de Usuários
     Quando clico no menu do usuário
     E clico em "Sair"
     Então devo ser redirecionado para "/"
+
+  # ==========================================================================
+  # O LOGIN PASSOU A ACONTECER NO SERVIDOR (30/ago/2026)
+  #
+  # Antes, a tela baixava a linha inteira do usuário -- senha inclusive -- e
+  # comparava no navegador. Três coisas quebradas nisso, todas reais em
+  # produção:
+  #
+  #   1. a senha de quem tentava entrar viajava até o navegador, e chegava a
+  #      ser impressa no console;
+  #   2. a contagem de tentativas erradas era gravada pelo navegador, a trava
+  #      do banco barrava essa gravação e o erro era engolido em silêncio --
+  #      ou seja, o BLOQUEIO POR 3 SENHAS ERRADAS ESTAVA MORTO;
+  #   3. a sessão era um objeto solto no navegador, sem nada que provasse
+  #      quem era o usuário: dava para escrever "role: admin" no console.
+  #
+  # Os cenários abaixo protegem as três coisas. Eles falam com a rota
+  # /api/auth/login diretamente, porque o que está sendo protegido é o
+  # CONTRATO do servidor, não o desenho da tela.
+  # ==========================================================================
+
+  @seguranca
+  Cenário: A senha nunca volta do servidor
+    Quando eu pedir login ao servidor com "admin@teste.com" e a senha "Admin@123"
+    Então o servidor deve aceitar
+    E a resposta não pode conter nenhuma senha
+    E a resposta deve trazer um token que identifica esse usuário
+
+  @seguranca
+  Cenário: Senha errada não diz se o usuário existe
+    # Dizer "usuário não encontrado" entrega quais logins são válidos para
+    # quem estiver tentando adivinhar. As duas respostas têm que ser iguais.
+    Quando eu pedir login ao servidor com "admin@teste.com" e a senha "SenhaErrada123"
+    E eu pedir login ao servidor com "naoexiste@teste.com" e a senha "SenhaErrada123"
+    Então as duas recusas devem dizer a mesma coisa
+
+  @seguranca
+  Cenário: Três senhas erradas bloqueiam a conta por 30 minutos
+    # Este é o cenário que estava morto: a contagem não era gravada, então
+    # dava para tentar senha infinitas vezes.
+    Dado que existe um usuário só para este teste
+    Quando eu errar a senha dele 3 vezes seguidas
+    Então a conta dele deve estar bloqueada no banco
+    E a contagem de tentativas dele deve estar em 3
+    E a quarta tentativa, mesmo com a senha certa, deve ser recusada

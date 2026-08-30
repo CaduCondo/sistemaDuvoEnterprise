@@ -4,6 +4,81 @@ Este documento detalha o sistema completo de autenticação e gestão de usuári
 
 ---
 
+## 🚨 O QUE MUDOU EM 30/ago/2026 — LEIA ANTES DO RESTO
+
+O login **saiu do navegador e foi para o servidor**. A rota é
+`src/pages/api/auth/login.ts`. O restante deste documento ainda descreve
+partes do desenho antigo; onde houver conflito, **vale esta seção**.
+
+### O que estava errado
+
+Três coisas, todas valendo em produção até esta data:
+
+1. **A senha viajava até o navegador.** O login baixava a linha inteira do
+   usuário — `password_hash` incluído — e comparava ali. Chegava a imprimir um
+   pedaço da senha no console.
+2. **O bloqueio por 3 senhas erradas estava morto.** Quem gravava a contagem
+   era o navegador; a trava do banco (RLS) barrava essa gravação e o erro era
+   engolido em silêncio. Ou seja: dava para tentar senha infinitas vezes. Quem
+   ligou o RLS achando que melhorava a segurança desligou a proteção de
+   verdade.
+3. **A sessão não provava nada.** Era um objeto JSON solto no `localStorage`.
+   Qualquer pessoa podia abrir o console, escrever `role: "admin"` e o sistema
+   acreditava.
+
+### O que passou a valer
+
+- `POST /api/auth/login` recebe `{ identificador, senha }` — o identificador
+  aceita nome de usuário **ou** e-mail. O servidor confere a senha usando a
+  chave secreta do Supabase, que nunca sai dele.
+- A resposta traz o usuário **sem nenhum campo de senha**, mais um **token
+  assinado** (`src/lib/sessionToken.ts`) e a validade.
+- A contagem de tentativas e o bloqueio de 30 minutos voltaram a funcionar,
+  porque agora quem grava é o servidor.
+- Usuário inexistente e senha errada devolvem **a mesma mensagem**. Respostas
+  diferentes entregam quais logins são válidos.
+- `authService.getSessionToken()` devolve o token da sessão atual. É ele que
+  as rotas de gravação vão exigir.
+
+### A variável de ambiente
+
+O token é assinado com `AUTH_SESSION_SECRET`. **Se ela não existir**, o código
+cai na `SUPABASE_SERVICE_ROLE_KEY`, que já está no servidor desde sempre —
+essa reserva existe para que publicar o código antes de cadastrar a variável
+nova não derrube o login de todo mundo.
+
+Cadastre `AUTH_SESSION_SECRET` na Vercel (Settings → Environment Variables)
+com um texto longo e aleatório, e no `.env.local` para desenvolvimento. Trocar
+o valor invalida todas as sessões abertas — todo mundo precisa entrar de novo.
+
+### O que AINDA NÃO foi feito
+
+Esta é a **etapa 1 de 3**. Continuam abertos, na issue #57 do GitHub e no card
+correspondente do kanban:
+
+- **Etapa 2 — as gravações.** Criar, editar e excluir usuário, e a troca de
+  senha, ainda são feitas pelo navegador e continuam barradas pela trava do
+  banco em produção. Vão passar por rotas de servidor que exigem o token.
+- **Etapa 3 — as senhas.** Continuam em **texto puro** na coluna
+  `password_hash` (o nome engana: não há embaralhamento). E a **leitura** da
+  tabela `system_users` continua liberada, então quem souber usar a chave
+  pública do site consegue baixá-las. Cifrar as senhas e fechar a leitura é o
+  fim do trabalho.
+
+### Onde estão os testes
+
+`e2e/features/1-autenticacao.feature`, cenários marcados com `@seguranca`.
+Eles falam com a rota diretamente, porque o que está sendo protegido é o
+contrato do servidor: que a senha não volta, que o token identifica o usuário,
+que as duas recusas são iguais e que a conta bloqueia de verdade na terceira
+tentativa.
+
+```
+npx cucumber-js --config e2e/cucumber.config.cjs --tags "@seguranca"
+```
+
+---
+
 ## 📋 Índice
 
 - [Visão Geral](#visão-geral)
