@@ -1,42 +1,48 @@
 -- ============================================================================
 -- DIAGNÓSTICO — isenção de taxa não salva
 --
--- Este arquivo NÃO ALTERA NADA. Só lê e mostra. Pode rodar à vontade.
+-- NÃO ALTERA NADA. Só lê e mostra. Pode rodar à vontade.
 --
--- Rode nos DOIS bancos, DEV e PRODUÇÃO, e me mande as duas respostas.
--- A diferença entre elas é a resposta.
+-- UMA consulta só, de propósito: o SQL Editor do Supabase mostra apenas o
+-- resultado do ÚLTIMO comando: se o arquivo tiver três consultas, você só vê
+-- a terceira. Aqui tudo vem numa tabela só.
+--
+-- Rode nos DOIS bancos, DEV e PRODUÇÃO, e compare.
 -- ============================================================================
 
--- 1. A trava (RLS) está ligada ou desligada em cada tabela?
-SELECT 'RLS' AS o_que,
-       c.relname AS tabela,
-       CASE WHEN c.relrowsecurity THEN 'LIGADA' ELSE 'DESLIGADA' END AS estado
+SELECT '1. trava (RLS)' AS o_que,
+       c.relname        AS tabela,
+       CASE WHEN c.relrowsecurity THEN 'LIGADA' ELSE 'DESLIGADA' END AS detalhe,
+       ''               AS operacao,
+       ''               AS condicao_para_gravar
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
  WHERE n.nspname = 'public'
    AND c.relname IN ('admin_fee_exempt_locations', 'management_fee_exempt_locations')
- ORDER BY c.relname;
 
--- 2. Quais regras de permissão existem em cada tabela, e o que elas exigem?
-SELECT 'REGRA' AS o_que,
-       tablename AS tabela,
-       policyname AS nome_da_regra,
-       cmd AS operacao,
-       roles::text AS para_quem,
-       COALESCE(qual, '(sem condicao)') AS condicao_para_ler,
-       COALESCE(with_check, '(sem condicao)') AS condicao_para_gravar
-  FROM pg_policies
- WHERE schemaname = 'public'
-   AND tablename IN ('admin_fee_exempt_locations', 'management_fee_exempt_locations')
- ORDER BY tablename, policyname;
-
--- 3. Quantas isenções estão gravadas hoje?
-SELECT 'CONTEUDO' AS o_que,
-       'admin_fee_exempt_locations' AS tabela,
-       COUNT(*)::text AS quantidade
-  FROM public.admin_fee_exempt_locations
 UNION ALL
-SELECT 'CONTEUDO',
+
+SELECT '2. regra de permissao',
+       p.tablename,
+       p.policyname,
+       p.cmd,
+       COALESCE(p.with_check, p.qual, '(sem condicao)')
+  FROM pg_policies p
+ WHERE p.schemaname = 'public'
+   AND p.tablename IN ('admin_fee_exempt_locations', 'management_fee_exempt_locations')
+
+UNION ALL
+
+SELECT '3. isencoes gravadas hoje',
+       'admin_fee_exempt_locations',
+       COUNT(*)::text, '', ''
+  FROM public.admin_fee_exempt_locations
+
+UNION ALL
+
+SELECT '3. isencoes gravadas hoje',
        'management_fee_exempt_locations',
-       COUNT(*)::text
-  FROM public.management_fee_exempt_locations;
+       COUNT(*)::text, '', ''
+  FROM public.management_fee_exempt_locations
+
+ORDER BY 1, 2, 3;
