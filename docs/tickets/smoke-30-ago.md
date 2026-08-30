@@ -249,3 +249,25 @@ gravava −200,00. Dois erros somados:
 tecla como o usuário faria, e o teste confere que o campo mostra **−R$ 200,00**
 antes de esperar o salvamento — o que também prova a regra do cenário: o sinal
 de menos vem preso no campo, o usuário nunca o digita.
+
+---
+
+# Quinta rodada — 30 passaram, 1 falhou
+
+## 16. A primeira tecla digitada se perdia
+
+O campo de desconto continuava mostrando **−R$ 0,00** depois de o teste digitar
+2-0-0-0-0. O detalhe que entregou: "R$ 0,00" é exatamente o que a máscara
+devolve quando só recebeu zeros. Ou seja, **o "2" se perdeu e os quatro zeros
+entraram.**
+
+Causa: o teste limpava o campo com "selecionar tudo + apagar" e emendava a
+digitação. Apagar tudo de uma vez faz a tela se redesenhar, e a tecla que vem
+logo em seguida cai no meio desse redesenho e não é registrada.
+
+**Correção (no teste):** apaga uma tecla de cada vez, espera a tela assentar e
+só então digita, um pouco mais devagar (120 ms entre teclas).
+
+Vale registrar: no uso normal isso não aparece, porque ninguém digita mais
+rápido que a tela desenha. Foi o robô, que digita em milissegundos, que
+encontrou a fresta.

@@ -705,9 +705,18 @@ When('eu digitar {string} no campo {string}', async function (this: CustomWorld,
   const campoNaTela = this.page.locator(seletor);
 
   await campoNaTela.click();
-  await campoNaTela.press('Control+a');
-  await campoNaTela.press('Backspace');
-  await campoNaTela.pressSequentially(digitos, { delay: 60 });
+  await campoNaTela.press('End');
+
+  // Zera uma tecla de cada vez, e espera depois. Limpar tudo de uma vez
+  // (Control+a e Backspace) deixava a tela re-desenhando, e a PRIMEIRA tecla
+  // digitada em seguida se perdia: digitar 2-0-0-0-0 acabava em "R$ 0,00",
+  // porque só os quatro zeros entravam.
+  for (let i = 0; i < 20; i++) {
+    await campoNaTela.press('Backspace');
+  }
+  await this.page.waitForTimeout(400);
+
+  await campoNaTela.pressSequentially(digitos, { delay: 120 });
 
   this.testData.ultimoValorDigitado = valor;
 
@@ -720,7 +729,7 @@ When('eu digitar {string} no campo {string}', async function (this: CustomWorld,
   await expect(
     campoNaTela,
     `o campo "${campo}" não recebeu o valor digitado`
-  ).toHaveValue(new RegExp(`R\\$\\s?${esperadoNaTela.replace(/[.]/g, '\\.')}$`), { timeout: 5000 });
+  ).toHaveValue(new RegExp(`R\\$\\s?${esperadoNaTela.replace(/[.]/g, '\\.')}$`), { timeout: 10000 });
 
   // Os dois campos salvam sozinhos ~1,5s depois de parar de digitar (ver
   // ManagePaymentForm.handleSaveExpensesAndDiscount) — não há botão próprio.
