@@ -960,37 +960,43 @@ export function DepositPaymentDialog({
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="paymentMethod">Forma de Pagamento *</Label>
-                  <Select
-                    value={paymentMethod}
-                    onValueChange={(value) => setPaymentMethod(value)}
-                    disabled={isReadOnly}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a forma de pagamento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {paymentMethodsTable.map((method) => (
-                        <SelectItem key={method.code} value={method.code}>
-                          {method.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Valor e forma de pagamento lado a lado, na mesma ordem da
+                    tela de aluguel (28/ago/2026). Antes ocupavam uma linha
+                    inteira cada, empurrando as Observações para fora da vista
+                    e deixando esta tela com uma cara diferente das outras. */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="paidAmount">Valor a Pagar *</Label>
+                    <Input
+                      id="paidAmount"
+                      type="text"
+                      value={paidAmount}
+                      onChange={(e) => setPaidAmount(formatCurrencyInput(e.target.value))}
+                      placeholder="R$ 0,00"
+                      disabled={isReadOnly}
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="paidAmount">Valor Pago *</Label>
-                  <Input
-                    id="paidAmount"
-                    type="text"
-                    value={paidAmount}
-                    onChange={(e) => setPaidAmount(formatCurrencyInput(e.target.value))}
-                    placeholder="R$ 0,00"
-                    disabled={isReadOnly}
-                    required
-                  />
+                  <div>
+                    <Label htmlFor="paymentMethod">Forma de Pagamento *</Label>
+                    <Select
+                      value={paymentMethod}
+                      onValueChange={(value) => setPaymentMethod(value)}
+                      disabled={isReadOnly}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a forma de pagamento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {paymentMethodsTable.map((method) => (
+                          <SelectItem key={method.code} value={method.code}>
+                            {method.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div>
