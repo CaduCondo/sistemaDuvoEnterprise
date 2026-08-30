@@ -93,6 +93,21 @@ E a suíte completa, quando você quiser: aba **Actions** do GitHub →
 **E2E Tests (suíte completa - manual)** → **Run workflow**. Ou, na sua
 máquina, `npm run test:bdd` e `npm run test:e2e`.
 
+## Cenários fora do smoke por motivo conhecido (30/ago/2026)
+
+Cinco cenários saíram do smoke na estabilização de 30/ago. Todos continuam no
+repositório, com o motivo escrito acima de cada um e o detalhe em
+`docs/tickets/smoke-30-ago.md`.
+
+O único que sai por pendência de PRODUTO, e não por defeito de teste:
+
+- `12-rescisao-caucao.feature` — **"Formação de Valores da rescisão quando o
+  mês estava PENDENTE"**. É o contrato do **item E da rodada 2**. Devolva o
+  `@smoke` nele assim que o item E for implementado.
+
+Os outros quatro saem porque o preparo deles não cria os dados que eles
+conferem — precisam ser reescritos, não só re-etiquetados.
+
 ## Como religar um pedaço da suíte
 
 1. Escolha um cenário em `e2e/features/*.feature`.
