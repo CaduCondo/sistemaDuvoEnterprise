@@ -468,8 +468,20 @@ Then('devo ver o campo {string}', async function(fieldName: string) {
 });
 
 Then('devo poder preencher o valor', async function() {
-  // Verificar que o campo está habilitado
-  await this.page.waitForTimeout(200);
+  // Este passo NÃO verificava nada (era só uma espera) e passava sempre.
+  // Agora confere de verdade: o campo do valor da garagem tem que estar
+  // habilitado e aceitar o que for digitado.
+  const campo = this.page.locator('#rental-garage-value');
+
+  await expect(campo, 'o campo do valor da garagem não está na tela').toBeVisible();
+  await expect(campo, 'o campo do valor da garagem está bloqueado').toBeEnabled();
+
+  await campo.click();
+  await campo.pressSequentially('30000', { delay: 80 });
+  await expect(
+    campo,
+    'o campo do valor da garagem não recebeu o que foi digitado'
+  ).toHaveValue(/300,00$/, { timeout: 5000 });
 });
 
 Then('devo ver os campos:', async function(dataTable: any) {
