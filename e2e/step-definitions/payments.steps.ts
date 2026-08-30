@@ -120,7 +120,7 @@ When('vou para a página de Recebimentos', async function() {
 
 When('visualizo o detalhamento do pagamento', async function() {
   // Clicar no primeiro pagamento da lista
-  const firstPayment = this.page.locator('[data-testid="payment-card"]').first();
+  const firstPayment = this.page.locator('tbody tr').first();
   await firstPayment.click();
   await this.page.waitForTimeout(500);
 });
@@ -214,14 +214,23 @@ When('seleciono o ano {string}', async function(year: string) {
 // ==================== AÇÕES ====================
 
 When('marco o pagamento como {string}', async function(status: string) {
-  const statusButton = this.page.getByRole('button', { name: new RegExp(status, 'i') });
-  await statusButton.click();
-  await this.page.waitForTimeout(300);
+  // Não existe botão "Pago" na tela. O que existe é a ABA "Recebimentos Pagos"
+  // e a etiqueta de status. Marcar como pago é abrir a LINHA do recebimento --
+  // o que abre o diálogo de recebimento -- e confirmar lá dentro.
+  await expect(this.page.locator('#payments-tab-pending')).toBeVisible({ timeout: 30000 });
+
+  // Linha de caução abre outro diálogo; por isso a primeira que não for caução.
+  const linha = this.page.locator('tbody tr').filter({ hasNotText: 'Caução' }).first();
+  await expect(linha, 'não há nenhum recebimento pendente na tela').toBeVisible({ timeout: 15000 });
+  await linha.click();
+
+  await expect(this.page.locator('#payments-manage-dialog')).toBeVisible({ timeout: 15000 });
+  await expect(this.page.locator('#payment_date')).toBeVisible({ timeout: 15000 });
 });
 
 When('preencho a data de pagamento', async function() {
-  const dateInput = this.page.locator('[id*="payment-date"]');
-  await dateInput.fill('2026-08-01');
+  // O campo é #payment_date, com underscore -- [id*="payment-date"] não casava.
+  await this.page.locator('#payment_date').fill('2026-08-01');
 });
 
 When('anexo o comprovante', async function() {
@@ -238,19 +247,19 @@ When('confirmo o cancelamento', async function() {
 // ==================== VALIDAÇÕES ====================
 
 Then('devo ver {int} recebimento', async function(count: number) {
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   await expect(payments).toHaveCount(count, { timeout: 5000 });
 });
 
 Then('devo ver {int} recebimentos', async function(count: number) {
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   await expect(payments).toHaveCount(count, { timeout: 5000 });
 });
 
 Then('o recebimento deve ter:', async function(dataTable: any) {
   const expected = dataTable.rowsHash();
   
-  const firstPayment = this.page.locator('[data-testid="payment-card"]').first();
+  const firstPayment = this.page.locator('tbody tr').first();
   await expect(firstPayment).toBeVisible();
   
   for (const [field, value] of Object.entries(expected)) {
@@ -267,7 +276,7 @@ Then('o valor deve ser proporcional a {int} dias', async function(days: number) 
   const expectedValue = (monthlyRent / 30) * days;
   
   // Verificar se o valor está próximo do esperado (tolerância de R$ 10)
-  const paymentCard = this.page.locator('[data-testid="payment-card"]').first();
+  const paymentCard = this.page.locator('tbody tr').first();
   const text = await paymentCard.textContent();
   
   // Extrair valor do texto (formato: R$ 1.234,56)
@@ -281,7 +290,7 @@ Then('o valor deve ser proporcional a {int} dias', async function(days: number) 
 
 Then('NÃO devo ver recebimentos dessa locação', async function() {
   // Verificar se a lista está vazia ou não contém a locação testada
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   const count = await payments.count();
   
   // Se houver pagamentos, verificar se nenhum é da locação testada
@@ -298,7 +307,7 @@ Then('NÃO devo ver recebimentos dessa locação', async function() {
 Then('todos os recebimentos exibidos devem ter:', async function(dataTable: any) {
   const expected = dataTable.rowsHash();
   
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   const count = await payments.count();
   
   for (let i = 0; i < count; i++) {
@@ -317,7 +326,7 @@ Then('nenhum recebimento deve ter vencimento em outro mês', async function() {
   
   const [monthName, year] = filteredMonth.split('/');
   
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   const count = await payments.count();
   
   for (let i = 0; i < count; i++) {
@@ -376,7 +385,7 @@ Then('não deve ser possível gerar recibo', async function() {
 });
 
 Then('devo ver apenas pagamentos de Janeiro', async function() {
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   const count = await payments.count();
   
   for (let i = 0; i < count; i++) {
@@ -387,7 +396,7 @@ Then('devo ver apenas pagamentos de Janeiro', async function() {
 });
 
 Then('devo ver apenas pagamentos de {int}', async function(year: number) {
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   const count = await payments.count();
   
   for (let i = 0; i < count; i++) {
@@ -398,7 +407,7 @@ Then('devo ver apenas pagamentos de {int}', async function(year: number) {
 });
 
 Then('devo ver apenas pagamentos pendentes', async function() {
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   const count = await payments.count();
   
   for (let i = 0; i < count; i++) {
@@ -409,7 +418,7 @@ Then('devo ver apenas pagamentos pendentes', async function() {
 });
 
 Then('devo ver apenas pagamentos pagos', async function() {
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   const count = await payments.count();
   
   for (let i = 0; i < count; i++) {

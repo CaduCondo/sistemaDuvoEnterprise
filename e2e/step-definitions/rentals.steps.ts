@@ -135,9 +135,25 @@ When('preencho o valor da caução com {string}', async function(value: string) 
   await depositInput.fill(value);
 });
 
+// Os rótulos na tela não são os mesmos textos usados nos cenários: a tela diz
+// "Vaga Garagem?", "Caução Parcelado?" e "Corretor Parceiro?". Mapear a opção
+// para o id da caixa de seleção evita depender do texto exato do rótulo.
+const CAIXAS_POR_OPCAO: Record<string, string> = {
+  'garagem': 'rental-has-garage',
+  'parcelar caução': 'rental-deposit-installment',
+  'caução parcelado': 'rental-deposit-installment',
+  'corretor parceiro': 'rental-has-partner',
+};
+
 When('marco a opção {string}', async function(option: string) {
-  const checkbox = this.page.getByText(new RegExp(option, 'i'));
-  await checkbox.click();
+  const chave = Object.keys(CAIXAS_POR_OPCAO).find((k) => option.toLowerCase().includes(k));
+
+  if (chave) {
+    await this.page.locator(`#${CAIXAS_POR_OPCAO[chave]}`).click();
+  } else {
+    await this.page.getByText(new RegExp(option, 'i')).first().click();
+  }
+
   await this.page.waitForTimeout(300);
 });
 
@@ -210,7 +226,8 @@ When('preencho:', async function(dataTable: any) {
 });
 
 When('preencho a {string} da 1ª parcela com {string}', async function(fieldName: string, value: string) {
-  const input = this.page.locator('[id*="deposit-payment-date"]').first();
+  // O campo "Data Pagamento *" do bloco Caução é #rental-deposit-date.
+  const input = this.page.locator('#rental-deposit-date');
   
   if (value.includes('/')) {
     const [day, month, year] = value.split('/');
@@ -221,12 +238,19 @@ When('preencho a {string} da 1ª parcela com {string}', async function(fieldName
 });
 
 When('preencho a {string} com {string}', async function(fieldName: string, value: string) {
+  // O id deposit-payment-date nunca existiu na tela; o campo real do
+  // formulário de locação é #rental-deposit-date, e ele aparece sempre --
+  // não depende de caução à vista ou parcelado.
   let inputId = '';
-  
+
   if (fieldName.toLowerCase().includes('data pagamento')) {
-    inputId = 'deposit-payment-date';
+    inputId = 'rental-deposit-date';
   }
-  
+
+  if (!inputId) {
+    throw new Error(`Campo desconhecido no passo "preencho a ... com ...": ${fieldName}`);
+  }
+
   const input = this.page.locator(`#${inputId}`);
   
   if (value.includes('/')) {
@@ -423,9 +447,23 @@ Then('no bloco {string} devo ver:', async function(blockName: string, dataTable:
   }
 });
 
+// Alguns campos do formulário de Locação não têm rótulo visível -- o valor da
+// garagem, por exemplo, só tem o texto de exemplo "R$ 0,00" dentro do campo.
+// Para esses, procurar pelo id.
+const CAMPOS_POR_NOME: Record<string, string> = {
+  'valor da garagem': 'rental-garage-value',
+};
+
 Then('devo ver o campo {string}', async function(fieldName: string) {
+  const chave = Object.keys(CAMPOS_POR_NOME).find((k) => fieldName.toLowerCase().includes(k));
+
+  if (chave) {
+    await expect(this.page.locator(`#${CAMPOS_POR_NOME[chave]}`)).toBeVisible();
+    return;
+  }
+
   const field = this.page.getByText(new RegExp(fieldName, 'i'));
-  await expect(field).toBeVisible();
+  await expect(field.first()).toBeVisible();
 });
 
 Then('devo poder preencher o valor', async function() {
@@ -446,12 +484,12 @@ Then('devem ser criados {int} pagamentos', async function(count: number) {
   await this.page.goto('/payments');
   await this.page.waitForLoadState('domcontentloaded');
   
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   await expect(payments).toHaveCount(count, { timeout: 5000 });
 });
 
 Then('cada pagamento deve ter valor de {string}', async function(value: string) {
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   const count = await payments.count();
   
   for (let i = 0; i < count; i++) {
@@ -462,7 +500,7 @@ Then('cada pagamento deve ter valor de {string}', async function(value: string) 
 });
 
 Then('todos os pagamentos devem vencer no dia {int}', async function(day: number) {
-  const payments = this.page.locator('[data-testid="payment-card"]');
+  const payments = this.page.locator('tbody tr');
   const count = await payments.count();
   
   for (let i = 0; i < count; i++) {

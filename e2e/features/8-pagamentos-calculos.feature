@@ -66,7 +66,11 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Taxa Administração     | 250.00   |
       | Valor Líquido (Repasse)| 2250.00  |
 
-  @smoke
+  # FORA DO SMOKE (30/ago/2026): o passo "Dado que existe uma locação com:" não
+  # cria nada -- só guarda a tabela. O cenário acaba abrindo um recebimento
+  # qualquer da base e conferindo valores que não são os dele. Além disso pede
+  # "Taxa Administração", que não existe na tela de Recebimentos.
+  # Ver docs/tickets/smoke-30-ago.md.
   Cenário: Calcular pagamento com garagem
     Dado que existe uma locação com:
       | campo          | valor   |
@@ -96,7 +100,9 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Taxa Corretor (5%)     | 125.00   |
       | Valor Líquido          | 2125.00  |
 
-  @smoke
+  # FORA DO SMOKE (30/ago/2026): o último passo espera um botão "Gerar Recibo"
+  # que não existe na tela (o recibo sai pela coluna Recibo da aba Pagos).
+  # Ver docs/tickets/smoke-30-ago.md.
   Cenário: Registrar pagamento como pago
     Dado que existe um pagamento pendente
     Quando marco o pagamento como "Pago"

@@ -106,7 +106,10 @@ Funcionalidade: Regras de Negócio de Locações
       | Nome do corretor|
       | Taxa (%)        |
 
-  @smoke
+  # FORA DO SMOKE (30/ago/2026): o passo de preparo cria a locação direto no
+  # banco, e quem gera os 12 recebimentos é a tela. Sem passar pela tela, não
+  # existe recebimento nenhum para contar -- o cenário não tem como passar.
+  # Ver docs/tickets/smoke-30-ago.md.
   Cenário: Criar locação - Gerar pagamentos automaticamente
     Dado que existe um imóvel disponível "IMO-001" com aluguel de "2500.00"
     E existe um inquilino "João Silva"

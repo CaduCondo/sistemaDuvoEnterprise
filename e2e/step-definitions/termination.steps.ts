@@ -95,10 +95,31 @@ function extrairNumeroExibido(texto: string): number {
   return negativo ? -valor : valor;
 }
 
-/** Posição (0-based) de uma coluna pelo texto do cabeçalho da tabela. */
+/**
+ * Posição (0-based) de uma coluna pelo texto do cabeçalho da tabela.
+ *
+ * Duas armadilhas, as duas vistas de verdade na execução de 30/ago/2026:
+ *
+ * 1. A tabela pode ainda não estar na tela. Antes, a função lia os cabeçalhos
+ *    na hora e falhava com "Cabeçalhos vistos: []" -- que parece defeito de
+ *    tela, mas era só pressa. Agora ela espera o primeiro cabeçalho aparecer.
+ *
+ * 2. Um nome pode ser começo de outro. A aba Cauções tem "Valor Total Caução"
+ *    E "Valor Total": procurando por pedaço, "Valor Total" achava a coluna
+ *    "Valor Total Caução" (e o teste comparava 500,00 com R$ 6.000,00).
+ *    Agora o nome exato ganha; só se não houver exato é que vale o pedaço.
+ */
 async function indiceDaColuna(page: Page, nomeDaColuna: string): Promise<number> {
-  const cabecalhos = await page.getByRole('columnheader').allTextContents();
-  const indice = cabecalhos.findIndex((texto) => texto.includes(nomeDaColuna));
+  await expect(
+    page.getByRole('columnheader').first(),
+    'a tabela não apareceu na tela'
+  ).toBeVisible({ timeout: 15000 });
+
+  const cabecalhos = (await page.getByRole('columnheader').allTextContents()).map((t) => t.trim());
+  const procurado = nomeDaColuna.trim();
+
+  const exato = cabecalhos.findIndex((texto) => texto === procurado);
+  const indice = exato !== -1 ? exato : cabecalhos.findIndex((texto) => texto.includes(procurado));
 
   if (indice === -1) {
     throw new Error(
@@ -193,7 +214,14 @@ async function abrirAbaFinanceiro(world: CustomWorld, nomeDaAba: string) {
 
   const aba = page.getByRole('tab', { name: new RegExp(escapeRegex(nomeDaAba), 'i') });
   await aba.click();
-  await page.waitForTimeout(1000);
+
+  // A aba troca na hora, mas a tabela dela vem do banco. Sem esperar por ela,
+  // o passo seguinte lia uma tela ainda vazia.
+  await expect(
+    page.getByRole('columnheader').first(),
+    `a tabela da aba "${nomeDaAba}" não apareceu`
+  ).toBeVisible({ timeout: 20000 });
+  await page.waitForTimeout(500);
 
   // O período só existe (e só importa) na aba Locações; a aba Cauções lista
   // todas as parcelas de caução, sem filtro de mês.
@@ -203,13 +231,34 @@ async function abrirAbaFinanceiro(world: CustomWorld, nomeDaAba: string) {
   }
 }
 
+/**
+ * A lista de Recebimentos só existe depois que a busca no banco termina:
+ * enquanto ela não termina a tela mostra "Carregando recebimentos..." e as abas
+ * nem são desenhadas. Esperar a aba aparecer é, portanto, esperar a lista.
+ */
+async function esperarListaDeRecebimentos(page: Page) {
+  await expect(
+    page.locator('#payments-tab-pending'),
+    'a lista de Recebimentos não terminou de carregar'
+  ).toBeVisible({ timeout: 30000 });
+}
+
 /** Página de Recebimentos, sem filtro de mês e já filtrada pelo inquilino do cenário. */
 async function abrirRecebimentosDoInquilino(world: CustomWorld) {
   const page = world.page;
 
   await page.goto('/payments');
   await page.waitForLoadState('domcontentloaded');
+
+  // ATENÇÃO: não mexer no filtro de mês antes da primeira carga acabar. A tela
+  // nasce filtrada no mês de hoje e, se um segundo pedido chega enquanto o
+  // primeiro está em andamento, ele é descartado em silêncio -- o rótulo vira
+  // "Todos os meses" mas a lista continua a do mês de hoje, e o recebimento de
+  // 09/2026 nunca aparece. Foi isso que derrubou dois cenários em 30/ago/2026.
+  await esperarListaDeRecebimentos(page);
+
   await verTodosOsMeses(page);
+  await esperarListaDeRecebimentos(page);
 
   await page.locator('#payments-search-input').fill(world.tenantName!);
   await page.waitForTimeout(1200);

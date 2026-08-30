@@ -848,6 +848,7 @@ export default function RentalsPage() {
       return (
         <div className="flex items-center justify-center gap-0.5">
           <Button
+            id={`rentals-history-${r.id}`}
             variant="outline"
             size="icon"
             className="h-7 w-7 bg-gray-500 hover:bg-gray-600 text-white border-gray-500"
@@ -860,6 +861,7 @@ export default function RentalsPage() {
             <FileText className="h-3.5 w-3.5" />
           </Button>
           <Button
+            id={`rentals-renew-${r.id}`}
             variant="outline"
             size="icon"
             className="h-7 w-7 bg-blue-500 hover:bg-blue-600 text-white border-blue-500"
@@ -872,6 +874,7 @@ export default function RentalsPage() {
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
           <Button
+            id={`rentals-terminate-${r.id}`}
             variant="outline"
             size="icon"
             className="h-7 w-7 bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500"
@@ -884,6 +887,7 @@ export default function RentalsPage() {
             <XCircle className="h-3.5 w-3.5" />
           </Button>
           <Button
+            id={`rentals-delete-${r.id}`}
             variant="destructive"
             size="icon"
             className="h-7 w-7"

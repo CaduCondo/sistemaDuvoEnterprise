@@ -172,6 +172,21 @@ When('clico no botão {string}', async function (this: CustomWorld, buttonText: 
  * um botão/link pelo nome acessível e cai para texto puro como fallback.
  */
 When('clico em {string}', async function (this: CustomWorld, text: string) {
+  // Os cenários dizem "Salvar", mas os formulários de Imóvel, Inquilino e
+  // Locação rotulam o botão de gravar como "Criar" (novo) ou "Atualizar"
+  // (edição). Quando um desses formulários está aberto, clicamos pelo id, que
+  // é estável independente do rótulo.
+  if (/^salvar$/i.test(text.trim())) {
+    const botaoDeGravar = this.page.locator(
+      '#property-form-submit, #tenant-form-submit, #rental-form-submit'
+    );
+    if (await botaoDeGravar.first().isVisible().catch(() => false)) {
+      await botaoDeGravar.first().click();
+      await this.page.waitForTimeout(300);
+      return;
+    }
+  }
+
   const byRole = this.page.getByRole('button', { name: new RegExp(escapeRegex(text), 'i') })
     .or(this.page.getByRole('link', { name: new RegExp(escapeRegex(text), 'i') }));
 
@@ -294,8 +309,11 @@ Then('devo ver a lista de perfis e permissões', async function (this: CustomWor
 Then('devo ver as colunas:', async function (this: CustomWorld, dataTable: any) {
   const columns = dataTable.hashes();
   for (const col of columns) {
-    const header = this.page.getByRole('columnheader', { name: new RegExp(escapeRegex(col.coluna), 'i') });
-    await expect(header).toBeVisible({ timeout: 5000 });
+    // `exact: true` porque um nome de coluna pode ser o começo de outro: na aba
+    // Cauções existem "Valor Total Caução" e "Valor Total", e procurar por
+    // pedaço achava as duas ao mesmo tempo (o Playwright recusa e falha).
+    const header = this.page.getByRole('columnheader', { name: col.coluna, exact: true });
+    await expect(header, `não achei a coluna "${col.coluna}" na tabela`).toBeVisible({ timeout: 15000 });
   }
 });
 

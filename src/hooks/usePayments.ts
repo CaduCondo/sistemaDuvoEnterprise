@@ -13,8 +13,19 @@ export const usePayments = () => {
   const { toast } = useToast();
   const loadingRef = useRef(false);
 
-  const loadPayments = useCallback(async (month: string = "all", year: string = "all") => {
-    if (loadingRef.current) return;
+  // Guarda o pedido mais novo que chegou enquanto uma busca já estava em
+  // andamento, para rodá-lo assim que ela terminar.
+  const pedidoPendenteRef = useRef<{ month: string; year: string } | null>(null);
+
+  const loadPayments = useCallback(async function buscarRecebimentos(month: string = "all", year: string = "all") {
+    // ✅ Antes, um pedido que chegasse durante uma busca em andamento era
+    // JOGADO FORA em silêncio. Quem trocasse o mês no primeiro segundo depois
+    // de abrir a tela via o rótulo do filtro mudar e a lista continuar a mesma,
+    // sem erro nenhum. Agora o pedido fica guardado e roda logo em seguida.
+    if (loadingRef.current) {
+      pedidoPendenteRef.current = { month, year };
+      return;
+    }
 
     try {
       setLoading(true);
@@ -419,6 +430,13 @@ export const usePayments = () => {
     } finally {
       setLoading(false);
       loadingRef.current = false;
+
+      // Tinha alguém esperando a vez? Roda o pedido mais recente.
+      const pendente = pedidoPendenteRef.current;
+      if (pendente) {
+        pedidoPendenteRef.current = null;
+        void buscarRecebimentos(pendente.month, pendente.year);
+      }
     }
   }, [toast]);
 

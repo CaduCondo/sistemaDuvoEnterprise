@@ -67,6 +67,10 @@ Funcionalidade: CRUD de Imóveis
 
   @smoke
   Cenário: Criar imóvel com sucesso
+    # O campo "Local" é uma lista vinda do banco: sem criar a localização antes,
+    # a opção simplesmente não existe na tela.
+    Dado existe uma localização "São Paulo - Centro"
+    E estou na página "/properties"
     Quando clico no botão "Novo Imóvel"
     E preencho todos os campos obrigatórios:
       | campo        | valor              |

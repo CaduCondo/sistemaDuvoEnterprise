@@ -287,8 +287,29 @@ Then("a parcela {int} tem pix_code preenchido", async function (this: CustomWorl
 });
 
 Then("a linha da parcela {int} fica verde na tabela", async function (this: CustomWorld, number: number) {
-  const row = this.page.locator(`tr[data-installment="${number}"]`);
-  await expect(row).toHaveClass(/bg-green-50/);
+  const parcela = this.testData.depositInstallments[number - 1];
+
+  // Até aqui o cenário só mexeu no banco: a tela ainda não foi aberta. A tabela
+  // de cauções fica em Financeiro > aba "Cauções".
+  await this.page.goto("/financial");
+  await this.page.waitForLoadState("domcontentloaded");
+  await this.page.locator("#financial-tab-deposits").click();
+  await expect(
+    this.page.getByRole("columnheader").first(),
+    'a tabela da aba "Cauções" não apareceu'
+  ).toBeVisible({ timeout: 20000 });
+
+  // O verde fica em cada célula (bg-green-50 quando a parcela tem código PIX),
+  // não na linha inteira. A linha é achada pelo código PIX, que é único.
+  const linha = this.page
+    .locator("tbody tr")
+    .filter({ hasText: parcela.pix_code })
+    .first();
+  await expect(
+    linha,
+    `não achei na tabela de cauções a parcela ${number} (PIX ${parcela.pix_code})`
+  ).toBeVisible({ timeout: 15000 });
+  await expect(linha.locator("td.bg-green-50").first()).toBeVisible();
 });
 
 Then("todas as parcelas mostram comissão parceiro {float}", async function (this: CustomWorld, amount: number) {
