@@ -3306,3 +3306,44 @@ CREATE TABLE location_expenses (
 **Data**: 2026-02-12  
 **Sistema**: Gerenciador de Locações de Imóveis  
 **Última Atualização**: Documentação completa com todas as telas, fluxos e regras de negócio
+---
+
+## 🗑️ Excluir uma locação
+
+> Definido com o Cadu em **29/ago/2026**.
+
+### A restrição de fundo
+
+A tabela `payments` tem chave estrangeira `ON DELETE CASCADE` para `rentals`.
+Apagar a locação apaga **todos** os recebimentos dela, pagos inclusive.
+**Não existe** "apagar a locação e preservar o histórico" — o banco não
+permite. Por isso a exclusão tem dois caminhos.
+
+### Os dois caminhos
+
+| Escolha | O que acontece com a locação | Recebimentos pagos/parciais | Recebimentos pendentes |
+|---|---|---|---|
+| **Deletar também os pagos** | apagada do banco | **apagados** (somem dos relatórios) | apagados |
+| **Preservar os pagos** | recebe status `deleted` e some das telas | **intactos**, continuam no Financeiro | apagados |
+
+Em ambos os casos os **pendentes sempre saem**: são cobrança futura de um
+contrato que deixou de existir. Isso não é perguntado.
+
+### O fluxo na tela
+
+1. **Confirmação**: mostra quantos recebimentos pendentes e quantos
+   pagos/parciais a locação tem, avisa que os pendentes serão removidos, e
+   pergunta se quer prosseguir. Sim / Não.
+2. **Se houver pagos**: pergunta se quer apagá-los também, explicando o
+   efeito de cada resposta. Sem recebimentos pagos, este passo não aparece.
+
+### O status `deleted`
+
+Locação arquivada: existe no banco só para sustentar os recebimentos já
+pagos, que sem ela seriam apagados pelo CASCADE. É filtrada de
+`rentalService.getAll()` e não aparece em nenhuma tela de locações. Os
+recebimentos dela **continuam** aparecendo no Financeiro — é justamente o
+ponto.
+
+`rentals.status` não tem restrição de valores no banco, então o status novo
+não exigiu migração.

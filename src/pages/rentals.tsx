@@ -440,32 +440,19 @@ export default function RentalsPage() {
     if (!rentalToDelete) return;
 
     try {
-      // Deletar recebimentos conforme escolhas do usuário
-      if (deleteChoices.pending || deleteChoices.paid) {
-        const { deletePaymentsByRentalIdSelective } = await import("@/services/paymentService");
-        await deletePaymentsByRentalIdSelective(
-          rentalToDelete.id, 
-          deleteChoices.pending, 
-          deleteChoices.paid
-        );
-      }
-      
-      await deleteRental(rentalToDelete.id);
+      // A escolha do usuario e uma so: apagar tambem os recebimentos ja
+      // pagos, ou nao. Os PENDENTES sempre saem -- sao cobranca futura de um
+      // contrato que deixou de existir. O proprio remove() cuida dos dois
+      // caminhos (29/ago/2026).
+      await deleteRental(rentalToDelete.id, { deletarPagos: deleteChoices.paid });
       
       // ✅ CORREÇÃO: Sincronizar status do imóvel após deletar locação
       const { syncPropertyStatus } = await import("@/services/syncPropertyStatusService");
       await syncPropertyStatus(rentalToDelete.propertyId);
 
-      let message = "Locação removida.";
-      if (deleteChoices.pending && deleteChoices.paid) {
-        message = "Locação e todos os recebimentos foram removidos.";
-      } else if (deleteChoices.pending) {
-        message = "Locação e recebimentos pendentes foram removidos. Recebimentos pagos foram preservados.";
-      } else if (deleteChoices.paid) {
-        message = "Locação e recebimentos pagos foram removidos. Recebimentos pendentes foram preservados.";
-      } else {
-        message = "Locação removida. Todo o histórico financeiro foi preservado.";
-      }
+      const message = deleteChoices.paid
+        ? "Locação e todos os recebimentos foram removidos."
+        : "Locação removida. Os recebimentos já pagos foram preservados e continuam no Financeiro.";
 
       showAlert({
         title: "Sucesso!",
@@ -1356,6 +1343,10 @@ export default function RentalsPage() {
                   <li>• <strong>{paymentCounts?.paid || 0}</strong> recebimento(s) pago(s)/parcial(is)</li>
                 </ul>
               </div>
+              <p className="text-sm">
+                Os recebimentos <strong>pendentes</strong> serão removidos junto
+                com a locação.
+              </p>
               <p className="font-semibold">Tem certeza que deseja deletar esta locação?</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1364,12 +1355,13 @@ export default function RentalsPage() {
             <Button
               id="rentals-delete-confirm-1"
               onClick={() => {
-                if (paymentCounts && paymentCounts.pending > 0) {
-                  setDeleteStep(2); // Ir para pergunta sobre pendentes
-                } else if (paymentCounts && paymentCounts.paid > 0) {
-                  setDeleteStep(3); // Pular para pergunta sobre pagos
+                // Os pendentes nao sao mais perguntados: saem sempre
+                // (29/ago/2026). A unica pergunta que resta e sobre os pagos.
+                if (paymentCounts && paymentCounts.paid > 0) {
+                  setDeleteStep(3);
                 } else {
-                  handleDeleteRental(); // Sem recebimentos, deletar direto
+                  setDeleteChoices({ pending: true, paid: false });
+                  handleDeleteRental();
                 }
               }}
               className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -1474,8 +1466,12 @@ export default function RentalsPage() {
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
                 <p className="font-semibold text-amber-900">⚠️ Atenção:</p>
                 <p className="text-sm text-amber-800">
-                  Deletar recebimentos pagos remove o histórico financeiro. 
-                  Esta ação pode impactar relatórios contábeis.
+                  <strong>Sim:</strong> os valores já recebidos somem dos
+                  relatórios do Financeiro daqueles meses. Não há como desfazer.
+                </p>
+                <p className="text-sm text-amber-800">
+                  <strong>Não:</strong> a locação sai da lista e os recebimentos
+                  já pagos continuam no Financeiro, intactos.
                 </p>
               </div>
               <p className="font-semibold">Deseja deletar também os recebimentos pagos/parciais?</p>

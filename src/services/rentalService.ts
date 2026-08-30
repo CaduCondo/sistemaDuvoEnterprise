@@ -218,6 +218,10 @@ export const rentalService = {
           status, total_installments
         )
       `)
+      // Locações arquivadas (status 'deleted') ficam no banco só para segurar
+      // os recebimentos já pagos — o usuário mandou apagar a locação e elas
+      // não devem aparecer em lugar nenhum. Ver remove().
+      .neq("status", "deleted")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -711,7 +715,32 @@ export const rentalService = {
     return rentalService.getById(id);
   },
 
-  async remove(id: string): Promise<void> {
+  /**
+   * Remove uma locação.
+   *
+   * ⚠️ A tabela `payments` tem FK `ON DELETE CASCADE` para `rentals`: apagar a
+   * locação apaga TODOS os recebimentos dela, pagos inclusive. Não existe
+   * "apagar a locação e preservar o histórico" — o banco não permite.
+   *
+   * Por isso são dois caminhos (decisão do Cadu, 29/ago/2026):
+   *
+   *   deletarPagos = true  -> exclusão de verdade. A locação sai do banco e o
+   *                           CASCADE leva junto todos os recebimentos. Os
+   *                           valores já recebidos somem dos relatórios
+   *                           daqueles meses. É o caso da locação cadastrada
+   *                           por engano.
+   *
+   *   deletarPagos = false -> a locação recebe status 'deleted' e some das
+   *                           telas, mas continua no banco. Os recebimentos
+   *                           PAGOS e PARCIAIS ficam intactos (o Financeiro não
+   *                           muda), e só os PENDENTES são apagados.
+   *
+   * Em ambos os casos os recebimentos pendentes vão embora: eles são cobrança
+   * futura de um contrato que deixou de existir.
+   */
+  async remove(id: string, opcoes?: { deletarPagos?: boolean }): Promise<void> {
+    const deletarPagos = opcoes?.deletarPagos === true;
+
     // ✅ Buscar dados ANTES de deletar
     const { data: rentalData } = await supabase
       .from("rentals")
@@ -734,26 +763,40 @@ export const rentalService = {
 
     if (paidError) throw paidError;
 
-    if (paidPayments && paidPayments.length > 0) {
-      throw new Error(
-        `Não é possível deletar esta locação porque ela possui ${paidPayments.length} recebimento(s) pago(s) ou parcialmente pago(s). ` +
-        "Apenas locações sem nenhum recebimento efetivado podem ser deletadas."
-      );
-    }
+    const temRecebimentosEfetivados = !!paidPayments && paidPayments.length > 0;
 
+    // Os pendentes sempre saem: são cobrança futura de um contrato que
+    // deixou de existir.
     const { error: deletePaymentsError } = await supabase
       .from("payments")
       .delete()
       .eq("rental_id", id)
-      .eq("status", "pending");
+      .in("status", ["pending", "overdue"]);
 
     if (deletePaymentsError) {
-      console.error("❌ Erro ao deletar pagamentos pendentes:", deletePaymentsError);
+      console.error("❌ Erro ao deletar recebimentos pendentes:", deletePaymentsError);
       throw deletePaymentsError;
     }
 
-    const { error } = await supabase.from("rentals").delete().eq("id", id);
-    if (error) throw error;
+    if (temRecebimentosEfetivados && !deletarPagos) {
+      // Preservar o histórico e apagar a locação é impossível (CASCADE).
+      // A locação vira 'deleted': some das telas, o dinheiro fica.
+      console.log(
+        `📦 Locação ${id} arquivada como 'deleted': ${paidPayments!.length} ` +
+        `recebimento(s) efetivado(s) preservado(s).`
+      );
+
+      const { error: arquivarError } = await supabase
+        .from("rentals")
+        .update({ status: "deleted", is_active: false })
+        .eq("id", id);
+
+      if (arquivarError) throw arquivarError;
+    } else {
+      // Exclusão de verdade — o CASCADE leva os recebimentos restantes.
+      const { error } = await supabase.from("rentals").delete().eq("id", id);
+      if (error) throw error;
+    }
 
     // ✅ NOVO FORMATO: Local + Complemento + Inquilino
     if (rentalData) {
