@@ -53,6 +53,9 @@ After(async function (this: CustomWorld, { result }) {
 
 // Remove dados de teste (locações, imóveis, inquilinos, localizações) criados
 // durante a execução. Usuários fixos de teste são mantidos.
-AfterAll(async function () {
+// 60 segundos (o padrão) não bastavam: a limpeza apaga locações, imóveis,
+// inquilinos e localizações de todos os cenários da rodada, uma tabela de cada
+// vez. Quando ela estoura o tempo, os dados de teste ficam para trás no banco.
+AfterAll({ timeout: 300000 }, async function () {
   await DatabaseHelper.cleanupAllTestData();
 });

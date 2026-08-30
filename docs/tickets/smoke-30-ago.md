@@ -106,3 +106,57 @@ que guardam as regras novas.
 - `src/components/rentals/DepositPaymentDialog.tsx` tem um rótulo apontando
   para `deposit-payment-time`, que não existe (os campos são `-hour`, `-minute`
   e `-second`). Não quebra nada, mas está errado.
+
+---
+
+# Segunda rodada — 25 passaram, 8 falharam
+
+Restaram oito, de quatro causas.
+
+## 6. A lista de Recebimentos vinha cortada em 1.000 linhas
+
+**6 das 8.** Esta foi a mais enganosa: a mensagem dizia "não achei na tela o
+recebimento", o que parece defeito de tela. O print da falha mostrou a tela com
+o filtro em "Todos os meses", a busca preenchida e **só as parcelas de caução
+da locação de teste** — nenhum recebimento de aluguel.
+
+Com "Todos os meses" a busca vai ao banco **sem filtro de data**, e o Supabase
+devolve no máximo **1.000 linhas**, das mais recentes para as mais antigas. Numa
+base com contratos até 2028, os recebimentos de 09/2026 ficam fora desse corte.
+As parcelas de caução apareciam porque vêm de outra consulta, curta.
+
+**Correção (no teste):** em vez de "Todos os meses", o teste agora seleciona o
+**mês do recebimento que ele procura**. A conta passa a ser feita no banco e
+voltam poucas linhas. Também ficou mais rápido.
+
+## 7. A limpeza do banco no fim da rodada estourava o tempo
+
+**2 das 8** (o gancho `AfterAll`, contado duas vezes por causa dos 2 cenários em
+paralelo). O limite era 60 segundos e a limpeza apaga locações, imóveis,
+inquilinos e localizações de todos os cenários da rodada, uma tabela por vez.
+
+**Efeito colateral já visível:** o banco de DEV tem dezenas de locações
+"Rescisao E2E ..." e inquilinos "João Silva" que ficaram para trás das rodadas
+anteriores. Não atrapalham (têm nome próprio), mas convém limpar um dia.
+
+**Correção:** limite do `AfterAll` subiu para 5 minutos.
+
+## 8. O e-mail do cenário de inquilino era sempre o mesmo
+
+O cadastro de inquilino recusa e-mail repetido. Com "joao@email.com" fixo, o
+cenário passava na primeira rodada e falhava em todas as seguintes, sem
+mensagem de sucesso e sem erro claro.
+
+**Correção (no teste):** o e-mail ganha um número único a cada rodada
+(`joao+<número>@email.com`).
+
+## 9. Mais um cenário impossível — fora do smoke
+
+`7-locacoes-regras.feature` — **"Criar locação - Caução integral"**. Ele abre
+"Nova Locação" e preenche só os campos do caução: nunca escolhe imóvel,
+inquilino nem as datas, que são obrigatórios. O formulário não tem como ser
+gravado. Print da falha confirma o diálogo aberto com tudo em branco.
+
+## Como fica o smoke
+
+**32 cenários.** Os 19 de rescisão continuam todos dentro.

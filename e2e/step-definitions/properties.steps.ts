@@ -197,7 +197,12 @@ When('preencho todos os campos obrigatórios:', async function (this: CustomWorl
     } else if (campo === 'telefone') {
       await this.page.locator('#tenant-phone').fill(valor);
     } else if (campo === 'e-mail' || campo === 'email') {
-      await this.page.locator('#tenant-email').fill(valor);
+      // O e-mail é único no sistema. Com o endereço fixo do cenário, o
+      // cadastro dá certo na primeira rodada e, a partir da segunda, falha com
+      // "E-mail existente" -- sem mensagem de sucesso e sem explicação óbvia.
+      const [antes, dominio] = valor.split('@');
+      const unico = dominio ? `${antes}+${Date.now()}@${dominio}` : valor;
+      await this.page.locator('#tenant-email').fill(unico);
     }
   }
 });

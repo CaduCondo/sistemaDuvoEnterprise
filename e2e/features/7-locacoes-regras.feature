@@ -80,7 +80,10 @@ Funcionalidade: Regras de Negócio de Locações
       | 3ª parcela - Data Vencimento | 01/10/2026 |
       | 3ª parcela - Código PIX      | (vazio)    |
 
-  @smoke
+  # FORA DO SMOKE (30/ago/2026): o cenário abre "Nova Locação" e preenche só os
+  # campos do caução -- nunca escolhe imóvel, inquilino nem as datas, que são
+  # obrigatórios. O formulário não tem como ser gravado.
+  # Ver docs/tickets/smoke-30-ago.md.
   Cenário: Criar locação - Caução integral
     Quando clico no botão "Nova Locação"
     E preencho o valor da caução com "5000.00"

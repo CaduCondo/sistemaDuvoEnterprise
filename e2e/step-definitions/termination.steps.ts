@@ -243,21 +243,40 @@ async function esperarListaDeRecebimentos(page: Page) {
   ).toBeVisible({ timeout: 30000 });
 }
 
-/** Página de Recebimentos, sem filtro de mês e já filtrada pelo inquilino do cenário. */
-async function abrirRecebimentosDoInquilino(world: CustomWorld) {
+/**
+ * Página de Recebimentos, no mês do recebimento procurado e já filtrada pelo
+ * inquilino do cenário.
+ *
+ * POR QUE O MÊS, E NÃO "Todos os meses"
+ *
+ * Com "Todos os meses" a busca vai ao banco SEM filtro de data, e o Supabase
+ * devolve no máximo 1.000 linhas, das mais recentes para as mais antigas. Numa
+ * base com contratos até 2028, os recebimentos de 09/2026 ficam fora desse
+ * corte: a tela mostrava as parcelas de caução da locação de teste (que vêm de
+ * outra consulta, curta) e nenhum recebimento de aluguel. Foi isso que derrubou
+ * 6 cenários em 30/ago/2026 -- e a mensagem "não achei na tela o recebimento"
+ * parecia defeito de tela, quando era só a lista cortada.
+ *
+ * Filtrando pelo mês, a conta é feita no banco e voltam poucas linhas.
+ */
+async function abrirRecebimentosDoInquilino(world: CustomWorld, pagamento?: any) {
   const page = world.page;
 
   await page.goto('/payments');
   await page.waitForLoadState('domcontentloaded');
 
-  // ATENÇÃO: não mexer no filtro de mês antes da primeira carga acabar. A tela
-  // nasce filtrada no mês de hoje e, se um segundo pedido chega enquanto o
-  // primeiro está em andamento, ele é descartado em silêncio -- o rótulo vira
-  // "Todos os meses" mas a lista continua a do mês de hoje, e o recebimento de
-  // 09/2026 nunca aparece. Foi isso que derrubou dois cenários em 30/ago/2026.
+  // ATENÇÃO: não mexer no filtro antes da primeira carga acabar. A tela nasce
+  // filtrada no mês de hoje e, se um segundo pedido chega enquanto o primeiro
+  // está em andamento, ele entra na fila -- mexer antes só atrasa.
   await esperarListaDeRecebimentos(page);
 
-  await verTodosOsMeses(page);
+  const vencimento: string | undefined = pagamento?.due_date;
+  if (vencimento) {
+    const [ano, mes] = vencimento.split('-');
+    await selecionarPeriodo(page, mes, ano);
+  } else {
+    await verTodosOsMeses(page);
+  }
   await esperarListaDeRecebimentos(page);
 
   await page.locator('#payments-search-input').fill(world.tenantName!);
@@ -275,7 +294,7 @@ function linhaDoRecebimento(world: CustomWorld, pagamento: any): Locator {
 
 /** Abre a tela "Registrar Recebimento..." de um recebimento específico. */
 async function abrirRecebimento(world: CustomWorld, pagamento: any) {
-  await abrirRecebimentosDoInquilino(world);
+  await abrirRecebimentosDoInquilino(world, pagamento);
 
   const linha = linhaDoRecebimento(world, pagamento);
   await expect(
@@ -938,7 +957,7 @@ Then('na página de Recebimentos o Recebimento de Rescisão deve ter a etiqueta 
   etiqueta: string
 ) {
   const rescisao = await recebimentoDeRescisao(this);
-  await abrirRecebimentosDoInquilino(this);
+  await abrirRecebimentosDoInquilino(this, rescisao);
 
   const linha = linhaDoRecebimento(this, rescisao);
   await expect(linha, 'o Recebimento de Rescisão não aparece na página de Recebimentos').toBeVisible({
@@ -960,7 +979,7 @@ Then('o recebimento de aluguel da rescisão NÃO deve ter a etiqueta {string}', 
   // A busca já está feita pelo step anterior; recarregar aqui deixaria o
   // cenário mais lento sem ganhar nada — mas garantimos a listagem certa.
   if (!(await this.page.locator('#payments-search-input').isVisible().catch(() => false))) {
-    await abrirRecebimentosDoInquilino(this);
+    await abrirRecebimentosDoInquilino(this, aluguel);
   }
 
   const linha = linhaDoRecebimento(this, aluguel);

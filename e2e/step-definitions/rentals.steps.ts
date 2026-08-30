@@ -262,8 +262,9 @@ When('preencho a {string} com {string}', async function(fieldName: string, value
 });
 
 When('salvo a locação', async function() {
-  const saveButton = this.page.getByRole('button', { name: /salvar/i });
-  await saveButton.click();
+  // O botão do formulário de Locação diz "Criar" (nova) ou "Atualizar"
+  // (edição), nunca "Salvar" -- por isso pelo id.
+  await this.page.locator('#rental-form-submit').click();
   await this.page.waitForTimeout(2000);
 });
 
