@@ -31,6 +31,16 @@ Before(async function (this: CustomWorld) {
   });
   this.page = await this.context.newPage();
 
+  // Guarda os erros do navegador para a mensagem da falha (ver
+  // CustomWorld.errosDoNavegador).
+  this.errosDoNavegador = [];
+  this.page.on('console', (msg) => {
+    if (msg.type() === 'error') this.errosDoNavegador.push(`console: ${msg.text()}`);
+  });
+  this.page.on('pageerror', (erro) => {
+    this.errosDoNavegador.push(`exceção: ${erro.message}`);
+  });
+
   this.loginPage = new LoginPage(this.page);
   this.dashboardPage = new DashboardPage(this.page);
   this.testData = {};

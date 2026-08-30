@@ -364,6 +364,8 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
     # Decisão 1 do ticket: o usuário digita só o número, o sinal "−" fica
     # preso no campo e o sistema grava negativo.
     Dado que estou preenchendo o Recebimento de Rescisão
-    Quando eu digitar "200" no campo "Valor de Desconto"
+    # 200,00 escrito por extenso: o campo é de dinheiro e preenche da direita
+    # para a esquerda, então o teste digita 2-0-0-0-0, como o usuário faria.
+    Quando eu digitar "200,00" no campo "Valor de Desconto"
     Então o sistema deve registrar o valor como -200,00
     E eu não devo precisar digitar o sinal de menos

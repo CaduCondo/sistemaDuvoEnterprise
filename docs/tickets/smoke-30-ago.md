@@ -206,3 +206,46 @@ parte esse caso em DOIS recebimentos de aluguel (o mês cheio no dia 10 e o
 proporcional no dia da saída). **É o item E da rodada 2, ainda aberto.** O
 cenário é o contrato do que foi combinado; ele fica vermelho até o item E ser
 feito.
+
+---
+
+# Quarta rodada — 29 passaram, 2 falharam
+
+As duas tinham a mesma raiz escondida: **a tela do recebimento abre ANTES de os
+dados chegarem**, e o teste dava ela por pronta cedo demais.
+
+## 14. "Abriu" não é "carregou"
+
+O print da falha mostrou a tela do recebimento aberta e **vazia**: locatário
+"Não informado", imóvel "Não informado", aluguel R$ 0,00 e a "Formação de
+Valores" sem nenhuma linha. Ou seja: a tela apareceu, a busca dos dados no banco
+não voltou, e o teste já foi conferir a composição — e reclamou de vazio como se
+fosse defeito da tela.
+
+O que o teste esperava era o título "Formação de Valores", que já está lá desde o
+primeiro instante, mesmo sem dado nenhum.
+
+**Correção (no teste):** agora ele espera o **nome do inquilino aparecer dentro
+da tela** — a única prova de que a busca terminou. Se não aparecer, fecha e
+tenta uma vez mais; e se ainda assim não vier, a falha mostra o texto da tela e
+**os erros que o navegador registrou**, em vez de só um print vazio.
+
+De quebra, todo cenário passa a guardar os erros do navegador (`console.error` e
+exceções da página). Da próxima vez que uma tela abrir errada, a mensagem já diz
+o porquê.
+
+## 15. O campo de dinheiro não recebia o valor colado
+
+O cenário do desconto digitava "200" de uma vez no campo e conferia se o sistema
+gravava −200,00. Dois erros somados:
+
+1. **Colar não aciona a máscara.** Os campos de dinheiro preenchem da direita
+   para a esquerda e só reagem a tecla digitada. O campo ficava vazio, o
+   salvamento automático gravava 0, e a falha dizia "esperado −200, recebido 0".
+2. **"200" não é R$ 200,00.** Nesse tipo de campo, digitar 2-0-0 escreve
+   R$ 2,00. Para R$ 200,00 o usuário digita 2-0-0-0-0.
+
+**Correção (no teste):** o valor do cenário virou "200,00", é digitado tecla a
+tecla como o usuário faria, e o teste confere que o campo mostra **−R$ 200,00**
+antes de esperar o salvamento — o que também prova a regra do cenário: o sinal
+de menos vem preso no campo, o usuário nunca o digita.

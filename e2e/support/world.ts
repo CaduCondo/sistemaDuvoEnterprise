@@ -31,6 +31,14 @@ export class CustomWorld extends World {
   // Bag genérico usado pelos steps mais antigos (payments/rentals.steps.ts)
   testData: Record<string, any> = {};
 
+  /**
+   * Erros que o navegador mostrou durante o cenário (console.error e exceções
+   * da página), preenchidos pelos hooks. Quando uma tela abre sem dados, a
+   * mensagem da falha traz isto junto -- sem ele, a única pista era um print
+   * de tela vazia.
+   */
+  errosDoNavegador: string[] = [];
+
   constructor(options: IWorldOptions) {
     super(options);
   }

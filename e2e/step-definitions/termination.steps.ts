@@ -292,7 +292,18 @@ function linhaDoRecebimento(world: CustomWorld, pagamento: any): Locator {
     .first();
 }
 
-/** Abre a tela "Registrar Recebimento..." de um recebimento específico. */
+/**
+ * Abre a tela "Registrar Recebimento..." de um recebimento específico.
+ *
+ * ATENÇÃO AO "ABRIU" vs "CARREGOU". A tela aparece na hora e SÓ DEPOIS busca os
+ * dados no banco. Enquanto a busca não volta, ela fica com os cartões em "Não
+ * informado", o aluguel em R$ 0,00 e a "Formação de Valores" vazia -- e o
+ * título "Formação de Valores" já está lá. Esperar por esse título, como era
+ * feito antes, dava a tela por pronta cedo demais, e o cenário reclamava que a
+ * composição estava vazia como se fosse defeito da tela.
+ *
+ * O que prova que os dados chegaram é o NOME DO INQUILINO dentro do diálogo.
+ */
 async function abrirRecebimento(world: CustomWorld, pagamento: any) {
   await abrirRecebimentosDoInquilino(world, pagamento);
 
@@ -302,13 +313,38 @@ async function abrirRecebimento(world: CustomWorld, pagamento: any) {
     `não achei na tela o recebimento de R$ ${formatarValorBR(Number(pagamento.expected_amount))} de ${world.tenantName}`
   ).toBeVisible({ timeout: 15000 });
 
-  await linha.click();
-
   const dialogo = world.page.locator('#payments-manage-dialog');
-  await expect(dialogo).toBeVisible({ timeout: 15000 });
-  await expect(dialogo.getByText(/Formação de Valores/i).first()).toBeVisible({ timeout: 15000 });
 
-  world.testData.recebimentoAberto = pagamento;
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    await linha.click();
+    await expect(dialogo).toBeVisible({ timeout: 15000 });
+
+    const carregou = await dialogo
+      .getByText(world.tenantName!, { exact: false })
+      .first()
+      .waitFor({ state: 'visible', timeout: 20000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (carregou) {
+      world.testData.recebimentoAberto = pagamento;
+      return;
+    }
+
+    // Fecha e tenta de novo uma vez: já foi visto o diálogo abrir sem que a
+    // busca dos dados voltasse.
+    if (tentativa === 1) {
+      await world.page.keyboard.press('Escape');
+      await world.page.waitForTimeout(1500);
+    }
+  }
+
+  const textoDoDialogo = await dialogo.innerText().catch(() => '(não consegui ler)');
+  throw new Error(
+    `a tela do recebimento abriu, mas os dados nunca chegaram (o nome "${world.tenantName}" ` +
+      `não apareceu dentro dela).\n\nTexto da tela:\n${textoDoDialogo}\n\n` +
+      `Erros do navegador:\n${world.errosDoNavegador.join('\n') || '(nenhum)'}`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -661,12 +697,34 @@ When('eu digitar {string} no campo {string}', async function (this: CustomWorld,
     throw new Error(`Campo desconhecido no Recebimento de Rescisão: "${campo}"`);
   }
 
-  await this.page.locator(seletor).fill(valor);
+  // Os dois campos são "de dinheiro": aceitam só dígitos e vão preenchendo da
+  // direita para a esquerda (digitar 2-0-0-0-0 escreve R$ 200,00). Por isso o
+  // valor do cenário vira dígitos e é DIGITADO tecla a tecla -- colar o texto
+  // de uma vez não aciona a máscara do mesmo jeito, e o campo ficava vazio.
+  const digitos = valor.replace(/\D/g, '');
+  const campoNaTela = this.page.locator(seletor);
+
+  await campoNaTela.click();
+  await campoNaTela.press('Control+a');
+  await campoNaTela.press('Backspace');
+  await campoNaTela.pressSequentially(digitos, { delay: 60 });
+
   this.testData.ultimoValorDigitado = valor;
+
+  // Confere que a máscara entendeu antes de esperar o salvamento. O "-" do
+  // desconto vem preso no campo: o usuário nunca digita o sinal.
+  const esperadoNaTela = paraNumero(valor).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  await expect(
+    campoNaTela,
+    `o campo "${campo}" não recebeu o valor digitado`
+  ).toHaveValue(new RegExp(`R\\$\\s?${esperadoNaTela.replace(/[.]/g, '\\.')}$`), { timeout: 5000 });
 
   // Os dois campos salvam sozinhos ~1,5s depois de parar de digitar (ver
   // ManagePaymentForm.handleSaveExpensesAndDiscount) — não há botão próprio.
-  await this.page.waitForTimeout(3000);
+  await this.page.waitForTimeout(4000);
 });
 
 // ============================================================================
