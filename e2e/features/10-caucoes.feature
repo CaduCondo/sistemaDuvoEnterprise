@@ -10,6 +10,7 @@ Funcionalidade: Gestão de Cauções
     E existe um imóvel "Casa 1" disponível
     E existe um inquilino "João Silva"
 
+  @smoke
   Cenário: Criar locação com caução à vista
     Quando crio uma locação com:
       | imóvel           | Casa 1      |
@@ -40,6 +41,7 @@ Funcionalidade: Gestão de Cauções
     E a parcela 2 tem valor 600.00
     E a parcela 2 tem vencimento "01/02/2026"
 
+  @smoke
   Cenário: Criar locação com caução parcelado em 3x
     Quando crio uma locação com:
       | imóvel           | Casa 1      |
@@ -75,6 +77,7 @@ Funcionalidade: Gestão de Cauções
     E a parcela 2 tem valor 333.33
     E a parcela 3 tem valor 333.34
 
+  @smoke
   Cenário: Marcar parcela de caução como recebida via PIX
     Dado que existe uma locação com caução em 3x
     Quando marco a parcela 1 como recebida:

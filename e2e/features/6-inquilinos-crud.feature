@@ -128,6 +128,7 @@ Funcionalidade: CRUD de Inquilinos
     Então devo ver a mensagem de sucesso
     E o inquilino deve aparecer na lista sem erros
 
+  @smoke
   Cenário: Criar inquilino Pessoa Física
     Quando clico no botão "Novo Inquilino"
     E seleciono "Pessoa Física"

@@ -80,6 +80,7 @@ Funcionalidade: Regras de Negócio de Locações
       | 3ª parcela - Data Vencimento | 01/10/2026 |
       | 3ª parcela - Código PIX      | (vazio)    |
 
+  @smoke
   Cenário: Criar locação - Caução integral
     Quando clico no botão "Nova Locação"
     E preencho o valor da caução com "5000.00"
@@ -90,6 +91,7 @@ Funcionalidade: Regras de Negócio de Locações
       | Parcela | Valor   | Data Vencimento | Data Pagamento |
       | 1/1     | 5000.00 | 01/08/2026      | 01/08/2026     |
 
+  @smoke
   Cenário: Criar locação - Garagem opcional
     Quando clico no botão "Nova Locação"
     E marco a opção "Possui garagem"
@@ -104,6 +106,7 @@ Funcionalidade: Regras de Negócio de Locações
       | Nome do corretor|
       | Taxa (%)        |
 
+  @smoke
   Cenário: Criar locação - Gerar pagamentos automaticamente
     Dado que existe um imóvel disponível "IMO-001" com aluguel de "2500.00"
     E existe um inquilino "João Silva"

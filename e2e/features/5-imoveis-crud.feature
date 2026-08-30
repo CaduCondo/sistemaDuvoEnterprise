@@ -65,6 +65,7 @@ Funcionalidade: CRUD de Imóveis
     E tento salvar sem preencher os quartos
     Então devo ver a mensagem "Campo obrigatório"
 
+  @smoke
   Cenário: Criar imóvel com sucesso
     Quando clico no botão "Novo Imóvel"
     E preencho todos os campos obrigatórios:

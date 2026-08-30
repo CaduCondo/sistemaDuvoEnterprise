@@ -66,6 +66,7 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Taxa Administração     | 250.00   |
       | Valor Líquido (Repasse)| 2250.00  |
 
+  @smoke
   Cenário: Calcular pagamento com garagem
     Dado que existe uma locação com:
       | campo          | valor   |
@@ -95,6 +96,7 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Taxa Corretor (5%)     | 125.00   |
       | Valor Líquido          | 2125.00  |
 
+  @smoke
   Cenário: Registrar pagamento como pago
     Dado que existe um pagamento pendente
     Quando marco o pagamento como "Pago"

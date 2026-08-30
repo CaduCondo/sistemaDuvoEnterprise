@@ -90,3 +90,40 @@ máquina, `npm run test:bdd` e `npm run test:e2e`.
 3. **Cada cenário cuida do próprio dado.** Quem precisa de uma locação cria
    a locação dele e valida só ela. Nunca depende de um dado que já estava no
    banco, nem do que outro cenário criou — porque eles rodam ao mesmo tempo.
+
+---
+
+## ⚠️ Smoke ampliado — decisão temporária de 29/ago/2026
+
+O smoke saiu de 7 para **36 cenários**. Isso é **de propósito e temporário**,
+e contraria a ideia normal de um smoke (poucos cenários, rápido).
+
+### Por quê
+
+A rescisão (#49) está sendo estabilizada e vai subir para produção. Enquanto
+isso, o Cadu quer que **todos** os cenários de rescisão rodem a cada envio,
+mais os processos principais do sistema — para não subir às cegas.
+
+### O que entrou
+
+| Arquivo | Cenários | O que garante |
+|---|---|---|
+| `12-rescisao-caucao` | **19** (todos) | a rescisão inteira |
+| `6-inquilinos-crud` | 1 | criar inquilino |
+| `5-imoveis-crud` | 1 | criar imóvel |
+| `7-locacoes-regras` | 3 | criar locação (caução integral, garagem, geração de recebimentos) |
+| `10-caucoes` | 3 | caução à vista, em 3x, e recebimento de parcela |
+| `8-pagamentos-calculos` | 2 | cálculo com garagem e registro de pagamento |
+
+Caução **não pago** já é coberto por um cenário da própria rescisão.
+
+### Quando encolher
+
+**Depois que a #49 estiver em produção e estável.** Aí o smoke volta a ser o
+que deve ser: os poucos caminhos que, se quebrarem, param o sistema. Da
+rescisão ficam os dois marcados como essenciais (a separação em dois
+recebimentos e a devolução sobre o caução pago); o resto perde a marca e
+continua rodando na suíte completa.
+
+Um smoke de 36 cenários que demora demais deixa de ser usado — e um smoke
+que ninguém roda não protege nada. Esta ampliação tem prazo.
