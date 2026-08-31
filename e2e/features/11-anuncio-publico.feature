@@ -1,4 +1,5 @@
 # language: pt
+@anuncioPublico
 Funcionalidade: Anúncio público de imóvel
   Como um interessado que recebeu um link de anúncio
   Quero abrir o anúncio direto pelo link, sem precisar de login

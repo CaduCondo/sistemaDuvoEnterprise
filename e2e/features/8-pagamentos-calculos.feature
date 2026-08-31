@@ -1,4 +1,5 @@
 # language: pt
+@pagamentos
 Funcionalidade: Cálculos e Regras de Pagamentos
   Como um usuário autorizado
   Quero que os cálculos de pagamentos sejam precisos
@@ -9,6 +10,7 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     E estou na página "/payments"
 
   # ✅ NOVO: Teste do bug corrigido - reference_month
+  @sistemaCompleto
   Cenário: Pagamento proporcional - Início após vencimento (Bug corrigido)
     Dado que crio uma locação com:
       | campo          | valor      |
@@ -29,6 +31,7 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     Então NÃO devo ver recebimentos dessa locação
 
   # ✅ NOVO: Teste de pagamento proporcional - Início antes do vencimento
+  @sistemaCompleto
   Cenário: Pagamento proporcional - Início antes do vencimento
     Dado que crio uma locação com:
       | campo          | valor      |
@@ -47,6 +50,7 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     E o valor deve ser proporcional a 8 dias
 
   # ✅ NOVO: Validar sincronia entre filtro e vencimento
+  @sistemaCompleto
   Cenário: Filtro de mês deve corresponder à data de vencimento
     Dado que existem múltiplas locações com diferentes datas de início
     Quando filtro por "Setembro/2026" na página de Recebimentos
@@ -56,6 +60,7 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Mês de vencimento    | 09 (Setembro)   |
     E nenhum recebimento deve ter vencimento em outro mês
 
+  @sistemaCompleto
   Cenário: Calcular pagamento com taxa de administração 10%
     Dado que existe uma locação com aluguel de "2500.00"
     E a taxa de administração é "10%"
@@ -71,6 +76,7 @@ Funcionalidade: Cálculos e Regras de Pagamentos
   # qualquer da base e conferindo valores que não são os dele. Além disso pede
   # "Taxa Administração", que não existe na tela de Recebimentos.
   # Ver docs/tickets/smoke-30-ago.md.
+  @quebrado
   Cenário: Calcular pagamento com garagem
     Dado que existe uma locação com:
       | campo          | valor   |
@@ -86,6 +92,7 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Taxa Administração     | 280.00   |
       | Valor Líquido          | 2520.00  |
 
+  @sistemaCompleto
   Cenário: Calcular pagamento com corretor parceiro 5%
     Dado que existe uma locação com:
       | campo           | valor   |
@@ -103,6 +110,7 @@ Funcionalidade: Cálculos e Regras de Pagamentos
   # FORA DO SMOKE (30/ago/2026): o último passo espera um botão "Gerar Recibo"
   # que não existe na tela (o recibo sai pela coluna Recibo da aba Pagos).
   # Ver docs/tickets/smoke-30-ago.md.
+  @quebrado
   Cenário: Registrar pagamento como pago
     Dado que existe um pagamento pendente
     Quando marco o pagamento como "Pago"
@@ -112,6 +120,7 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     Então o status deve mudar para "Pago"
     E devo poder gerar o recibo
 
+  @sistemaCompleto
   Cenário: Gerar recibo de pagamento
     Dado que existe um pagamento "Pago"
     Quando clico em "Gerar Recibo"
@@ -124,6 +133,7 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Data de pagamento   |
       | Detalhamento        |
 
+  @sistemaCompleto
   Cenário: Cancelar pagamento - Confirmar
     Dado que existe um pagamento "Pendente"
     Quando clico em "Cancelar Pagamento"
@@ -131,14 +141,17 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     Então o status deve mudar para "Cancelado"
     E não deve ser possível gerar recibo
 
+  @sistemaCompleto
   Cenário: Filtrar pagamentos por mês
     Quando seleciono o mês "Janeiro"
     Então devo ver apenas pagamentos de Janeiro
 
+  @sistemaCompleto
   Cenário: Filtrar pagamentos por ano
     Quando seleciono o ano "2026"
     Então devo ver apenas pagamentos de 2026
 
+  @sistemaCompleto
   Cenário: Filtrar pagamentos por status
     Quando seleciono o status "Pendente"
     Então devo ver apenas pagamentos pendentes

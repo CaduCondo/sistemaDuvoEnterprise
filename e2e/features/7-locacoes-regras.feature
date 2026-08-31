@@ -1,4 +1,5 @@
 # language: pt
+@locacoes
 Funcionalidade: Regras de Negócio de Locações
   Como um usuário autorizado
   Quero gerenciar locações
@@ -8,12 +9,14 @@ Funcionalidade: Regras de Negócio de Locações
     Dado que fiz login como "admin"
     E estou na página "/rentals"
 
+  @sistemaCompleto
   Cenário: Criar locação - Validar imóvel disponível
     Quando clico no botão "Nova Locação"
     E seleciono um imóvel que está "Ocupado"
     Então devo ver uma mensagem de erro
     E não devo poder continuar
 
+  @sistemaCompleto
   Cenário: Criar locação - Caução obrigatória
     Quando clico no botão "Nova Locação"
     E preencho todos os campos obrigatórios
@@ -22,6 +25,7 @@ Funcionalidade: Regras de Negócio de Locações
     Então devo ver a mensagem "Caução é obrigatória"
 
   # ✅ ATUALIZADO: Reflete nova estrutura de parcelas de caução
+  @sistemaCompleto
   Cenário: Criar locação - Parcelamento de caução (3 parcelas)
     Quando clico no botão "Nova Locação"
     E preencho todos os campos obrigatórios
@@ -44,6 +48,7 @@ Funcionalidade: Regras de Negócio de Locações
       | 3/3     | 2000.00 | 01/10/2026      | (vazio)        | Pendente |
 
   # ✅ NOVO: Testa que 1ª parcela salva em due_date E payment_date
+  @sistemaCompleto
   Cenário: Criar locação - 1ª parcela de caução preenche ambas as datas
     Quando clico no botão "Nova Locação"
     E preencho todos os campos obrigatórios
@@ -61,6 +66,7 @@ Funcionalidade: Regras de Negócio de Locações
       | payment_date | NULL       |
 
   # ✅ NOVO: Testa carregamento de parcelas ao visualizar locação
+  @sistemaCompleto
   Cenário: Visualizar locação - Carregar dados de caução da tabela
     Dado que existe uma locação com caução parcelado em 3x:
       | Parcela | Valor   | Data Vencimento | Código PIX |
@@ -84,6 +90,7 @@ Funcionalidade: Regras de Negócio de Locações
   # campos do caução -- nunca escolhe imóvel, inquilino nem as datas, que são
   # obrigatórios. O formulário não tem como ser gravado.
   # Ver docs/tickets/smoke-30-ago.md.
+  @quebrado
   Cenário: Criar locação - Caução integral
     Quando clico no botão "Nova Locação"
     E preencho o valor da caução com "5000.00"
@@ -101,6 +108,7 @@ Funcionalidade: Regras de Negócio de Locações
     Então devo ver o campo "Valor da garagem"
     E devo poder preencher o valor
 
+  @sistemaCompleto
   Cenário: Criar locação - Corretor parceiro
     Quando clico no botão "Nova Locação"
     E marco a opção "Corretor parceiro"
@@ -113,6 +121,7 @@ Funcionalidade: Regras de Negócio de Locações
   # banco, e quem gera os 12 recebimentos é a tela. Sem passar pela tela, não
   # existe recebimento nenhum para contar -- o cenário não tem como passar.
   # Ver docs/tickets/smoke-30-ago.md.
+  @quebrado
   Cenário: Criar locação - Gerar pagamentos automaticamente
     Dado que existe um imóvel disponível "IMO-001" com aluguel de "2500.00"
     E existe um inquilino "João Silva"
@@ -127,6 +136,7 @@ Funcionalidade: Regras de Negócio de Locações
     E cada pagamento deve ter valor de "2500.00"
     E todos os pagamentos devem vencer no dia 10
 
+  @sistemaCompleto
   Cenário: Editar locação - Atualizar valor do aluguel
     Dado que existe uma locação ativa
     Quando edito a locação
@@ -135,6 +145,7 @@ Funcionalidade: Regras de Negócio de Locações
     Então os pagamentos futuros devem ser atualizados para "2800.00"
     E os pagamentos já pagos devem manter o valor original
 
+  @sistemaCompleto
   Cenário: Editar locação - Preservar snapshot em pagamentos pagos
     Dado que existe uma locação ativa com aluguel de "2500.00"
     E o pagamento de Janeiro/2026 está "Pago" com valor de "2500.00"
@@ -162,6 +173,7 @@ Funcionalidade: Regras de Negócio de Locações
       | Aluguel   | 2800.00 |
       | Garagem   | 400.00  |
 
+  @sistemaCompleto
   Cenário: Editar locação - Não atualizar pagamentos passados pendentes
     Dado que existe uma locação ativa com aluguel de "2500.00"
     E o pagamento de Novembro/2025 está "Pendente" com valor de "2500.00"
@@ -179,6 +191,7 @@ Funcionalidade: Regras de Negócio de Locações
   # corrigida DEPOIS que a parcela do mês já tinha sido criada, o valor
   # dessa parcela precisa ser recalculado — antes ficava "preso" no valor
   # de mês cheio, mesmo quando a nova data tornava a parcela proporcional.
+  @sistemaCompleto
   Cenário: Editar locação - Corrigir data de início recalcula parcela já criada
     Dado que existe uma locação ativa com aluguel de "2500.00"
     E o dia de vencimento é "20"
@@ -188,6 +201,7 @@ Funcionalidade: Regras de Negócio de Locações
     E salvo as alterações
     Então o pagamento de referência Junho/2026 deve ser atualizado para "166.67"
 
+  @sistemaCompleto
   Cenário: Comprovante de Contrato - Somar aluguel e garagem
     Dado que existe uma locação com:
       | campo          | valor   |
@@ -197,6 +211,7 @@ Funcionalidade: Regras de Negócio de Locações
     Então no campo "Valor Total" devo ver "1900.00"
     E não apenas o valor do aluguel
 
+  @sistemaCompleto
   Cenário: Encerrar locação antecipadamente
     Dado que existe uma locação ativa com término em "31/12/2026"
     Quando clico em "Encerrar Locação"

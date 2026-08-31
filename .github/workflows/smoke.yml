@@ -1,17 +1,26 @@
 name: Smoke Test
 
-# A suite RAPIDA. E a unica que roda sozinha a cada push, e e ela que diz
-# "pode seguir" ou "parou de pe".
+# Duas rodadas, uma atras da outra:
 #
-# Por que existe:
-#   O workflow "E2E Tests" rodava a suite inteira a cada push, levava ~60
-#   minutos e falhava sempre. Um teste que falha sempre nao avisa nada — vira
-#   ruido, e todo mundo aprende a ignorar. Este aqui e o contrario: pequeno,
-#   rapido e confiavel. Se ficar vermelho, quebrou alguma coisa de verdade.
+#   1. "smoke" — a rapida (poucos minutos). Roda SEMPRE, primeiro. E ela que
+#      diz "pode seguir" ou "parou de pe". So os cenarios marcados @smoke:
+#      os poucos caminhos que, se quebrarem, param o sistema.
 #
-# A suite antiga continua no repositorio e pode ser rodada a qualquer momento
-# pela aba Actions -> "E2E Tests" -> "Run workflow". A ideia e ir trazendo
-# aquela cobertura de volta para ca aos poucos, pedaco por pedaco.
+#   2. "sistema_completo" — so comeca DEPOIS que a "smoke" passar (`needs:
+#      smoke`). Roda todo o resto: todos os cenarios marcados
+#      @sistemaCompleto, ou seja, TODAS as regras de negocio que a rodada 1
+#      nao cobriu, sem repetir nenhum cenario da rodada 1. Mais lenta, mas
+#      nao trava a rodada rapida nem a esperada por quem so quer saber "o
+#      basico continua de pe?".
+#
+# Por que existe a divisao:
+#   O workflow "E2E Tests" (suite antiga) rodava tudo junto a cada push,
+#   levava ~60 minutos e falhava sempre. Um teste que falha sempre nao avisa
+#   nada — vira ruido, e todo mundo aprende a ignorar. Dividir em duas
+#   rodadas da o melhor dos dois mundos: resposta rapida e confiavel logo no
+#   primeiro sinal, e cobertura completa das regras de negocio na sequencia.
+#
+# Ver e2e/SMOKE.md para a explicacao completa das duas tags.
 
 on:
   push:
@@ -80,5 +89,53 @@ jobs:
           path: |
             e2e/reports/smoke-report.html
             e2e/reports/smoke-report.json
+            e2e/reports/screenshots/
+          retention-days: 14
+
+  sistema_completo:
+    name: Sistema completo (2a rodada)
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar o Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar o navegador de teste
+        run: npx playwright install --with-deps chromium
+
+      - name: Compilar a aplicacao
+        run: npm run build
+
+      # `npm run test:completo` e o mesmo scripts/smoke.js do smoke, so que
+      # aponta para e2e/cucumber.sistemaCompleto.config.cjs (--suite=
+      # sistemaCompleto): sobe a aplicacao compilada, roda todos os
+      # cenarios marcados com @sistemaCompleto e derruba a aplicacao no fim.
+      - name: Rodar o sistema completo (BDD)
+        run: npm run test:completo
+
+      - name: Guardar o relatorio (so quando falha)
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: sistema-completo-report
+          path: |
+            e2e/reports/sistema-completo-report.html
+            e2e/reports/sistema-completo-report.json
             e2e/reports/screenshots/
           retention-days: 14

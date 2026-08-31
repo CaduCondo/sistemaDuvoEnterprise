@@ -1,4 +1,5 @@
 # language: pt
+@autenticacao
 Funcionalidade: Autenticação de Usuários
   Como um usuário do sistema
   Quero fazer login com minhas credenciais
@@ -23,6 +24,7 @@ Funcionalidade: Autenticação de Usuários
     Então devo ser redirecionado para "/dashboard"
     E devo ver a página do dashboard
 
+  @sistemaCompleto
   Cenário: Login com sucesso - Usuário Financeiro
     Quando preencho o campo "Usuário" com "financeiro@teste.com"
     E preencho o campo "Senha" com "Financeiro@123"
@@ -30,6 +32,7 @@ Funcionalidade: Autenticação de Usuários
     Então devo ser redirecionado para "/dashboard"
     E devo ver a página do dashboard
 
+  @sistemaCompleto
   Cenário: Login com credenciais inválidas
     Quando preencho o campo "Usuário" com "invalido@teste.com"
     E preencho o campo "Senha" com "SenhaErrada123"
@@ -37,6 +40,7 @@ Funcionalidade: Autenticação de Usuários
     Então devo permanecer na página de login
     E devo ver uma mensagem de erro
 
+  @sistemaCompleto
   Cenário: Mostrar/Ocultar senha
     Quando preencho o campo "Senha" com "MinhaSenh@123"
     Então o campo senha deve estar oculto
@@ -45,6 +49,7 @@ Funcionalidade: Autenticação de Usuários
     Quando clico no botão de visualizar senha novamente
     Então o campo senha deve estar oculto
 
+  @sistemaCompleto
   Cenário: Recuperar senha - E-mail não cadastrado
     Quando clico em "Esqueci minha senha"
     Então devo ver o formulário de recuperação de senha
@@ -52,6 +57,7 @@ Funcionalidade: Autenticação de Usuários
     E clico em "Enviar Senha"
     Então devo ver a mensagem "E-mail não encontrado"
 
+  @sistemaCompleto
   Cenário: Recuperar senha - E-mail válido
     Quando clico em "Esqueci minha senha"
     Então devo ver o formulário de recuperação de senha
@@ -59,6 +65,7 @@ Funcionalidade: Autenticação de Usuários
     E clico em "Enviar Senha"
     Então devo ver a mensagem "E-mail Enviado com Sucesso"
 
+  @sistemaCompleto
   Cenário: Logout
     Dado que fiz login como "admin"
     Quando clico no menu do usuário
@@ -86,6 +93,7 @@ Funcionalidade: Autenticação de Usuários
   # ==========================================================================
 
   @seguranca
+  @sistemaCompleto
   Cenário: A senha nunca volta do servidor
     Quando eu pedir login ao servidor com "admin@teste.com" e a senha "Admin@123"
     Então o servidor deve aceitar
@@ -93,6 +101,7 @@ Funcionalidade: Autenticação de Usuários
     E a resposta deve trazer um token que identifica esse usuário
 
   @seguranca
+  @sistemaCompleto
   Cenário: Senha errada não diz se o usuário existe
     # Dizer "usuário não encontrado" entrega quais logins são válidos para
     # quem estiver tentando adivinhar. As duas respostas têm que ser iguais.
@@ -101,6 +110,7 @@ Funcionalidade: Autenticação de Usuários
     Então as duas recusas devem dizer a mesma coisa
 
   @seguranca
+  @sistemaCompleto
   Cenário: Três senhas erradas bloqueiam a conta por 30 minutos
     # Este é o cenário que estava morto: a contagem não era gravada, então
     # dava para tentar senha infinitas vezes.

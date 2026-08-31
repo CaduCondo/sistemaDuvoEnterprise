@@ -1,4 +1,5 @@
 # language: pt
+@inquilinos
 Funcionalidade: CRUD de Inquilinos
   Como um usuário autorizado
   Quero gerenciar inquilinos
@@ -8,6 +9,7 @@ Funcionalidade: CRUD de Inquilinos
     Dado que fiz login como "admin"
     E estou na página "/tenants"
 
+  @sistemaCompleto
   Cenário: Visualizar lista de inquilinos
     Então devo ver a lista de inquilinos
     E devo ver as colunas:
@@ -17,6 +19,7 @@ Funcionalidade: CRUD de Inquilinos
       | Telefone  |
       | E-mail    |
 
+  @sistemaCompleto
   Cenário: Filtrar inquilinos por busca
     Quando preencho o campo de busca com "João"
     Então devo ver apenas inquilinos que contenham "João" no nome
@@ -24,37 +27,44 @@ Funcionalidade: CRUD de Inquilinos
   # ⚠️ Atualizado em 2026-08: o filtro da lista de Inquilinos hoje é por
   # status (Novo/Locatário/Inativo), não por tipo de pessoa (CPF/CNPJ) — ver
   # src/components/tenants/TenantFilters.tsx. Não existe filtro de tipo na UI.
+  @sistemaCompleto
   Cenário: Filtrar inquilinos por status
     Quando seleciono o filtro de status "Locatário"
     Então devo ver apenas inquilinos com status locatário
 
+  @sistemaCompleto
   Cenário: Abrir formulário de novo inquilino
     Quando clico no botão "Novo Inquilino"
     Então devo ver o formulário de cadastro de inquilino
     E devo ver o seletor de tipo "Pessoa Física / Pessoa Jurídica"
 
+  @sistemaCompleto
   Cenário: Validar máscara de CPF
     Quando clico no botão "Novo Inquilino"
     E seleciono "Pessoa Física"
     E preencho o CPF com "12345678900"
     Então o campo deve exibir "123.456.789-00"
 
+  @sistemaCompleto
   Cenário: Validar máscara de CNPJ
     Quando clico no botão "Novo Inquilino"
     E seleciono "Pessoa Jurídica"
     E preencho o CNPJ com "12345678000190"
     Então o campo deve exibir "12.345.678/0001-90"
 
+  @sistemaCompleto
   Cenário: Validar máscara de Telefone
     Quando clico no botão "Novo Inquilino"
     E preencho o telefone com "11987654321"
     Então o campo deve exibir "(11) 98765-4321"
 
+  @sistemaCompleto
   Cenário: Validar máscara de CEP
     Quando clico no botão "Novo Inquilino"
     E preencho o CEP com "01310100"
     Então o campo deve exibir "01310-100"
 
+  @sistemaCompleto
   Cenário: Validar máscara de Renda Mensal
     Quando clico no botão "Novo Inquilino"
     E preencho a renda mensal digitando "5000"
@@ -62,12 +72,14 @@ Funcionalidade: CRUD de Inquilinos
     Quando continuo digitando até "500000"
     Então o campo deve exibir "R$ 5.000,00"
 
+  @sistemaCompleto
   Cenário: Buscar CEP automaticamente
     Quando clico no botão "Novo Inquilino"
     E preencho o CEP com "01310-100"
     E clico em "Buscar CEP"
     Então os campos de endereço devem ser preenchidos automaticamente
 
+  @sistemaCompleto
   Cenário: Criar inquilino Pessoa Física com campos opcionais
     Quando clico no botão "Novo Inquilino"
     E seleciono "Pessoa Física"
@@ -86,6 +98,7 @@ Funcionalidade: CRUD de Inquilinos
     Então devo ver a mensagem de sucesso
     E o inquilino deve aparecer na lista
 
+  @sistemaCompleto
   Cenário: Editar inquilino e adicionar dados opcionais
     Dado que existe um inquilino "Maria Santos" sem dados opcionais
     Quando abro o inquilino "Maria Santos" para edição
@@ -99,6 +112,7 @@ Funcionalidade: CRUD de Inquilinos
     E quando abro o inquilino novamente
     Então devo ver os dados salvos corretamente
 
+  @sistemaCompleto
   Cenário: Validar opções de Estado Civil
     Quando clico no botão "Novo Inquilino"
     E clico no campo "Estado Civil"
@@ -110,6 +124,7 @@ Funcionalidade: CRUD de Inquilinos
       | Viúvo(a)         |
       | União Estável    |
 
+  @sistemaCompleto
   Cenário: Criar inquilino sem preencher campos opcionais
     Quando clico no botão "Novo Inquilino"
     E seleciono "Pessoa Física"
@@ -172,6 +187,7 @@ Funcionalidade: CRUD de Inquilinos
     Então devo ver a mensagem de sucesso
     E o inquilino deve aparecer na lista
 
+  @sistemaCompleto
   Cenário: Criar inquilino Pessoa Jurídica
     Quando clico no botão "Novo Inquilino"
     E seleciono "Pessoa Jurídica"

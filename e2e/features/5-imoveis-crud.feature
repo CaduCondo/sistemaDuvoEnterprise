@@ -1,4 +1,5 @@
 # language: pt
+@imoveis
 Funcionalidade: CRUD de Imóveis
   Como um usuário autorizado
   Quero gerenciar imóveis
@@ -12,6 +13,7 @@ Funcionalidade: CRUD de Imóveis
     Dado que fiz login como "admin"
     E estou na página "/properties"
 
+  @sistemaCompleto
   Cenário: Visualizar lista de imóveis
     Então devo ver a lista de imóveis
     E devo ver as colunas:
@@ -25,26 +27,31 @@ Funcionalidade: CRUD de Imóveis
       | Status       |
       | Foto         |
 
+  @sistemaCompleto
   Cenário: Alternar visualização Grid/Lista
     Quando clico no botão de visualização em grid
     Então devo ver os imóveis em formato de cards
     Quando clico no botão de visualização em lista
     Então devo ver os imóveis em formato de tabela
 
+  @sistemaCompleto
   Cenário: Filtrar imóveis por busca
     Quando preencho o campo de busca com "Centro"
     Então devo ver apenas imóveis que contenham "Centro" no endereço ou localização
 
+  @sistemaCompleto
   Cenário: Filtrar imóveis por localização
     Quando seleciono a localização "São Paulo - Centro"
     Então devo ver apenas imóveis desta localização
 
+  @sistemaCompleto
   Cenário: Filtrar imóveis por status
     Quando seleciono o status "Disponível"
     Então devo ver apenas imóveis disponíveis
     Quando seleciono o status "Ocupado"
     Então devo ver apenas imóveis ocupados
 
+  @sistemaCompleto
   Cenário: Abrir formulário de novo imóvel
     Quando clico no botão "Novo Imóvel"
     Então devo ver o formulário de cadastro de imóvel
@@ -55,11 +62,13 @@ Funcionalidade: CRUD de Imóveis
       | Banheiros  |
       | Área (m²)  |
 
+  @sistemaCompleto
   Cenário: Validar campo obrigatório - Local
     Quando clico no botão "Novo Imóvel"
     E tento salvar sem preencher o local
     Então devo ver a mensagem "Campo obrigatório"
 
+  @sistemaCompleto
   Cenário: Validar campo obrigatório - Quartos
     Quando clico no botão "Novo Imóvel"
     E tento salvar sem preencher os quartos
@@ -84,6 +93,7 @@ Funcionalidade: CRUD de Imóveis
     Então devo ver a mensagem de sucesso
     E o imóvel deve aparecer na lista
 
+  @sistemaCompleto
   Cenário: Editar imóvel existente
     Dado que existe um imóvel "IMO-001"
     Quando clico no botão de editar do imóvel "IMO-001"
@@ -93,6 +103,7 @@ Funcionalidade: CRUD de Imóveis
     Então devo ver a mensagem de sucesso
     E o valor deve estar atualizado na lista
 
+  @sistemaCompleto
   Cenário: Deletar imóvel - Cancelar
     Dado que existe um imóvel "IMO-001"
     Quando clico no botão de deletar do imóvel "IMO-001"
@@ -100,6 +111,7 @@ Funcionalidade: CRUD de Imóveis
     Quando clico em "Cancelar"
     Então o imóvel deve permanecer na lista
 
+  @sistemaCompleto
   Cenário: Deletar imóvel - Confirmar
     Dado que existe um imóvel "IMO-001"
     Quando clico no botão de deletar do imóvel "IMO-001"

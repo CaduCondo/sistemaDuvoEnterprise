@@ -17,6 +17,9 @@
 - Editor: VS Code, com a extensão Claude Code instalada.
 - Supabase: bancos de dados separados de dev e prod (atenção: alguns campos já divergiram de tipo entre os dois bancos — ver ticket "attachments de deposit_installments" no kanban — sempre confirmar o schema real antes de escrever SQL para produção).
 - Kanban de tarefas: https://duvoenterprise.com.br/kanban — é a fonte de verdade sobre bugs conhecidos e prioridades, não este arquivo. Respeitar a prioridade e a ordem das tarefas de lá; bugs novos que forem aparecendo devem virar tickets novos no kanban, respeitando a prioridade (não furar fila).
+  - Por baixo do capô, esse kanban é só duas tabelas no Supabase de **produção** (`kanban_cards` e `kanban_card_tasks`, ref `alvghyfbzrpjwhckmkwx`) — o mesmo banco que o site usa. O `.env.local` do projeto aponta para o Supabase de DEV (`yrknfweilbuwrhzzwnrr`); não existe credencial de produção no repositório. Então, sem uma `SUPABASE_SERVICE_ROLE_KEY` de produção à mão, o jeito de ler/escrever o kanban interno é pela tela mesmo (`https://duvoenterprise.com.br/kanban`, dentro do "Gerenciador"), via navegador.
+  - **Login no Gerenciador é sempre o Cadu quem faz.** O botão "Entrar" não deve ser clicado pelo Claude mesmo com o e-mail/senha já preenchidos pelo autofill do navegador — pedir para o Cadu logar na aba antes de continuar.
+  - Cadu pretende, no futuro, parar de usar esse kanban interno e usar só o do GitHub (issues + Project "Sistema DUvoEnterprise") — mais usado no mercado. Até ele avisar que fez a troca, os dois continuam sendo mantidos sincronizados (ver "Os dois kanbans sempre sincronizados e priorizados" abaixo).
 - Pasta do projeto conectada diretamente (21/ago/2026): o Claude consegue ler e escrever os arquivos locais do Cadu (a mesma pasta aberta no VS Code) sem precisar passar por Git. Isso significa que o código já aparece atualizado no VS Code do Cadu assim que o Claude termina de mexer — ele não precisa dar `git pull`. `git commit`/`git push` continuam sendo só para levar a mudança para o GitHub/produção (Vercel), e continuam exigindo autorização do Cadu como sempre.
 
 ## Regras de trabalho
@@ -114,26 +117,115 @@ pode variar conforme o caso, mas nenhum passo pode ser pulado):
    que foi feito.
 9. **Checar a documentação E os testes automáticos — sempre, sem
    exceção.** Antes de considerar o item realmente concluído, avaliar
-   explicitamente duas coisas (nenhuma pode ser pulada, mesmo quando a
+   explicitamente estas frentes (nenhuma pode ser pulada, mesmo quando a
    conclusão for "não precisa mudar nada"):
-   - **Documentação:** se alguma coisa mudou que deixa a
+   - **Documentação desatualizada:** se alguma coisa mudou que deixa a
      documentação/manual desatualizados (ex.: `docs/REGRAS_DE_NEGOCIO.md`
      e os outros arquivos de `docs/`).
+   - **Documentação duplicada/desnecessária:** ao mexer numa área,
+     aproveitar para checar se não sobrou documento repetido, esquecido
+     ou um "index" (`docs/README.md`, `e2e/README.md`) desatualizado
+     sobre o que existe. Não confiar cegamente numa nota antiga tipo
+     "arquivo X foi removido" — conferir se o arquivo realmente não
+     existe mais antes de repetir a afirmação (já aconteceu de um índice
+     dizer que `e2e/SETUP_SIMPLES.md` tinha sido removido em 12/ago/2026
+     quando na verdade ele nunca foi).
+   - **Manual passo a passo + imagens:** o manual (`docs/REGRAS_DE_NEGOCIO.md`)
+     é para o Cadu, que não programa — cada regra de negócio nova ou
+     alterada precisa ficar como passo a passo em linguagem simples, não
+     só como especificação técnica. Sempre que mexer numa tela que tenha
+     um placeholder `[Imagem]` (hoje só 2, ambos mockups em ASCII —
+     "Imóveis" e outro bloco de cards — grep por `\[Imagem\]` acha os
+     atuais), aproveitar para capturar um print real da tela (navegador,
+     logado como o Cadu loga) e substituir o mockup pela imagem de
+     verdade. Não precisa esperar pedido específico do Cadu.
    - **Testes automáticos (BDD, pasta `e2e/`):** se o comportamento
-     corrigido/criado já está coberto pelos testes automáticos que rodam
-     no GitHub Actions a cada push. Se não estiver, criar ou atualizar o
-     cenário BDD (Dado/Quando/Então) correspondente, para que esse
-     comportamento passe a ser testado sempre, automaticamente, e o
-     mesmo problema não volte sem ser percebido.
+     corrigido/criado já está coberto pelos testes automáticos. Se não
+     estiver, criar ou atualizar o cenário BDD (Dado/Quando/Então)
+     correspondente — ver "Esquema de tags dos testes BDD" abaixo para
+     decidir em qual rodada (`@smoke`/`@sistemaCompleto`) o cenário novo
+     entra, e lembrar da tag de página do arquivo.
+   - **Um teste que já existia e não pegou o bug:** se o item chegou
+     aqui através de um bug relatado pelo Cadu ou encontrado pelo
+     GitHub Actions, e já existia um cenário BDD para aquela regra,
+     investigar por que ele não acusou o problema (cenário errado?
+     estava fora de `@smoke`/`@sistemaCompleto`? é um dos `@quebrado`?)
+     e corrigir a causa, não só adicionar um cenário nôvo por cima.
    Pular esse passo no passado foi exatamente o que fez a documentação
    (e a cobertura de testes) acumular desatualização — por isso agora é
-   sempre avaliado, nos dois casos.
+   sempre avaliado, em todos os casos.
 10. **Escolher e já sinalizar o próximo item** (kanban + GitHub), e
     recomeçar o ciclo — sem esperar o Cadu perguntar "qual o próximo?".
+    Ver "Os dois kanbans sempre sincronizados e priorizados" abaixo antes
+    de escolher: a escolha só é confiável se a fila estiver correta nos
+    dois lugares.
 
-Manual/documentação com imagens: o manual (`docs/REGRAS_DE_NEGOCIO.md`)
-tem vários pontos marcados como `[Imagem]` que nunca foram preenchidos
-com capturas de tela reais. Sempre que mexer numa tela que tenha um
-desses placeholders, aproveitar para capturar um print atual e inserir
-no lugar do placeholder — não precisa esperar um pedido específico do
-Cadu para isso.
+### Os dois kanbans sempre sincronizados e priorizados
+
+Regra do Cadu (31/ago/2026, vale sempre, sem precisar pedir de novo, além
+do "Fluxo padrão" acima que já cobre ticket-a-ticket): isto não é uma
+auditoria pontual — é hábito permanente do ciclo, revisado a cada item
+trabalhado, não só quando alguém lembrar:
+
+1. **Mesmo conteúdo nos dois.** Todo ticket do kanban interno tem que ter
+   o par exato no GitHub Issues (`CaduCondo/sistemaDuvoEnterprise`) e
+   vice-versa — mesmo título, mesmo contexto/causa raiz, mesmas tarefas,
+   mesmos critérios de aceitação em BDD. Se algum dos dois tiver algo que
+   o outro não tem, replicar antes de seguir.
+2. **Uma fila só de prioridade.** Os tickets abertos, nos dois kanbans,
+   ficam ordenados do mais urgente para o menos urgente — sempre que um
+   item novo entra (bug achado, pedido do Cadu, falha do GitHub Actions),
+   reavaliar a posição dele na fila junto com o resto, não só apendar no
+   fim. O critério é o do passo 1 do ciclo (valor, custo/esforço, risco,
+   urgência).
+3. **Kanban interno precisa do Cadu logado.** Ver nota em "Ambiente do
+   usuário" — o Claude não faz login sozinho. Se a aba do Gerenciador não
+   estiver logada quando for hora de mexer no kanban interno, pedir para
+   o Cadu logar e continuar depois.
+4. Isso é preparação para o dia em que o Cadu avisar que só quer mais o
+   kanban do GitHub — quanto mais os dois já estiverem espelhados e
+   íntegros nesse dia, mais simples é a migração.
+
+### Esquema de tags dos testes BDD (`e2e/features/*.feature`)
+
+Decisão do Cadu de 31/ago/2026, documentação completa em `e2e/SMOKE.md`
+(ler antes de mexer em tags) — resumo para não ter que reabrir o arquivo
+toda vez:
+
+- **`@smoke`** — rodada 1, roda primeiro a cada push. Só os poucos
+  cenários rápidos e **críticos** (login, criar imóvel/inquilino/locação,
+  receber caução, os dois cenários essenciais da rescisão). Hoje são 12.
+- **`@sistemaCompleto`** — rodada 2, só começa depois que a 1 passar
+  (`needs: smoke` no workflow). Todo o resto — cada regra de negócio,
+  cada variação de cálculo. Por definição cobre tudo que o `@smoke` não
+  cobre; nenhum cenário tem as duas tags.
+- **`@quebrado`** — defeito conhecido **do teste** (não do sistema): o
+  preparo não cria o dado que o cenário confere, ou procura elemento que a
+  tela nunca teve. Fica fora das duas rodadas até ser corrigido — não
+  apagar o cenário, só sinalizar. Hoje: 4 (ver `e2e/SMOKE.md`).
+- **Sem tag nenhuma** — o cenário é o contrato de uma funcionalidade que
+  ainda **não existe** no produto (não é bug de teste). Fica assim até a
+  funcionalidade ser implementada; devolver a tag correta nesse momento.
+- **Tag de página** — uma por arquivo `.feature`, no topo (`@autenticacao`,
+  `@imoveis`, `@inquilinos`, `@locacoes`, `@pagamentos`, `@caucoes`,
+  `@rescisao`, `@anuncioPublico`, `@permissoesAdmin`,
+  `@permissoesFinanceiro`, `@permissoesGestao`, `@regressaoVisual`,
+  `@fundacao`). Todo cenário do arquivo herda ela — não precisa repetir
+  por cenário. Serve para rodar só uma tela: `--tags "@rescisao"`.
+- Tags que existem e não são do BDD: `@security`, `@performance`,
+  `@stress`, `@permissions`, `@api-tests`, `@regression` são **projetos do
+  Playwright** (`playwright.config.ts`), usados pelos `.spec.ts` em
+  `e2e/tests/*` — outro tipo de teste (XSS/SQL injection, tempo de
+  carregamento, requisições concorrentes), roda só no workflow manual
+  `e2e-tests.yml`. Não misturar com as tags do Cucumber acima.
+
+Todo cenário novo entra com exatamente uma tag de rodada (`@smoke`,
+`@sistemaCompleto`, ou `@quebrado`/sem-tag nos dois casos de exceção). Um
+cenário só vira `@smoke` se for rápido, confiável, criar o próprio dado, e
+**crítico** (quebrar isso para o sistema ou mexe em dinheiro) — o padrão é
+`@sistemaCompleto`.
+
+Lacuna conhecida (31/ago/2026): não existe ainda um cenário `@smoke`
+limpo para "receber aluguel" — os dois candidatos naturais estão
+`@quebrado`. Ver ticket "Escrever cenário de smoke para receber aluguel"
+no kanban/GitHub.

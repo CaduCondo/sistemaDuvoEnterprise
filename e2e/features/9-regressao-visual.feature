@@ -1,9 +1,11 @@
 # language: pt
+@regressaoVisual
 Funcionalidade: Testes de Regressão Visual
   Como desenvolvedor
   Quero garantir que mudanças em uma página não afetem outras
   Para manter a estabilidade do sistema
 
+  @sistemaCompleto
   Cenário: Mudança em Imóveis não afeta Inquilinos
     Dado que fiz login como "admin"
     Quando acesso a página "/properties"
@@ -13,6 +15,7 @@ Funcionalidade: Testes de Regressão Visual
     E todos os elementos devem estar presentes
     E os filtros devem funcionar
 
+  @sistemaCompleto
   Cenário: Mudança em Locações não afeta Pagamentos
     Dado que fiz login como "admin"
     Quando acesso a página "/rentals"
@@ -22,6 +25,7 @@ Funcionalidade: Testes de Regressão Visual
     E os filtros de mês/ano devem funcionar
     E os pagamentos devem ser exibidos corretamente
 
+  @sistemaCompleto
   Cenário: Layout do header permanece consistente
     Dado que fiz login como "admin"
     Quando navego entre as páginas:
@@ -37,6 +41,7 @@ Funcionalidade: Testes de Regressão Visual
     E o menu lateral deve estar sempre funcional
     E o botão de logout deve estar sempre acessível
 
+  @sistemaCompleto
   Cenário: Breadcrumbs corretos em todas as páginas
     Dado que fiz login como "admin"
     Quando acesso "/properties"
@@ -46,6 +51,7 @@ Funcionalidade: Testes de Regressão Visual
     Quando acesso "/rentals"
     Então devo ver "Dashboard > Locações"
 
+  @sistemaCompleto
   Cenário: Tema escuro/claro consistente
     Dado que fiz login como "admin"
     Quando alterno para tema escuro
@@ -54,6 +60,7 @@ Funcionalidade: Testes de Regressão Visual
     Quando alterno para tema claro
     Então todas as páginas devem usar o tema claro
 
+  @sistemaCompleto
   Cenário: Responsividade em mobile
     Dado que fiz login como "admin"
     E estou usando um dispositivo mobile
@@ -66,6 +73,7 @@ Funcionalidade: Testes de Regressão Visual
     E todos os elementos devem estar acessíveis
     E as tabelas devem ser scrolláveis horizontalmente
 
+  @sistemaCompleto
   Cenário: Cards do Dashboard sempre presentes
     Dado que fiz login como qualquer perfil autorizado
     Quando acesso "/dashboard"
@@ -73,6 +81,7 @@ Funcionalidade: Testes de Regressão Visual
     E devo ver pelo menos um card de métrica
     E os cards devem ter a mesma altura
 
+  @sistemaCompleto
   Cenário: Filtros mantêm estado entre navegações
     Dado que fiz login como "admin"
     Quando acesso "/properties"

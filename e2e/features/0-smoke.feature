@@ -1,5 +1,5 @@
 # language: pt
-@smoke
+@smoke @fundacao
 Funcionalidade: Fundação da esteira de testes
   Como responsável pelo sistema
   Quero saber, a cada mudança, se o sistema continua de pé

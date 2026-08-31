@@ -65,6 +65,8 @@ const RAIZ = path.resolve(__dirname, "..");
  *   --slow[=N]  atrasa cada acao em N ms (padrao 250) para dar pra acompanhar
  *   --porta=N   usa outra porta (padrao 3000), quando a 3000 esta ocupada
  *               por outro programa
+ *   --suite=X   qual suite rodar: "smoke" (padrao, rápida) ou
+ *               "sistemaCompleto" (todo o resto, roda depois do smoke)
  *
  * Sao lidas aqui, e nao por variavel de ambiente, porque no PowerShell do
  * Windows definir variavel na mesma linha do comando nao funciona como no
@@ -74,6 +76,26 @@ const argumentosCli = process.argv.slice(2);
 const querVer = argumentosCli.includes("--headed");
 const argSlow = argumentosCli.find((a) => a.startsWith("--slow"));
 const argPorta = argumentosCli.find((a) => a.startsWith("--porta"));
+const argSuite = argumentosCli.find((a) => a.startsWith("--suite"));
+
+const SUITES = {
+  smoke: {
+    config: "e2e/cucumber.smoke.config.cjs",
+    label: "cenários marcados com @smoke",
+  },
+  sistemaCompleto: {
+    config: "e2e/cucumber.sistemaCompleto.config.cjs",
+    label: "cenários marcados com @sistemaCompleto (tudo que não é @smoke)",
+  },
+};
+const NOME_SUITE = (argSuite && argSuite.split("=")[1]) || "smoke";
+const SUITE = SUITES[NOME_SUITE];
+if (!SUITE) {
+  console.error(
+    `[smoke] --suite="${NOME_SUITE}" não existe. Use "smoke" ou "sistemaCompleto".`
+  );
+  process.exit(1);
+}
 
 if (querVer) {
   process.env.HEADED = "true";
@@ -281,16 +303,12 @@ async function principal() {
     log(
       querVer
         ? "Aplicação no ar. Abrindo o navegador para você assistir..."
-        : "Aplicação no ar. Rodando os cenários marcados com @smoke..."
+        : `Aplicação no ar. Rodando os ${SUITE.label}...`
     );
 
     // No modo visivel roda UM cenario por vez: dois navegadores abrindo ao
     // mesmo tempo e impossivel de acompanhar.
-    const argsCucumber = [
-      "cucumber-js",
-      "--config",
-      "e2e/cucumber.smoke.config.cjs",
-    ];
+    const argsCucumber = ["cucumber-js", "--config", SUITE.config];
     if (querVer) {
       argsCucumber.push("--parallel", "0");
     }

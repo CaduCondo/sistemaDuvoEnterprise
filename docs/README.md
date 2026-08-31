@@ -12,10 +12,20 @@ Sistema completo de gestão de locações de imóveis com controle de pagamentos
 
 ---
 
-## 🆕 Últimas Atualizações (2026-08-12)
+## 🆕 Últimas Atualizações (2026-08-31)
 
-- Limpeza geral do projeto: removidos arquivos e código não usados (pasta `uploads/` antiga, rota de upload local, resíduos do Softgen.ai).
-- Documentação revisada: `BUSINESS_RULES.md` (duplicata em inglês) e `SETUP_SIMPLES.md` removidos por estarem desatualizados; este índice corrigido.
+- Rescisão de contrato separada da devolução do caução (#49) em produção e estável — ver seção "🔚 Rescisão de Contrato" em `REGRAS_DE_NEGOCIO.md`.
+- Testes BDD reorganizados em duas rodadas automáticas: `@smoke` (rápida, ~12 cenários críticos) e `@sistemaCompleto` (todo o resto, roda depois). Ver [e2e/SMOKE.md](../e2e/SMOKE.md).
+- Correção: clicar "OK" na mensagem de sucesso travava a tela inteira (commit `e386d423`).
+- Login passou a ser validado no servidor, não mais só no navegador (etapa 1).
+
+> ⚠️ Nota (31/ago/2026): as atualizações de 12/ago/2026 abaixo diziam que
+> `e2e/SETUP_SIMPLES.md` tinha sido removido — não foi (o arquivo ainda
+> existe, hoje como um redirecionamento curto para `e2e/GUIA_RAPIDO.md`).
+> `BUSINESS_RULES.md` esse sim não existe mais no repositório.
+
+- Limpeza geral do projeto (12/ago/2026): removidos arquivos e código não usados (pasta `uploads/` antiga, rota de upload local, resíduos do Softgen.ai).
+- Documentação revisada (12/ago/2026): `BUSINESS_RULES.md` (duplicata em inglês) removido por estar desatualizado; este índice corrigido.
 - Anexos: correção de bugs de exibição/download e tratamento amigável para arquivos antigos perdidos.
 - Sistema de alertas centralizado (aparecem no meio da tela) e reativação automática de locações encerradas ao editar a data fim.
 
@@ -108,52 +118,55 @@ Análise de viabilidade para integrar um gateway de pagamento (Asaas) — ainda 
 
 **Localização:** `e2e/`
 
-**Features implementadas:**
-1. **1-autenticacao.feature** - Testes de login, logout e sessões
-2. **2-permissoes-admin.feature** - Permissões do perfil Admin
-3. **3-permissoes-financeiro.feature** - Permissões do perfil Financial
-4. **4-permissoes-gestao.feature** - Permissões do perfil Broker
-5. **5-imoveis-crud.feature** - CRUD de imóveis
-6. **6-inquilinos-crud.feature** - CRUD de inquilinos
-7. **7-locacoes-regras.feature** - Criação de locações e regras
-8. **8-pagamentos-calculos.feature** - Cálculos de pagamentos
-9. **9-regressao-visual.feature** - Testes visuais
-10. **10-caucoes.feature** - Sistema de cauções
-11. **11-anuncio-publico.feature** - Anúncio público aberto sem login
-0. **0-smoke.feature** - Fundação da esteira (aplicação no ar, tela abre, login entra)
+**Features implementadas** (cada arquivo carrega uma tag de página — ver [e2e/SMOKE.md](../e2e/SMOKE.md)):
+0. **0-smoke.feature** `@fundacao` - Fundação da esteira (aplicação no ar, tela abre, login entra)
+1. **1-autenticacao.feature** `@autenticacao` - Login, logout e sessões
+2. **2-permissoes-admin.feature** `@permissoesAdmin` - Permissões do perfil Admin
+3. **3-permissoes-financeiro.feature** `@permissoesFinanceiro` - Permissões do perfil Financeiro
+4. **4-permissoes-gestao.feature** `@permissoesGestao` - Permissões do perfil Gestão
+5. **5-imoveis-crud.feature** `@imoveis` - CRUD de imóveis
+6. **6-inquilinos-crud.feature** `@inquilinos` - CRUD de inquilinos
+7. **7-locacoes-regras.feature** `@locacoes` - Criação de locações e regras
+8. **8-pagamentos-calculos.feature** `@pagamentos` - Cálculos de pagamentos
+9. **9-regressao-visual.feature** `@regressaoVisual` - Testes visuais
+10. **10-caucoes.feature** `@caucoes` - Sistema de cauções
+11. **11-anuncio-publico.feature** `@anuncioPublico` - Anúncio público aberto sem login
+12. **12-rescisao-caucao.feature** `@rescisao` - Rescisão de contrato separada da devolução do caução (#49)
 
-**O que roda sozinho a cada push:** só os cenários marcados com `@smoke`,
-pelo workflow `Smoke Test` (~2 min). A suíte completa continua no
-repositório, mas virou **manual** — ela falhava em todos os pushes e levava
-60 minutos, o que não dizia nada a ninguém. A volta é por partes: marcar
-mais cenários com `@smoke`. Ver [e2e/SMOKE.md](../e2e/SMOKE.md).
+**O que roda sozinho a cada push:** duas rodadas sequenciais, pelo workflow
+`Smoke Test` (`.github/workflows/smoke.yml`). Rodada 1 — cenários marcados
+`@smoke` (~2-5 min, o "pode seguir" rápido). Rodada 2 — só começa depois que
+a 1 passa, roda todos os cenários marcados `@sistemaCompleto` (o resto de
+todas as regras de negócio, ~15-25 min). Nenhum cenário roda nas duas.
+Ver [e2e/SMOKE.md](../e2e/SMOKE.md) para o esquema completo de tags
+(inclusive as tags de página, uma por tela).
 
 **Executar testes:**
 ```bash
-# A suíte rápida: sobe a aplicação compilada e roda os cenários @smoke
+# Rodada 1: sobe a aplicação compilada e roda os cenários @smoke
 npm run test:smoke
+
+# Rodada 2: sobe a aplicação compilada e roda os cenários @sistemaCompleto
+npm run test:completo
 
 # Só os cenários @smoke, com a aplicação já rodando em outra janela
 npm run test:bdd:smoke
 
-# A suíte BDD completa
+# Só os cenários @sistemaCompleto, com a aplicação já rodando
+npm run test:bdd:sistemaCompleto
+
+# A suíte BDD inteira (as duas rodadas juntas)
 npm run test:bdd
 
-# A suíte Playwright completa
+# A suíte Playwright completa (permissões, segurança, performance, stress)
 npm run test:e2e
 ```
 
 **Documentação de testes:**
-- [e2e/SMOKE.md](../e2e/SMOKE.md) - **Comece por aqui**: como a suíte rápida funciona e como religar a antiga
+- [e2e/SMOKE.md](../e2e/SMOKE.md) - **Comece por aqui**: as duas rodadas, o esquema completo de tags e o histórico
 - [docs/GITHUB_ACTIONS_TESTES.md](./GITHUB_ACTIONS_TESTES.md) - Os workflows do GitHub Actions
 - [e2e/README.md](../e2e/README.md) - Guia geral de testes E2E
 - [e2e/COMANDOS.md](../e2e/COMANDOS.md) - Comandos úteis
-- [e2e/SETUP_SIMPLES.md](../e2e/SETUP_SIMPLES.md) - Setup simplificado
-
-> Nota: há seis guias de teste em `e2e/` com conteúdo sobreposto
-> (README, GUIA_RAPIDO, GUIA_TESTES_LOCAL, COMANDOS, SETUP_SIMPLES,
-> EXECUTAR_TESTES_CI). Consolidar isso está no backlog; enquanto não
-> acontece, `e2e/SMOKE.md` é a fonte mais atual.
 
 ---
 
@@ -230,17 +243,18 @@ npm run dev
 
 ## 📝 Notas de Atualização
 
-**Última atualização:** 2026-08-12  
-**Versão:** 2.3
+**Última atualização:** 2026-08-31
+**Versão:** 2.4.4 (ver `package.json`)
 
 **Mudanças recentes:**
-- Limpeza do projeto: remoção de arquivos não usados e resíduos do Softgen.ai
-- Documentação simplificada e desduplicada (removidos `BUSINESS_RULES.md` e `SETUP_SIMPLES.md`)
+- Rescisão de contrato separada da devolução do caução (#49) em produção
+- Testes BDD em duas rodadas automáticas por push: `@smoke` (~12 cenários) e `@sistemaCompleto` (o resto)
+- Documentação simplificada e desduplicada (removido `BUSINESS_RULES.md`)
 - Correções nos anexos de locações (visualização, download, arquivos antigos perdidos)
 - Sistema de alertas centralizados implementado
 - Reativação de locações encerradas com recriação de pagamentos
 - Funções SQL com verificação de persistência (update_tenant_guaranteed, manual_update_tenant)
-- Sistema de cauções documentado (deposit_installments), com testes E2E (18 cenários)
+- Sistema de cauções documentado (deposit_installments)
 
 ---
 

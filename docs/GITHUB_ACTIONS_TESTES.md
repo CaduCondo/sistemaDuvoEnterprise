@@ -1,62 +1,81 @@
 # 🧪 Testes automatizados no GitHub Actions
 
-> Reescrito em 23/ago/2026. A versão anterior descrevia uma esteira que não
-> existe mais: falava em 2 workflows (hoje são 4), em Node 18 (hoje 22) e
-> dizia que a suíte completa rodava a cada push (hoje ela é manual). Se algo
-> aqui divergir do que está em `.github/workflows/`, os arquivos mandam.
+> Reescrito em 31/ago/2026. A versão anterior descrevia a suíte completa como
+> "manual" — hoje ela roda sozinha, automaticamente, logo depois do smoke
+> passar (job `sistema_completo` dentro do próprio workflow `smoke.yml`). Se
+> algo aqui divergir do que está em `.github/workflows/`, os arquivos mandam.
 
 ## Os 4 workflows
 
 | Workflow | Arquivo | O que faz | Quando roda | Duração |
 |---|---|---|---|---|
-| **Smoke Test** | `smoke.yml` | Roda os cenários BDD marcados com `@smoke`. **É o portão**: se ficar vermelho, alguma coisa quebrou de verdade. | Todo push e PR em `main`/`develop`, ou manual | ~2 min |
+| **Smoke Test** | `smoke.yml` | **Job 1 (`smoke`)**: roda os cenários BDD marcados com `@smoke`. É o portão rápido — se ficar vermelho, alguma coisa importante quebrou de verdade. **Job 2 (`sistema_completo`)**: só começa depois que o job 1 passar; roda TODOS os cenários marcados `@sistemaCompleto` (todas as regras de negócio que o smoke não cobre). | Todo push e PR em `main`/`develop`, ou manual | smoke: ~2-5 min · sistema completo: ~15-25 min |
 | **Trava de ambiente** | `trava-ambiente.yml` | Confere que a trava que impede produção de subir apontando para o banco de DEV continua funcionando. Não usa banco, nem navegador, nem segredo. | Todo push e PR | ~12 s |
-| **E2E Tests (suíte completa - manual)** | `e2e-tests.yml` | A suíte antiga inteira (Playwright + Cucumber). | **Só manual** (Actions → Run workflow) | 10-60 min |
+| **E2E Tests (suíte completa - manual)** | `e2e-tests.yml` | A suíte Playwright completa (permissões, segurança, performance, stress — fora do BDD). Fica manual porque cobre um tipo de teste diferente do BDD e ainda não foi toda revisada. | **Só manual** (Actions → Run workflow) | 10-60 min |
 | **Sync from Vercel (Auto)** | `sync-from-vercel.yml` | Herança de quando se usava o Softgen; hoje provavelmente não acha nada para sincronizar. Ver [SETUP_GITHUB_AUTO_SYNC.md](./SETUP_GITHUB_AUTO_SYNC.md). | 1x/dia às 20h ou manual | ~15 s |
 
-Os quatro são independentes e podem rodar ao mesmo tempo.
+Os quatro são independentes e podem rodar ao mesmo tempo, exceto os dois jobs
+de `smoke.yml`: o `sistema_completo` só começa quando o `smoke` termina e
+passa (`needs: smoke`).
 
-## Por que a suíte completa virou manual
+## As duas rodadas do BDD, e por que existem duas
 
-Ela falhava em **todos** os pushes há semanas, levando cerca de 60 minutos por
-execução. Um teste que falha sempre não avisa nada: vira ruído, e todo mundo
-aprende a ignorar o vermelho — e ainda trava qualquer mudança nova sem apontar
-problema real.
+**Rodada 1 — `@smoke`.** Um punhado de cenários (hoje 12): login, abrir o
+anúncio público, criar imóvel, criar inquilino, criar locação, receber
+caução, e os dois cenários essenciais da rescisão (gerar dois recebimentos,
+não contaminar as taxas). Termina em minutos. É o "pode seguir" ou "parou de
+pé" — o sinal que se olha primeiro depois de um push.
 
-Foram encontrados três defeitos na esteira, todos medidos antes de serem
-corrigidos, mais um quarto à parte. A história completa, com os números, está
-em **[e2e/SMOKE.md](../e2e/SMOKE.md)** — o resumo é: os testes rodavam em
-fila, cada falha custava 3 minutos por causa das repetições automáticas, e a
-aplicação subia em modo de desenvolvimento (onde cada tela leva segundos para
-ser montada na primeira abertura, tempo que conta dentro do limite do clique).
+**Rodada 2 — `@sistemaCompleto`.** Todo o resto: cada regra de negócio
+detalhada, arquivo por arquivo. Mais lenta, mas não atrasa o sinal rápido da
+rodada 1 porque só começa depois dela. Cobre por definição tudo que o smoke
+não cobre — todo cenário do repositório tem uma marca ou outra, nunca as
+duas (ver [e2e/SMOKE.md](../e2e/SMOKE.md) para a explicação completa, e as
+exceções: cenários `@quebrado` — defeito conhecido do teste — e cenários sem
+marca nenhuma, que esperam uma funcionalidade que ainda não existe).
 
-A suíte continua no repositório. A volta é por partes: ver a seção seguinte.
+Por que não voltar a rodar tudo junto, como era antes: a suíte antiga (hoje
+`e2e-tests.yml`) rodava tudo de uma vez a cada push, levava ~60 minutos e
+falhava sempre — um teste que falha sempre não avisa nada, vira ruído, e todo
+mundo aprende a ignorar o vermelho. Dividir em duas rodadas sequenciais dá o
+melhor dos dois mundos: resposta rápida e confiável logo no primeiro sinal, e
+cobertura completa das regras de negócio na sequência, sem re-testar o que a
+rodada 1 já validou.
 
-## Como religar um pedaço da suíte antiga
+## Como mover um cenário entre as rodadas
 
-O que decide se um cenário roda a cada push é a **marca `@smoke`** escrita
-acima dele, no arquivo `.feature`. Não existe pasta separada.
+O que decide em qual rodada um cenário roda é a marca escrita acima dele, no
+arquivo `.feature`: `@smoke` ou `@sistemaCompleto`. Não existe pasta
+separada.
 
-1. Escolha um cenário em `e2e/features/*.feature`.
-2. Rode ele sozinho e conserte até passar de forma confiável:
-   ```
-   npx cucumber-js --config e2e/cucumber.config.cjs --name "parte do nome do cenário"
-   ```
-3. Escreva `@smoke` na linha acima do `Cenário:`.
-4. Pronto — ele passa a rodar a cada push.
+- Um cenário da rodada 2 que precisa de resposta mais rápida (por exemplo,
+  proteger um bug crítico recém-corrigido): troque `@sistemaCompleto` por
+  `@smoke`.
+- Um cenário `@quebrado` (defeito conhecido do teste, não do sistema) que foi
+  consertado: troque `@quebrado` por `@sistemaCompleto`.
+
+Cada arquivo `.feature` também carrega uma tag de página (`@imoveis`,
+`@locacoes`, `@rescisao` etc. — ver [e2e/SMOKE.md](../e2e/SMOKE.md)), útil
+para rodar só os cenários de uma tela:
+
+```
+npx cucumber-js --config e2e/cucumber.config.cjs --tags "@rescisao"
+```
 
 ## Rodando na sua máquina
 
 ```bash
-npm run test:smoke      # sobe a aplicação compilada e roda os cenários @smoke
-npm run test:bdd:smoke  # só os cenários @smoke, com a aplicação já rodando
-npm run test:bdd        # a suíte BDD completa
-npm run test:e2e        # a suíte Playwright completa
+npm run test:smoke                    # sobe a aplicação e roda os cenários @smoke
+npm run test:completo                 # sobe a aplicação e roda os cenários @sistemaCompleto
+npm run test:bdd:smoke                # só os cenários @smoke, com a aplicação já rodando
+npm run test:bdd:sistemaCompleto      # só os cenários @sistemaCompleto, com a aplicação já rodando
+npm run test:bdd                      # a suíte BDD inteira (as duas rodadas juntas)
+npm run test:e2e                      # a suíte Playwright completa
 ```
 
-`npm run test:smoke` faz tudo sozinho: compila (se precisar), sobe a
-aplicação, espera ela responder, roda os cenários em paralelo e derruba a
-aplicação no fim. Ver `scripts/smoke.js`.
+`npm run test:smoke` e `npm run test:completo` fazem tudo sozinhos: compilam
+(se precisar), sobem a aplicação, esperam ela responder, rodam os cenários em
+paralelo e derrubam a aplicação no fim. Ver `scripts/smoke.js`.
 
 ## Node 22, não 20
 
@@ -89,14 +108,13 @@ os testes criam e apagam dados. Qual banco pertence a qual ambiente está em
 
 Actions → clique na execução. Cada passo pode ser aberto e mostra o log.
 
-Quando o Smoke Test falha, ele guarda um artefato chamado `smoke-report` com
-o relatório em HTML, o JSON e os screenshots das falhas. Baixe, extraia e
-abra o `.html`.
+Quando o Smoke Test (job `smoke`) falha, ele guarda um artefato chamado
+`smoke-report`; quando o Sistema Completo (job `sistema_completo`) falha,
+guarda `sistema-completo-report`. Os dois trazem o relatório em HTML, o JSON
+e os screenshots das falhas. Baixe, extraia e abra o `.html`.
 
-Uma observação que vale mais que qualquer relatório: **a mensagem quase sempre
-está no log do passo que ficou vermelho**, em texto claro. A primeira execução
-do Smoke Test, por exemplo, falhou em 1m49s com a frase exata do problema na
-tela (a versão do Node). O valor de uma esteira rápida é justamente esse.
+Uma observação que vale mais que qualquer relatório: **a mensagem quase
+sempre está no log do passo que ficou vermelho**, em texto claro.
 
 ## Problemas comuns
 
@@ -104,11 +122,11 @@ tela (a versão do Node). O valor de uma esteira rápida é justamente esse.
 O workflow está com `node-version: '20'`. Troque para `'22'`.
 
 **Um cenário só passa às vezes.**
-Não repita até passar. A suíte de smoke não tem repetição automática de
+Não repita até passar. Nenhuma das duas rodadas tem repetição automática de
 propósito: cenário instável é cenário com defeito. As causas mais comuns são
 depender de um dado que já estava no banco, ou depender do que outro cenário
-criou — os cenários rodam **ao mesmo tempo**, cada um tem que criar e validar
-o próprio dado.
+criou — os cenários rodam **ao mesmo tempo** (2 em paralelo), cada um tem que
+criar e validar o próprio dado.
 
 **"Missing required secrets" / variáveis vazias.**
 Faltam os 3 secrets acima.
@@ -116,11 +134,9 @@ Faltam os 3 secrets acima.
 **"Build failed".**
 Rode `npm run build` na sua máquina; o erro é o mesmo.
 
-**A suíte completa demora demais.**
-É esperado. Ela é manual justamente por isso. Se precisar rodar, Actions →
-"E2E Tests (suíte completa - manual)" → Run workflow. Há uma opção para
-incluir também os projetos por tag, que demora bem mais — deixe desligada a
-menos que precise.
+**O job `sistema_completo` nem começou.**
+Ele só roda se o job `smoke` passar (`needs: smoke`). Veja o log do `smoke`
+primeiro.
 
 ## Escrevendo testes novos
 
@@ -133,15 +149,21 @@ Antes de inventar um passo novo, **procure em `e2e/step-definitions/common.steps
 o dashboard) já existe. Repetir um passo com outro nome cria dialeto e, se o
 texto colidir, o Cucumber acusa "ambiguous step".
 
-Regras para um cenário entrar no `@smoke`:
+Todo cenário novo precisa de exatamente uma marca de rodada — `@smoke` ou
+`@sistemaCompleto` — mais a tag de página do arquivo (herdada
+automaticamente, não precisa repetir). Regras para um cenário entrar no
+`@smoke` em vez do `@sistemaCompleto`:
 
-1. **Rápido** — a suíte inteira tem que terminar em poucos minutos.
+1. **Rápido** — a rodada inteira tem que terminar em poucos minutos.
 2. **Confiável** — se só passa às vezes, está com defeito.
 3. **Cria o próprio dado** — nunca depender do banco nem de outro cenário.
+4. **Crítico** — se quebrar, para o sistema ou perde dinheiro. Detalhe de
+   regra de negócio (mais uma variação de cálculo, mais um filtro) é
+   `@sistemaCompleto`, não `@smoke`.
 
 ## Documentação relacionada
 
-- [e2e/SMOKE.md](../e2e/SMOKE.md) — como a suíte de smoke funciona e a história dos defeitos encontrados
+- [e2e/SMOKE.md](../e2e/SMOKE.md) — como as duas rodadas funcionam, o esquema de tags completo e a história dos defeitos encontrados
 - [e2e/README.md](../e2e/README.md) — guia geral dos testes
 - [e2e/COMANDOS.md](../e2e/COMANDOS.md) — comandos
 - [DEPLOYMENT.md](./DEPLOYMENT.md) — deploy e a trava de ambiente

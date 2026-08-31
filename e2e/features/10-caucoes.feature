@@ -1,4 +1,5 @@
 # language: pt
+@caucoes
 Funcionalidade: Gestão de Cauções
   Como administrador do sistema
   Quero gerenciar cauções de locações
@@ -10,7 +11,7 @@ Funcionalidade: Gestão de Cauções
     E existe um imóvel "Casa 1" disponível
     E existe um inquilino "João Silva"
 
-  @smoke
+  @sistemaCompleto
   Cenário: Criar locação com caução à vista
     Quando crio uma locação com:
       | imóvel           | Casa 1      |
@@ -25,6 +26,7 @@ Funcionalidade: Gestão de Cauções
     E a parcela 1 tem vencimento "01/01/2026"
     E a parcela 1 tem status "pending"
 
+  @sistemaCompleto
   Cenário: Criar locação com caução parcelado em 2x
     Quando crio uma locação com:
       | imóvel           | Casa 1      |
@@ -41,7 +43,7 @@ Funcionalidade: Gestão de Cauções
     E a parcela 2 tem valor 600.00
     E a parcela 2 tem vencimento "01/02/2026"
 
-  @smoke
+  @sistemaCompleto
   Cenário: Criar locação com caução parcelado em 3x
     Quando crio uma locação com:
       | imóvel           | Casa 1      |
@@ -61,6 +63,7 @@ Funcionalidade: Gestão de Cauções
     E a parcela 3 tem valor 400.00
     E a parcela 3 tem vencimento "01/03/2026"
 
+  @sistemaCompleto
   Cenário: Ajuste de centavos na última parcela
     Quando crio uma locação com:
       | imóvel           | Casa 1      |
@@ -87,6 +90,7 @@ Funcionalidade: Gestão de Cauções
     E a parcela 1 tem pix_code preenchido
     E a linha da parcela 1 fica verde na tabela
 
+  @sistemaCompleto
   Cenário: Editar comissão de corretor parceiro inline
     Dado que existe uma locação com caução em 3x
     E a locação tem corretor parceiro
@@ -97,6 +101,7 @@ Funcionalidade: Gestão de Cauções
     Então todas as parcelas mostram comissão parceiro 360.00
     E os KPIs são recalculados
 
+  @sistemaCompleto
   Cenário: Editar comissão de corretor interno inline
     Dado que existe uma locação com caução em 3x
     Quando acesso o relatório financeiro de cauções
@@ -106,6 +111,7 @@ Funcionalidade: Gestão de Cauções
     Então todas as parcelas mostram comissão interno 240.00
     E os KPIs são recalculados
 
+  @sistemaCompleto
   Cenário: Editar valor da parcela inline
     Dado que existe uma locação com caução em 3x
     Quando acesso o relatório financeiro de cauções
@@ -115,6 +121,7 @@ Funcionalidade: Gestão de Cauções
     Então a parcela 1 tem valor 450.00
     E o total de cauções é recalculado
 
+  @sistemaCompleto
   Cenário: Registrar valor devolvido em contrato cancelado
     Dado que existe uma locação cancelada
     E a locação tinha caução de 1200.00
@@ -126,6 +133,7 @@ Funcionalidade: Gestão de Cauções
     Então o valor devolvido é 900.00
     E o valor aparece em vermelho
 
+  @sistemaCompleto
   Cenário: Filtrar cauções por status de locação
     Dado que existem locações ativas e canceladas com caução
     Quando acesso o relatório financeiro de cauções
@@ -133,6 +141,7 @@ Funcionalidade: Gestão de Cauções
     Então vejo apenas parcelas de locações ativas
     E não vejo a coluna "Valor Devolvido"
 
+  @sistemaCompleto
   Cenário: Visualizar valor devolvido apenas em locações inativas
     Dado que existem locações ativas e canceladas com caução
     Quando acesso o relatório financeiro de cauções
@@ -140,6 +149,7 @@ Funcionalidade: Gestão de Cauções
     Então vejo apenas parcelas de locações canceladas
     E vejo a coluna "Valor Devolvido"
 
+  @sistemaCompleto
   Cenário: KPIs do relatório de cauções
     Dado que existem 3 locações com caução
     E 2 parcelas foram recebidas (total R$ 800)
@@ -151,6 +161,7 @@ Funcionalidade: Gestão de Cauções
     E vejo KPI "Comissões Pagas" = 200.00
     E vejo KPI "Receita Líquida" = 600.00
 
+  @sistemaCompleto
   Cenário: Comissões aparecem uma única vez por locação
     Dado que existe uma locação com caução em 3x
     E a locação tem comissão parceiro 360.00
@@ -159,6 +170,7 @@ Funcionalidade: Gestão de Cauções
     Então vejo as comissões mescladas (rowspan) nas 3 parcelas
     E o valor total de comissões é 600.00
 
+  @sistemaCompleto
   Cenário: Coloração de linhas por status de recebimento
     Dado que existe uma locação com caução em 3x
     E a parcela 1 foi recebida (tem pix_code)
@@ -167,6 +179,7 @@ Funcionalidade: Gestão de Cauções
     Então a linha da parcela 1 tem fundo verde
     E as linhas das parcelas 2 e 3 têm fundo vermelho
 
+  @sistemaCompleto
   Cenário: Ordenação por coluna
     Dado que existem 5 locações com caução
     Quando acesso o relatório financeiro de cauções
@@ -175,6 +188,7 @@ Funcionalidade: Gestão de Cauções
     Quando clico novamente
     Então a ordem é invertida
 
+  @sistemaCompleto
   Cenário: Exportar relatório para Excel
     Dado que existem locações com caução
     Quando acesso o relatório financeiro de cauções
