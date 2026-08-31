@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SystemUser } from "@/types";
-import { createUser, updateUser, deleteUser } from "@/services/systemUserService";
+import { createUser, updateUser, deleteUser, unblockLogin } from "@/services/systemUserService";
 import { useAlert } from "@/contexts/AlertContext";
 
 export function useUsers() {
@@ -277,15 +277,7 @@ export function useUsers() {
 
   const handleUnblockUser = async (userId: string) => {
     try {
-      const { error } = await supabase
-        .from("system_users")
-        .update({
-          blocked_until: null,
-          login_attempts: 0
-        })
-        .eq("id", userId);
-
-      if (error) throw error;
+      await unblockLogin(userId);
 
       showAlert({
         title: "Sucesso",

@@ -1,16 +1,47 @@
 import { SystemUser } from "@/types";
-import { 
-  getAll as fetchAll, 
-  getSingle, 
-  createSingle, 
-  updateSingle, 
-  deleteSingle, 
-  getByField 
+import {
+  getAll as fetchAll,
+  getSingle,
+  createSingle,
+  updateSingle,
+  deleteSingle,
+  getByField
 } from "@/lib/supabaseHelpers";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "./auditService";
+import { getSessionToken } from "./authService";
 
 const TABLE = "system_users";
+
+/**
+ * Criar/editar/excluir usuário, desbloquear e resetar senha passaram a
+ * chamar rotas de servidor (31/ago/2026) -- ver o cabeçalho de
+ * src/pages/api/users/index.ts para o porquê (RLS em `system_users` exige
+ * `auth.uid()`, que este sistema, com login próprio, nunca tem).
+ *
+ * `getSystemUsers`/`getUserById`/`getUserByEmail` (leitura) continuam como
+ * estavam, direto pelo cliente anônimo -- a leitura nunca foi o problema.
+ */
+async function chamarApi<T = any>(caminho: string, opcoes: RequestInit = {}): Promise<T> {
+  const token = getSessionToken();
+
+  const resposta = await fetch(caminho, {
+    ...opcoes,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(opcoes.headers || {}),
+    },
+  });
+
+  const dados = await resposta.json().catch(() => ({}));
+
+  if (!resposta.ok) {
+    throw new Error(dados?.error || "Erro na requisição");
+  }
+
+  return dados as T;
+}
 
 export async function getSystemUsers(): Promise<SystemUser[]> {
   return fetchAll<SystemUser>(TABLE);
@@ -33,22 +64,10 @@ export async function createUser(userData: {
   password: string;
   temporary_password?: boolean;
 }) {
-  const { data, error } = await supabase
-    .from("system_users")
-    .insert([
-      {
-        name: userData.name,
-        email: userData.email,
-        role: userData.role,
-        password_hash: userData.password,
-        temporary_password: userData.temporary_password || false,
-        requires_password_change: userData.temporary_password || false,
-      },
-    ])
-    .select()
-    .single();
-
-  if (error) throw error;
+  const { user: data } = await chamarApi<{ user: any }>("/api/users", {
+    method: "POST",
+    body: JSON.stringify(userData),
+  });
 
   // ✅ Log de auditoria
   await logAudit({
@@ -73,35 +92,22 @@ export async function updateUser(
     email?: string;
     role?: string;
     status?: string;
+    phone?: string;
+    cpf?: string;
+    rg?: string;
+    photo?: string;
   }
 ) {
-  // ✅ CORREÇÃO: Remover 'status' da query - campo NÃO EXISTE na tabela system_users
-  // A tabela tem 'active' (boolean), NÃO 'status' (string)
   const { data: oldData } = await supabase
     .from("system_users")
     .select("name, email, role")
     .eq("id", userId)
     .single();
 
-  // ✅ CORREÇÃO: Filtrar 'status' do objeto updates - converter para 'active' se necessário
-  const dbUpdates: any = {};
-  if (updates.name !== undefined) dbUpdates.name = updates.name;
-  if (updates.email !== undefined) dbUpdates.email = updates.email;
-  if (updates.role !== undefined) dbUpdates.role = updates.role;
-  
-  // Se status foi passado, converter para active (boolean)
-  if (updates.status !== undefined) {
-    dbUpdates.active = updates.status === "active" || updates.status === "ativo";
-  }
-
-  const { data, error } = await supabase
-    .from("system_users")
-    .update(dbUpdates)
-    .eq("id", userId)
-    .select()
-    .single();
-
-  if (error) throw error;
+  const { user: data } = await chamarApi<{ user: any }>(`/api/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
 
   // ✅ Log de auditoria com mudanças
   if (oldData) {
@@ -150,9 +156,7 @@ export async function deleteUser(userId: string) {
     .eq("id", userId)
     .single();
 
-  const { error } = await supabase.from("system_users").delete().eq("id", userId);
-
-  if (error) throw error;
+  await chamarApi(`/api/users/${userId}`, { method: "DELETE" });
 
   // ✅ Log de auditoria
   if (userData) {
@@ -170,26 +174,25 @@ export async function deleteUser(userId: string) {
   }
 }
 
+/**
+ * Ativa/desativa a conta (não confundir com o desbloqueio de tentativas de
+ * login abaixo -- "active" é o usuário estar habilitado ou não; o bloqueio
+ * por 3 senhas erradas é outro campo, `blocked_until`). Sem call site hoje
+ * (a tela usa updateUser com `status` para isso), mantida por
+ * compatibilidade.
+ */
 export async function unlockUser(userId: string, active: boolean): Promise<void> {
-  const { error } = await supabase
-    .from("system_users")
-    .update({ active })
-    .eq("id", userId)
-    .select("*")
-    .maybeSingle();
+  await chamarApi(`/api/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: active ? "active" : "inactive" }),
+  });
+}
 
-  if (error) throw error;
+/** Desbloqueia a conta travada por 3 senhas erradas (limpa blocked_until/login_attempts). */
+export async function unblockLogin(userId: string): Promise<void> {
+  await chamarApi(`/api/users/${userId}/unblock`, { method: "POST" });
 }
 
 export async function resetPassword(userId: string): Promise<void> {
-  // Resetar senha para "mudar123"
-  // TODO: Em produção, usar bcrypt.hash antes de salvar
-  const { error } = await supabase
-    .from("system_users")
-    .update({ password_hash: "mudar123" })
-    .eq("id", userId)
-    .select("*")
-    .maybeSingle();
-
-  if (error) throw error;
+  await chamarApi(`/api/users/${userId}/reset-password`, { method: "POST" });
 }

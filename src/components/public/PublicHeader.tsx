@@ -30,7 +30,6 @@ export function PublicHeader() {
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [recoverySuccess, setRecoverySuccess] = useState(false);
-  const [generatedPassword, setGeneratedPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,109 +101,31 @@ export function PublicHeader() {
     }
   };
 
+  // "Esqueci minha senha" -- agora chama a rota de servidor
+  // src/pages/api/auth/forgot-password.ts, que gera a senha temporária e
+  // grava no banco com a chave secreta (RLS bloqueava essa gravação feita
+  // aqui direto pelo navegador). A resposta é sempre a mesma, exista ou não
+  // o e-mail no sistema, de propósito -- ver o cabeçalho daquela rota.
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRecoveryLoading(true);
-    
+
     try {
-      // Verificar se o e-mail existe no sistema
-      const { data: user, error: userError } = await supabase
-        .from("system_users")
-        .select("id, name, email")
-        .eq("email", recoveryEmail)
-        .eq("active", true)
-        .single();
-
-      if (userError || !user) {
-        toast({
-          title: "Erro",
-          description: "E-mail não encontrado no sistema.",
-          variant: "destructive",
-        });
-        setRecoveryLoading(false);
-        return;
-      }
-
-      // Gerar senha temporária aleatória (8-12 caracteres com todos os requisitos)
-      const generateTemporaryPassword = (): string => {
-        const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-        const numbers = '0123456789';
-        const specials = '!@#$%&*';
-        
-        // Garantir pelo menos 1 de cada tipo
-        let password = '';
-        password += uppercase[Math.floor(Math.random() * uppercase.length)];
-        password += lowercase[Math.floor(Math.random() * lowercase.length)];
-        password += numbers[Math.floor(Math.random() * numbers.length)];
-        password += specials[Math.floor(Math.random() * specials.length)];
-        
-        // Completar até 10 caracteres com caracteres aleatórios
-        const allChars = uppercase + lowercase + numbers + specials;
-        for (let i = 4; i < 10; i++) {
-          password += allChars[Math.floor(Math.random() * allChars.length)];
-        }
-        
-        // Embaralhar a senha
-        return password.split('').sort(() => Math.random() - 0.5).join('');
-      };
-
-      const temporaryPassword = generateTemporaryPassword();
-      setGeneratedPassword(temporaryPassword);
-
-      // Atualizar senha no banco
-      const { error: updateError } = await supabase
-        .from("system_users")
-        .update({ 
-          password_hash: temporaryPassword,
-          requires_password_change: true,
-          temporary_password: true,
-          login_attempts: 0,
-          blocked_until: null,
-        })
-        .eq("id", user.id);
-
-      if (updateError) {
-        console.error("Erro ao atualizar senha:", updateError);
-        toast({
-          title: "Erro",
-          description: "Não foi possível resetar a senha. Tente novamente.",
-          variant: "destructive",
-        });
-        setRecoveryLoading(false);
-        return;
-      }
-
-      // Enviar email com senha temporária
-      const response = await fetch("/api/send-password-recovery", {
+      const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: user.email,
-          userId: user.id,
-          name: user.name,
-          temporaryPassword: temporaryPassword,
-          isReset: true,
-          isAdminReset: false, // Flag: foi o próprio usuário que clicou "Esqueci minha senha"
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: recoveryEmail }),
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
-      if (!result.success) {
-        console.error("Erro ao enviar e-mail (senha já foi resetada):", result.error);
-        // Mesmo que o email falhe, a senha já foi resetada - mostrar sucesso com a senha
-        setRecoverySuccess(true);
-        setRecoveryLoading(false);
-        return;
+      if (!response.ok) {
+        throw new Error(result?.error || "Erro ao processar solicitação");
       }
 
-      // Sucesso completo
+      // Sucesso (sempre, mesmo se o e-mail não existir no sistema).
       setRecoverySuccess(true);
       setRecoveryLoading(false);
-      
     } catch (error) {
       console.error("Erro ao recuperar senha:", error);
       toast({
@@ -300,7 +221,6 @@ export function PublicHeader() {
                           setShowForgotPassword(false);
                           setRecoverySuccess(false);
                           setRecoveryEmail("");
-                          setGeneratedPassword("");
                           // Preencher username com o email de recuperação para facilitar
                           setUsername(recoveryEmail);
                         }}

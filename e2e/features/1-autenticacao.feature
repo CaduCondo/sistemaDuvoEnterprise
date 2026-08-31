@@ -49,13 +49,20 @@ Funcionalidade: Autenticação de Usuários
     Quando clico no botão de visualizar senha novamente
     Então o campo senha deve estar oculto
 
+  # ⚠️ Atualizado em 31/ago/2026: antes esta tela dizia "E-mail não
+  # encontrado" para um e-mail que não existe no sistema -- e isso é um
+  # vazamento (dá para descobrir, por tentativa e erro, quais e-mails têm
+  # conta aqui). A rota /api/auth/forgot-password agora responde a MESMA
+  # mensagem de sucesso não importa se o e-mail existe ou não -- ver o
+  # cabeçalho daquele arquivo. Por isso este cenário passou a esperar a
+  # mesma tela de sucesso do cenário abaixo, e não mais um erro.
   @sistemaCompleto
-  Cenário: Recuperar senha - E-mail não cadastrado
+  Cenário: Recuperar senha - E-mail não cadastrado não revela isso
     Quando clico em "Esqueci minha senha"
     Então devo ver o formulário de recuperação de senha
     Quando preencho o email de recuperação com "nao-cadastrado@teste.com"
     E clico em "Enviar Senha"
-    Então devo ver a mensagem "E-mail não encontrado"
+    Então devo ver a mensagem "E-mail Enviado com Sucesso"
 
   @sistemaCompleto
   Cenário: Recuperar senha - E-mail válido
@@ -119,3 +126,55 @@ Funcionalidade: Autenticação de Usuários
     Então a conta dele deve estar bloqueada no banco
     E a contagem de tentativas dele deve estar em 3
     E a quarta tentativa, mesmo com a senha certa, deve ser recusada
+
+  # ==========================================================================
+  # GERENCIAR USUÁRIOS TAMBÉM PASSOU A ACONTECER NO SERVIDOR (31/ago/2026)
+  #
+  # Mesma causa raiz do bloco acima: `system_users` tem RLS ligado com regra
+  # que exige `auth.uid()`, e este sistema não usa o login do Supabase. Além
+  # do login, isso também travava criar/editar/excluir usuário, desbloquear
+  # e trocar senha -- todos batiam direto no banco com a chave pública
+  # (anon) e o RLS recusava em silêncio. Ver o cabeçalho de
+  # src/pages/api/users/index.ts.
+  #
+  # Estes cenários falam com as rotas /api/users/* direto, pelo mesmo motivo
+  # do bloco de login: o que está sendo protegido é a gravação de verdade
+  # acontecer, não o desenho da tela -- e é exatamente esse pulo (o clique
+  # "funcionar" na tela vs. a linha realmente aparecer no banco) que o
+  # cenário antigo "Admin pode criar usuário" (2-permissoes-admin.feature)
+  # não cobria: ele só conferia o formulário abrir.
+  # ==========================================================================
+
+  @seguranca
+  @sistemaCompleto
+  Cenário: Criar usuário pelo servidor grava de verdade no banco
+    Dado que estou autenticado como admin pelo servidor
+    Quando eu pedir para criar um usuário pelo servidor
+    Então o servidor deve aceitar a criação
+    E o usuário deve existir de verdade no banco
+
+  @seguranca
+  @sistemaCompleto
+  Cenário: Quem não é admin não consegue criar usuário
+    Dado que estou autenticado como "broker" pelo servidor
+    Quando eu pedir para criar um usuário pelo servidor
+    Então o servidor deve recusar com "403"
+
+  @seguranca
+  @sistemaCompleto
+  Cenário: Editar, trocar a própria senha e excluir pelo servidor
+    Dado que existe um usuário só para este teste de gerenciamento
+    Quando eu editar o nome dele pelo servidor para "Nome Editado E2E"
+    Então o nome dele no banco deve ser "Nome Editado E2E"
+    Quando ele troca a própria senha pelo servidor para "NovaSenha@123"
+    Então a senha dele no banco deve ser "NovaSenha@123"
+    Quando eu excluir esse usuário pelo servidor
+    Então ele não deve mais existir no banco
+
+  @seguranca
+  @sistemaCompleto
+  Cenário: Desbloquear usuário pelo servidor limpa o bloqueio
+    Dado que existe um usuário só para este teste
+    E eu errar a senha dele 3 vezes seguidas
+    Quando eu pedir para desbloquear esse usuário pelo servidor
+    Então o bloqueio dele deve estar limpo no banco

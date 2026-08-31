@@ -3,7 +3,7 @@ import { X, Check, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
+import { changePassword } from "@/services/authService";
 import { useAlert } from "@/contexts/AlertContext";
 
 interface PasswordValidation {
@@ -80,16 +80,7 @@ export function PasswordChangeDialog({ userId, onSuccess }: PasswordChangeDialog
     setLoading(true);
 
     try {
-      const { error } = await supabase
-        .from("system_users")
-        .update({
-          password_hash: newPassword,
-          requires_password_change: false,
-          temporary_password: false,
-        })
-        .eq("id", userId);
-
-      if (error) throw error;
+      await changePassword(userId, newPassword);
 
       setShowSuccessScreen(true);
 

@@ -201,20 +201,31 @@ export async function signOut(): Promise<void> {
   localStorage.removeItem("currentUser");
 }
 
+/**
+ * Trocar senha -- agora no servidor (31/ago/2026), mesmo motivo do login
+ * (ver o cabeçalho de src/pages/api/auth/login.ts): RLS em `system_users`
+ * bloqueava esta gravação. Ver src/pages/api/users/[id]/change-password.ts.
+ */
 export async function changePassword(
   userId: string,
   newPassword: string
 ): Promise<void> {
-  const { error } = await supabase
-    .from("system_users")
-    .update({
-      password_hash: newPassword,
-      requires_password_change: false,
-      temporary_password: false,
-    })
-    .eq("id", userId);
+  const token = getSessionToken();
 
-  if (error) throw error;
+  const resposta = await fetch(`/api/users/${userId}/change-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ newPassword }),
+  });
+
+  const dados = await resposta.json().catch(() => ({}));
+
+  if (!resposta.ok) {
+    throw new Error(dados?.error || "Não foi possível trocar a senha");
+  }
 
   // ✅ Registrar log de mudança de senha
   await logPasswordChange(userId, false);
