@@ -2,7 +2,11 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { Resend } from "resend";
 import jwt from "jsonwebtoken";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Instanciado só dentro do handler (não aqui, no carregamento do arquivo):
+// `new Resend(undefined)` explode direto no construtor, antes de qualquer
+// chance de checar `if (!process.env.RESEND_API_KEY)` abaixo. Isso já travou
+// o CI (job "Sistema completo" preso até o timeout de 30min em vez de falhar
+// rápido) -- ver ticket "Resend sem API key trava o job Sistema completo".
 
 type ResponseData = {
   success: boolean;
@@ -35,6 +39,8 @@ export default async function handler(
         error: "Configuração de e-mail não encontrada. Entre em contato com o suporte.",
       });
     }
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     // Modo 1: Email com senha temporária (isReset=true)
     if (isReset && temporaryPassword) {
