@@ -28,14 +28,32 @@ async function pedirLogin(identificador: string, senha: string) {
   return { status: resposta.status, corpo };
 }
 
+function registrarResultadoDeLogin(world: CustomWorld, resultado: { status: number; corpo: any }) {
+  world.testData.respostasDeLogin = world.testData.respostasDeLogin || [];
+  world.testData.respostasDeLogin.push(resultado);
+  world.testData.ultimaRespostaDeLogin = resultado;
+}
+
 When(
   'eu pedir login ao servidor com {string} e a senha {string}',
   async function (this: CustomWorld, identificador: string, senha: string) {
     const resultado = await pedirLogin(identificador, senha);
+    registrarResultadoDeLogin(this, resultado);
+  }
+);
 
-    this.testData.respostasDeLogin = this.testData.respostasDeLogin || [];
-    this.testData.respostasDeLogin.push(resultado);
-    this.testData.ultimaRespostaDeLogin = resultado;
+// Variante usada quando o e-mail não pode estar escrito no próprio cenário
+// porque é gerado na hora (usuário descartável) -- ver "que existe um
+// usuário só para este teste" abaixo. Nunca aponta para uma conta
+// compartilhada (como admin@teste.com): errar a senha dela de propósito
+// derrubou a suíte inteira em 01/set/2026 (conta ficou bloqueada por 30min
+// depois que tentativas acumuladas entre pushes de CI bateram o limite).
+When(
+  'eu pedir login ao servidor com o e-mail desse usuário e a senha {string}',
+  async function (this: CustomWorld, senha: string) {
+    const { email } = this.testData.usuarioDeBloqueio;
+    const resultado = await pedirLogin(email, senha);
+    registrarResultadoDeLogin(this, resultado);
   }
 );
 

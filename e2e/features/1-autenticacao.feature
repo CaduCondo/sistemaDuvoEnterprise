@@ -112,7 +112,18 @@ Funcionalidade: Autenticação de Usuários
   Cenário: Senha errada não diz se o usuário existe
     # Dizer "usuário não encontrado" entrega quais logins são válidos para
     # quem estiver tentando adivinhar. As duas respostas têm que ser iguais.
-    Quando eu pedir login ao servidor com "admin@teste.com" e a senha "SenhaErrada123"
+    #
+    # ⚠️ Corrigido em 01/set/2026: este cenário errava a senha do
+    # "admin@teste.com" de propósito -- a mesma conta que quase todo outro
+    # cenário da suíte usa via "Dado que fiz login como admin". O bloqueio
+    # por senha errada passou a funcionar de verdade em 30/ago (antes o RLS
+    # engolia a gravação em silêncio), então tentativas deste cenário
+    # acumuladas entre pushes de CI derrubaram a conta admin e, com ela, a
+    # rodada inteira (ver ticket "CI derruba a suíte inteira..."). Agora usa
+    # um usuário descartável, do mesmo jeito que os cenários de bloqueio
+    # abaixo já faziam.
+    Dado que existe um usuário só para este teste
+    Quando eu pedir login ao servidor com o e-mail desse usuário e a senha "SenhaErrada123"
     E eu pedir login ao servidor com "naoexiste@teste.com" e a senha "SenhaErrada123"
     Então as duas recusas devem dizer a mesma coisa
 
