@@ -65,6 +65,18 @@ Funcionalidade: Regras de Negócio de Locações
       | due_date     | (preenchido)|
       | payment_date | NULL       |
 
+  # ⚠️ NOVO (31/ago/2026) — regressão do bug real em produção na locação
+  # LEMOS APTO 06: "Renovar Contrato" avançava a data fim certinho, mas não
+  # criava nenhum recebimento de aluguel até lá. Ver issue #59 no GitHub.
+  @sistemaCompleto
+  Cenário: Renovar contrato cria os recebimentos até a nova data fim
+    Dado uma locação ativa cujo contrato está para vencer, com aluguel de "1500.00" e vencimento dia "15"
+    Quando clico em "Renovar Contrato" dessa locação
+    E confirmo a renovação
+    Então a data fim da locação deve avançar 1 ano
+    E deve existir um recebimento de aluguel pendente para cada mês até a nova data fim
+    E o último recebimento deve ser proporcional aos dias até a nova data fim
+
   # ✅ NOVO: Testa carregamento de parcelas ao visualizar locação
   @sistemaCompleto
   Cenário: Visualizar locação - Carregar dados de caução da tabela

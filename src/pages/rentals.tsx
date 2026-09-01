@@ -398,6 +398,27 @@ export default function RentalsPage() {
   }, [handleTerminateRental, showAlert]);
 
   // Handler para renovar locação
+  //
+  // ⚠️ CORREÇÃO (31/ago/2026 — bug real em produção, locação LEMOS APTO 06):
+  // antes, esta função só atualizava `end_date` e confiava que a rotina
+  // genérica de sincronização de recebimentos (chamada por dentro de
+  // `updateRental`, em rentalService.ts) fosse gerar os meses novos sozinha.
+  // Na prática, numa locação de verdade isso ficou só com a data fim
+  // atualizada e NENHUM recebimento novo criado até a nova data -- sem erro
+  // visível, sem recebimento nenhum depois do mês em que o contrato
+  // originalmente terminava. Ver ticket da causa raiz no kanban/GitHub.
+  //
+  // Além do bug em si, aquela rotina genérica (pensada para EDITAR uma
+  // locação, não para RENOVAR) também recalcula o valor de qualquer
+  // recebimento antigo ainda pendente sempre que start/end date mudam --
+  // o que renovar contrato nunca deveria fazer (renovar é só ACRESCENTAR
+  // meses novos no fim, nunca mexer no que já existia antes).
+  //
+  // Por isso, a partir de agora, renovar contrato chama diretamente a MESMA
+  // função usada para criar os recebimentos de uma locação nova
+  // (`createPaymentsForRental`): ela só INSERE os meses que ainda não
+  // existem para esta locação, nunca apaga nem recalcula um recebimento já
+  // existente (pago ou pendente).
   const handleRenewRental = useCallback(async () => {
     if (!rentalToRenew) return;
 
@@ -405,11 +426,43 @@ export default function RentalsPage() {
       const currentEndDate = new Date(rentalToRenew.endDate);
       const newEndDate = new Date(currentEndDate);
       newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+      const newEndDateStr = newEndDate.toISOString().split("T")[0];
 
       const { update: updateRental } = await import("@/services/rentalService");
       await updateRental(rentalToRenew.id, {
-        endDate: newEndDate.toISOString().split("T")[0],
+        endDate: newEndDateStr,
       });
+
+      // ✅ Garante que os recebimentos até a nova data fim existam, mesmo que
+      // a sincronização de dentro de updateRental não tenha criado algum
+      // (ver comentário acima). Só INSERE o que falta -- nunca mexe no que
+      // já existe.
+      try {
+        const { createPaymentsForRental } = await import("@/services/paymentService");
+        await createPaymentsForRental({
+          rental: { id: rentalToRenew.id } as Rental,
+          startDate: new Date(rentalToRenew.startDate),
+          endDate: newEndDate,
+          monthlyRent: rentalToRenew.monthlyRent,
+          paymentDay: rentalToRenew.paymentDay,
+          hasGarage: rentalToRenew.hasGarage,
+          garageValue: rentalToRenew.garageValue,
+        });
+      } catch (paymentError) {
+        // A data fim já foi salva com sucesso -- não desfazemos isso. Mas o
+        // usuário precisa saber que os recebimentos podem ter ficado
+        // incompletos, para não confiar cegamente na tela.
+        console.error("Error creating payments after contract renewal:", paymentError);
+        showAlert({
+          title: "Atenção",
+          description:
+            "A data final foi atualizada, mas houve um erro ao gerar os recebimentos até a nova data. Confira o Histórico de Pagamentos desta locação.",
+          type: "error",
+        });
+        setRentalToRenew(null);
+        await loadRentalsData();
+        return;
+      }
 
       // ✅ CORREÇÃO: Formatar data corretamente para pt-BR
       const formattedDate = new Date(newEndDate).toLocaleDateString("pt-BR", {

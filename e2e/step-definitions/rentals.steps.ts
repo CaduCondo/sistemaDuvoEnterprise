@@ -103,6 +103,120 @@ Given('o pagamento de referência Junho\\/2026 está {string} com valor de {stri
   await upsertMonthlyPayment(this, 'june', '06', '2026', status, value);
 });
 
+// ⚠️ Regressão do bug real em produção (locação LEMOS APTO 06, 31/ago/2026,
+// issue #59): "Renovar Contrato" avançava end_date mas não criava nenhum
+// recebimento de aluguel até a nova data. Cria a locação direto no banco
+// (sem passar pela tela) para o teste ficar rápido e focado só no botão
+// "Renovar Contrato" -- criar via DatabaseHelper.createRental não gera a
+// tabela `payments`, então o cenário nasce sem recebimento nenhum, exatamente
+// como uma locação bem antiga que nunca teve seus recebimentos revisados.
+Given(
+  'uma locação ativa cujo contrato está para vencer, com aluguel de {string} e vencimento dia {string}',
+  async function (this: import('../support/world').CustomWorld, rentValue: string, dueDay: string) {
+    const sufixo = Date.now();
+    const tenant = await this.createTenant({ name: `Renovacao E2E ${sufixo}` });
+
+    const hoje = new Date();
+    const inicio = new Date(hoje);
+    inicio.setMonth(inicio.getMonth() - 11);
+    const fimAntigo = new Date(hoje);
+    fimAntigo.setDate(fimAntigo.getDate() + 3);
+
+    const rental = await this.createRental({
+      start_date: inicio.toISOString().split('T')[0],
+      end_date: fimAntigo.toISOString().split('T')[0],
+      rent_value: parseFloat(rentValue),
+      tenant_id: tenant.id,
+    } as any);
+
+    // createRental não aceita rent_due_day nos overrides tipados do helper;
+    // ajustamos direto no banco.
+    const { supabaseAdmin } = await import('../helpers/database.helper');
+    await supabaseAdmin.from('rentals').update({ rent_due_day: parseInt(dueDay, 10) }).eq('id', rental.id);
+
+    this.rentalId = rental.id;
+    this.testData = {
+      ...this.testData,
+      renovacao: {
+        tenantName: tenant.name,
+        rentValue: parseFloat(rentValue),
+        oldEndDate: fimAntigo.toISOString().split('T')[0],
+      },
+    };
+  }
+);
+
+When('clico em {string} dessa locação', async function (this: import('../support/world').CustomWorld, botao: string) {
+  if (!botao.toLowerCase().includes('renovar')) {
+    throw new Error(`Passo só sabe lidar com "Renovar Contrato", recebeu: ${botao}`);
+  }
+
+  await this.page.goto('/rentals');
+  await this.page.waitForLoadState('domcontentloaded');
+
+  const search = this.page.locator('#rentals-search-input');
+  await search.fill(this.testData.renovacao.tenantName);
+  await this.page.waitForTimeout(500);
+
+  await this.page.locator(`#rentals-renew-${this.rentalId}`).click();
+  await this.page.waitForTimeout(300);
+});
+
+When('confirmo a renovação', async function (this: import('../support/world').CustomWorld) {
+  await this.page.locator('#rentals-renew-confirm').click();
+  await this.page.waitForTimeout(1500);
+});
+
+Then('a data fim da locação deve avançar 1 ano', async function (this: import('../support/world').CustomWorld) {
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+  const { data: rental } = await supabaseAdmin.from('rentals').select('end_date').eq('id', this.rentalId).single();
+
+  const esperado = new Date(this.testData.renovacao.oldEndDate + 'T00:00:00');
+  esperado.setFullYear(esperado.getFullYear() + 1);
+  const esperadoStr = esperado.toISOString().split('T')[0];
+
+  expect(rental?.end_date, `data fim não avançou: era ${this.testData.renovacao.oldEndDate}, esperava ${esperadoStr}, ficou ${rental?.end_date}`).toBe(esperadoStr);
+  this.testData.renovacao.newEndDate = rental!.end_date;
+});
+
+Then(
+  'deve existir um recebimento de aluguel pendente para cada mês até a nova data fim',
+  async function (this: import('../support/world').CustomWorld) {
+    const DatabaseHelper = (await import('../helpers/database.helper')).default;
+    const payments = await DatabaseHelper.getPaymentsByRental(this.rentalId);
+
+    expect(payments.length, 'a renovação não criou nenhum recebimento -- este é exatamente o bug real da #59').toBeGreaterThan(0);
+
+    const novaData = new Date(this.testData.renovacao.newEndDate + 'T00:00:00');
+    const mesEsperado = String(novaData.getMonth() + 1).padStart(2, '0');
+    const anoEsperado = String(novaData.getFullYear());
+
+    const temUltimoMes = payments.some(
+      (p: any) => p.reference_month === mesEsperado && p.reference_year === anoEsperado
+    );
+    expect(temUltimoMes, `não achei recebimento para ${mesEsperado}/${anoEsperado} (competência da nova data fim)`).toBe(true);
+
+    const chaves = payments.map((p: any) => `${p.reference_year}-${p.reference_month}`);
+    expect(new Set(chaves).size, 'há recebimentos duplicados no mesmo mês/ano desta locação').toBe(chaves.length);
+  }
+);
+
+Then(
+  'o último recebimento deve ser proporcional aos dias até a nova data fim',
+  async function (this: import('../support/world').CustomWorld) {
+    const DatabaseHelper = (await import('../helpers/database.helper')).default;
+    const payments = await DatabaseHelper.getPaymentsByRental(this.rentalId);
+    const ordenados = [...payments].sort((a: any, b: any) => String(a.due_date).localeCompare(String(b.due_date)));
+    const ultimo = ordenados[ordenados.length - 1];
+
+    expect(Number(ultimo.expected_amount)).toBeGreaterThan(0);
+    expect(
+      Number(ultimo.expected_amount),
+      `último recebimento deveria ser proporcional (menor que o aluguel cheio de ${this.testData.renovacao.rentValue}), veio R$ ${ultimo.expected_amount}`
+    ).toBeLessThan(this.testData.renovacao.rentValue);
+  }
+);
+
 Given('que existe uma locação com caução parcelado em 3x:', async function(dataTable: any) {
   const installments = dataTable.hashes();
   
