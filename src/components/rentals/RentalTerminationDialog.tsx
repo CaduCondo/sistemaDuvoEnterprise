@@ -9,6 +9,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,6 +73,13 @@ export function RentalTerminationDialog({
   const [poupancaPercentage, setPoupancaPercentage] = useState<number>(0);
   const [lastInstallmentDate, setLastInstallmentDate] = useState<string>("");
 
+  // ⚠️ NOVO (01/set/2026): parcelas de caução com status "pending" ou
+  // "partial" nunca terminam de ser pagas -- o corretor insiste em seguir
+  // com a rescisão mesmo assim. Antes de deixar, o sistema pergunta.
+  // Ver e2e/features (cenário de rescisão com caução pendente).
+  const [hasPendingOrPartialDeposit, setHasPendingOrPartialDeposit] = useState<boolean>(false);
+  const [depositWarningOpen, setDepositWarningOpen] = useState<boolean>(false);
+
   useEffect(() => {
     if (!rental || !open) {
       setTerminationDate("");
@@ -81,6 +98,8 @@ export function RentalTerminationDialog({
       setFullMonthRent(0);
       setIsAfterDueDate(false);
       setLastPaymentDateStr("");
+      setHasPendingOrPartialDeposit(false);
+      setDepositWarningOpen(false);
       return;
     }
 
@@ -109,6 +128,11 @@ export function RentalTerminationDialog({
         if (installmentsError) {
           console.error("❌ Erro ao buscar parcelas:", installmentsError);
         } else if (installments && installments.length > 0) {
+          const temPendenteOuParcial = installments.some(
+            (inst: any) => inst.status === "pending" || inst.status === "partial"
+          );
+          setHasPendingOrPartialDeposit(temPendenteOuParcial);
+
           const paidInstallments = installments
             .filter(inst => inst.payment_date)
             .sort((a, b) => b.installment_number - a.installment_number);
@@ -270,6 +294,18 @@ export function RentalTerminationDialog({
     // REMOVIDO: Bloqueio quando depositAmount === 0
     // O sistema deve permitir rescisão mesmo sem caução
 
+    // Antes de seguir, se houver caução pendente/parcial, confirma com quem
+    // está rescindindo. A rescisão em si só continua depois do "Sim" —
+    // ver executeTermination().
+    if (hasPendingOrPartialDeposit) {
+      setDepositWarningOpen(true);
+      return;
+    }
+
+    await executeTermination();
+  };
+
+  const executeTermination = async () => {
     setIsSubmitting(true);
     try {
       // SEMPRE usar o valor corrigido quando disponível
@@ -286,6 +322,7 @@ export function RentalTerminationDialog({
         penaltyAmount,
         depositAmount: finalDepositAmount,
       });
+      setDepositWarningOpen(false);
       onOpenChange(false);
     } catch (error) {
       console.error("Error terminating rental:", error);
@@ -595,6 +632,31 @@ export function RentalTerminationDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Aviso de caução pendente/parcial antes de confirmar a rescisão
+          (01/set/2026). Só aparece quando hasPendingOrPartialDeposit é true —
+          ver handleConfirm(). "Não" fecha e volta para o formulário sem
+          nenhum efeito colateral; "Sim" segue com a rescisão normalmente. */}
+      <AlertDialog open={depositWarningOpen} onOpenChange={setDepositWarningOpen}>
+        <AlertDialogContent id="termination-deposit-warning-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Caução com cobranças pendentes</AlertDialogTitle>
+            <AlertDialogDescription>
+              A locação tem cobranças de caução com status pendente ou parcial, quer mesmo continuar com a rescisão?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel id="termination-deposit-warning-no">Não</AlertDialogCancel>
+            <AlertDialogAction
+              id="termination-deposit-warning-yes"
+              onClick={executeTermination}
+              disabled={isSubmitting}
+            >
+              Sim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   );
 }

@@ -360,6 +360,48 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
       | -2000,00  | 2200,00  | -200,00  | 0,00     | não      |
       | -1000,00  | 2000,00  | -500,00  | 500,00   | não      |
 
+  # --------------------------------------------------------------------------
+  # Aviso de caução pendente antes de confirmar a rescisão
+  #
+  # Pedido do Cadu (01/set/2026): o corretor insistia em seguir com a
+  # rescisão mesmo com caução pendente/parcial. Agora o sistema pergunta
+  # antes de deixar -- e, se a resposta for "Sim", as parcelas que nunca
+  # foram pagas são canceladas (nunca serão cobradas nem devolvidas).
+  # ⚠️ A devolução do caução JÁ SÓ CONSIDERAVA parcelas com status "paid"
+  # desde 28/ago/2026 (ver "A devolução é calculada sobre o caução PAGO,
+  # não sobre o contratado", acima) -- isso não mudou, só ganhou a pergunta.
+  # --------------------------------------------------------------------------
+
+  @sistemaCompleto
+  Cenário: Rescisão com caução pendente pergunta antes de continuar
+    Dado que o inquilino não pagou nenhuma parcela de caução
+    Quando eu abrir o diálogo de rescisão da locação
+    E eu preencher e confirmar a data de saída "03/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
+    Então devo ver a pergunta "A locação tem cobranças de caução com status pendente ou parcial, quer mesmo continuar com a rescisão?"
+
+  @sistemaCompleto
+  Cenário: Responder "Não" ao aviso cancela e volta para o sistema, sem nenhum efeito
+    Dado que o inquilino não pagou nenhuma parcela de caução
+    Quando eu abrir o diálogo de rescisão da locação
+    E eu preencher e confirmar a data de saída "03/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
+    E eu responder "Não" ao aviso de caução pendente
+    Então a locação não deve ter sido rescindida
+    E as parcelas de caução pendentes devem continuar pendentes
+
+  @sistemaCompleto
+  Cenário: Responder "Sim" ao aviso continua a rescisão e cancela as parcelas de caução nunca pagas
+    Dado que as parcelas de caução estão assim:
+      | parcela | valor   | situação |
+      | 1       | 2000,00 | paga     |
+      | 2       | 2000,00 | pendente |
+      | 3       | 2000,00 | pendente |
+    Quando eu abrir o diálogo de rescisão da locação
+    E eu preencher e confirmar a data de saída "03/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
+    E eu responder "Sim" ao aviso de caução pendente
+    Então a locação deve estar rescindida
+    E as parcelas de caução pendentes/parciais devem estar canceladas
+    E a parcela de caução paga deve continuar paga
+
   @sistemaCompleto
   Cenário: O campo de desconto não exige digitar o sinal negativo
     # Decisão 1 do ticket: o usuário digita só o número, o sinal "−" fica

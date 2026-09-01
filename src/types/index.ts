@@ -398,7 +398,7 @@ export interface DepositInstallment {
   due_date: string;
   payment_date: string | null;
   paid_amount: number;
-  status: "pending" | "paid" | "partial" | "overdue";
+  status: "pending" | "paid" | "partial" | "overdue" | "cancelled";
   payment_method: string | null;
   pix_code: string | null; // ✅ ADICIONADO: código PIX da parcela
   notes: string | null;

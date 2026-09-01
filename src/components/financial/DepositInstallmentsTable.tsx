@@ -946,6 +946,8 @@ export function DepositInstallmentsTable({
                                 ? "bg-green-100 text-green-700 border-green-300"
                                 : installment.status === "overdue"
                                 ? "bg-red-100 text-red-700 border-red-300"
+                                : installment.status === "cancelled"
+                                ? "bg-gray-100 text-gray-500 border-gray-300"
                                 : "bg-yellow-100 text-yellow-700 border-yellow-300"
                             }
                           >
@@ -953,6 +955,8 @@ export function DepositInstallmentsTable({
                               ? "Pago"
                               : installment.status === "overdue"
                               ? "Atrasado"
+                              : installment.status === "cancelled"
+                              ? "Cancelado (rescisão)"
                               : "Pendente"}
                           </Badge>
                         </TableCell>

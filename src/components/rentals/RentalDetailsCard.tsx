@@ -408,6 +408,7 @@ export const RentalDetailsCard = memo(function RentalDetailsCard({ rental, prope
                         type="button"
                         variant={installment.status === "paid" ? "default" : "outline"}
                         size="sm"
+                        disabled={installment.status === "cancelled"}
                         onClick={() => {
                           setSelectedInstallment(installment);
                           setPaymentDialogOpen(true);
@@ -418,7 +419,7 @@ export const RentalDetailsCard = memo(function RentalDetailsCard({ rental, prope
                           <Receipt className="h-3 w-3" />
                           Parcela {installment.installment_number}/{installment.total_installments}
                         </span>
-                        <Badge 
+                        <Badge
                           variant={installment.status === "paid" ? "default" : "secondary"}
                           className="text-xs"
                         >
@@ -426,6 +427,8 @@ export const RentalDetailsCard = memo(function RentalDetailsCard({ rental, prope
                             ? "Pago"
                             : installment.status === "overdue"
                             ? "Atrasado"
+                            : installment.status === "cancelled"
+                            ? "Cancelado"
                             : "Pendente"}
                         </Badge>
                       </Button>

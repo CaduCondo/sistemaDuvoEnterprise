@@ -594,53 +594,115 @@ When('eu abrir o diálogo de rescisão da locação', async function (this: Cust
   await abrirDialogoDeRescisao(this);
 });
 
+/**
+ * Preenche a data de saída, marca a cláusula de multa e clica em "Confirmar
+ * Rescisão" — mas NÃO espera o diálogo fechar, porque a partir de 01/set/2026
+ * um clique aqui pode abrir o AVISO de caução pendente/parcial em vez de
+ * seguir direto (ver RentalTerminationDialog.handleConfirm). Quem chama esta
+ * função decide o que fazer depois: os cenários que não são sobre o aviso
+ * usam `eu registrar a rescisão em...`, que responde "Sim" sozinho e espera
+ * fechar; os cenários SOBRE o aviso usam
+ * `eu preencher e confirmar a data de saída...` e continuam o resto na mão.
+ */
+async function preencherEClicarConfirmar(world: CustomWorld, dataSaidaBR: string, clausula: string) {
+  const page = world.page;
+  const iso = paraISO(dataSaidaBR);
+  const [ano, mes] = iso.split('-');
+
+  world.testData.dataRescisao = iso;
+  world.testData.periodoRescisao = { mes, ano };
+  world.testData.clausula = clausula;
+
+  const seletorDaCaixa = CAIXA_POR_CLAUSULA[clausula];
+  if (!seletorDaCaixa) {
+    throw new Error(
+      `Cláusula desconhecida: "${clausula}". As duas do contrato são: ${Object.keys(CAIXA_POR_CLAUSULA).join(' | ')}`
+    );
+  }
+
+  // O diálogo já pode estar aberto (cenários que chamam "eu abrir o diálogo
+  // de rescisão da locação" antes) — só abre de novo se precisar.
+  if (!(await page.locator('#termination-date').isVisible().catch(() => false))) {
+    await abrirDialogoDeRescisao(world);
+  }
+
+  await page.locator('#termination-date').fill(iso);
+  await page.waitForTimeout(500);
+
+  const caixa = page.locator(seletorDaCaixa);
+  await expect(
+    caixa,
+    `a caixa "${clausula}" está desabilitada — ver o aviso sobre o 12º mês no topo deste arquivo`
+  ).toBeEnabled();
+
+  await caixa.click();
+  await expect(caixa).toHaveAttribute('aria-checked', 'true');
+
+  // O valor da multa é calculado num useEffect: só depois dele o diálogo
+  // mostra a linha "Valor da Multa". Confirmar antes disso gravaria multa 0.
+  await expect(
+    page.getByText(/Valor da Multa/i).first(),
+    `a cláusula "${clausula}" não produziu multa nenhuma nesta locação`
+  ).toBeVisible({ timeout: 10000 });
+
+  await page.locator('#termination-confirm').click();
+}
+
 When(
   /^eu registrar a rescisão em "([^"]+)" com a cláusula "([^"]+)"$/,
   async function (this: CustomWorld, dataSaidaBR: string, clausula: string) {
-    const page = this.page;
-    const iso = paraISO(dataSaidaBR);
-    const [ano, mes] = iso.split('-');
+    await preencherEClicarConfirmar(this, dataSaidaBR, clausula);
 
-    this.testData.dataRescisao = iso;
-    this.testData.periodoRescisao = { mes, ano };
-    this.testData.clausula = clausula;
-
-    const seletorDaCaixa = CAIXA_POR_CLAUSULA[clausula];
-    if (!seletorDaCaixa) {
-      throw new Error(
-        `Cláusula desconhecida: "${clausula}". As duas do contrato são: ${Object.keys(CAIXA_POR_CLAUSULA).join(' | ')}`
-      );
+    // A maioria dos cenários desta feature não é sobre o aviso de caução
+    // pendente — se ele aparecer (a locação de teste tem parcela não paga),
+    // respondemos "Sim" sozinhos para não quebrar cenários que não têm nada
+    // a ver com isso.
+    const aviso = this.page.locator('#termination-deposit-warning-dialog');
+    const apareceu = await aviso.isVisible({ timeout: 3000 }).catch(() => false);
+    if (apareceu) {
+      await this.page.locator('#termination-deposit-warning-yes').click();
     }
-
-    await abrirDialogoDeRescisao(this);
-
-    await page.locator('#termination-date').fill(iso);
-    await page.waitForTimeout(500);
-
-    const caixa = page.locator(seletorDaCaixa);
-    await expect(
-      caixa,
-      `a caixa "${clausula}" está desabilitada — ver o aviso sobre o 12º mês no topo deste arquivo`
-    ).toBeEnabled();
-
-    await caixa.click();
-    await expect(caixa).toHaveAttribute('aria-checked', 'true');
-
-    // O valor da multa é calculado num useEffect: só depois dele o diálogo
-    // mostra a linha "Valor da Multa". Confirmar antes disso gravaria multa 0.
-    await expect(
-      page.getByText(/Valor da Multa/i).first(),
-      `a cláusula "${clausula}" não produziu multa nenhuma nesta locação`
-    ).toBeVisible({ timeout: 10000 });
-
-    await page.locator('#termination-confirm').click();
 
     // A rescisão faz várias escritas em sequência (deleta, cria, renumera);
     // o diálogo só fecha quando tudo passou.
-    await expect(page.locator('#termination-date')).toBeHidden({ timeout: 45000 });
-    await page.waitForTimeout(2000);
+    await expect(this.page.locator('#termination-date')).toBeHidden({ timeout: 45000 });
+    await this.page.waitForTimeout(2000);
   }
 );
+
+When(
+  /^eu preencher e confirmar a data de saída "([^"]+)" com a cláusula "([^"]+)"$/,
+  async function (this: CustomWorld, dataSaidaBR: string, clausula: string) {
+    await preencherEClicarConfirmar(this, dataSaidaBR, clausula);
+  }
+);
+
+Then('devo ver a pergunta {string}', async function (this: CustomWorld, pergunta: string) {
+  await expect(
+    this.page.locator('#termination-deposit-warning-dialog'),
+    'o aviso de caução pendente/parcial não apareceu'
+  ).toBeVisible({ timeout: 10000 });
+
+  await expect(this.page.getByText(pergunta, { exact: false })).toBeVisible();
+});
+
+When('eu responder {string} ao aviso de caução pendente', async function (this: CustomWorld, resposta: string) {
+  const aviso = this.page.locator('#termination-deposit-warning-dialog');
+  await expect(aviso, 'o aviso de caução pendente/parcial não está na tela').toBeVisible({ timeout: 10000 });
+
+  if (/^sim$/i.test(resposta)) {
+    await this.page.locator('#termination-deposit-warning-yes').click();
+    // Mesma espera do fluxo normal: a rescisão só termina quando o diálogo
+    // principal fecha.
+    await expect(this.page.locator('#termination-date')).toBeHidden({ timeout: 45000 });
+    await this.page.waitForTimeout(2000);
+  } else if (/^não$/i.test(resposta)) {
+    await this.page.locator('#termination-deposit-warning-no').click();
+    await expect(aviso, 'o aviso de caução pendente continua na tela depois do "Não"').toBeHidden({ timeout: 10000 });
+  } else {
+    throw new Error(`Resposta desconhecida ao aviso de caução pendente: "${resposta}" (esperado "Sim" ou "Não")`);
+  }
+});
 
 When('eu gravar um Recebimento de Rescisão de valor 0,00 direto no banco', async function (this: CustomWorld) {
   const pagamento = await this.createTerminationPayment({
@@ -1206,4 +1268,59 @@ Then(/^o sistema deve registrar o valor como (-?[\d.,]+)$/, async function (
 
 Then('eu não devo precisar digitar o sinal de menos', async function (this: CustomWorld) {
   expect(this.testData.ultimoValorDigitado).not.toContain('-');
+});
+
+// ============================================================================
+// Aviso de caução pendente antes de confirmar (01/set/2026)
+// ============================================================================
+
+Then('a locação não deve ter sido rescindida', async function (this: CustomWorld) {
+  const todos = await pagamentosDaLocacao(this);
+  const temRescisao = todos.some((p: any) => p.payment_kind === 'termination');
+
+  expect(
+    temRescisao,
+    'existe um Recebimento de Rescisão -- a rescisão foi aplicada mesmo respondendo "Não" ao aviso'
+  ).toBe(false);
+});
+
+Then('a locação deve estar rescindida', async function (this: CustomWorld) {
+  // recebimentoDeRescisao() já falha se não houver exatamente 1 Recebimento
+  // de Rescisão -- é a prova de que a rescisão foi mesmo aplicada.
+  await recebimentoDeRescisao(this);
+});
+
+Then('as parcelas de caução pendentes devem continuar pendentes', async function (this: CustomWorld) {
+  const parcelas = await this.getDepositInstallments(this.rentalId!);
+  const canceladas = parcelas.filter((p: any) => p.status === 'cancelled');
+
+  expect(
+    canceladas.length,
+    'parcelas de caução foram canceladas mesmo respondendo "Não" ao aviso'
+  ).toBe(0);
+
+  const pendentes = parcelas.filter((p: any) => p.status === 'pending');
+  expect(pendentes.length, 'a locação de teste deveria ter parcelas pendentes').toBeGreaterThan(0);
+});
+
+Then(/^as parcelas de caução pendentes\/parciais devem estar canceladas$/, async function (this: CustomWorld) {
+  const parcelas = await this.getDepositInstallments(this.rentalId!);
+  const naoPagas = parcelas.filter((p: any) => p.installment_number !== 1);
+
+  expect(naoPagas.length, 'a locação de teste deveria ter parcelas de caução não pagas').toBeGreaterThan(0);
+
+  for (const parcela of naoPagas) {
+    expect(
+      parcela.status,
+      `parcela ${parcela.installment_number} deveria estar cancelada depois da rescisão, está "${parcela.status}"`
+    ).toBe('cancelled');
+  }
+});
+
+Then('a parcela de caução paga deve continuar paga', async function (this: CustomWorld) {
+  const parcelas = await this.getDepositInstallments(this.rentalId!);
+  const parcelaPaga = parcelas.find((p: any) => p.installment_number === 1);
+
+  expect(parcelaPaga, 'parcela 1 de caução não existe na locação de teste').toBeTruthy();
+  expect(parcelaPaga.status, 'a rescisão mexeu numa parcela de caução que já estava paga').toBe('paid');
 });

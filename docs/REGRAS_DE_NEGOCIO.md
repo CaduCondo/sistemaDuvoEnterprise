@@ -1995,6 +1995,31 @@ como uma rescisão fecha — as telas mostram, abaixo do `VALOR TOTAL`, a
 linha `VALOR TOTAL DA RESCISÃO` com a soma dos dois. O inquilino costuma
 pagar tudo de uma vez.
 
+### Aviso quando a caução está pendente ou parcial
+
+> Novo em **01/set/2026**, a pedido do Cadu: o corretor insistia em fechar a
+> rescisão mesmo com parcelas de caução em aberto.
+
+Ao clicar em "Confirmar Rescisão", se a locação tiver alguma parcela de
+caução com status **Pendente** ou **Parcial**, aparece uma pergunta antes de
+continuar:
+
+> "A locação tem cobranças de caução com status pendente ou parcial, quer
+> mesmo continuar com a rescisão?"
+
+- **Não** → a pergunta fecha e volta para o sistema. Nada muda, nenhuma
+  parcela é mexida.
+- **Sim** → a rescisão segue normalmente, e as parcelas de caução que nunca
+  foram pagas passam para o status **Cancelado**: elas não vão ser cobradas
+  do inquilino, e (como já não valiam nada pago) também não entram na conta
+  da devolução.
+
+A devolução do caução corrigida pela poupança **já só considerava** as
+parcelas com status Pago desde 28/ago/2026 (ver "Devolução do caução"
+acima) — isso não mudou. A novidade é só o aviso, e o cancelamento
+automático das parcelas nunca pagas para que elas parem de aparecer como
+"pendentes" numa locação que já acabou.
+
 ### O que esta entrega NÃO resolve
 
 **As rescisões anteriores a esta migração continuam no formato antigo**, com

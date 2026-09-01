@@ -216,6 +216,28 @@ export async function processContractTermination(data: TerminationData): Promise
   console.log(`  IGPM acumulado: ${igpmCorrection.poupancaPercentage.toFixed(2)}%`);
   console.log(`  Valor corrigido: R$ ${correctedDeposit.toFixed(2)}`);
 
+  // ==========================================
+  // PASSO 4B: Cancelar parcelas de caução nunca pagas
+  //
+  // ⚠️ NOVO (01/set/2026): quem confirma a rescisão já foi avisado (tela
+  // de confirmação em RentalTerminationDialog) de que a locação tem
+  // caução pendente/parcial. Uma vez confirmado, essas parcelas nunca
+  // serão cobradas nem devolvidas -- viram "cancelled" (decisão do Cadu).
+  // Migration: 20260901120000_add_cancelled_status_to_deposit_installments.sql.
+  // ==========================================
+  const { error: erroCancelarCaucao } = await supabase
+    .from("deposit_installments")
+    .update({ status: "cancelled" })
+    .eq("rental_id", rentalId)
+    .in("status", ["pending", "partial"]);
+
+  if (erroCancelarCaucao) {
+    console.error("  ❌ Erro ao cancelar parcelas de caução não pagas:", erroCancelarCaucao);
+    throw erroCancelarCaucao;
+  }
+
+  console.log("  ✅ Parcelas de caução pendentes/parciais (se houver) marcadas como canceladas.");
+
   // Identificador que liga os DOIS recebimentos desta rescisao (#49).
   const grupoRescisao = (globalThis.crypto?.randomUUID?.() ??
     `${rentalId}-${terminationDate}-${Date.now()}`);
