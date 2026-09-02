@@ -1628,20 +1628,23 @@ refletir o novo valor:
 | **Parcelado em 2x** | Caução dividido em 2 parcelas (1º e 2º mês) |
 | **Parcelado em 3x** | Caução dividido em 3 parcelas (1º, 2º e 3º mês) |
 
-> ⚠️ **Status:** dois bugs relacionados ao parcelamento do caução foram
-> corrigidos no código (commits `f9d2eb5d` e `0414ca4b`) e estão
-> aguardando `git push` + deploy + teste manual em produção antes de
-> serem considerados encerrados:
+> ✅ **Corrigido** (02/set/2026): dois bugs relacionados ao parcelamento do
+> caução foram corrigidos no código (commits `f9d2eb5d` e `0414ca4b`) e já
+> estão em produção — [issue #13](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/13)
+> e [issue #14](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/14),
+> ambas fechadas:
 >
 > 1. **Edição** de uma locação já criada não atualizava corretamente o
 >    número de parcelas (só mexia nas que já existiam, sem criar as que
->    faltavam nem remover as que sobravam) — [issue #13 do GitHub](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/13).
+>    faltavam nem remover as que sobravam).
 > 2. **Criação** de uma locação nova com caução em 2x ou 3x só salvava a
 >    1ª parcela (as parcelas 2 e 3 eram descartadas silenciosamente,
 >    porque dois pontos do código tentavam criar as parcelas na mesma
->    operação) — [issue #14 do GitHub](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/14).
+>    operação).
 >
-> Acompanhar status em ambos no [kanban interno](https://duvoenterprise.com.br/kanban).
+> As regras de sincronização atuais (o que acontece ao aumentar/diminuir o
+> número de parcelas) estão descritas logo abaixo, em "Edição do
+> parcelamento numa locação existente".
 
 ### Criação do parcelamento numa locação nova
 
@@ -1707,7 +1710,12 @@ configuração:
 - `pix_code` (TEXT): Código PIX para comprovação de pagamento
 - `partner_commission` (DECIMAL): Comissão do corretor parceiro (única vez)
 - `internal_commission` (DECIMAL): Comissão do corretor interno (única vez)
-- `status` (TEXT): Status da parcela (pending, paid, overdue)
+- `status` (TEXT): Status da parcela (`pending`, `paid`, `overdue`, `cancelled`)
+  - `cancelled` é novo (01/set/2026): usado quando a locação é rescindida
+    com essa parcela ainda sem pagamento — ver "Aviso quando a caução está
+    pendente ou parcial" na seção Rescisão de Contrato, mais abaixo. Uma
+    parcela cancelada não é cobrada do inquilino e não entra na conta da
+    devolução do caução.
 
 ### Datas de Vencimento das Parcelas
 

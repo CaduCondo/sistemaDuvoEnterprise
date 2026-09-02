@@ -102,20 +102,28 @@ Rode sempre `test:bdd:dry` primeiro depois de editar `.feature`/step definitions
 
 ## 🧪 O que a suíte cobre
 
-### BDD (`e2e/features/*.feature`) — 114 cenários / ~975 steps
+### BDD (`e2e/features/*.feature`) — 135 cenários / 1131 steps
+
+> Contagem confirmada em 02/set/2026 pelo relatório final de um run do
+> GitHub Actions ("135 scenarios ..., 1131 steps ..."). Atualizar este
+> número sempre que um cenário novo for adicionado/removido — é fácil ficar
+> pra trás, já aconteceu antes.
 
 | Feature | Cobertura |
 |---|---|
-| `1-autenticacao.feature` | Login (perfis admin/financeiro/corretor), recuperação de senha, logout |
+| `0-smoke.feature` | Fundação da esteira: aplicação no ar, tela abre, login entra (`@fundacao`) |
+| `1-autenticacao.feature` | Login (perfis admin/financeiro/corretor), recuperação de senha, logout, e os cenários `@seguranca` que falam direto com `/api/auth/login` e `/api/users/*` (senha nunca volta, bloqueio por 3 tentativas, CRUD de usuário pelo servidor) |
 | `2-permissoes-admin.feature` | Acesso total, gestão de usuários, edição de permissões |
 | `3-permissoes-financeiro.feature` | Acesso restrito a Dashboard + Financeiro |
 | `4-permissoes-gestao.feature` | Acesso a operações, bloqueio de Financeiro/Configurações |
 | `5-imoveis-crud.feature` | CRUD de imóveis, filtros, validações |
 | `6-inquilinos-crud.feature` | CRUD de inquilinos, CPF/CNPJ, busca de CEP |
-| `7-locacoes-regras.feature` | Caução, parcelamento, corretor parceiro, geração de pagamentos |
+| `7-locacoes-regras.feature` | Caução, parcelamento, corretor parceiro, geração de pagamentos, renovação de contrato |
 | `8-pagamentos-calculos.feature` | Cálculos de taxa, recibos, filtros por mês/ano |
 | `9-regressao-visual.feature` | Layout e responsividade não quebram entre páginas |
 | `10-caucoes.feature` | Regras específicas de parcelas de caução |
+| `11-anuncio-publico.feature` | Anúncio público (`/` e `/imovel/[código]`), aberto sem login |
+| `12-rescisao-caucao.feature` | Rescisão de contrato separada da devolução do caução (#49), aviso de caução pendente/parcial |
 
 Todos os dados usados nesses cenários (imóveis, inquilinos, locações, pagamentos) são criados diretamente no Supabase pelo `DatabaseHelper` (bypass de RLS via service role), e removidos ao final da execução por `cleanupAllTestData()`. Os 3 usuários de teste padrão (`admin`/`financeiro`/`corretor`, ver `e2e/config/test.config.ts`) são criados/reaproveitados a cada execução e **não** são removidos.
 
@@ -124,7 +132,7 @@ Todos os dados usados nesses cenários (imóveis, inquilinos, locações, pagame
 - **auth/**: dropdown de login, 3 tentativas + bloqueio de 30min, recuperação de senha, troca obrigatória de senha temporária, troca de tema
 - **users/**: CRUD completo de usuários do sistema (`system_users`)
 - **permissions/**: restrição de rotas por role
-- **api/**: deprecado (2026-08) — testava `/api/auth/*` e `/api/users/*`, endpoints que nunca existiram no código (auth e gestão de usuários são 100% client-side, via chamadas diretas ao Supabase). Ver comentário no topo dos arquivos.
+- **api/**: deprecado, mas não porque os endpoints não existem — `/api/auth/login` e `/api/users/*` existem de verdade desde 30/ago-01/set/2026 (login e gestão de usuários passaram a acontecer no servidor). Continuam sem `test()` porque a cobertura real já está em `e2e/features/1-autenticacao.feature` (cenários `@seguranca`), não duplicada aqui. Ver comentário no topo dos arquivos.
 - **smoke/**: fluxos críticos ponta a ponta
 - **security/**: SQL injection, XSS, cookies, bloqueio de rota sem autenticação, autorização por perfil
 - **performance/**: tempo de carregamento de home/dashboard/imóveis

@@ -12,7 +12,14 @@ Sistema completo de gestão de locações de imóveis com controle de pagamentos
 
 ---
 
-## 🆕 Últimas Atualizações (2026-08-31)
+## 🆕 Últimas Atualizações (2026-09-02)
+
+- Rescisão: aviso quando a locação tem parcela de caução pendente/parcial ao confirmar a rescisão, com cancelamento automático das parcelas nunca pagas (01/set/2026) — ver "Aviso quando a caução está pendente ou parcial" em `REGRAS_DE_NEGOCIO.md`.
+- Cadastro de usuários, troca de senha e bloqueio por tentativas erradas voltaram a funcionar em produção (estavam travados em silêncio por uma regra de segurança do banco/RLS que exigia login do Supabase, que este sistema não usa) — corrigido movendo essas operações para rotas do servidor.
+- Dois bugs antigos do parcelamento do caução (edição não sincronizava o número de parcelas; criação de locação nova só salvava a 1ª parcela) corrigidos e em produção — issues [#13](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/13) e [#14](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/14).
+- E-mail de recuperação de senha: correção de um defeito que travava o teste automático quando a chave do serviço de e-mail (Resend) não estava configurada.
+
+## 🆕 Atualizações anteriores (2026-08-31)
 
 - Rescisão de contrato separada da devolução do caução (#49) em produção e estável — ver seção "🔚 Rescisão de Contrato" em `REGRAS_DE_NEGOCIO.md`.
 - Testes BDD reorganizados em duas rodadas automáticas: `@smoke` (rápida, ~12 cenários críticos) e `@sistemaCompleto` (todo o resto, roda depois). Ver [e2e/SMOKE.md](../e2e/SMOKE.md).
@@ -243,10 +250,13 @@ npm run dev
 
 ## 📝 Notas de Atualização
 
-**Última atualização:** 2026-08-31
+**Última atualização:** 2026-09-02
 **Versão:** 2.4.4 (ver `package.json`)
 
 **Mudanças recentes:**
+- Aviso de caução pendente/parcial ao confirmar rescisão, com cancelamento automático das parcelas nunca pagas
+- Cadastro/edição de usuários, troca de senha e bloqueio por tentativas voltaram a funcionar em produção (RLS)
+- Dois bugs do parcelamento do caução corrigidos (edição e criação de locação) — issues #13 e #14
 - Rescisão de contrato separada da devolução do caução (#49) em produção
 - Testes BDD em duas rodadas automáticas por push: `@smoke` (~12 cenários) e `@sistemaCompleto` (o resto)
 - Documentação simplificada e desduplicada (removido `BUSINESS_RULES.md`)

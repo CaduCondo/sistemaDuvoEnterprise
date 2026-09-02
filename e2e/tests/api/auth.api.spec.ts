@@ -1,26 +1,27 @@
 /**
- * ⚠️ DEPRECADO (2026-08) — este arquivo testava endpoints
- * `/api/auth/login`, `/api/auth/forgot-password` e `/api/auth/change-password`
- * que **nunca existiram** no código do sistema. Confirmado por busca
- * exaustiva em `src/pages/api/**` e por grep de `/api/auth` em todo `src/`:
- * zero resultados.
+ * ⚠️ DEPRECADO — mas não pelo motivo que este comentário dizia até
+ * 01/set/2026.
  *
- * A autenticação real é 100% client-side, via chamadas diretas ao Supabase
- * a partir de `src/services/authService.ts` (chamado por `src/lib/auth.ts`,
- * usado em `src/components/public/PublicHeader.tsx`) — não existe uma rota
- * REST própria para login/troca de senha. Além disso, o arquivo usava
- * `baseURL = process.env.NEXT_PUBLIC_SUPABASE_URL`, então mesmo com os
- * endpoints existindo as chamadas iriam para o projeto Supabase, não para o
- * Next.js — daí os 401/404 sistemáticos vistos na execução de 2026-08.
+ * Este arquivo testava endpoints `/api/auth/login`, `/api/auth/forgot-password`
+ * e `/api/auth/change-password` que, quando escrito (2026-08), realmente não
+ * existiam. **Isso mudou em 30/ago/2026**: `src/pages/api/auth/login.ts`
+ * agora existe de verdade — o login passou a acontecer no servidor
+ * (a rota valida usuário/senha, conta tentativas erradas e bloqueia por 30min,
+ * ver o comentário no topo daquele arquivo para o motivo).
  *
- * A cobertura real desses fluxos já existe via UI:
- * - e2e/tests/auth/login-dropdown.spec.ts, tests/ui/login.spec.ts
- * - e2e/tests/auth/three-attempts.spec.ts (bloqueio por tentativas)
+ * Ou seja, o endpoint que este arquivo tentava testar **existe hoje**. Ele
+ * continua deprecado (sem `test()`) não por não existir, mas porque a
+ * cobertura real já está em outro lugar, testando a rota de verdade:
+ * - e2e/features/1-autenticacao.feature, cenários `@seguranca` (fala
+ *   diretamente com `/api/auth/login` — ver
+ *   e2e/step-definitions/auth-servidor.steps.ts)
+ * - e2e/tests/auth/login-dropdown.spec.ts, tests/ui/login.spec.ts (fluxo via tela)
+ * - e2e/tests/auth/three-attempts.spec.ts (bloqueio por tentativas via tela)
  * - e2e/tests/auth/password-recovery.spec.ts (esqueci minha senha)
  * - e2e/tests/auth/password-change-required.spec.ts (troca obrigatória)
- * - e2e/features/1-autenticacao.feature (BDD)
  *
- * Se o sistema ganhar endpoints REST de autenticação no futuro, este
- * arquivo pode ser reescrito para testá-los de verdade. Até lá, mantido
- * vazio (sem `test()`) de propósito.
+ * Se algum dia fizer sentido ter um spec de API dedicado para
+ * `/api/auth/login` (em vez de cobrir só via BDD), este arquivo é o lugar
+ * óbvio para reescrever. Até lá, mantido vazio (sem `test()`) de propósito,
+ * para não duplicar a cobertura que já existe.
  */
