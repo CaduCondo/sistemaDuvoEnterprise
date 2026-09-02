@@ -146,3 +146,47 @@ jobs:
             e2e/reports/sistema-completo-report.json
             e2e/reports/screenshots/
           retention-days: 14
+
+  # Manda um e-mail com o resumo assim que a rodada completa termina --
+  # passando ou falhando, e mesmo se o smoke falhar e o sistema_completo
+  # nem chegar a rodar (por isso "needs" nos dois mas "if: always()").
+  # Pedido do Cadu em 02/set/2026, issue #69.
+  notificar_por_email:
+    name: Enviar relatorio por e-mail
+    needs: [smoke, sistema_completo]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@v4
+
+      # continue-on-error: os artefatos so existem se o job correspondente
+      # rodou (ver "if: always()" acima -- sistema_completo pode nao ter
+      # rodado se o smoke falhou).
+      - name: Baixar o relatorio do smoke
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: smoke-report
+          path: relatorios/smoke
+
+      - name: Baixar o relatorio do sistema completo
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: sistema-completo-report
+          path: relatorios/completo
+
+      - name: Preparar o Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Montar o resumo e enviar o e-mail
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESULTADO_SMOKE: ${{ needs.smoke.result }}
+          RESULTADO_COMPLETO: ${{ needs.sistema_completo.result }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/enviar-relatorio-email.js

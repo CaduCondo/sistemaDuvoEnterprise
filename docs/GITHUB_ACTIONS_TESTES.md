@@ -118,6 +118,17 @@ abra o `.html`.
 Uma observação que vale mais que qualquer relatório: **a mensagem quase
 sempre está no log do passo que ficou vermelho**, em texto claro.
 
+## E-mail com o resumo (issue #69)
+
+Depois que a rodada completa termina (Smoke + Sistema completo, passando ou
+falhando), o job `notificar_por_email` manda um e-mail para
+`stefcadu@gmail.com` com quantos cenários passaram/falharam em cada rodada e
+um link para o run. Usa o [Resend](https://resend.com) (mesmo serviço já
+usado para recuperação de senha, ver `src/pages/api/send-password-recovery.ts`),
+lendo a chave do secret `RESEND_API_KEY` do GitHub — sem esse secret
+configurado, o job só avisa no log e não quebra o CI por causa disso
+(e-mail é notificação, não teste). Script: `scripts/enviar-relatorio-email.js`.
+
 ## Problemas comuns
 
 **"Cucumber can only run on Node.js versions..."**
