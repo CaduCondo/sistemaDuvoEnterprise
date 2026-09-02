@@ -81,9 +81,14 @@ jobs:
       - name: Rodar o smoke test (BDD)
         run: npm run test:smoke
 
-      - name: Guardar o relatorio (so quando falha)
+      # Guarda sempre (passando ou falhando) -- ate 02/set/2026 so guardava
+      # quando falhava, e ninguem conseguia ver o relatorio completo de um
+      # push que passou (issue #68). Os arquivos HTML/JSON ja sao gerados
+      # sempre pelo Cucumber (ver e2e/cucumber.smoke.config.cjs); so faltava
+      # nao descartar no upload.
+      - name: Guardar o relatorio
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: smoke-report
           path: |
@@ -129,9 +134,11 @@ jobs:
       - name: Rodar o sistema completo (BDD)
         run: npm run test:completo
 
-      - name: Guardar o relatorio (so quando falha)
+      # Mesma logica do job "smoke" acima: guarda sempre, nao so quando falha
+      # (issue #68).
+      - name: Guardar o relatorio
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: sistema-completo-report
           path: |

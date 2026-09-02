@@ -108,10 +108,12 @@ os testes criam e apagam dados. Qual banco pertence a qual ambiente está em
 
 Actions → clique na execução. Cada passo pode ser aberto e mostra o log.
 
-Quando o Smoke Test (job `smoke`) falha, ele guarda um artefato chamado
-`smoke-report`; quando o Sistema Completo (job `sistema_completo`) falha,
-guarda `sistema-completo-report`. Os dois trazem o relatório em HTML, o JSON
-e os screenshots das falhas. Baixe, extraia e abra o `.html`.
+⚠️ Resolvido em 02/set/2026 (issue #68): o Smoke Test (job `smoke`) sempre
+guarda um artefato chamado `smoke-report`, e o Sistema Completo (job
+`sistema_completo`) sempre guarda `sistema-completo-report` — passando ou
+falhando, não só quando quebra como era antes. Os dois trazem o relatório em
+HTML, o JSON e os screenshots das falhas (quando houver). Baixe, extraia e
+abra o `.html`.
 
 Uma observação que vale mais que qualquer relatório: **a mensagem quase
 sempre está no log do passo que ficou vermelho**, em texto claro.
