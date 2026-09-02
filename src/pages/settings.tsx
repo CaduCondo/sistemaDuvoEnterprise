@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAlert } from "@/contexts/AlertContext";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Dialog,
@@ -60,6 +59,7 @@ import {
   updateConfig 
 } from "@/services/configService";
 import * as locationService from "@/services/locationService";
+import { resetPassword as resetUserPassword } from "@/services/systemUserService";
 import { getAllPaymentMethods, createPaymentMethod, updatePaymentMethod, deletePaymentMethod, type PaymentMethod } from "@/services/paymentMethodService";
 import { logAudit } from "@/services/auditService";
 
@@ -450,82 +450,24 @@ export default function Settings() {
   });
 
   const handleResetPassword = async (userId: string) => {
+    /**
+     * ACHADO (02/set/2026): esta função reimplementava a escrita direto em
+     * `system_users` com a chave pública -- o mesmo desenho que o RLS de
+     * produção bloqueia (issue #57) e que, se não fosse bloqueado, teria
+     * gravado a senha nova em texto puro (issue #67). A rota de servidor
+     * que já existe para isto (`POST /api/users/[id]/reset-password`) nunca
+     * tinha sido ligada aqui -- só existia em systemUserService.ts, sem
+     * call site. Agora usa ela.
+     */
     try {
-      // Buscar dados do usuário
-      const { data: user, error: fetchError } = await supabase
-        .from("system_users")
-        .select("name, email")
-        .eq("id", userId)
-        .single();
+      const { email } = await resetUserPassword(userId);
 
-      if (fetchError || !user) {
-        throw new Error("Usuário não encontrado");
-      }
-
-      // Gerar senha temporária aleatória (8-12 caracteres com todos os requisitos)
-      const generateTemporaryPassword = (): string => {
-        const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-        const numbers = '0123456789';
-        const specials = '!@#$%&*';
-        
-        // Garantir pelo menos 1 de cada tipo
-        let password = '';
-        password += uppercase[Math.floor(Math.random() * uppercase.length)];
-        password += lowercase[Math.floor(Math.random() * lowercase.length)];
-        password += numbers[Math.floor(Math.random() * numbers.length)];
-        password += specials[Math.floor(Math.random() * specials.length)];
-        
-        // Completar até 10 caracteres com caracteres aleatórios
-        const allChars = uppercase + lowercase + numbers + specials;
-        for (let i = 4; i < 10; i++) {
-          password += allChars[Math.floor(Math.random() * allChars.length)];
-        }
-        
-        // Embaralhar a senha
-        return password.split('').sort(() => Math.random() - 0.5).join('');
-      };
-
-      const temporaryPassword = generateTemporaryPassword();
-
-      // Atualizar senha no banco
-      const { error: updateError } = await supabase
-        .from("system_users")
-        .update({ 
-          password_hash: temporaryPassword,
-          requires_password_change: true,
-          temporary_password: true,
-          login_attempts: 0,
-          blocked_until: null,
-        })
-        .eq("id", userId);
-
-      if (updateError) throw updateError;
-
-      // Enviar email com senha temporária
-      try {
-        await fetch("/api/send-password-recovery", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: user.email,
-            userId: userId,
-            name: user.name,
-            temporaryPassword: temporaryPassword,
-            isReset: true,
-            isAdminReset: true, // Flag: foi um admin que resetou
-          }),
-        });
-      } catch (emailError) {
-        console.error("Erro ao enviar email (senha já foi resetada no banco):", emailError);
-      }
-
-      showAlert({ 
+      showAlert({
         title: "Senha resetada com sucesso!",
-        description: `Um email foi enviado para ${user.email} com a senha temporária.\n\nO usuário deverá trocar a senha no primeiro login.`,
+        description: `Um email foi enviado para ${email} com a senha temporária.\n\nO usuário deverá trocar a senha no primeiro login.`,
         type: "success",
       });
-      
+
       return true;
     } catch (error) {
       console.error("Erro ao resetar senha:", error);

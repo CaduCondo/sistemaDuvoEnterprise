@@ -1,5 +1,6 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
+import bcrypt from 'bcryptjs';
 import { CustomWorld } from '../support/world';
 import DatabaseHelper, { supabaseAdmin } from '../helpers/database.helper';
 import TEST_CONFIG from '../config/test.config';
@@ -105,6 +106,25 @@ Then('o usuário deve existir de verdade no banco', async function (this: Custom
   }
 });
 
+Then('a senha desse usuário deve estar gravada como hash, não em texto puro', async function (this: CustomWorld) {
+  const { email } = this.testData.ultimaCriacao;
+
+  const { data } = await supabaseAdmin
+    .from('system_users')
+    .select('password_hash')
+    .eq('email', email)
+    .maybeSingle();
+
+  // A senha usada em "eu pedir para criar um usuário pelo servidor" é fixa
+  // ('Criado@123', ver o passo acima) -- por isso dá para conferir os dois
+  // lados aqui: que o valor gravado É um hash bcrypt, e que esse hash
+  // corresponde à senha que foi enviada na criação (ver issue #67).
+  expect(data?.password_hash, 'password_hash vazio').toBeTruthy();
+  expect(data!.password_hash.startsWith('$2'), 'password_hash não parece hash bcrypt -- foi gravada senha em texto puro?').toBe(true);
+  expect(data!.password_hash).not.toBe('Criado@123');
+  expect(bcrypt.compareSync('Criado@123', data!.password_hash), 'o hash gravado não corresponde à senha enviada na criação').toBe(true);
+});
+
 Then('o servidor deve recusar com {string}', function (this: CustomWorld, statusEsperado: string) {
   const { status, corpo } = this.testData.ultimaCriacao;
   expect(status, `esperava ${statusEsperado} mas o servidor respondeu ${status}: ${JSON.stringify(corpo)}`).toBe(
@@ -184,10 +204,13 @@ Then('a senha dele no banco deve ser {string}', async function (this: CustomWorl
     .eq('id', id)
     .single();
 
-  // O sistema guarda a senha em texto puro em password_hash hoje (mesmo
-  // comentário "TEMPORARY" citado em database.helper.ts) -- por isso dá
-  // para comparar direto.
-  expect(data?.password_hash).toBe(senhaEsperada);
+  // Desde 02/set/2026 (issue #67) a senha vai para o banco como hash bcrypt,
+  // nunca mais em texto puro -- ver src/lib/passwordHash.ts. Por isso o
+  // teste não compara mais o valor gravado com a senha esperada: confere
+  // que É um hash bcrypt ("$2..."), e que ele bate com a senha esperada.
+  expect(data?.password_hash, 'password_hash vazio').toBeTruthy();
+  expect(data!.password_hash.startsWith('$2'), 'password_hash não parece hash bcrypt -- voltou a gravar em texto puro?').toBe(true);
+  expect(bcrypt.compareSync(senhaEsperada, data!.password_hash), 'o hash gravado não corresponde à senha esperada').toBe(true);
 });
 
 When('eu excluir esse usuário pelo servidor', async function (this: CustomWorld) {

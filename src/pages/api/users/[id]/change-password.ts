@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { exigirDonoOuAdmin } from "@/lib/apiAuth";
+import { gerarHashDeSenha } from "@/lib/passwordHash";
 
 /**
  * Trocar a própria senha (ou, se admin, a de outro usuário) — agora no
@@ -63,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { error } = await supabase
     .from("system_users")
     .update({
-      password_hash: newPassword,
+      password_hash: gerarHashDeSenha(newPassword),
       requires_password_change: false,
       temporary_password: false,
     })

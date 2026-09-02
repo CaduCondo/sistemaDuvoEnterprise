@@ -193,6 +193,48 @@ export async function unblockLogin(userId: string): Promise<void> {
   await chamarApi(`/api/users/${userId}/unblock`, { method: "POST" });
 }
 
-export async function resetPassword(userId: string): Promise<void> {
-  await chamarApi(`/api/users/${userId}/reset-password`, { method: "POST" });
+/**
+ * Reseta a senha do usuário para o padrão e avisa por e-mail.
+ *
+ * ACHADO (02/set/2026, mesma frente do hash de senha): esta função só
+ * chamava a rota de servidor e descartava a resposta -- não buscava o
+ * e-mail do usuário nem mandava o aviso. Quem chamava de verdade essa ação
+ * (o botão "Resetar Senha" em Configurações → Usuários, ver settings.tsx)
+ * nem usava esta função: tinha uma cópia própria, mais antiga, que
+ * escrevia direto em `system_users` com a chave pública -- o mesmo desenho
+ * que o RLS de produção bloqueia (ver #57). Ou seja, o botão estava quebrado
+ * em produção (dava erro) e, se não fosse pelo RLS, teria gravado a senha
+ * nova em texto puro, por fora do hash novo (ver src/lib/passwordHash.ts).
+ *
+ * Agora só existe este caminho: chama a rota de servidor (que já grava o
+ * hash) e manda o e-mail com a senha temporária que a rota devolve.
+ */
+export async function resetPassword(userId: string): Promise<{ email: string; temporaryPassword: string }> {
+  const usuario = await getUserById(userId);
+
+  const { temporaryPassword } = await chamarApi<{ success: boolean; temporaryPassword: string }>(
+    `/api/users/${userId}/reset-password`,
+    { method: "POST" }
+  );
+
+  try {
+    await fetch("/api/send-password-recovery", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: usuario.email,
+        userId,
+        name: usuario.name,
+        temporaryPassword,
+        isReset: true,
+        isAdminReset: true,
+      }),
+    });
+  } catch (erroEmail) {
+    // A senha já foi trocada no banco; um e-mail que falhou não deve
+    // impedir o admin de saber que o reset em si funcionou.
+    console.error("Erro ao enviar e-mail de reset (senha já foi trocada):", erroEmail);
+  }
+
+  return { email: usuario.email, temporaryPassword };
 }

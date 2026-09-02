@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { assinarSessao } from "@/lib/sessionToken";
+import { senhaConfere } from "@/lib/passwordHash";
 
 /**
  * LOGIN — agora acontece AQUI, no servidor.
@@ -22,12 +23,10 @@ import { assinarSessao } from "@/lib/sessionToken";
  *      era o usuário. Agora esta rota devolve um token assinado (ver
  *      src/lib/sessionToken.ts), que é o que as rotas de gravação vão exigir.
  *
- * O QUE ESTA ROTA AINDA NÃO FAZ
- *
- * A senha continua sendo comparada como texto, porque é assim que ela está
- * gravada hoje na coluna `password_hash` (o nome engana: não há embaralhamento
- * nenhum). Cifrar as senhas é a etapa 3 do plano e será feita aqui dentro,
- * onde já é o único lugar que compara senha.
+ * ETAPA 3 (02/set/2026): a senha agora é conferida com hash bcrypt (ver
+ * src/lib/passwordHash.ts), não mais com `===` direto. Contas que ainda não
+ * passaram pela migration de hash continuam funcionando -- o helper aceita
+ * os dois formatos enquanto a migration não roda nos dois bancos.
  */
 
 const URL_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -109,10 +108,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // 3. Confere a senha.
-    const senhaConfere = senha === (usuario.password_hash ?? "");
+    // 3. Confere a senha (hash bcrypt hoje; texto puro só se a conta ainda
+    // não passou pela migration -- ver src/lib/passwordHash.ts).
+    const senhaEstaCorreta = senhaConfere(senha, usuario.password_hash);
 
-    if (!senhaConfere) {
+    if (!senhaEstaCorreta) {
       const tentativas = (usuario.login_attempts || 0) + 1;
       const alteracoes: Record<string, any> = { login_attempts: tentativas };
 

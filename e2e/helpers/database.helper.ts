@@ -44,9 +44,13 @@ export class DatabaseHelper {
 
   /**
    * Cria (ou reaproveita) um usuário de teste em `system_users`.
-   * A senha é gravada em texto puro em `password_hash`, pois é assim que
-   * `authService.validatePassword` compara hoje (ver comentário "TEMPORARY"
-   * no serviço real).
+   *
+   * A senha é gravada em texto puro em `password_hash` DE PROPÓSITO --
+   * desde 02/set/2026 (issue #67) o app grava e confere a senha como hash
+   * bcrypt (ver src/lib/passwordHash.ts), mas `senhaConfere()` continua
+   * aceitando texto puro como formato legado, então seedar assim aqui é
+   * mais simples e o login do teste continua funcionando sem custo extra
+   * de hash a cada setup.
    */
   static async ensureTestUser(userData: {
     email: string;

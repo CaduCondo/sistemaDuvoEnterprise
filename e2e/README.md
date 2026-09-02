@@ -182,5 +182,5 @@ npx playwright codegen http://localhost:3000   # gravar interações e gerar có
 
 ## ⚠️ Achados relevantes durante a revisão de 2026-08
 
-- `authService.validatePassword` compara senha em texto puro (não usa bcrypt/hash) — ver aviso em `docs/AUTHENTICATION.md`. Os testes espelham esse comportamento real ao seedar usuários (`DatabaseHelper.ensureTestUser` grava a senha em texto puro), mas isso é uma vulnerabilidade real do app, fora do escopo desta revisão de testes.
+- ✅ Resolvido em 02/set/2026 (issue #67): a senha agora é gravada e conferida como hash bcrypt (`src/lib/passwordHash.ts`), não mais em texto puro. `DatabaseHelper.ensureTestUser` continua seedando o usuário de teste com a senha em texto puro de propósito -- `senhaConfere()` aceita os dois formatos, então o login do teste continua funcionando sem precisar hashear na hora de seedar.
 - `src/contexts/AuthContext.tsx` redireciona usuários não autenticados para `/login`, mas não existe `src/pages/login.tsx` — o redirecionamento aponta para uma rota inexistente (404). O teste de segurança correspondente (`e2e/tests/security/auth-security.spec.ts`) verifica apenas que o acesso é bloqueado, não o conteúdo da página de destino.

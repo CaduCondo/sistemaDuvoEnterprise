@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { exigirAdmin } from "@/lib/apiAuth";
+import { gerarHashDeSenha } from "@/lib/passwordHash";
 
 /**
  * Admin reseta a senha de um usuário para o padrão -- agora no servidor,
@@ -45,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { error } = await supabase
     .from("system_users")
     .update({
-      password_hash: SENHA_PADRAO,
+      password_hash: gerarHashDeSenha(SENHA_PADRAO),
       temporary_password: true,
       requires_password_change: true,
       login_attempts: 0,

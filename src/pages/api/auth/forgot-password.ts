@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
+import { gerarHashDeSenha } from "@/lib/passwordHash";
 
 /**
  * "Esqueci minha senha" — agora no servidor (31/ago/2026).
@@ -99,7 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { error: erroAtualizar } = await supabase
       .from("system_users")
       .update({
-        password_hash: senhaTemporaria,
+        password_hash: gerarHashDeSenha(senhaTemporaria),
         requires_password_change: true,
         temporary_password: true,
         login_attempts: 0,

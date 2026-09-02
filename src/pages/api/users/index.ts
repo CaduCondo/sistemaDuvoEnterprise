@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { exigirAdmin } from "@/lib/apiAuth";
+import { gerarHashDeSenha } from "@/lib/passwordHash";
 
 /**
  * Criar usuário — agora no servidor (31/ago/2026).
@@ -85,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           email,
           ...(username ? { username } : {}),
           role,
-          password_hash: password,
+          password_hash: gerarHashDeSenha(password),
           temporary_password: temporary_password ?? false,
           requires_password_change: temporary_password ?? false,
         },

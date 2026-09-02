@@ -162,6 +162,7 @@ Funcionalidade: Autenticação de Usuários
     Dado que estou autenticado como admin pelo servidor
     Quando eu pedir para criar um usuário pelo servidor
     Então o servidor deve aceitar a criação
+    E a senha desse usuário deve estar gravada como hash, não em texto puro
     E o usuário deve existir de verdade no banco
 
   @seguranca

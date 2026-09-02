@@ -59,19 +59,22 @@ Cadastre `AUTH_SESSION_SECRET` na Vercel (Settings → Environment Variables)
 com um texto longo e aleatório, e no `.env.local` para desenvolvimento. Trocar
 o valor invalida todas as sessões abertas — todo mundo precisa entrar de novo.
 
+### O que já foi feito, etapa por etapa
+
+- **Etapa 1 — o login.** Feito (esta seção).
+- **Etapa 2 — as gravações.** Feito. Criar, editar e excluir usuário,
+  desbloquear e trocar senha passaram a usar rotas de servidor -- ver issue
+  #57 no GitHub e o card correspondente do kanban.
+- **Etapa 3 — as senhas.** Feito em 02/set/2026 (issue #67). `password_hash`
+  passou a guardar hash bcrypt, não mais a senha em texto puro -- ver
+  `src/lib/passwordHash.ts` e a seção "Senhas em hash (etapa 3)" mais abaixo.
+
 ### O que AINDA NÃO foi feito
 
-Esta é a **etapa 1 de 3**. Continuam abertos, na issue #57 do GitHub e no card
-correspondente do kanban:
-
-- **Etapa 2 — as gravações.** Criar, editar e excluir usuário, e a troca de
-  senha, ainda são feitas pelo navegador e continuam barradas pela trava do
-  banco em produção. Vão passar por rotas de servidor que exigem o token.
-- **Etapa 3 — as senhas.** Continuam em **texto puro** na coluna
-  `password_hash` (o nome engana: não há embaralhamento). E a **leitura** da
-  tabela `system_users` continua liberada, então quem souber usar a chave
-  pública do site consegue baixá-las. Cifrar as senhas e fechar a leitura é o
-  fim do trabalho.
+- A **leitura** da tabela `system_users` continua liberada por RLS (quem tem
+  a chave pública do site consegue ler a tabela, embora sem conseguir mais
+  ver a senha de ninguém desde a etapa 3 -- só o hash). Fechar essa leitura é
+  um debito à parte, ainda sem ticket próprio.
 
 ### Onde estão os testes
 
@@ -125,13 +128,10 @@ npx cucumber-js --config e2e/cucumber.config.cjs --tags "@seguranca"
   expiração de 24h verificada no cliente — não é um JWT assinado pelo servidor.
 - **Armazenamento:** Database + localStorage (cache)
 
-> ⚠️ **Atenção (débito técnico de segurança):** hoje `validatePassword()` em
-> `authService.ts` faz comparação **direta de string** (`input === stored`),
-> não hash bcrypt — apesar de `bcryptjs` estar entre as dependências do
-> projeto. O comentário no código está marcado como `TEMPORARY`. Isso significa
-> que a coluna `system_users.password_hash` armazena a senha em texto puro
-> hoje. Recomenda-se migrar para hash bcrypt antes de qualquer uso em produção
-> com dados reais.
+> ✅ **Resolvido em 02/set/2026 (issue #67):** `password_hash` agora guarda
+> hash bcrypt (`src/lib/passwordHash.ts`), não mais a senha em texto puro.
+> `src/pages/api/auth/login.ts` confere a senha com esse helper. Esta seção
+> descrevia a versão antiga (comparação direta de string) até essa data.
 
 ---
 
@@ -899,9 +899,8 @@ async function toggleTheme(userId: string, currentTheme: string) {
    - Invalida senha anterior imediatamente
 
 5. **Armazenamento:**
-   - ⚠️ Atualmente as senhas são comparadas em texto puro (ver aviso na seção
-     "Tecnologias" acima) — a documentação anterior descrevia hashing, que
-     ainda não está implementado no código atual
+   - ✅ Senhas em hash bcrypt desde 02/set/2026 (issue #67, ver seção
+     "Tecnologias" acima)
    - Sessão local em `localStorage`, com expiração de 24h verificada no cliente
 
 ### Vulnerabilidades Mitigadas
@@ -912,8 +911,8 @@ async function toggleTheme(userId: string, currentTheme: string) {
    é um objeto simples em `localStorage`
 ✅ **Password Reuse** - Senha temporária obriga troca
 ✅ **Weak Passwords** - Validação de requisitos
-⚠️ **Senha em texto puro** - `password_hash` guarda a senha sem hash hoje
-   (ver aviso acima); recomenda-se migrar para bcrypt
+✅ **Senha em texto puro** - resolvido: `password_hash` guarda hash bcrypt
+   desde 02/set/2026 (ver aviso acima)
 
 ---
 
