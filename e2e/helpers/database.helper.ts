@@ -72,7 +72,16 @@ export class DatabaseHelper {
       // /dashboard enquanto requires_password_change for true (mostra o
       // PasswordChangeDialog em vez disso). Isso já causou uma cascata de
       // falsos negativos em quase toda a suíte (2026-08).
-      await supabaseAdmin
+      // ⚠️ Corrigido em 01/set/2026: este UPDATE nunca conferia o resultado.
+      // Se ele falhasse por qualquer motivo (rede instável, RLS, etc.), o
+      // erro era engolido em silêncio -- o método devolvia como se tivesse
+      // dado certo, mas a senha do usuário reaproveitado (ex.: admin@teste.com,
+      // compartilhado por quase todo cenário de "Sistema completo") continuava
+      // com o valor de uma execução anterior. Isso derrubou a suíte inteira em
+      // cascata: login com a senha "certa" falhava (senha real era outra),
+      // até bater 3 tentativas e bloquear a conta por 30 minutos -- ver
+      // ticket "CI: 124 de 135 cenários falharam...".
+      const { error: erroAoResetar } = await supabaseAdmin
         .from('system_users')
         .update({
           password_hash: userData.password,
@@ -85,6 +94,14 @@ export class DatabaseHelper {
           ...(userData.theme ? { theme: userData.theme } : {}),
         })
         .eq('id', existing.id);
+
+      if (erroAoResetar) {
+        throw new Error(
+          `Falha ao resetar usuário de teste "${userData.email}" (id ${existing.id}): ${erroAoResetar.message}. ` +
+          `Sem esse reset, o login desse usuário na suíte pode estar usando uma senha de uma execução anterior.`
+        );
+      }
+
       return existing;
     }
 
