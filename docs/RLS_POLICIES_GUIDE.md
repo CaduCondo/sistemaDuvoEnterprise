@@ -71,6 +71,16 @@ Ver `docs/tickets/PROD-corrige-isencao-taxas-3.sql`.
 Para varrer o banco atrás de outros casos iguais:
 `docs/tickets/DIAG-rls-producao.sql`.
 
+### Storage também tem policy, não só tabela — 03/set/2026 (issue #74)
+
+O mesmo problema deste guia (chave anônima pública alcança direto o que a
+policy deixar) vale para o bucket `uploads` do Supabase Storage, não só
+para tabelas. Até 03/set/2026 a policy de INSERT do bucket era livre para
+qualquer um (nem precisava estar logado no sistema) — corrigido trocando o
+upload direto do navegador por uma rota de servidor que exige sessão válida
+antes de autorizar o upload. Detalhe completo em
+`docs/AUTHENTICATION.md`, seção "Upload de Anexos".
+
 ---
 
 ## 🎯 INTRODUÇÃO
