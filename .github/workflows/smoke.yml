@@ -183,10 +183,17 @@ jobs:
         with:
           node-version: '22'
 
+      # NEXT_PUBLIC_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY: pra subir a
+      # pagina de resumo pro bucket "uploads" e o e-mail trazer um link
+      # direto que abre no navegador, sem baixar .zip (issue #70). Sem
+      # esses dois, o script so pula essa parte e o e-mail sai sem o link
+      # -- nao quebra o envio.
       - name: Montar o resumo e enviar o e-mail
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESULTADO_SMOKE: ${{ needs.smoke.result }}
           RESULTADO_COMPLETO: ${{ needs.sistema_completo.result }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/enviar-relatorio-email.js

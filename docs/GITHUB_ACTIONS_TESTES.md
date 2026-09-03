@@ -112,22 +112,51 @@ Actions → clique na execução. Cada passo pode ser aberto e mostra o log.
 guarda um artefato chamado `smoke-report`, e o Sistema Completo (job
 `sistema_completo`) sempre guarda `sistema-completo-report` — passando ou
 falhando, não só quando quebra como era antes. Os dois trazem o relatório em
-HTML, o JSON e os screenshots das falhas (quando houver). Baixe, extraia e
-abra o `.html`.
+HTML, o JSON e os screenshots das falhas (quando houver).
+
+⚠️ O `.html` cru gerado pelo Cucumber (o que vem dentro desse artefato) usa
+um bundle de JavaScript pesado — em alguns navegadores/computadores, abrir
+esse arquivo direto (duplo-clique, sem servidor) pode ficar em branco (foi o
+que aconteceu com o Cadu em 03/set/2026 tentando abrir um desses). Esse
+`.html` continua existindo pra quem quer o detalhe de cada passo, mas **não
+é mais o jeito recomendado de olhar o resultado** — use o link do e-mail ou
+o resumo do run (próxima seção), que são HTML+CSS simples e abrem em
+qualquer navegador.
 
 Uma observação que vale mais que qualquer relatório: **a mensagem quase
 sempre está no log do passo que ficou vermelho**, em texto claro.
 
-## E-mail com o resumo (issue #69)
+## E-mail com o resumo (issues #69 e #70)
 
 Depois que a rodada completa termina (Smoke + Sistema completo, passando ou
 falhando), o job `notificar_por_email` manda um e-mail para
-`stefcadu@gmail.com` com quantos cenários passaram/falharam em cada rodada e
-um link para o run. Usa o [Resend](https://resend.com) (mesmo serviço já
-usado para recuperação de senha, ver `src/pages/api/send-password-recovery.ts`),
-lendo a chave do secret `RESEND_API_KEY` do GitHub — sem esse secret
-configurado, o job só avisa no log e não quebra o CI por causa disso
-(e-mail é notificação, não teste). Script: `scripts/enviar-relatorio-email.js`.
+`stefcadu@gmail.com` com quantos cenários passaram/falharam em cada rodada,
+quanto tempo cada rodada levou e, se algum cenário falhou, o nome de cada um.
+Usa o [Resend](https://resend.com) (mesmo serviço já usado para recuperação
+de senha, ver `src/pages/api/send-password-recovery.ts`), lendo a chave do
+secret `RESEND_API_KEY` do GitHub — sem esse secret configurado, o job só
+avisa no log e não quebra o CI por causa disso (e-mail é notificação, não
+teste). Script: `scripts/enviar-relatorio-email.js`.
+
+Desde 03/set/2026 (issue #70), o mesmo script também monta uma **página de
+resumo própria** (números em destaque + uma barrinha verde/vermelha por
+rodada — só HTML e CSS, sem o bundle do Cucumber, então abre sempre) e sobe
+ela pro bucket `uploads` do Supabase Storage (o mesmo já usado pelos anexos
+do sistema), em `ci-reports/<run_id>/resumo.html`. O e-mail já chega com um
+link "📊 Abrir o relatório de testes" que aponta pra essa página — não
+precisa mais baixar `.zip` nem extrair nada. O mesmo link também aparece na
+aba **Summary** do run, no GitHub Actions (via `$GITHUB_STEP_SUMMARY`).
+
+Pra esse upload funcionar, o step precisa dos mesmos secrets
+`NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` da tabela acima
+(apontando pro projeto de DEV, igual aos outros dois jobs). Se faltar algum
+dos dois, o script só avisa no log e o e-mail sai sem o link direto — não
+quebra o envio.
+
+Essas páginas de resumo não são apagadas automaticamente (diferente do
+artefato do GitHub Actions, que expira em 14 dias) — combinado com o Cadu
+que isso não é problema por enquanto; se o bucket crescer demais no futuro,
+dá pra revisitar.
 
 ## Problemas comuns
 
