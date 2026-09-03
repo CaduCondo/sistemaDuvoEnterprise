@@ -55,7 +55,7 @@ DROP TABLE IF EXISTS public.rental_terminations CASCADE;
 -- consultas (inclusive mv_monthly_revenue e mv_monthly_payments, que
 -- CONTINUAM em uso -- não fazem parte deste grupo).
 -- ----------------------------------------------------------------------------
-DROP TABLE IF EXISTS public.dashboard_metrics CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS public.dashboard_metrics CASCADE; -- corrigido 03/set: é view, não tabela (erro 42809 ao rodar em DEV)
 DROP MATERIALIZED VIEW IF EXISTS public.mv_dashboard_stats CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS public.mv_monthly_expenses CASCADE;
 DROP FUNCTION IF EXISTS public.get_available_properties CASCADE;
