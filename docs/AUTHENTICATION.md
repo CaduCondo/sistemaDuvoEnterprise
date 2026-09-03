@@ -901,18 +901,54 @@ async function toggleTheme(userId: string, currentTheme: string) {
 5. **Armazenamento:**
    - ✅ Senhas em hash bcrypt desde 02/set/2026 (issue #67, ver seção
      "Tecnologias" acima)
-   - Sessão local em `localStorage`, com expiração de 24h verificada no cliente
+   - Sessão guardada em `localStorage`, mas desde 30/ago/2026 (ver aviso no
+     topo deste documento) o token dentro dela é assinado pelo servidor
+     (`src/lib/sessionToken.ts`) — não dá mais para forjar um token válido
+     sem o segredo do servidor.
 
 ### Vulnerabilidades Mitigadas
 
 ✅ **Força Bruta** - Bloqueio após 3 tentativas
 ✅ **Phishing** - Email apenas para endereço cadastrado
-⚠️ **Session Hijacking** - sessão expira em 24h, mas não é um JWT assinado —
-   é um objeto simples em `localStorage`
+✅ **Session Hijacking** - sessão expira em 24h e o token é assinado
+   (`AUTH_SESSION_SECRET`) desde 30/ago/2026 — adulterar o conteúdo (ex.:
+   trocar o `role`) invalida a assinatura
 ✅ **Password Reuse** - Senha temporária obriga troca
 ✅ **Weak Passwords** - Validação de requisitos
 ✅ **Senha em texto puro** - resolvido: `password_hash` guarda hash bcrypt
    desde 02/set/2026 (ver aviso acima)
+✅ **Upload de arquivo sem login** - resolvido em 03/set/2026 (issue #74):
+   subir anexo (Locação, Recebimento de Aluguel, Recebimento de Caução)
+   exige uma sessão válida — ver "Upload de Anexos" logo abaixo
+
+### Upload de Anexos (issue #74, 03/set/2026)
+
+Até 03/set/2026, o navegador subia o arquivo direto para o bucket `uploads`
+do Supabase Storage, usando a chave pública (anon). Como o sistema nunca usa
+o login de verdade do Supabase (`auth.uid()` é sempre nulo — ver "O que
+passou a valer" no topo deste documento), a única forma de o upload
+funcionar era deixar a política de gravação do bucket aberta para qualquer
+um, logado ou não. Na prática, qualquer pessoa que descobrisse a URL do
+Storage conseguia subir qualquer arquivo, sem entrar no sistema.
+
+Agora o upload passa por duas etapas:
+
+1. O navegador pede autorização em `POST /api/uploads/sign`, mandando o
+   token da sessão (o mesmo do login). A rota confere a sessão
+   (`exigirSessao`, `src/lib/apiAuth.ts`) e a extensão/tamanho do arquivo
+   (`src/lib/attachmentValidation.ts`), e devolve um **link de upload
+   assinado** do próprio Supabase (`createSignedUploadUrl`) — um token que
+   vale só para aquele arquivo, por tempo limitado.
+2. O navegador sobe o arquivo direto para o Supabase Storage com esse link
+   (`uploadToSignedUrl`) — os bytes não passam pelo servidor do site, só a
+   autorização.
+
+Como o link assinado substitui a política de gravação (é assim que o
+recurso do Supabase foi pensado), a política pública de INSERT do bucket
+foi removida — ver `docs/tickets/PROD-restringir-upload-anexos.sql`.
+Consumido por `src/lib/uploadAttachment.ts`, usado nas 4 telas que sobem
+anexo (`RentalAttachmentsDialog`, `useRentalForm`, `DepositPaymentDialog`,
+`ManagePaymentForm`).
 
 ---
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { formatCurrency } from "@/lib/masks";
 import { calculateProportionalRent, calculateDaysBetweenDates, shouldUseProportionalRent } from "@/lib/rentalCalculations";
 import { getDepositInstallmentsByRental } from "@/services/depositInstallmentService";
-import { supabase } from "@/integrations/supabase/client";
+import { uploadAttachment } from "@/lib/uploadAttachment";
 import type { Rental, Property, Tenant, Location, Attachment } from "@/types";
 
 interface UseRentalFormProps {
@@ -290,34 +290,21 @@ export function useRentalForm({
   }, [open, rental, isViewMode, initializeFromRental, resetForm]);
 
   // Handler de upload de arquivo
-  // ✅ CORREÇÃO: antes este upload ia para /api/upload, que grava no disco local do
-  // servidor (public/uploads). Isso funciona em dev local, mas no Vercel o sistema de
-  // arquivos é somente-leitura/efêmero em produção, então o anexo se perdia depois de
-  // salvo - exatamente como acontecia na prática. Agora sobe para o Supabase Storage,
-  // igual ao que já funciona em ManagePaymentForm.tsx (recebimento de aluguel).
+  // ✅ CORREÇÃO (issue #74, 03/set/2026): upload passa por /api/uploads/sign,
+  // que exige estar logado -- antes ia direto pro Storage com a policy pública
+  // aberta pra qualquer um. Ver src/lib/uploadAttachment.ts.
   const handleFileUpload = useCallback(async (file: File): Promise<Attachment> => {
     console.log("📤 [useRentalForm.handleFileUpload] INÍCIO - file:", file.name);
 
     const uuid = crypto.randomUUID();
-    const extension = file.name.split(".").pop();
-    const fileName = `rental_${uuid}.${extension}`;
-    const filePath = `rental-attachments/${fileName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("uploads")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (uploadError) {
+    let publicUrl: string;
+    try {
+      publicUrl = await uploadAttachment(file, "rental-attachments");
+    } catch (uploadError) {
       console.error("❌ [useRentalForm.handleFileUpload] Erro no upload:", uploadError);
       throw uploadError;
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from("uploads")
-      .getPublicUrl(filePath);
 
     const attachment: Attachment = {
       id: uuid,

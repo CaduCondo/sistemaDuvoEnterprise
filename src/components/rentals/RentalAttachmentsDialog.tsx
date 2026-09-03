@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Paperclip, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadAttachment } from "@/lib/uploadAttachment";
 import { Attachment } from "@/types";
 import { AttachmentList } from "@/components/attachments/AttachmentList";
 import { AttachmentUploadButton } from "@/components/attachments/AttachmentUploadButton";
@@ -26,28 +27,11 @@ export function RentalAttachmentsDialog({ rentalId, attachments = [], onAttachme
     setUploading(true);
 
     try {
-      // ✅ CORREÇÃO: /api/upload gravava no disco local do servidor, que não persiste
-      // em produção (Vercel). Agora sobe para o Supabase Storage, como já funciona no
-      // recebimento de aluguel (ManagePaymentForm.tsx).
+      // ✅ CORREÇÃO (issue #74, 03/set/2026): upload passa por /api/uploads/sign,
+      // que exige estar logado -- antes ia direto pro Storage com a policy pública
+      // aberta pra qualquer um. Ver src/lib/uploadAttachment.ts.
       const uploadPromises = files.map(async (file) => {
-        const extension = file.name.split(".").pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
-        const filePath = `rental-attachments/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("uploads")
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          });
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from("uploads")
-          .getPublicUrl(filePath);
+        const publicUrl = await uploadAttachment(file, "rental-attachments");
 
         return {
           id: crypto.randomUUID(),

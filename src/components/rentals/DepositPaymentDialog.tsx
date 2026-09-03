@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAlert } from "@/contexts/AlertContext";
 import { formatCurrency, formatCurrencyInput, parseCurrencyToNumber } from "@/lib/masks";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadAttachment } from "@/lib/uploadAttachment";
 import type { DepositInstallment, DepositPartialPaymentEntry, Rental } from "@/types";
 import { Calendar, DollarSign, CreditCard, Receipt, Paperclip, X, History, Trash2, Edit, ShieldCheck } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
@@ -323,28 +324,11 @@ export function DepositPaymentDialog({
     }
   }, [calculations.finalTotal, isReadOnly, isPaid, previousPaidTotal, installment.amount]);
 
-  // ✅ Upload para o Supabase Storage - mesmo bucket/mecanismo já usado no recebimento
-  // de aluguel. Antes ia para /api/upload (disco local do servidor), que não persiste
-  // em produção no Vercel - por isso o anexo sumia ao reabrir a locação.
+  // ✅ CORREÇÃO (issue #74, 03/set/2026): upload passa por /api/uploads/sign,
+  // que exige estar logado -- antes ia direto pro Storage com a policy pública
+  // aberta pra qualquer um. Ver src/lib/uploadAttachment.ts.
   const uploadToSupabase = async (file: File): Promise<string> => {
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `deposit-attachments/${fileName}`;
-
-    const { error } = await supabase.storage
-      .from("uploads")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (error) throw error;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from("uploads")
-      .getPublicUrl(filePath);
-
-    return publicUrl;
+    return uploadAttachment(file, "deposit-attachments");
   };
 
   const addAttachment = useCallback(() => {

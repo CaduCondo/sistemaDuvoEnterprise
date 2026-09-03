@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadAttachment } from "@/lib/uploadAttachment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -689,25 +690,11 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     });
   }, [payment?.id, showAlert]);
 
+  // ✅ CORREÇÃO (issue #74, 03/set/2026): upload passa por /api/uploads/sign,
+  // que exige estar logado -- antes ia direto pro Storage com a policy pública
+  // aberta pra qualquer um. Ver src/lib/uploadAttachment.ts.
   const uploadToSupabase = async (file: File): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `payment-attachments/${fileName}`;
-
-    const { data, error } = await supabase.storage
-      .from('uploads')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (error) throw error;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('uploads')
-      .getPublicUrl(filePath);
-
-    return publicUrl;
+    return uploadAttachment(file, "payment-attachments");
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
