@@ -10,6 +10,15 @@ setDefaultTimeout(60 * 1000);
 
 // Garante que os usuários de teste (admin/financeiro/corretor) existem antes
 // de qualquer cenário rodar.
+//
+// Redundante de propósito com e2e/support/seed-test-users.ts (issue #65):
+// aquele script já roda isso uma vez, fora do Cucumber, antes de qualquer
+// worker subir -- é a garantia de verdade quando se roda via
+// `npm run test:smoke`/`test:completo` (scripts/smoke.js). Este BeforeAll
+// continua aqui como rede de segurança para quem rodar `npx cucumber-js`
+// direto (sem passar pelo smoke.js) -- com `parallel: 2` ele roda uma vez
+// por worker, mas como o reset é idempotente isso não causa problema, só
+// reforça o mesmo valor.
 BeforeAll(async function () {
   await DatabaseHelper.ensureDefaultTestUsers();
 });

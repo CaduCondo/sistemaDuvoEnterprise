@@ -300,6 +300,23 @@ async function principal() {
   try {
     if (servidor) await esperarAplicacaoSubir(servidor);
     await aquecerTelas();
+    log("Preparando os usuários de teste (admin/financeiro/gestão) antes dos cenários...");
+    // Roda uma vez só, fora do Cucumber -- ver e2e/support/seed-test-users.ts
+    // (issue #65: com --parallel 2, o BeforeAll de cada worker rodava esse
+    // mesmo reset em paralelo, sem garantia de que já tivesse sido
+    // confirmado no banco antes do primeiro cenário logar).
+    const seed = rodarAteOFim("npx", [
+      "ts-node",
+      "--project",
+      "e2e/tsconfig.json",
+      "--transpile-only",
+      "e2e/support/seed-test-users.ts",
+    ]);
+    if (seed.status !== 0) {
+      log("Não consegui preparar os usuários de teste. Os cenários não chegaram a rodar.");
+      process.exit(seed.status || 1);
+    }
+
     log(
       querVer
         ? "Aplicação no ar. Abrindo o navegador para você assistir..."

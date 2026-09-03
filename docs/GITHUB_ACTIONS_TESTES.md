@@ -144,6 +144,15 @@ criar e validar o próprio dado.
 **"Missing required secrets" / variáveis vazias.**
 Faltam os 3 secrets acima.
 
+**Dezenas de cenários falham todos com "Usuário ou senha inválidos" no login.**
+Sinal de que o reset da senha dos usuários de teste (admin/financeiro/gestão)
+não foi confirmado antes dos cenários começarem — ver
+`e2e/support/seed-test-users.ts` (issue #65). Desde 02/set/2026 esse reset
+roda uma vez, fora do Cucumber, antes dos cenários (`scripts/smoke.js` chama
+o script antes de `cucumber-js`); se mesmo assim aparecer esse padrão de
+falha em massa, o log do passo "Rodar o..." mostra `[seed] Falha ao preparar
+os usuários de teste: ...` com o motivo exato.
+
 **"Build failed".**
 Rode `npm run build` na sua máquina; o erro é o mesmo.
 

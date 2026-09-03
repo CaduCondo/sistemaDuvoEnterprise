@@ -106,6 +106,30 @@ export class DatabaseHelper {
         );
       }
 
+      // ⚠️ Corrigido em 02/set/2026 (issue #65, 3ª causa raiz encontrada): o
+      // UPDATE acima não dava mais erro, mas isso não prova que o valor
+      // gravado é o que o teste espera -- só prova que o Supabase aceitou o
+      // comando. Depois do fix do bcrypt (#67), `password_hash` de um
+      // usuário reaproveitado podia ter ficado como hash de uma execução
+      // anterior por uma fração de segundo (réplica/latência), e um login
+      // que corresse logo em seguida (com 2 workers em paralelo, ver
+      // `hooks.ts`) podia ler esse valor antigo. Agora confere de verdade,
+      // lendo de volta, e tenta de novo (com um pequeno atraso) antes de
+      // desistir -- só passa a mensagem de erro claro se, depois das
+      // tentativas, o valor gravado ainda não bater.
+      const senhaFoiGravadaCorretamente = await this.confirmarSenhaGravada(
+        existing.id,
+        userData.password
+      );
+
+      if (!senhaFoiGravadaCorretamente) {
+        throw new Error(
+          `Reset da senha do usuário de teste "${userData.email}" (id ${existing.id}) não foi confirmado ` +
+          `depois de várias tentativas de releitura -- o valor em \`password_hash\` não bateu com a senha ` +
+          `esperada. Login desse usuário na suíte provavelmente vai falhar com "senha inválida".`
+        );
+      }
+
       return existing;
     }
 
@@ -144,6 +168,34 @@ export class DatabaseHelper {
     }
     track('systemUsers', data.id);
     return data;
+  }
+
+  /**
+   * Lê `password_hash` de volta do banco e confere se bate com o texto puro
+   * esperado -- tenta até 3 vezes, com um pequeno atraso entre elas, antes
+   * de devolver falso. Existe só para o reset de senha de `ensureTestUser`
+   * confiar de verdade no que foi gravado (ver comentário lá).
+   */
+  private static async confirmarSenhaGravada(
+    userId: string,
+    senhaEsperada: string,
+    tentativas = 3,
+    atrasoMs = 300
+  ): Promise<boolean> {
+    for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+      const { data } = await supabaseAdmin
+        .from('system_users')
+        .select('password_hash')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (data?.password_hash === senhaEsperada) return true;
+
+      if (tentativa < tentativas) {
+        await new Promise((resolve) => setTimeout(resolve, atrasoMs));
+      }
+    }
+    return false;
   }
 
   /**
