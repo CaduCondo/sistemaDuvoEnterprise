@@ -533,7 +533,7 @@ Página inicial com visão geral consolidada do negócio e métricas em tempo re
   - Despesas de Locais: Soma de `amount` da tabela `location_expenses`
 - **Exceção**: Imóveis com isenção de taxa não entram no cálculo
 - Cor: Laranja
-- Query complexa com LEFT JOIN em `user_fee_exemptions`
+- Query complexa com LEFT JOIN em `admin_fee_exempt_locations` e `management_fee_exempt_locations` (ver seção 3.2)
 
 **4.5 Receita Líquida**
 - Fórmula: `Receita Bruta - Taxas e Contas`
@@ -603,7 +603,7 @@ Gerenciar cadastro de locais/endereços onde os imóveis estão localizados.
 **Uso no Sistema**:
 - Usado como FK em `properties.location_id`
 - Usado em filtros de permissões (`user_location_permissions`)
-- Usado em isenções de taxa (`user_fee_exemptions`)
+- Usado em isenções de taxa (`admin_fee_exempt_locations`, `management_fee_exempt_locations`)
 - Usado em despesas (`location_expenses`)
 
 ---
@@ -2095,13 +2095,13 @@ WHERE reference_month = X
 **2.2 Taxa de Administração**
 - **Fórmula**: `Receita Bruta × (percentual_taxa_admin / 100)`
 - **Percentual**: Configurável em `config` (padrão: 5%)
-- **Exceção**: Imóveis com isenção de taxa (`user_fee_exemptions`) não entram no cálculo
+- **Exceção**: Imóveis cujo local está em `admin_fee_exempt_locations` não entram no cálculo (isenção por local, não por usuário — ver seção 3.2)
 - **Query**:
 ```sql
 SELECT SUM(paid_amount * (taxa_admin / 100))
 FROM payments p
-LEFT JOIN user_fee_exemptions e ON p.rental.property.location_id = e.location_id
-WHERE e.id IS NULL  -- Não tem isenção
+LEFT JOIN admin_fee_exempt_locations e ON p.rental.property.location_id = e.location_id
+WHERE e.location_id IS NULL  -- Não tem isenção
 ```
 - **Cor**: Laranja
 - **Formato**: R$ 1.234,56
@@ -2109,7 +2109,7 @@ WHERE e.id IS NULL  -- Não tem isenção
 **2.3 Taxa de Gerenciamento**
 - **Fórmula**: `Receita Bruta × (percentual_taxa_gerenciamento / 100)`
 - **Percentual**: Configurável em `config` (padrão: 3%)
-- **Exceção**: Mesma lógica de isenção da taxa de administração
+- **Exceção**: Imóveis cujo local está em `management_fee_exempt_locations` não entram no cálculo — lista **separada e independente** da isenção de taxa de administração (um local pode estar isento de uma, da outra, das duas ou de nenhuma)
 - **Cor**: Amarelo
 - **Formato**: R$ 1.234,56
 
@@ -2486,26 +2486,45 @@ Centralizar configurações globais do sistema, gerenciar usuários, permissões
 
 **3.2 Isenções de Taxa**
 
-**Tabela**: `user_fee_exemptions`
+> ⚠️ Corrigido em 03/set/2026: esta seção descrevia um mecanismo antigo
+> (isenção por usuário, tabela `user_fee_exemptions`) que nunca chegou a
+> ser usado de verdade e foi removido do banco na limpeza de 03/set/2026
+> (ver `docs/tickets/PROD-remover-tabelas-funcoes-nao-usadas.sql`). O que o
+> sistema usa de fato é o mecanismo abaixo.
+
+**Tabelas**: `admin_fee_exempt_locations` e `management_fee_exempt_locations`
+(duas tabelas separadas e independentes — um local pode estar isento só da
+taxa de administração, só da de gerenciamento, das duas, ou de nenhuma).
 
 **Funcionalidade**:
-- Associa usuário a locais isentos de taxa administrativa/gerenciamento
-- Ao calcular taxas, ignora receitas desses locais
+- A isenção é por **local** (`location_id`), não por usuário — não existe
+  "isentar só para o corretor X". Quando um local está na lista, a taxa
+  correspondente deixa de ser cobrada dele para **todo mundo** que olhar o
+  financeiro daquele local.
+- Ao calcular as taxas, o sistema ignora as receitas dos locais que estão
+  em cada uma dessas duas listas.
 
-**Atribuição**:
-1. Admin seleciona usuário no dropdown
-2. Sistema carrega locais isentos (checkboxes marcados)
-3. Admin marca/desmarca locais
-4. Clica em "Salvar Isenções"
+**Onde configurar** (Configurações → aba Permissões):
+1. A tela mostra dois cartões lado a lado: "Isenção de Taxa Gerenciamento" e
+   "Isenção de Taxa Admin".
+2. Em cada um, clique em "Gerenciar Locais Isentos".
+3. Marque ou desmarque os locais na lista (um local marcado aparece com a
+   etiqueta "Isento").
+4. Clique em "Salvar Isenções".
 5. Sistema:
-   - Deleta isenções antigas do usuário
-   - Insere novos registros em `user_fee_exemptions`
+   - Remove da tabela os locais que foram desmarcados
+   - Insere na tabela os locais que foram marcados
 
 **Efeito nos Cálculos**:
 ```typescript
-Para cada pagamento ao calcular taxas:
-  SE location_id do imóvel está em user_fee_exemptions:
+Para cada pagamento ao calcular a taxa de administração:
+  SE location_id do imóvel está em admin_fee_exempt_locations:
     NÃO somar para taxa de administração
+  SENÃO:
+    Somar normalmente
+
+Para cada pagamento ao calcular a taxa de gerenciamento:
+  SE location_id do imóvel está em management_fee_exempt_locations:
     NÃO somar para taxa de gerenciamento
   SENÃO:
     Somar normalmente
@@ -3247,14 +3266,28 @@ CREATE TABLE user_location_permissions (
 );
 ```
 
-#### 10. `user_fee_exemptions`
+#### 10. `admin_fee_exempt_locations` e `management_fee_exempt_locations`
+
+> Corrigido em 03/set/2026 — a versão anterior desta seção descrevia
+> `user_fee_exemptions` (isenção por usuário), um mecanismo antigo que
+> nunca foi usado de verdade e foi removido do banco. O sistema usa estas
+> duas tabelas (uma por local, sem usuário nenhum — ver seção 3.2).
+
 ```sql
-CREATE TABLE user_fee_exemptions (
+CREATE TABLE admin_fee_exempt_locations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
   location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, location_id)
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(location_id)
+);
+
+CREATE TABLE management_fee_exempt_locations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(location_id)
 );
 ```
 
