@@ -22,6 +22,17 @@
  *      sem o bundle JavaScript do Cucumber, então abre igual em qualquer
  *      navegador, sem precisar de servidor local.
  *
+ * Ajustado em 03/set/2026 (issue #75, no mesmo dia que o #70 foi ao ar):
+ * o Supabase Storage sempre serve arquivo .html como "text/plain" (decisão
+ * deles, proteção contra phishing hospedado no domínio do Storage) -- o
+ * navegador mostrava o código-fonte em vez de abrir a página. E o link
+ * direto do Supabase, por vir de um secret do GitHub, aparecia mascarado
+ * como "***" no resumo do Actions. Correção: o e-mail e o resumo do
+ * Actions agora linkam pra /api/ci-reports/{runId} no próprio site (ver
+ * src/pages/api/ci-reports/[runId].ts), que busca o HTML no Storage e
+ * devolve com o Content-Type certo -- e o corpo do e-mail já traz o
+ * resumo completo (números, barra, cenários que falharam), não só um link.
+ *
  * Lê as seguintes variáveis de ambiente:
  *   RESEND_API_KEY              chave da API do Resend (secret do GitHub).
  *                                Se não estiver configurada, o script AVISA
@@ -53,6 +64,11 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RUN_ID = process.env.GITHUB_RUN_ID || String(Date.now());
 const BUCKET = "uploads";
+// Domínio público do site -- não é segredo nenhum, pode aparecer em log
+// e em resumo do GitHub Actions sem problema (ao contrário da URL do
+// Supabase, que o GitHub mascara como "***" por vir de um secret --
+// ver issue #75).
+const SITE_URL = process.env.SITE_URL || "https://duvoenterprise.com.br";
 
 /**
  * Lê um relatório JSON do Cucumber e devolve total/falharam/duração e a
@@ -233,6 +249,71 @@ function montarResumoHtml({ tudoPassou, contagemSmoke, contagemCompleto }) {
 }
 
 /**
+ * Mesma barrinha verde/vermelho de barraSvg(), mas em tabela HTML (não
+ * SVG) -- forma clássica de fazer uma barra colorida que sobrevive a
+ * cliente de e-mail (Gmail, Outlook etc.), que costuma cortar <svg> e
+ * <style>. Usada só no corpo do e-mail; a página hospedada continua
+ * usando o SVG normal.
+ */
+function barraEmail(passaram, falharam) {
+  const total = passaram + falharam || 1;
+  const pctPassou = Math.round((passaram / total) * 100);
+  const pctFalhou = 100 - pctPassou;
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0;">
+      <tr>
+        ${pctPassou > 0 ? `<td width="${pctPassou}%" bgcolor="#22c55e" style="height:14px;line-height:14px;font-size:1px;">&nbsp;</td>` : ""}
+        ${pctFalhou > 0 ? `<td width="${pctFalhou}%" bgcolor="#ef4444" style="height:14px;line-height:14px;font-size:1px;">&nbsp;</td>` : ""}
+      </tr>
+    </table>`;
+}
+
+/**
+ * Card de uma suíte (Smoke / Sistema completo) pronto pra ir dentro do
+ * corpo do e-mail -- tudo com estilo inline (sem <style> nem classe),
+ * porque cliente de e-mail não respeita CSS externo nem <head>.
+ */
+function cardEmailSuite(nome, resultadoJob, contagem) {
+  const emoji = emojiDoResultado(resultadoJob);
+  const caixa = (conteudo) => `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;">
+      <tr><td style="padding:16px 18px;">
+        <p style="margin:0 0 10px 0;font-size:15px;font-weight:600;color:#0f172a;">${emoji} ${escaparHtml(nome)}</p>
+        ${conteudo}
+      </td></tr>
+    </table>`;
+
+  if (!contagem) {
+    return caixa(
+      `<p style="margin:0;font-size:13px;color:#64748b;">Sem relatório JSON disponível (resultado: ${escaparHtml(resultadoJob)}).</p>`
+    );
+  }
+  const passaram = contagem.total - contagem.falharam;
+  const listaFalhas = contagem.cenariosFalhos
+    .slice(0, 10)
+    .map(
+      (c) =>
+        `<li style="margin-bottom:4px;"><strong>${escaparHtml(c.feature)}</strong> -- ${escaparHtml(c.cenario)}</li>`
+    )
+    .join("");
+  const maisFalhas =
+    contagem.cenariosFalhos.length > 10
+      ? `<p style="margin:6px 0 0 0;font-size:12px;color:#94a3b8;">+ ${contagem.cenariosFalhos.length - 10} outro(s) -- ver relatório completo.</p>`
+      : "";
+  return caixa(`
+    <p style="margin:0 0 4px 0;font-size:13px;color:#334155;">
+      <strong>${passaram}/${contagem.total}</strong> passaram · <strong>${contagem.falharam}</strong> falharam · ${formatarDuracao(contagem.duracaoSegundos)}
+    </p>
+    ${barraEmail(passaram, contagem.falharam)}
+    ${
+      listaFalhas
+        ? `<p style="margin:12px 0 4px 0;font-size:12px;color:#64748b;">Cenários que falharam:</p><ul style="margin:0;padding-left:18px;font-size:12px;color:#334155;">${listaFalhas}</ul>${maisFalhas}`
+        : ""
+    }
+  `);
+}
+
+/**
  * Sobe um arquivo pro bucket `uploads` do Supabase Storage via REST API
  * (sem precisar instalar @supabase/supabase-js neste job) e devolve a URL
  * pública. Devolve null (e só avisa no log) se faltar configuração ou a
@@ -297,13 +378,20 @@ async function principal() {
     resumoHtml,
     "text/html; charset=utf-8"
   );
+  // Link fácil de compartilhar, no nosso próprio domínio -- não é a URL
+  // direta do Supabase (que o navegador mostra como texto puro em vez de
+  // abrir, e que o GitHub mascara como "***" nos resumos por vir de um
+  // secret). Ver src/pages/api/ci-reports/[runId].ts e issue #75.
+  const urlAmigavel = urlResumo ? `${SITE_URL}/api/ci-reports/${RUN_ID}` : null;
   if (urlResumo) {
     console.log(`[email] resumo publicado em: ${urlResumo}`);
+    console.log(`[email] link fácil: ${urlAmigavel}`);
   }
 
   // Escreve no resumo do próprio step do GitHub Actions (aba "Summary" do
   // run) -- assim quem abre o run também vê o link direto, sem precisar
-  // caçar em Artifacts. Ver issue #70.
+  // caçar em Artifacts. Ver issue #70. Usa o link amigável (não a URL do
+  // Supabase) pra não ser mascarado pelo GitHub -- ver issue #75.
   if (process.env.GITHUB_STEP_SUMMARY) {
     const linhas = [
       `## Resumo dos testes`,
@@ -311,26 +399,30 @@ async function principal() {
       linhaDaSuite("Smoke", RESULTADO_SMOKE, contagemSmoke).replace(/<\/?(li|strong)>/g, ""),
       linhaDaSuite("Sistema completo (2ª rodada)", RESULTADO_COMPLETO, contagemCompleto).replace(/<\/?(li|strong)>/g, ""),
       "",
-      urlResumo
-        ? `📊 [Abrir o relatório bonito, direto no navegador](${urlResumo})`
+      urlAmigavel
+        ? `📊 [Abrir o relatório bonito, direto no navegador](${urlAmigavel})`
         : "_(relatório resumido não pôde ser publicado -- ver log do step)_",
       "",
     ].join("\n");
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, linhas + "\n");
   }
 
+  // O resumo completo (números, barra, cenários que falharam) já vai no
+  // corpo do e-mail -- não só um link -- pra dar pra ver tudo sem precisar
+  // clicar em nada. Ver issue #75.
   const corpoHtml = `
-    <h2>${assunto}</h2>
-    <ul>
-      ${linhaDaSuite("Smoke", RESULTADO_SMOKE, contagemSmoke)}
-      ${linhaDaSuite("Sistema completo (2ª rodada)", RESULTADO_COMPLETO, contagemCompleto)}
-    </ul>
-    ${
-      urlResumo
-        ? `<p><a href="${urlResumo}"><strong>📊 Abrir o relatório de testes</strong></a> -- abre direto no navegador, sem precisar baixar nada.</p>`
-        : ""
-    }
-    <p><a href="${RUN_URL}">Ver o run completo no GitHub Actions</a> (detalhe passo a passo de cada cenário, com screenshot de cada falha, está em Artifacts, na mesma página).</p>
+    <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
+      <h2 style="margin:0 0 4px 0;font-size:19px;">${assunto}</h2>
+      <p style="margin:0 0 18px 0;font-size:13px;color:#64748b;">D'Uvo Enterprise -- relatório automático</p>
+      ${cardEmailSuite("Smoke", RESULTADO_SMOKE, contagemSmoke)}
+      ${cardEmailSuite("Sistema completo (2ª rodada)", RESULTADO_COMPLETO, contagemCompleto)}
+      ${
+        urlAmigavel
+          ? `<p style="margin:18px 0 6px 0;"><a href="${urlAmigavel}" style="color:#2563eb;font-weight:600;text-decoration:none;">📊 Abrir o relatório completo no navegador</a></p>`
+          : ""
+      }
+      <p style="margin:6px 0 0 0;font-size:12px;color:#94a3b8;">Detalhe passo a passo de cada cenário (com screenshot de cada falha, quando houver): <a href="${RUN_URL}" style="color:#2563eb;">ver o run no GitHub Actions</a> → aba Artifacts.</p>
+    </div>
   `;
 
   if (!RESEND_API_KEY) {

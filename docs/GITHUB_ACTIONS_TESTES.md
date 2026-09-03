@@ -126,32 +126,43 @@ qualquer navegador.
 Uma observação que vale mais que qualquer relatório: **a mensagem quase
 sempre está no log do passo que ficou vermelho**, em texto claro.
 
-## E-mail com o resumo (issues #69 e #70)
+## E-mail com o resumo (issues #69, #70 e #75)
 
 Depois que a rodada completa termina (Smoke + Sistema completo, passando ou
 falhando), o job `notificar_por_email` manda um e-mail para
-`stefcadu@gmail.com` com quantos cenários passaram/falharam em cada rodada,
-quanto tempo cada rodada levou e, se algum cenário falhou, o nome de cada um.
-Usa o [Resend](https://resend.com) (mesmo serviço já usado para recuperação
-de senha, ver `src/pages/api/send-password-recovery.ts`), lendo a chave do
+`stefcadu@gmail.com` com o resumo completo de cada rodada — quantos cenários
+passaram/falharam, quanto tempo levou e, se algum cenário falhou, uma
+barrinha verde/vermelha e o nome de cada cenário que quebrou, tudo já **no
+corpo do e-mail**, sem precisar clicar em nada. Usa o
+[Resend](https://resend.com) (mesmo serviço já usado para recuperação de
+senha, ver `src/pages/api/send-password-recovery.ts`), lendo a chave do
 secret `RESEND_API_KEY` do GitHub — sem esse secret configurado, o job só
 avisa no log e não quebra o CI por causa disso (e-mail é notificação, não
 teste). Script: `scripts/enviar-relatorio-email.js`.
 
 Desde 03/set/2026 (issue #70), o mesmo script também monta uma **página de
-resumo própria** (números em destaque + uma barrinha verde/vermelha por
-rodada — só HTML e CSS, sem o bundle do Cucumber, então abre sempre) e sobe
-ela pro bucket `uploads` do Supabase Storage (o mesmo já usado pelos anexos
-do sistema), em `ci-reports/<run_id>/resumo.html`. O e-mail já chega com um
-link "📊 Abrir o relatório de testes" que aponta pra essa página — não
-precisa mais baixar `.zip` nem extrair nada. O mesmo link também aparece na
-aba **Summary** do run, no GitHub Actions (via `$GITHUB_STEP_SUMMARY`).
+resumo própria** (o mesmo conteúdo do e-mail, só que como página — HTML e
+CSS puro, sem o bundle do Cucumber, então abre sempre) e sobe ela pro bucket
+`uploads` do Supabase Storage (o mesmo já usado pelos anexos do sistema), em
+`ci-reports/<run_id>/resumo.html`.
+
+⚠️ Corrigido em 03/set/2026, ainda no mesmo dia (issue #75): o Supabase
+Storage **sempre** serve arquivo `.html` como `Content-Type: text/plain`
+(decisão deles, proteção contra phishing hospedado no domínio do Storage) —
+o navegador mostrava o código-fonte em vez de abrir a página, não importa o
+Content-Type mandado no upload. E o link direto do Supabase, por vir de um
+secret do GitHub, aparecia mascarado como `***` no resumo do Actions.
+Correção: o e-mail e o resumo do Actions (`$GITHUB_STEP_SUMMARY`) agora
+linkam pra `https://duvoenterprise.com.br/api/ci-reports/<run_id>` — uma
+rota do próprio site (`src/pages/api/ci-reports/[runId].ts`) que busca o
+HTML no Storage e devolve de novo com o `Content-Type` certo. Link fixo,
+fácil de repassar, e não depende de nenhum secret aparecer em texto.
 
 Pra esse upload funcionar, o step precisa dos mesmos secrets
 `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` da tabela acima
 (apontando pro projeto de DEV, igual aos outros dois jobs). Se faltar algum
-dos dois, o script só avisa no log e o e-mail sai sem o link direto — não
-quebra o envio.
+dos dois, o script só avisa no log e o e-mail sai sem o link — não quebra o
+envio (mas o resumo completo continua no corpo do e-mail de qualquer jeito).
 
 Essas páginas de resumo não são apagadas automaticamente (diferente do
 artefato do GitHub Actions, que expira em 14 dias) — combinado com o Cadu
