@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Resend } from "resend";
 import jwt from "jsonwebtoken";
+import { obterSegredoDeRecuperacaoDeSenha } from "@/lib/passwordResetSecret";
 
 // Instanciado só dentro do handler (não aqui, no carregamento do arquivo):
 // `new Resend(undefined)` explode direto no construtor, antes de qualquer
@@ -172,7 +173,16 @@ export default async function handler(
     }
 
     // Modo 2: Email com link de redefinição (modo antigo - "Esqueci minha senha")
-    const secret = process.env.JWT_SECRET || "duvo-enterprise-secret-key-2024";
+    let secret: string;
+    try {
+      secret = obterSegredoDeRecuperacaoDeSenha();
+    } catch (err) {
+      console.error("❌ [send-password-recovery] JWT_SECRET não configurada:", err);
+      return res.status(500).json({
+        success: false,
+        error: "Configuração de segurança ausente no servidor. Entre em contato com o suporte.",
+      });
+    }
     const token = jwt.sign(
       { userId, email, type: "password_reset" },
       secret,

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import jwt from "jsonwebtoken";
 import { createClient } from "@supabase/supabase-js";
+import { obterSegredoDeRecuperacaoDeSenha } from "@/lib/passwordResetSecret";
 
 type ResponseData = {
   success: boolean;
@@ -26,9 +27,18 @@ export default async function handler(
     }
 
     // Validar token JWT
-    const secret = process.env.JWT_SECRET || "duvo-enterprise-secret-key-2024";
+    let secret: string;
+    try {
+      secret = obterSegredoDeRecuperacaoDeSenha();
+    } catch (err) {
+      console.error("❌ [reset-password] JWT_SECRET não configurada:", err);
+      return res.status(500).json({
+        success: false,
+        error: "Configuração de segurança ausente no servidor. Entre em contato com o suporte.",
+      });
+    }
     let decoded: any;
-    
+
     try {
       decoded = jwt.verify(token, secret);
     } catch (err) {
