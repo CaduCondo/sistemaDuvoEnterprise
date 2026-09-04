@@ -78,12 +78,26 @@ const SITE_URL = process.env.SITE_URL || "https://duvoenterprise.com.br";
  * step com `result.status` e `result.duration` (nanosegundos).
  */
 function contarCenarios(caminhoJson) {
-  if (!fs.existsSync(caminhoJson)) return null;
+  if (!fs.existsSync(caminhoJson)) {
+    console.warn(`[email] ${caminhoJson} não existe (artefato não baixado ou suíte não rodou).`);
+    return null;
+  }
+  // Diagnóstico do bug #75 (parte 1): o arquivo às vezes chega vazio/
+  // truncado do artefato baixado, e ainda não sabemos por quê. Logar o
+  // tamanho aqui, sem tentar consertar sozinho, é o que falta pra próxima
+  // execução real do CI mostrar a causa (arquivo de 0 bytes? conteúdo
+  // cortado no meio? algo mais?).
+  const tamanho = fs.statSync(caminhoJson).size;
+  console.log(`[email] ${caminhoJson}: ${tamanho} bytes`);
   let features;
   try {
-    features = JSON.parse(fs.readFileSync(caminhoJson, "utf8"));
+    const bruto = fs.readFileSync(caminhoJson, "utf8");
+    if (tamanho <= 200) {
+      console.log(`[email] conteúdo bruto de ${caminhoJson}: ${JSON.stringify(bruto)}`);
+    }
+    features = JSON.parse(bruto);
   } catch (erro) {
-    console.warn(`[email] não consegui ler ${caminhoJson}: ${erro.message}`);
+    console.warn(`[email] não consegui ler ${caminhoJson} (${tamanho} bytes): ${erro.message}`);
     return null;
   }
   let total = 0;

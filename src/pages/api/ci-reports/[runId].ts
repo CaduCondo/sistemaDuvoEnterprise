@@ -14,6 +14,22 @@ import type { NextApiRequest, NextApiResponse } from "next";
  * vez de renderizar a página, não importa o Content-Type que a gente
  * mande no upload. Essa rota busca o HTML no Storage e devolve de novo
  * com o Content-Type certo, a partir do nosso próprio domínio.
+ *
+ * ⚠️ Bug #75 (parte 2): o GitHub Actions sempre sobe o resumo.html pro
+ * Supabase de DESENVOLVIMENTO (é o projeto configurado nos secrets do
+ * GitHub, `secrets.NEXT_PUBLIC_SUPABASE_URL` -- ver .github/workflows/
+ * smoke.yml). Só que em produção (Vercel), a variável
+ * `NEXT_PUBLIC_SUPABASE_URL` aponta pro Supabase de PRODUÇÃO -- são dois
+ * projetos diferentes. Por isso essa rota, rodando em produção, procurava
+ * o arquivo no banco errado e sempre dava "não consegui buscar" (502).
+ *
+ * Corrigido usando uma variável própria (`CI_REPORTS_SUPABASE_URL`), que
+ * deve apontar SEMPRE pro Supabase de desenvolvimento -- o mesmo projeto
+ * de sempre, não é segredo (é só o endereço do projeto, igual
+ * NEXT_PUBLIC_SUPABASE_URL já era público). Se essa variável não estiver
+ * configurada na Vercel, cai de volta pro NEXT_PUBLIC_SUPABASE_URL de
+ * sempre (comportamento antigo), pra não quebrar nada enquanto ela não é
+ * adicionada.
  */
 export default async function handler(
   req: NextApiRequest,
@@ -32,7 +48,8 @@ export default async function handler(
     return res.status(400).send("Run id inválido.");
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseUrl =
+    process.env.CI_REPORTS_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl) {
     return res.status(500).send("Configuração do servidor incompleta.");
   }

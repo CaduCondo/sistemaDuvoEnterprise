@@ -169,6 +169,34 @@ artefato do GitHub Actions, que expira em 14 dias) — combinado com o Cadu
 que isso não é problema por enquanto; se o bucket crescer demais no futuro,
 dá pra revisitar.
 
+⚠️ **Corrigido em 04/set/2026 (issue #75, parte 2):** o link `/api/ci-reports/
+<run_id>` abria uma tela preta em produção ("Não consegui buscar o relatório
+agora"). Causa: o GitHub Actions sempe sobe o `resumo.html` pro Supabase de
+**desenvolvimento** (`secrets.NEXT_PUBLIC_SUPABASE_URL` no workflow), mas em
+produção (Vercel) a variável `NEXT_PUBLIC_SUPABASE_URL` aponta pro Supabase
+de **produção** — são dois projetos diferentes, então a rota procurava o
+arquivo no banco errado. Correção: a rota agora usa uma variável própria,
+`CI_REPORTS_SUPABASE_URL`, que precisa apontar sempre pro Supabase de
+desenvolvimento.
+
+**Passo pendente do Cadu:** adicionar na Vercel (Project Settings → Environment
+Variables) a variável `CI_REPORTS_SUPABASE_URL` com o valor
+`https://yrknfweilbuwrhzzwnrr.supabase.co` (o mesmo projeto de DEV, é só o
+endereço do projeto — não é segredo, não precisa de chave nenhuma), marcada
+para todos os ambientes (Production/Preview/Development). Sem isso, a rota
+continua caindo no `NEXT_PUBLIC_SUPABASE_URL` de produção (o mesmo bug de
+antes).
+
+⚠️ **Ainda em aberto (issue #75, parte 1):** o corpo do e-mail às vezes vem
+sem os números de cada rodada ("Sem relatório JSON disponível"), mesmo com a
+rodada tendo passado. O log confirma que `smoke-report.json`/
+`sistema-completo-report.json` existem no caminho certo, mas o conteúdo não
+é um JSON válido (`Unexpected end of JSON input`) — indício de arquivo vazio
+ou cortado no meio. Causa raiz ainda não encontrada; `contarCenarios()` em
+`scripts/enviar-relatorio-email.js` agora loga o tamanho (e o conteúdo, se
+for pequeno) do arquivo antes de tentar ler, para a próxima execução real do
+CI revelar o que está acontecendo.
+
 ## Problemas comuns
 
 **"Cucumber can only run on Node.js versions..."**
