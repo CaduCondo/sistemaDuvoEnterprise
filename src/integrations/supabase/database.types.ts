@@ -675,6 +675,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           created_by_name: string | null
+          github_issue_number: number | null
           how_to: string | null
           id: string
           module: string | null
@@ -693,6 +694,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
+          github_issue_number?: number | null
           how_to?: string | null
           id?: string
           module?: string | null
@@ -707,6 +709,7 @@ export type Database = {
           action_plan?: string | null
           assigned_to?: string | null
           assigned_to_name?: string | null
+          github_issue_number?: number | null
           category?: string
           created_at?: string
           created_by?: string | null

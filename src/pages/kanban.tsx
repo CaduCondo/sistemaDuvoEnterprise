@@ -270,7 +270,14 @@ export default function KanbanPage() {
                               onClick={() => handleOpenCard(card)}
                             >
                               <CardContent className="p-3 space-y-2">
-                                <p className="text-sm font-medium leading-snug">{card.title}</p>
+                                <p className="text-sm font-medium leading-snug">
+                                  {card.github_issue_number && (
+                                    <span className="text-muted-foreground font-normal mr-1">
+                                      #{card.github_issue_number}
+                                    </span>
+                                  )}
+                                  {card.title}
+                                </p>
 
                                 <div className="flex flex-wrap gap-1">
                                   <Badge className={`text-[10px] px-1.5 py-0 ${CATEGORY_CLASS[card.category]}`}>

@@ -421,6 +421,10 @@ export interface KanbanCard {
   status: KanbanStatus;
   priority: KanbanPriority;
   module: string | null;
+  // Número da issue espelhada em github.com/CaduCondo/sistemaDuvoEnterprise --
+  // mesmo número no card e na issue, pra citar sem ambiguidade (issue #78).
+  // null enquanto o card não tiver issue espelhada ainda.
+  github_issue_number: number | null;
   problem_description: string | null;
   action_plan: string | null;
   how_to: string | null;

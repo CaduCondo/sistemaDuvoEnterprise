@@ -55,6 +55,7 @@ const emptyForm: Partial<KanbanCard> = {
   module: "",
   problem_description: "",
   assigned_to_name: "",
+  github_issue_number: null,
 };
 
 export function KanbanCardDialog({
@@ -188,19 +189,44 @@ export function KanbanCardDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent id="kanban-card-dialog" className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{card ? "Editar Item" : "Novo Item do Kanban"}</DialogTitle>
+          <DialogTitle>
+            {card ? "Editar Item" : "Novo Item do Kanban"}
+            {form.github_issue_number ? (
+              <span className="ml-2 text-muted-foreground font-normal">
+                #{form.github_issue_number}
+              </span>
+            ) : null}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="kanban-title">Título</Label>
-            <Input
-              id="kanban-title"
-              value={form.title || ""}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              placeholder="Ex: Anexo não aparece na listagem de recebimentos"
-              autoFocus
-            />
+          <div className="flex gap-3">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="kanban-title">Título</Label>
+              <Input
+                id="kanban-title"
+                value={form.title || ""}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Ex: Anexo não aparece na listagem de recebimentos"
+                autoFocus
+              />
+            </div>
+            <div className="w-28 space-y-2">
+              <Label htmlFor="kanban-github-issue">Issue GitHub</Label>
+              <Input
+                id="kanban-github-issue"
+                type="number"
+                inputMode="numeric"
+                value={form.github_issue_number ?? ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    github_issue_number: e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
+                placeholder="Nº"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
