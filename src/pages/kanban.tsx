@@ -6,6 +6,7 @@ import { SEO } from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, ChevronLeft, ChevronRight, User as UserIcon } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, User as UserIcon, Search, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useKanban } from "@/hooks/useKanban";
 import { KanbanCardDialog } from "@/components/kanban/KanbanCardDialog";
@@ -81,6 +82,7 @@ export default function KanbanPage() {
   const [cardToDelete, setCardToDelete] = useState<KanbanCard | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverZone, setDragOverZone] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Apenas admin e corretor têm acesso ao kanban
   const canAccess = authUser?.role === "admin" || authUser?.role === "broker";
@@ -91,6 +93,20 @@ export default function KanbanPage() {
     }
   }, [authUser, canAccess, router]);
 
+  // Busca por título, descrição ou nº da issue do GitHub (ex.: "79" ou "#79")
+  // -- pedido do Cadu (06/set/2026) pra achar um card rápido sem precisar
+  // rolar as colunas inteiras.
+  const filteredCards = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase().replace(/^#/, "");
+    if (!query) return cards;
+    return cards.filter((c) => {
+      const titleMatch = c.title?.toLowerCase().includes(query);
+      const descriptionMatch = c.problem_description?.toLowerCase().includes(query);
+      const issueMatch = c.github_issue_number != null && String(c.github_issue_number).includes(query);
+      return Boolean(titleMatch || descriptionMatch || issueMatch);
+    });
+  }, [cards, searchTerm]);
+
   const cardsByColumn = useMemo(() => {
     const map: Record<KanbanStatus, Record<KanbanPriority, KanbanCard[]>> = {
       backlog: { urgente: [], alta: [], media: [], baixa: [] },
@@ -98,13 +114,13 @@ export default function KanbanPage() {
       in_progress: { urgente: [], alta: [], media: [], baixa: [] },
       done: { urgente: [], alta: [], media: [], baixa: [] },
     };
-    cards.forEach((c) => {
+    filteredCards.forEach((c) => {
       if (map[c.status] && map[c.status][c.priority]) {
         map[c.status][c.priority].push(c);
       }
     });
     return map;
-  }, [cards]);
+  }, [filteredCards]);
 
   const columnTotal = (status: KanbanStatus) =>
     Object.values(cardsByColumn[status]).reduce((sum, list) => sum + list.length, 0);
@@ -211,6 +227,27 @@ export default function KanbanPage() {
           </Button>
         </div>
 
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            id="kanban-search-input"
+            placeholder="Buscar por título, descrição ou nº da issue (ex.: 79 ou #79)..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-9"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              title="Limpar busca"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         {isLoading ? (
           <div className="flex items-center justify-center min-h-[40vh]">
             <div className="text-center">
@@ -270,16 +307,18 @@ export default function KanbanPage() {
                               onClick={() => handleOpenCard(card)}
                             >
                               <CardContent className="p-3 space-y-2">
-                                <p className="text-sm font-medium leading-snug">
-                                  {card.github_issue_number && (
-                                    <span className="text-muted-foreground font-normal mr-1">
-                                      #{card.github_issue_number}
-                                    </span>
-                                  )}
-                                  {card.title}
-                                </p>
+                                <p className="text-sm font-medium leading-snug">{card.title}</p>
 
                                 <div className="flex flex-wrap gap-1">
+                                  {card.github_issue_number && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] px-1.5 py-0 font-mono font-semibold border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300"
+                                      title={`Issue #${card.github_issue_number} no GitHub`}
+                                    >
+                                      #{card.github_issue_number}
+                                    </Badge>
+                                  )}
                                   <Badge className={`text-[10px] px-1.5 py-0 ${CATEGORY_CLASS[card.category]}`}>
                                     {CATEGORY_LABEL[card.category]}
                                   </Badge>
