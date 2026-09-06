@@ -28,8 +28,12 @@ module.exports = {
     // "tudo que o @smoke não cobriu" (ver e2e/SMOKE.md).
     tags: '@sistemaCompleto',
 
-    // Mesma lógica do smoke: 2 núcleos disponíveis no GitHub Actions.
-    parallel: 2,
+    // SEM --parallel (06/set/2026, issue #75) -- ver o comentário completo
+    // em cucumber.smoke.config.cjs: o motor paralelo (worker_threads) do
+    // cucumber-js 13.x tem uma corrida confirmada que deixa o relatório
+    // JSON sempre vazio (0 bytes) e o HTML cortado/em branco. Sem versão
+    // corrigida disponível (13.2.1 já é a mais recente), a saída é não
+    // paralelizar por enquanto -- mais lento, mas confiável.
 
     format: [
       'progress-bar',
