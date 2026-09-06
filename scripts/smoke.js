@@ -82,10 +82,12 @@ const SUITES = {
   smoke: {
     config: "e2e/cucumber.smoke.config.cjs",
     label: "cenários marcados com @smoke",
+    reportJson: "e2e/reports/smoke-report.json",
   },
   sistemaCompleto: {
     config: "e2e/cucumber.sistemaCompleto.config.cjs",
     label: "cenários marcados com @sistemaCompleto (tudo que não é @smoke)",
+    reportJson: "e2e/reports/sistema-completo-report.json",
   },
 };
 const NOME_SUITE = (argSuite && argSuite.split("=")[1]) || "smoke";
@@ -336,6 +338,24 @@ async function principal() {
       SMOKE_BASE_URL: ENDERECO,
       NEXT_PUBLIC_SITE_URL: ENDERECO,
     });
+    // Diagnóstico do bug #75 (parte 1): em produção o CI está saindo desse
+    // comando em ~1-4s (rápido demais para os cenários reais rodarem) e o
+    // JSON do relatório chega vazio (0 bytes). `status` (código de saída) e
+    // `signal` (se o processo morreu por sinal, ex.: SIGSEGV/SIGKILL do
+    // Chromium travando na máquina do GitHub Actions) e `error` (se nem
+    // chegou a rodar) dizem exatamente o que aconteceu -- sem isso só dava
+    // pra ver que o JSON estava vazio, não o motivo.
+    log(
+      `[diagnóstico #75] cucumber-js saiu com status=${testes.status} signal=${testes.signal} error=${testes.error ? testes.error.message : "nenhum"}`
+    );
+    try {
+      const tamanhoJson = fs.existsSync(SUITE.reportJson)
+        ? fs.statSync(SUITE.reportJson).size
+        : null;
+      log(`[diagnóstico #75] ${SUITE.reportJson}: ${tamanhoJson === null ? "não existe" : `${tamanhoJson} bytes`} (checado logo após o cucumber-js retornar, antes de derrubar a aplicação)`);
+    } catch (erroDiagnostico) {
+      log(`[diagnóstico #75] não consegui checar o tamanho do JSON: ${erroDiagnostico.message}`);
+    }
     codigoFinal = testes.status === null ? 1 : testes.status;
   } catch (erro) {
     log(`Erro: ${erro.message}`);
