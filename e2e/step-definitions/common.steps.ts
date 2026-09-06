@@ -454,8 +454,12 @@ Then('todos os elementos devem estar acessíveis', async function (this: CustomW
 });
 
 Then('as tabelas devem ser scrolláveis horizontalmente', async function (this: CustomWorld) {
+  // ⚠️ Corrigido (auditoria de falso positivo, 06/set/2026): o ".catch(() =>
+  // {})" engolia a falha da asserção -- o passo passava mesmo quando a
+  // tabela não existia ou não era scrollável. Removido: agora falha de
+  // verdade quando o elemento não aparece.
   const scrollable = this.page.locator('[class*="overflow-x-auto" i], [class*="overflow-auto" i]').first();
-  await expect(scrollable).toBeVisible({ timeout: 5000 }).catch(() => {});
+  await expect(scrollable).toBeVisible({ timeout: 5000 });
 });
 
 /** =================== REGRESSÃO VISUAL / HEADER =================== */
@@ -492,8 +496,11 @@ Then('todos os elementos devem estar presentes', async function (this: CustomWor
 });
 
 Then('os filtros devem funcionar', async function (this: CustomWorld) {
+  // ⚠️ Corrigido (auditoria de falso positivo, 06/set/2026): mesmo problema
+  // do passo acima -- o ".catch(() => {})" fazia esse passo passar mesmo
+  // sem nenhum campo de busca/filtro na tela.
   const filter = this.page.locator('input[type="search"], input[id*="search" i]').first();
-  await expect(filter).toBeVisible({ timeout: 5000 }).catch(() => {});
+  await expect(filter).toBeVisible({ timeout: 5000 });
 });
 
 Then('os filtros de mês\\/ano devem funcionar', async function (this: CustomWorld) {

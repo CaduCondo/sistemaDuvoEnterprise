@@ -52,7 +52,10 @@ When('clico no botão de visualização em lista', async function (this: CustomW
 });
 
 Then('devo ver os imóveis em formato de cards', async function (this: CustomWorld) {
-  await expect(this.page.locator('table')).not.toBeVisible().catch(() => {});
+  // ⚠️ Corrigido (auditoria de falso positivo, 06/set/2026): o
+  // ".catch(() => {})" engolia a falha de "a tabela não deve aparecer" --
+  // o passo passava mesmo com a tabela ainda visível junto dos cards.
+  await expect(this.page.locator('table')).not.toBeVisible();
   await expect(this.page.locator('[class*="card" i]').first()).toBeVisible({ timeout: 5000 });
 });
 
