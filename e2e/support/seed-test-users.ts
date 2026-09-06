@@ -23,9 +23,10 @@
  *
  * ⚠️ CAUSA RAIZ DO BUG #75 (06/set/2026): este arquivo mora em
  * `e2e/support/`, e TODOS os configs do Cucumber (`cucumber.smoke.config.cjs`
- * e `cucumber.sistemaCompleto.config.cjs`) têm `require: ['e2e/support/**/*.ts',
- * ...]` -- ou seja, o PRÓPRIO cucumber-js importa este arquivo de novo, como
- * "arquivo de apoio", antes de rodar qualquer cenário. Sem a proteção abaixo
+ * e `cucumber.sistemaCompleto.config.cjs`) têm um `require` que pega TODOS os
+ * arquivos .ts dentro de `e2e/support` (em qualquer subpasta) como "arquivo
+ * de apoio" -- ou seja, o PRÓPRIO cucumber-js importa este arquivo de novo,
+ * antes de rodar qualquer cenário. Sem a proteção abaixo
  * (`require.main === module`), o código logo depois deste comentário rodava
  * TODA VEZ que o arquivo era importado -- inclusive essa segunda vez, dentro
  * do próprio cucumber-js -- e terminava chamando `process.exit(0)` assim que
