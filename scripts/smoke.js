@@ -83,11 +83,13 @@ const SUITES = {
     config: "e2e/cucumber.smoke.config.cjs",
     label: "cenários marcados com @smoke",
     reportJson: "e2e/reports/smoke-report.json",
+    reportMessages: "e2e/reports/smoke-messages.ndjson",
   },
   sistemaCompleto: {
     config: "e2e/cucumber.sistemaCompleto.config.cjs",
     label: "cenários marcados com @sistemaCompleto (tudo que não é @smoke)",
     reportJson: "e2e/reports/sistema-completo-report.json",
+    reportMessages: "e2e/reports/sistema-completo-messages.ndjson",
   },
 };
 const NOME_SUITE = (argSuite && argSuite.split("=")[1]) || "smoke";
@@ -354,25 +356,44 @@ async function principal() {
         : null;
       log(`[diagnóstico #75] ${SUITE.reportJson}: ${tamanhoJson === null ? "não existe" : `${tamanhoJson} bytes`} (checado logo após o cucumber-js retornar, antes de derrubar a aplicação)`);
 
-      // Diagnóstico #75 (parte 2, 06/set/2026): as duas primeiras rodadas
-      // reais mostraram status=0 (saída limpa, sem sinal/erro) e MESMO ASSIM
-      // 0 bytes neste ponto -- ou seja, não é o Chromium travando. Hipótese:
-      // com "--parallel 2" o cucumber-js sobe processos "worker" para rodar
-      // os cenários, e o processo principal (o que o spawnSync acima
-      // acompanha) pode estar retornando ANTES de todo worker terminar de
-      // fato de escrever no arquivo -- um órfão em segundo plano. Fica
-      // observando por até 10s se o arquivo "cresce sozinho" depois do
-      // processo principal já ter saído, para confirmar (ou descartar) essa
-      // hipótese com dado real, em vez de mais suposição.
-      if (!tamanhoJson) {
-        for (let tentativa = 1; tentativa <= 10; tentativa++) {
-          await new Promise((r) => setTimeout(r, 1000));
-          const novoTamanho = fs.existsSync(SUITE.reportJson)
-            ? fs.statSync(SUITE.reportJson).size
-            : null;
-          log(`[diagnóstico #75] +${tentativa}s depois do cucumber-js sair: ${SUITE.reportJson}: ${novoTamanho === null ? "não existe" : `${novoTamanho} bytes`}`);
-          if (novoTamanho) break;
-        }
+      // Diagnóstico #75 (parte 3, 06/set/2026): as hipóteses anteriores
+      // (Chromium travando; corrida do --parallel/worker_threads) foram
+      // testadas e DESCARTADAS com dado real -- mesmo sem --parallel o JSON
+      // continua 0 bytes, e esperar mais não ajuda (não é uma corrida que se
+      // resolve sozinha -- já testado, sempre ficava 0 mesmo 10s depois).
+      // Achado novo mais sério: só se passam ~3-4s entre "Rodando os
+      // cenários" e o cucumber-js sair -- tempo de menos pra 12 cenários
+      // reais de navegador. Suspeita atual: os cenários podem não estar
+      // sendo encontrados/rodados de verdade neste ambiente (0 cenários
+      // batendo com a tag). Por isso agora tem também o formatter "message"
+      // (e2e/reports/*-messages.ndjson) -- ele grava CADA evento aos poucos,
+      // não tudo de uma vez no final, então mesmo que o processo saia cedo
+      // demais, o que já tiver acontecido fica registrado. Checando aqui
+      // quantas linhas (eventos) ele conseguiu gravar, e os tipos das
+      // primeiras/últimas -- isso deve dizer se o cucumber chegou a
+      // encontrar os cenários (evento "testCase") e começar a rodar
+      // (evento "testCaseStarted") ou não.
+      const tamanhoMsgs = fs.existsSync(SUITE.reportMessages)
+        ? fs.statSync(SUITE.reportMessages).size
+        : null;
+      log(`[diagnóstico #75] ${SUITE.reportMessages}: ${tamanhoMsgs === null ? "não existe" : `${tamanhoMsgs} bytes`}`);
+      if (tamanhoMsgs) {
+        const linhas = fs
+          .readFileSync(SUITE.reportMessages, "utf8")
+          .split("\n")
+          .filter(Boolean);
+        log(`[diagnóstico #75] ${SUITE.reportMessages}: ${linhas.length} eventos gravados`);
+        const tipos = linhas.map((linha) => {
+          try {
+            return Object.keys(JSON.parse(linha))[0];
+          } catch {
+            return "?";
+          }
+        });
+        const contagemPorTipo = {};
+        for (const tipo of tipos) contagemPorTipo[tipo] = (contagemPorTipo[tipo] || 0) + 1;
+        log(`[diagnóstico #75] tipos de evento: ${JSON.stringify(contagemPorTipo)}`);
+        log(`[diagnóstico #75] últimos 5 tipos, na ordem: ${tipos.slice(-5).join(", ")}`);
       }
     } catch (erroDiagnostico) {
       log(`[diagnóstico #75] não consegui checar o tamanho do JSON: ${erroDiagnostico.message}`);

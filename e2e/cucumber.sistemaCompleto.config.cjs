@@ -29,16 +29,16 @@ module.exports = {
     tags: '@sistemaCompleto',
 
     // SEM --parallel (06/set/2026, issue #75) -- ver o comentário completo
-    // em cucumber.smoke.config.cjs: o motor paralelo (worker_threads) do
-    // cucumber-js 13.x tem uma corrida confirmada que deixa o relatório
-    // JSON sempre vazio (0 bytes) e o HTML cortado/em branco. Sem versão
-    // corrigida disponível (13.2.1 já é a mais recente), a saída é não
-    // paralelizar por enquanto -- mais lento, mas confiável.
+    // (e a atualização de que isso sozinho NÃO resolveu) em
+    // cucumber.smoke.config.cjs.
 
     format: [
       'progress-bar',
       'html:e2e/reports/sistema-completo-report.html',
       'json:e2e/reports/sistema-completo-report.json',
+      // Diagnóstico novo -- ver comentário completo em
+      // cucumber.smoke.config.cjs.
+      'message:e2e/reports/sistema-completo-messages.ndjson',
     ],
     formatOptions: {
       snippetInterface: 'async-await',
