@@ -21,6 +21,34 @@ export async function getAll(): Promise<KanbanCard[]> {
   return (data || []) as KanbanCard[];
 }
 
+/**
+ * A coluna `github_issue_number` foi adicionada ao código (issue #78) antes
+ * de rodar a migration em produção -- ver
+ * supabase/migrations/20260906120000_add_kanban_github_issue_number.sql.
+ * Enquanto o Cadu não rodar esse SQL no Supabase, a coluna não existe de
+ * verdade no banco e QUALQUER insert/update que a mencione falha com 400
+ * ("column not found in schema cache"). Para não travar a criação/edição de
+ * cards nesse meio tempo, se o erro vier claramente daí, a gente tenta de
+ * novo sem esse campo -- assim que a migration rodar, o campo volta a
+ * funcionar sozinho, sem precisar mexer no código de novo.
+ */
+function isMissingGithubIssueColumnError(error: unknown): boolean {
+  const message =
+    (error as { message?: string; hint?: string } | null)?.message ||
+    (error as { message?: string; hint?: string } | null)?.hint ||
+    "";
+  return message.toLowerCase().includes("github_issue_number");
+}
+
+function withoutGithubIssueNumber<T extends Record<string, unknown>>(
+  data: T
+): T {
+  const { github_issue_number, ...rest } = data as T & {
+    github_issue_number?: unknown;
+  };
+  return rest as T;
+}
+
 export async function create(
   data: Partial<KanbanCard> & { title: string }
 ): Promise<KanbanCard> {
@@ -31,6 +59,12 @@ export async function create(
     .single();
 
   if (error) {
+    if (isMissingGithubIssueColumnError(error)) {
+      console.warn(
+        "Coluna github_issue_number ainda não existe em produção (falta rodar a migration) -- criando o card sem ela."
+      );
+      return create(withoutGithubIssueNumber(data));
+    }
     console.error("Erro ao criar card do kanban:", error);
     throw error;
   }
@@ -50,6 +84,12 @@ export async function update(
     .single();
 
   if (error) {
+    if (isMissingGithubIssueColumnError(error)) {
+      console.warn(
+        "Coluna github_issue_number ainda não existe em produção (falta rodar a migration) -- atualizando o card sem ela."
+      );
+      return update(id, withoutGithubIssueNumber(data));
+    }
     console.error("Erro ao atualizar card do kanban:", error);
     throw error;
   }
