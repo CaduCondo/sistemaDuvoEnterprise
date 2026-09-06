@@ -141,7 +141,19 @@ export function DepositInstallmentsTable({
             )
           )
         `)
-        .order("due_date", { ascending: true, nullsFirst: false });
+        // ⚠️ CORRIGIDO (#79): estava `ascending: true` -- o Supabase corta em
+        // no máximo 1.000 linhas por padrão (mesmo defeito já visto e corrigido
+        // em usePayments.ts/payments.tsx, ver docs/tickets/smoke-30-ago.md item
+        // 6). Esta tela não tem filtro de mês (ao contrário da de Recebimentos)
+        // e o banco de DEV já acumula "dezenas de locações" de teste deixadas
+        // para trás por rodadas antigas do smoke -- com `ascending: true`
+        // (mais antigas primeiro), passando de 1.000 parcelas no total esse
+        // lixo antigo empurra parcelas RECENTES pra fora do corte, e a locação
+        // acabada de rescindir some da aba sem erro nenhum. A ordenação aqui
+        // não muda o que aparece na tela (sortedGroups reordena tudo de novo,
+        // mais abaixo) -- só decide quem sobrevive ao corte de 1.000, então
+        // `false` garante que são as parcelas mais recentes.
+        .order("due_date", { ascending: false, nullsFirst: false });
 
       const { data: installmentsData, error } = await query;
 
