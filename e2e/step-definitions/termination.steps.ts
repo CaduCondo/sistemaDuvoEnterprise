@@ -1043,7 +1043,38 @@ Then('deve existir um Recebimento de Rescisão na aba {string}', async function 
   // Na aba Cauções o Recebimento de Rescisão aparece como as 4 colunas da
   // rescisão, mescladas por locação (não como uma linha de recebimento).
   const linha = this.page.locator('tr').filter({ hasText: this.tenantName! }).first();
-  await expect(linha, `a locação de teste não aparece na aba "${aba}"`).toBeVisible({ timeout: 15000 });
+
+  // ⚠️ DIAGNÓSTICO TEMPORÁRIO (#79, 06/set/2026) — já confirmamos que o
+  // Recebimento de Rescisão existe no banco (a chamada acima a
+  // `recebimentoDeRescisao` teria falhado antes de chegar aqui, se não
+  // existisse). O defeito é só na TELA. Sem conseguir abrir um navegador de
+  // verdade neste ambiente pra depurar ao vivo, este bloco despeja no erro
+  // da falha o estado real da tabela renderizada -- quantas linhas
+  // apareceram, o texto de cada uma, e se o rental_id da locação de teste
+  // aparece em algum atributo -- pra a próxima rodada real do CI mostrar a
+  // causa, em vez de só "não apareceu". Remover depois que o #79 fechar.
+  try {
+    await expect(linha, `a locação de teste não aparece na aba "${aba}"`).toBeVisible({ timeout: 15000 });
+  } catch (erro) {
+    const todasAsLinhas = this.page.locator('tbody tr');
+    const totalLinhas = await todasAsLinhas.count();
+    const textosDasLinhas: string[] = [];
+    for (let i = 0; i < Math.min(totalLinhas, 30); i++) {
+      textosDasLinhas.push((await todasAsLinhas.nth(i).innerText()).replace(/\s+/g, ' ').trim());
+    }
+    const diagnostico = [
+      `[diagnóstico #79] rental_id da locação de teste: ${this.rentalId}`,
+      `[diagnóstico #79] tenantName procurado: "${this.tenantName}"`,
+      `[diagnóstico #79] Recebimento de Rescisão no banco: id=${rescisao.id} rental_id=${rescisao.rental_id} termination_corrected_deposit=${rescisao.termination_corrected_deposit}`,
+      `[diagnóstico #79] total de <tr> no <tbody> da aba "${aba}": ${totalLinhas}`,
+      `[diagnóstico #79] texto de cada linha (até 30):`,
+      ...textosDasLinhas.map((t, i) => `  ${i + 1}. ${t}`),
+    ].join('\n');
+    console.log(diagnostico);
+    throw erro instanceof Error
+      ? new Error(`${erro.message}\n\n${diagnostico}`)
+      : erro;
+  }
 
   const indice = await indiceDaColuna(this.page, 'Valor Corrigido p/ Devolução');
   const celula = linha.locator('td').nth(indice);
