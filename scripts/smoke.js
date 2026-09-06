@@ -353,6 +353,27 @@ async function principal() {
         ? fs.statSync(SUITE.reportJson).size
         : null;
       log(`[diagnóstico #75] ${SUITE.reportJson}: ${tamanhoJson === null ? "não existe" : `${tamanhoJson} bytes`} (checado logo após o cucumber-js retornar, antes de derrubar a aplicação)`);
+
+      // Diagnóstico #75 (parte 2, 06/set/2026): as duas primeiras rodadas
+      // reais mostraram status=0 (saída limpa, sem sinal/erro) e MESMO ASSIM
+      // 0 bytes neste ponto -- ou seja, não é o Chromium travando. Hipótese:
+      // com "--parallel 2" o cucumber-js sobe processos "worker" para rodar
+      // os cenários, e o processo principal (o que o spawnSync acima
+      // acompanha) pode estar retornando ANTES de todo worker terminar de
+      // fato de escrever no arquivo -- um órfão em segundo plano. Fica
+      // observando por até 10s se o arquivo "cresce sozinho" depois do
+      // processo principal já ter saído, para confirmar (ou descartar) essa
+      // hipótese com dado real, em vez de mais suposição.
+      if (!tamanhoJson) {
+        for (let tentativa = 1; tentativa <= 10; tentativa++) {
+          await new Promise((r) => setTimeout(r, 1000));
+          const novoTamanho = fs.existsSync(SUITE.reportJson)
+            ? fs.statSync(SUITE.reportJson).size
+            : null;
+          log(`[diagnóstico #75] +${tentativa}s depois do cucumber-js sair: ${SUITE.reportJson}: ${novoTamanho === null ? "não existe" : `${novoTamanho} bytes`}`);
+          if (novoTamanho) break;
+        }
+      }
     } catch (erroDiagnostico) {
       log(`[diagnóstico #75] não consegui checar o tamanho do JSON: ${erroDiagnostico.message}`);
     }
