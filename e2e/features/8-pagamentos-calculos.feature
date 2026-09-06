@@ -157,3 +157,17 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     Então devo ver apenas pagamentos pendentes
     Quando seleciono o status "Pago"
     Então devo ver apenas pagamentos pagos
+
+  # ✅ NOVO (bug real, 06/set/2026): um recebimento "pending" que sobrou de
+  # uma locação já excluída (status='deleted' -- ver rentalService.remove())
+  # continuava aparecendo aqui como se fosse cobrança válida, duplicando a
+  # linha da locação nova que tomou o lugar dela na tela. Caso real: ACÁCIAS
+  # APTO 36, Agosto/2026 -- a locação antiga foi excluída e recriada (correção
+  # manual de contrato), e o recebimento pendente da antiga não sumiu.
+  # Corrigido filtrando por rental.status em src/hooks/usePayments.ts.
+  @sistemaCompleto
+  Cenário: Recebimento residual de locação excluída não aparece nos Recebimentos
+    Dado que existe uma locação com status "deleted" e um recebimento pendente residual em "Agosto/2026"
+    Quando vou para a página de Recebimentos
+    E filtro pelo mês "Agosto/2026"
+    Então não devo ver o recebimento residual da locação excluída

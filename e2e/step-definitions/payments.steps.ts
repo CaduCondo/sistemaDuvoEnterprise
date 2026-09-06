@@ -1,5 +1,11 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
+import DatabaseHelper from '../helpers/database.helper';
+
+const MESES_PT = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+];
 
 /**
  * Step Definitions para Pagamentos
@@ -302,6 +308,48 @@ Then('NÃO devo ver recebimentos dessa locação', async function() {
       expect(hasRentalValue).toBe(false);
     }
   }
+});
+
+Given('que existe uma locação com status {string} e um recebimento pendente residual em {string}', async function(status: string, periodo: string) {
+  const [monthName, year] = periodo.split('/');
+  const monthNum = MESES_PT.indexOf(monthName.toLowerCase()) + 1;
+  if (monthNum === 0) throw new Error(`Mês não reconhecido: "${monthName}"`);
+  const referenceMonth = String(monthNum).padStart(2, '0');
+  const dueDate = `${year}-${referenceMonth}-10`;
+  // Valor de aluguel deliberadamente incomum, pra não colidir com nenhum
+  // outro recebimento real que já exista na base nesse mesmo mês/ano.
+  const valorResidual = 6543.21;
+
+  const rental = await DatabaseHelper.createRental({
+    start_date: `${Number(year) - 1}-01-01`,
+    end_date: `${Number(year) + 1}-12-31`,
+    status,
+  });
+
+  const recebimentoResidual = await DatabaseHelper.upsertPayment({
+    rental_id: rental.id,
+    reference_month: referenceMonth,
+    reference_year: year,
+    due_date: dueDate,
+    expected_amount: valorResidual,
+    status: 'pending',
+  });
+
+  this.testData = {
+    ...this.testData,
+    locacaoExcluidaId: rental.id,
+    recebimentoResidualId: recebimentoResidual.id,
+    // Formato exibido na tela: "R$ 6.543,21"
+    recebimentoResidualValorExibido: valorResidual.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+  };
+});
+
+Then('não devo ver o recebimento residual da locação excluída', async function() {
+  const valorExibido = this.testData?.recebimentoResidualValorExibido;
+  if (!valorExibido) throw new Error('recebimentoResidualValorExibido não foi guardado pelo passo Given anterior');
+
+  const bodyText = await this.page.textContent('body');
+  expect(bodyText?.includes(valorExibido)).toBe(false);
 });
 
 Then('todos os recebimentos exibidos devem ter:', async function(dataTable: any) {

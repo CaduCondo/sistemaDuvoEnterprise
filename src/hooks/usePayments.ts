@@ -417,7 +417,27 @@ export const usePayments = () => {
 
       console.log(`✅ [usePayments] ${mappedDeposits.length} cauções mapeadas com sucesso`);
 
-      setPayments([...mappedPayments, ...mappedDeposits]);
+      // ✅ CORREÇÃO (bug: recebimento duplicado sobrando de locação excluída):
+      // uma locação excluída com recebimento(s) já pago(s) vira status
+      // "deleted" (arquivada, ver rentalService.remove()) em vez de sumir de
+      // verdade do banco — mas os recebimentos "pending"/"overdue" que
+      // sobrarem dela (por qualquer motivo: falha na limpeza, edição manual
+      // feita depois da exclusão etc.) nunca deveriam continuar aparecendo
+      // aqui como se fossem cobrança válida. Sem este filtro, um recebimento
+      // órfão de uma locação já excluída fica visível e editável ao lado do
+      // recebimento correto da locação nova, gerando duplicidade na tela
+      // (caso real: ACÁCIAS APTO 36, Agosto/2026, ago/2026).
+      // Comparação feita contra o valor CRU do banco (rentalsMap), não contra
+      // Payment.rental.status: esse campo já vem convertido pelo mapeamento
+      // acima ("inactive" -> "ended") e o tipo Rental não inclui "deleted"
+      // no union, então checar ali seria comparar tipos que nunca poderiam
+      // realmente ser iguais aos olhos do TypeScript.
+      const semLocacaoExcluida = (rentalId: string) => rentalsMap.get(rentalId)?.status !== "deleted";
+
+      setPayments([
+        ...mappedPayments.filter((p) => semLocacaoExcluida(p.rentalId)),
+        ...mappedDeposits.filter((p) => semLocacaoExcluida(p.rentalId)),
+      ]);
 
     } catch (error) {
       console.error("❌ [usePayments] Erro ao carregar recebimentos:", error);
