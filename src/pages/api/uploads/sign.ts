@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createClient } from "@supabase/supabase-js";
+import { criarClienteSupabaseAdmin } from "@/lib/supabaseServidor";
 import { exigirSessao } from "@/lib/apiAuth";
 import { validateAttachmentMeta } from "@/lib/attachmentValidation";
 
@@ -54,10 +54,7 @@ const PASTAS_PERMITIDAS = [
 type PastaPermitida = (typeof PASTAS_PERMITIDAS)[number];
 
 function servidorSupabase() {
-  return createClient(URL_SUPABASE, CHAVE_SECRETA, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    db: { schema: "public" },
-  });
+  return criarClienteSupabaseAdmin();
 }
 
 function nomeUnico(nomeOriginal: string): string {

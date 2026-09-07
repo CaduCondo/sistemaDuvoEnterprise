@@ -1,23 +1,9 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { createClient } from "@supabase/supabase-js";
+import { criarClienteSupabaseAnon } from "@/lib/supabaseServidor";
 
-// Criar cliente Supabase server-side
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-  db: {
-    schema: "public",
-  },
-  global: {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  },
+// Cliente Supabase server-side (com timeout de rede embutido -- ver #66)
+const supabase = criarClienteSupabaseAnon({
+  headers: { "Content-Type": "application/json" },
 });
 
 export default async function handler(

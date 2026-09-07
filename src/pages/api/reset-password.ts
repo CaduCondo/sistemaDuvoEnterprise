@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import jwt from "jsonwebtoken";
-import { createClient } from "@supabase/supabase-js";
+import { criarClienteSupabaseAnon } from "@/lib/supabaseServidor";
 import { obterSegredoDeRecuperacaoDeSenha } from "@/lib/passwordResetSecret";
 
 type ResponseData = {
@@ -98,10 +98,7 @@ export default async function handler(
     console.log("✅ [reset-password] Senha validada");
 
     // Usar anon key para chamar RPC (suficiente)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       console.error("❌ [reset-password] Credenciais Supabase não configuradas");
       return res.status(500).json({
         success: false,
@@ -109,7 +106,7 @@ export default async function handler(
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = criarClienteSupabaseAnon();
 
     console.log("📝 [reset-password] Chamando função reset_user_password_by_token via RPC");
     console.log("📝 [reset-password] User ID:", decoded.userId);

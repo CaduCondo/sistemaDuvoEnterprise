@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createClient } from "@supabase/supabase-js";
+import { criarClienteSupabaseAdmin } from "@/lib/supabaseServidor";
 import { exigirDonoOuAdmin } from "@/lib/apiAuth";
 import { gerarHashDeSenha } from "@/lib/passwordHash";
 
@@ -56,10 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "A senha deve conter pelo menos um número" });
   }
 
-  const supabase = createClient(URL_SUPABASE, CHAVE_SECRETA, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    db: { schema: "public" },
-  });
+  const supabase = criarClienteSupabaseAdmin();
 
   const { error } = await supabase
     .from("system_users")

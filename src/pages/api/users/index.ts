@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createClient } from "@supabase/supabase-js";
+import { criarClienteSupabaseAdmin } from "@/lib/supabaseServidor";
 import { exigirAdmin } from "@/lib/apiAuth";
 import { gerarHashDeSenha } from "@/lib/passwordHash";
 
@@ -25,10 +25,7 @@ const CAMPOS_PUBLICOS =
   "id, email, name, username, role, active, phone, cpf, rg, photo, theme, created_at, requires_password_change, temporary_password";
 
 function servidorSupabase() {
-  return createClient(URL_SUPABASE, CHAVE_SECRETA, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    db: { schema: "public" },
-  });
+  return criarClienteSupabaseAdmin();
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
