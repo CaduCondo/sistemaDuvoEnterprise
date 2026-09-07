@@ -69,6 +69,24 @@ Before(async function (this: CustomWorld) {
   this.testData = {};
 });
 
+/**
+ * Rede de segurança contra o defeito que derrubou 128 dos 138 cenários em
+ * 07/set/2026 (issues #65/#66).
+ *
+ * Alguns cenários MEXEM na senha de usuários ("Esqueci minha senha" troca a
+ * senha por uma temporária; reset/troca de senha pelo admin também). Se um
+ * deles pegar a conta compartilhada (admin@teste.com), todo cenário
+ * seguinte falha no login -- e o motivo fica invisível, porque o erro
+ * aparece em 100+ cenários que não têm nada a ver com senha.
+ *
+ * Todo cenário assim deve levar a tag @mexeComSenhaDeUsuario. Este hook
+ * ressemeia os usuários padrão logo depois dele, devolvendo as senhas
+ * conhecidas -- mesmo que o cenário tenha falhado no meio.
+ */
+After({ tags: '@mexeComSenhaDeUsuario' }, async function () {
+  await DatabaseHelper.ensureDefaultTestUsers();
+});
+
 After(async function (this: CustomWorld, { result }) {
   if (result && result.status === 'FAILED' && this.page) {
     // Guarda um screenshot para facilitar o debug de falhas

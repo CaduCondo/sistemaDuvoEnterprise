@@ -64,13 +64,31 @@ Funcionalidade: Autenticação de Usuários
     E clico em "Enviar Senha"
     Então devo ver a mensagem "E-mail Enviado com Sucesso"
 
+  # ⚠️ CORRIGIDO em 07/set/2026 (issue #66/#65 -- causa das 128 falhas em
+  # cascata da rodada "Sistema completo").
+  #
+  # Este cenário usava "admin@teste.com", a conta COMPARTILHADA por quase
+  # toda a suíte. Só que "Esqueci minha senha" não é um teste de leitura:
+  # /api/auth/forgot-password TROCA a senha do usuário por uma temporária
+  # aleatória e marca requires_password_change. Ou seja, este cenário
+  # destruía a senha do admin no meio da rodada -- e do cenário seguinte em
+  # diante TODO login falhava com 401. Foi assim que 128 dos 138 cenários
+  # ficaram vermelhos sem nenhum bug real no sistema.
+  #
+  # Agora o cenário cria a própria conta descartável. A tag
+  # @mexeComSenhaDeUsuario garante, além disso, que os usuários padrão sejam
+  # ressemeados depois dele (ver hooks.ts) -- rede de segurança para
+  # qualquer cenário futuro que também mexa em senha.
   @sistemaCompleto
+  @mexeComSenhaDeUsuario
   Cenário: Recuperar senha - E-mail válido
+    Dado que existe um usuário descartável para o teste de recuperação de senha
     Quando clico em "Esqueci minha senha"
     Então devo ver o formulário de recuperação de senha
-    Quando preencho o email de recuperação com "admin@teste.com"
+    Quando preencho o email de recuperação com o e-mail desse usuário descartável
     E clico em "Enviar Senha"
     Então devo ver a mensagem "E-mail Enviado com Sucesso"
+    E a senha do admin compartilhado deve continuar funcionando
 
   @sistemaCompleto
   Cenário: Logout
