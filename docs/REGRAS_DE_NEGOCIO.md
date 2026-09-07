@@ -1193,6 +1193,14 @@ SET end_date = termination_date
 WHERE id = rental_id
 ```
 
+> ⚠️ **A rescisão em si NÃO muda o `status` da locação** (só `end_date` e
+> `returned_deposit_amount`). Mas, como a `end_date` fica no passado (ou em
+> hoje), a próxima tela que carregar qualquer lista de locações já vai
+> encerrar essa locação sozinha — ver "Encerramento Automático de Locações
+> com Data Fim Vencida" logo abaixo. Isso é o que fazia o Recebimento de
+> Rescisão sumir da aba Cauções assim que era criado (bug #79, corrigido em
+> 07/set/2026 — ver seção Financeiro, "Filtro de Status de Locação").
+
 **PASSO 8: Deletar recebimentos futuros**
 ```typescript
 // Deletar TODOS os recebimentos com vencimento >= primeiro dia do mês seguinte
@@ -1236,7 +1244,29 @@ Se totalAtual != totalEsperado:
 - ✅ Números de parcela recalculados (ex: 1/9, 2/9... 9/9)
 - ✅ Imóvel volta para `availability = 'available'`
 - ✅ Inquilino volta para `status = 'active'`
-- ✅ Locação continua `is_active = true` (pode ser encerrada manualmente depois)
+- ✅ Locação continua `is_active = true`
+- ⚠️ O `status` da locação **não muda na hora da rescisão** — quem muda é o
+  encerramento automático descrito a seguir (5.4.1), que roda pouco depois,
+  na próxima vez que a tela de Locações carregar.
+
+**5.4.1 Encerramento Automático de Locações com Data Fim Vencida** (existe
+desde antes, documentado em 07/set/2026 junto da correção do bug #79)
+- Toda vez que a lista de locações é carregada (tela de Locações, ou
+  qualquer outra tela que precise consultar uma locação), o sistema
+  confere sozinho: alguma locação com `status = "active"` e `end_date` já
+  no passado? Se sim, muda ela para `status = "ended"` automaticamente —
+  sem precisar de nenhuma ação manual do usuário.
+- Como a rescisão (5.4) grava a `end_date` igual à data da rescisão, uma
+  locação recém-rescindida quase sempre vira `status = "ended"` sozinha
+  assim que alguém abre a tela de Locações (ou qualquer tela) logo depois.
+- **Por que isso importava:** a aba "Cauções" do relatório Financeiro só
+  mostra por padrão locações com `status = "active"` (ver seção Financeiro,
+  "Filtro de Status de Locação"). Sem a correção do #79, isso fazia o
+  Recebimento de Rescisão sumir da aba assim que era criado. A correção
+  fez a aba continuar mostrando a locação enquanto o Recebimento de
+  Rescisão dela estiver pendente.
+- Esse encerramento automático é só sobre `status` — não mexe em
+  `is_active`, nem em `availability` do imóvel, nem em nada mais.
 
 **5.5 Identificação na Tela de Recebimentos (NOVO — Agosto/2026)**
 - O recebimento do mês da rescisão (que pode ter valor negativo, quando a
@@ -2301,9 +2331,17 @@ SENÃO:
 - Muda cor da linha automaticamente (verde = recebido)
 
 **5.7 Filtro de Status de Locação**
-- Dropdown: **Ativos** / **Inativos** / **Todos**
-- Filtra por `rentals.is_active`
+- Dropdown: **Ativas** / **Inativas** / **Todas** (padrão: Ativas)
+- Filtra por `rentals.status === "active"` (não por `is_active`)
 - Atualiza KPIs e tabela automaticamente
+- **Exceção (desde 07/set/2026, correção do bug #79):** uma locação que
+  acabou de ser rescindida vira `status = "ended"` automaticamente assim
+  que a data final da rescisão chega (ver "Encerramento Automático de
+  Locações Expiradas" nas Regras de Locação) — mas, enquanto o
+  Recebimento de Rescisão dela ainda estiver **pendente** de receber, ela
+  continua aparecendo em **Ativas** também. Só sai de "Ativas" (ficando só
+  em "Inativas"/"Todas") depois que esse recebimento for marcado como
+  recebido. Isso evita que a rescisão suma da aba assim que é criada.
 
 **5.8 Linha de Totais**
 ```
