@@ -6,7 +6,21 @@ import { DashboardPage } from '../pages/DashboardPage';
 import DatabaseHelper from '../helpers/database.helper';
 import TEST_CONFIG from '../config/test.config';
 
-setDefaultTimeout(60 * 1000);
+/**
+ * Tempo máximo de CADA passo (não do cenário inteiro).
+ *
+ * ⚠️ Baixado de 60s para 20s em 07/set/2026 (issue #66) -- o motivo é o
+ * custo das FALHAS, não o das passagens. Um passo que passa leva 1-3s; quem
+ * consome os 60s é sempre um passo que vai falhar (espera um elemento que
+ * nunca aparece). Como a rodada @sistemaCompleto tem hoje dezenas de
+ * cenários vermelhos, esses 60s por falha somavam mais de 30 minutos e
+ * estouravam o limite do job -- o relatório nunca era gerado e ficávamos
+ * sem saber o que estava falhando de verdade.
+ *
+ * 20s continua folgado: no smoke real, o passo mais lento (compilar +
+ * navegar + login) fica bem abaixo disso.
+ */
+setDefaultTimeout(20 * 1000);
 
 // Garante que os usuários de teste (admin/financeiro/corretor) existem antes
 // de qualquer cenário rodar.

@@ -101,7 +101,14 @@ jobs:
     name: Sistema completo (2a rodada)
     needs: smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # ⚠️ Subido de 30 para 45 em 07/set/2026 (issue #66). Nas rodadas de
+    # 06 e 07/set o job foi cancelado no limite de 30min TRES vezes seguidas,
+    # sempre sem relatório nenhum -- ficávamos cegos sobre o que falhou.
+    # A rodada roda mesmo assim (o artefato traz ~70 screenshots de falha),
+    # só não CABIA no tempo. Com o passo caindo de 60s para 20s (ver
+    # e2e/step-definitions/hooks.ts) ela deve terminar bem antes disso; os
+    # 45min são a folga para o relatório finalmente ser gerado.
+    timeout-minutes: 45
 
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
