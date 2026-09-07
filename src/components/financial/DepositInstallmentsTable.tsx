@@ -79,7 +79,7 @@ export function DepositInstallmentsTable({
   // 'termination' em `payments`) — alimenta as 4 colunas novas da aba
   // Cauções (#49). Fica vazio (undefined) para locação nunca rescindida.
   const [terminationByRental, setTerminationByRental] = useState<
-    Record<string, { corrected: number; expenses: number; discount: number }>
+    Record<string, { corrected: number; expenses: number; discount: number; status: string }>
   >({});
   const [statusFilter, setStatusFilter] = useState<string>("active"); // ✅ CORRIGIDO: Padrão "active"
   const [editingCell, setEditingCell] = useState<{ id: string; field: string; rentalId: string } | null>(null);
@@ -194,20 +194,21 @@ export function DepositInstallmentsTable({
       // tipada. Cortando o tipo já no `supabase` evita a inferência inteira.
       const { data: terminationData, error: terminationError } = await (supabase as any)
         .from("payments")
-        .select("rental_id, termination_corrected_deposit, termination_additional_expenses, termination_discount, due_date")
+        .select("rental_id, termination_corrected_deposit, termination_additional_expenses, termination_discount, due_date, status")
         .eq("payment_kind", "termination")
         .order("due_date", { ascending: false });
 
       if (terminationError) {
         console.error("❌ Erro ao buscar Recebimentos de Rescisão:", terminationError);
       } else {
-        const porLocacao: Record<string, { corrected: number; expenses: number; discount: number }> = {};
+        const porLocacao: Record<string, { corrected: number; expenses: number; discount: number; status: string }> = {};
         for (const pagamento of terminationData || []) {
           if (porLocacao[pagamento.rental_id]) continue;
           porLocacao[pagamento.rental_id] = {
             corrected: Number(pagamento.termination_corrected_deposit) || 0,
             expenses: Number(pagamento.termination_additional_expenses) || 0,
             discount: Number(pagamento.termination_discount) || 0,
+            status: pagamento.status || "pending",
           };
         }
         setTerminationByRental(porLocacao);
@@ -232,20 +233,34 @@ export function DepositInstallmentsTable({
 
   // 🔥 FILTRAR DADOS APÓS CARREGAMENTO, BASEADO NO FILTRO SELECIONADO
   const filteredData = useMemo(() => {
+    // 🩹 #79: uma locação recém-rescindida vira status "ended" sozinha (ver
+    // rentalService.checkAndUpdateExpiredRentals, que roda a cada tela e
+    // encerra qualquer locação cuja end_date já passou) assim que a rescisão
+    // grava a end_date da rescisão. Sem isso, o Recebimento de Rescisão some
+    // da aba "Ativas" no mesmo instante em que é criado, porque o filtro
+    // padrão só olha rental.status === "active". Enquanto o Recebimento de
+    // Rescisão daquela locação ainda estiver "pending", ela continua
+    // aparecendo em "Ativas" — some de lá só depois de recebido, quando passa
+    // a fazer sentido só olhar em "Inativas"/"Todas".
+    const temRescisaoPendente = (inst: any) => {
+      const rescisao = terminationByRental[inst.rental_id];
+      return !!rescisao && rescisao.status !== "paid";
+    };
+
     if (statusFilter === "all") {
       console.log("📊 Mostrando TODAS as locações:", data.length);
       return data;
     } else if (statusFilter === "active") {
-      const activeData = data.filter((inst) => inst.rental?.status === "active");
+      const activeData = data.filter((inst) => inst.rental?.status === "active" || temRescisaoPendente(inst));
       console.log("📊 Mostrando locações ATIVAS:", activeData.length);
       return activeData;
     } else if (statusFilter === "inactive") {
-      const inactiveData = data.filter((inst) => inst.rental?.status !== "active");
+      const inactiveData = data.filter((inst) => inst.rental?.status !== "active" && !temRescisaoPendente(inst));
       console.log("📊 Mostrando locações INATIVAS:", inactiveData.length);
       return inactiveData;
     }
     return data;
-  }, [data, statusFilter]);
+  }, [data, statusFilter, terminationByRental]);
 
   const handleSort = useCallback((field: SortField) => {
     if (sortField === field) {
