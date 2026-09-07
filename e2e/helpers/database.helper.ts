@@ -13,6 +13,33 @@ import TEST_CONFIG from '../config/test.config';
  * nunca via `supabase.auth.admin.createUser`.
  */
 
+// #66: o client de teste não tinha NENHUM timeout de rede -- se o Supabase
+// ficasse lento ou fora do ar (já aconteceu, erro 521 "Web server is down",
+// ver issue #65), cada chamada travava até o Node/undici desistir sozinho,
+// bem depois dos 30s que cada cenário já espera individualmente. Isso já
+// consumiu o limite de 30min do job inteiro sozinho, cancelando a suíte
+// completa antes de rodar os outros 134 cenários -- mascarando o resultado
+// real. Este fetch customizado aborta a chamada em 15s e lança um erro
+// claro, em vez de travar em silêncio.
+const SUPABASE_TEST_TIMEOUT_MS = 15_000;
+
+function fetchComTimeout(url: RequestInfo | URL, options: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SUPABASE_TEST_TIMEOUT_MS);
+
+  return fetch(url, { ...options, signal: controller.signal })
+    .catch((erro) => {
+      if (erro?.name === 'AbortError') {
+        throw new Error(
+          `Supabase não respondeu em ${SUPABASE_TEST_TIMEOUT_MS / 1000}s -- possível ` +
+          'instabilidade do serviço (não é bug do teste). Ver issue #66.'
+        );
+      }
+      throw erro;
+    })
+    .finally(() => clearTimeout(timeoutId));
+}
+
 // Exportado para os passos que precisam conferir o banco diretamente
 // (ex.: auth-servidor.steps.ts, que confere a contagem de tentativas).
 export const supabaseAdmin = createClient(
@@ -22,6 +49,9 @@ export const supabaseAdmin = createClient(
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+    global: {
+      fetch: fetchComTimeout,
     },
   }
 );
