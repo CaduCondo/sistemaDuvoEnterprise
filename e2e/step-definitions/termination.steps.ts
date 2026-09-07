@@ -1059,15 +1059,51 @@ Then('deve existir um Recebimento de Rescisão na aba {string}', async function 
     const todasAsLinhas = this.page.locator('tbody tr');
     const totalLinhas = await todasAsLinhas.count();
     const textosDasLinhas: string[] = [];
-    for (let i = 0; i < Math.min(totalLinhas, 30); i++) {
+    for (let i = 0; i < totalLinhas; i++) {
       textosDasLinhas.push((await todasAsLinhas.nth(i).innerText()).replace(/\s+/g, ' ').trim());
     }
+    const linhaAparece = textosDasLinhas.some((t) => t.includes(this.tenantName!));
+
+    // ⚠️ DIAGNÓSTICO ROUND 2 (#79, 06/set/2026) — a 1ª rodada de diagnóstico
+    // só despejou as primeiras 30 linhas (de 104) e não provou se a locação
+    // estava de fato ausente das <tr> ou só fora desse recorte. Esta rodada
+    // varre TODAS as linhas e, se realmente não aparecer em nenhuma, consulta
+    // o banco direto (bypassando RLS/paginação da tela) para decidir entre as
+    // duas hipóteses concorrentes: (a) o corte de 1.000 linhas do Supabase
+    // ainda pega essa locação mesmo depois do fix de ordenação (8dcb09bb), ou
+    // (b) o filtro padrão "Ativas" da própria tela (`statusFilter === "active"`
+    // em DepositInstallmentsTable.tsx) exclui a locação por algum motivo
+    // (rental.status não é mais "active" após a rescisão, ou nunca foi).
+    let diagnosticoBanco = '(não consultado — a linha apareceu na varredura completa)';
+    if (!linhaAparece) {
+      const [locacao, parcelas, todasAsParcelas] = await Promise.all([
+        this.getRental(this.rentalId!),
+        this.getDepositInstallments(this.rentalId!),
+        this.getAllDepositInstallments(),
+      ]);
+      const dueDateDaLocacao = parcelas[0]?.due_date;
+      const maisRecentesQueEla = dueDateDaLocacao
+        ? todasAsParcelas.filter((p: any) => p.due_date > dueDateDaLocacao).length
+        : null;
+      diagnosticoBanco = [
+        `  rentals.status = "${locacao.status}" | rentals.is_active = ${locacao.is_active}`,
+        `  deposit_installments desta locação: ${parcelas.length} (status: ${parcelas.map((p: any) => p.status).join(', ')}; due_date: ${parcelas.map((p: any) => p.due_date).join(', ')})`,
+        `  total de deposit_installments na tabela (banco inteiro): ${todasAsParcelas.length}`,
+        maisRecentesQueEla !== null
+          ? `  parcelas de OUTRAS locações com due_date mais recente que esta: ${maisRecentesQueEla} (se >= 1000, o corte do Supabase ainda derruba esta locação mesmo ordenando desc)`
+          : '  (sem due_date na parcela desta locação para comparar)',
+      ].join('\n');
+    }
+
     const diagnostico = [
       `[diagnóstico #79] rental_id da locação de teste: ${this.rentalId}`,
       `[diagnóstico #79] tenantName procurado: "${this.tenantName}"`,
       `[diagnóstico #79] Recebimento de Rescisão no banco: id=${rescisao.id} rental_id=${rescisao.rental_id} termination_corrected_deposit=${rescisao.termination_corrected_deposit}`,
       `[diagnóstico #79] total de <tr> no <tbody> da aba "${aba}": ${totalLinhas}`,
-      `[diagnóstico #79] texto de cada linha (até 30):`,
+      `[diagnóstico #79] a locação aparece em ALGUMA das ${totalLinhas} linhas (varredura completa, não só as 30 primeiras)? ${linhaAparece ? 'SIM' : 'NÃO'}`,
+      `[diagnóstico #79] consulta direta ao banco (bypassa a tela):`,
+      diagnosticoBanco,
+      `[diagnóstico #79] texto de cada linha:`,
       ...textosDasLinhas.map((t, i) => `  ${i + 1}. ${t}`),
     ].join('\n');
     console.log(diagnostico);
