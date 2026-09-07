@@ -108,11 +108,21 @@ export default function RentalsPage() {
     return (rental.value || 0) + (rental.garageValue || 0);
   }, []);
 
-  const getStatusBadge = useCallback((status: string) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
+  const getStatusBadge = useCallback((status: string, endDate?: string) => {
     if (status === "active") {
+      // Locação vencida (data fim já passou) mas ainda não foi encerrada de
+      // verdade (Renovar ou Rescisão de Contrato) -- ver "Encerramento de
+      // Locações com Data Fim Vencida" no Manual. Isso é só um aviso visual;
+      // a locação continua "Ativa" de verdade e com todos os botões de ação
+      // disponíveis, pois é comum o inquilino demorar alguns dias pra
+      // confirmar renovação ou desocupação.
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isVencida = endDate && new Date(endDate) < today;
+
+      if (isVencida) {
+        return <Badge className="bg-amber-500 text-white hover:bg-amber-600">Vencido</Badge>;
+      }
       return <Badge className="bg-green-500 text-white hover:bg-green-600">Ativa</Badge>;
     }
     return <Badge className="bg-gray-500 text-white hover:bg-gray-600">Encerrado</Badge>;
@@ -889,15 +899,16 @@ export default function RentalsPage() {
     { key: "value", label: "Valor", headerClassName: "text-center", cellClassName: "text-center px-1", className: "w-[70px]", render: (r: Rental) => <span className="font-bold text-emerald-600">{formatCurrency(getRentalMonthlyRent(r))}</span> },
     { key: "startDate", label: "Data Início", headerClassName: "text-center", cellClassName: "text-center px-1", className: "w-[70px]", render: (r: Rental) => r.startDate ? new Date(r.startDate + "T12:00:00").toLocaleDateString("pt-BR") : "-" },
     { key: "endDate", label: "Data Fim", headerClassName: "text-center", cellClassName: "text-center px-1", className: "w-[70px]", render: (r: Rental) => r.endDate ? new Date(r.endDate + "T12:00:00").toLocaleDateString("pt-BR") : "-" },
-    { key: "status", label: "Status", headerClassName: "text-center", cellClassName: "text-center px-1", className: "w-[70px]", render: (r: Rental) => getStatusBadge(r.status) },
+    { key: "status", label: "Status", headerClassName: "text-center", cellClassName: "text-center px-1", className: "w-[70px]", render: (r: Rental) => getStatusBadge(r.status, r.endDate) },
     { key: "actions", label: "Ações", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-1", className: "w-[150px]", render: (r: Rental) => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const isExpired = r.endDate && new Date(r.endDate) < today;
-      const isVisuallyActive = r.isActive && !isExpired;
-      
-      if (!isVisuallyActive) return <span className="text-xs text-muted-foreground">-</span>;
-      
+      // ⚠️ Antes, os botões sumiam sozinhos assim que a data fim passava
+      // (mesmo a locação continuando "active" no banco) -- isso travava a
+      // equipe sem conseguir Renovar nem Rescindir uma locação vencida, bem
+      // no momento em que mais precisava agir (ex.: inquilino demorou pra
+      // confirmar renovação). Os botões agora seguem só o `isActive` real da
+      // locação, igual a visão em grade já fazia.
+      if (!r.isActive) return <span className="text-xs text-muted-foreground">-</span>;
+
       return (
         <div className="flex items-center justify-center gap-0.5">
           <Button

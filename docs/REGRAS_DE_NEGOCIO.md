@@ -1193,13 +1193,18 @@ SET end_date = termination_date
 WHERE id = rental_id
 ```
 
-> ⚠️ **A rescisão em si NÃO muda o `status` da locação** (só `end_date` e
-> `returned_deposit_amount`). Mas, como a `end_date` fica no passado (ou em
-> hoje), a próxima tela que carregar qualquer lista de locações já vai
-> encerrar essa locação sozinha — ver "Encerramento Automático de Locações
-> com Data Fim Vencida" logo abaixo. Isso é o que fazia o Recebimento de
-> Rescisão sumir da aba Cauções assim que era criado (bug #79, corrigido em
-> 07/set/2026 — ver seção Financeiro, "Filtro de Status de Locação").
+> ⚠️ **Atualizado em 07/set/2026:** até essa data, a rescisão em si não
+> mudava o `status` da locação nem liberava o imóvel — isso ficava a cargo
+> de uma rotina automática à parte que rodava sozinha, sem avisar ninguém,
+> assim que a `end_date` (que a própria rescisão acabava de colocar no
+> passado) era detectada. Essa automação tinha dois efeitos ruins: escondia
+> os botões de Renovar/Rescindir da tela de Locações pra qualquer contrato
+> vencido (mesmo os que nunca foram rescindidos, só demoraram pra ser
+> resolvidos), e liberava o imóvel como disponível antes de qualquer acerto
+> de verdade ter sido feito — risco de dupla ocupação. Foi removida. Agora
+> é esta própria rescisão (`processContractTermination`) que muda o
+> `status` para `"ended"` e libera o imóvel, no mesmo instante em que o
+> Recebimento de Rescisão é criado — ver 5.4 e 5.4.1 abaixo.
 
 **PASSO 8: Deletar recebimentos futuros**
 ```typescript
@@ -1240,33 +1245,38 @@ Se totalAtual != totalEsperado:
 **5.4 Efeitos da Rescisão**
 - ✅ Recebimento do mês da rescisão atualizado com valor proporcional + multa - caução
 - ✅ Data fim do contrato atualizada para data da rescisão
+- ✅ `status` da locação atualizado para `"ended"` (desde 07/set/2026 — ver nota acima)
+- ✅ Imóvel liberado (`properties.status = "available"`), desde 07/set/2026
 - ✅ Todos os recebimentos futuros deletados
 - ✅ Números de parcela recalculados (ex: 1/9, 2/9... 9/9)
-- ✅ Imóvel volta para `availability = 'available'`
 - ✅ Inquilino volta para `status = 'active'`
 - ✅ Locação continua `is_active = true`
-- ⚠️ O `status` da locação **não muda na hora da rescisão** — quem muda é o
-  encerramento automático descrito a seguir (5.4.1), que roda pouco depois,
-  na próxima vez que a tela de Locações carregar.
 
-**5.4.1 Encerramento Automático de Locações com Data Fim Vencida** (existe
-desde antes, documentado em 07/set/2026 junto da correção do bug #79)
-- Toda vez que a lista de locações é carregada (tela de Locações, ou
-  qualquer outra tela que precise consultar uma locação), o sistema
-  confere sozinho: alguma locação com `status = "active"` e `end_date` já
-  no passado? Se sim, muda ela para `status = "ended"` automaticamente —
-  sem precisar de nenhuma ação manual do usuário.
-- Como a rescisão (5.4) grava a `end_date` igual à data da rescisão, uma
-  locação recém-rescindida quase sempre vira `status = "ended"` sozinha
-  assim que alguém abre a tela de Locações (ou qualquer tela) logo depois.
-- **Por que isso importava:** a aba "Cauções" do relatório Financeiro só
-  mostra por padrão locações com `status = "active"` (ver seção Financeiro,
-  "Filtro de Status de Locação"). Sem a correção do #79, isso fazia o
-  Recebimento de Rescisão sumir da aba assim que era criado. A correção
-  fez a aba continuar mostrando a locação enquanto o Recebimento de
-  Rescisão dela estiver pendente.
-- Esse encerramento automático é só sobre `status` — não mexe em
-  `is_active`, nem em `availability` do imóvel, nem em nada mais.
+**5.4.1 Locação com a Data Fim Vencida, mas Ainda Não Encerrada** (regra
+nova de 07/set/2026, motivada pelo bug #79 e por um caso real do dia a dia)
+
+É muito comum o inquilino demorar alguns dias, depois do fim do contrato,
+pra confirmar se vai renovar ou desocupar de vez. Até 07/set/2026, assim
+que a `end_date` passava, o sistema encerrava a locação sozinho e escondia
+os botões de ação — travando a equipe bem na hora em que mais precisava
+decidir o que fazer. Isso foi corrigido:
+
+- Uma locação com `status = "active"` **não é mais encerrada sozinha**
+  só porque a `end_date` passou. Ela continua "Ativa" e com todos os
+  botões de ação disponíveis (Renovar Contrato, Rescisão de Contrato,
+  Excluir) até alguém decidir o que fazer.
+- A tela de Locações mostra um aviso visual **"Vencido"** (badge amarelo,
+  no lugar de "Ativa") quando a `end_date` já passou e ninguém resolveu
+  ainda — só um alerta, não trava nada.
+- **O que fazer com uma locação vencida:** ou **Renovar Contrato** (o
+  inquilino vai continuar), ou usar o próprio botão **Rescisão de
+  Contrato** pra fechar as contas de fim de locação (devolução do caução
+  corrigido pelo IGPM, cobrança de despesas de reforma, etc.) — mesmo já
+  tendo passado a data fim. Não é preciso marcar nenhuma das caixinhas de
+  multa nesse caso: sem inquilino ter saído antes do prazo, não há multa
+  nenhuma a cobrar, e o valor já fica R$ 0,00 se nenhuma caixinha for
+  marcada. A tela e o cálculo por trás são os mesmos usados pra uma
+  rescisão antecipada de verdade — só muda se existe ou não multa.
 
 **5.5 Identificação na Tela de Recebimentos (NOVO — Agosto/2026)**
 - O recebimento do mês da rescisão (que pode ter valor negativo, quando a
@@ -2334,14 +2344,14 @@ SENÃO:
 - Dropdown: **Ativas** / **Inativas** / **Todas** (padrão: Ativas)
 - Filtra por `rentals.status === "active"` (não por `is_active`)
 - Atualiza KPIs e tabela automaticamente
-- **Exceção (desde 07/set/2026, correção do bug #79):** uma locação que
-  acabou de ser rescindida vira `status = "ended"` automaticamente assim
-  que a data final da rescisão chega (ver "Encerramento Automático de
-  Locações Expiradas" nas Regras de Locação) — mas, enquanto o
-  Recebimento de Rescisão dela ainda estiver **pendente** de receber, ela
-  continua aparecendo em **Ativas** também. Só sai de "Ativas" (ficando só
-  em "Inativas"/"Todas") depois que esse recebimento for marcado como
-  recebido. Isso evita que a rescisão suma da aba assim que é criada.
+- **Exceção (desde 07/set/2026, correção do bug #79):** ao processar a
+  Rescisão de Contrato, o `status` da locação já vira `"ended"` (ver
+  "Efeitos da Rescisão" nas Regras de Locação) no mesmo instante em que o
+  Recebimento de Rescisão é criado — mas, enquanto esse recebimento ainda
+  estiver **pendente** de receber, a locação continua aparecendo em
+  **Ativas** também. Só sai de "Ativas" (ficando só em "Inativas"/"Todas")
+  depois que esse recebimento for marcado como recebido. Isso evita que a
+  rescisão suma da aba assim que é criada.
 
 **5.8 Linha de Totais**
 ```

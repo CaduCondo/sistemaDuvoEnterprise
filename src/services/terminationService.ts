@@ -148,7 +148,7 @@ export async function processContractTermination(data: TerminationData): Promise
   
   const rentalStartDate = await supabase
     .from("rentals")
-    .select("start_date")
+    .select("start_date, property_id")
     .eq("id", rentalId)
     .single();
 
@@ -647,9 +647,18 @@ export async function processContractTermination(data: TerminationData): Promise
   // ==========================================
   console.log("\n📅 PASSO 6: Atualizar data fim do contrato");
   
+  // ⚠️ Até 07/set/2026 quem marcava a locação como "ended" e liberava o
+  // imóvel como disponível era uma rotina automática à parte
+  // (rentalService.checkAndUpdateExpiredRentals), que rodava sozinha
+  // sempre que a end_date ficava no passado -- o que essa própria rescisão
+  // acabava de causar. Isso travava a tela (Renovar/Rescindir sumiam) e já
+  // liberava o imóvel antes de qualquer acerto de verdade. Agora quem
+  // encerra a locação e libera o imóvel é só esta rescisão, no momento
+  // certo -- ver "Encerramento de Locações com Data Fim Vencida" no Manual.
   const { error: updateRentalError } = await supabase
     .from("rentals")
     .update({
+      status: "ended",
       end_date: terminationDate,
       returned_deposit_amount: correctedDeposit, // ✅ Salvar valor devolvido
       updated_at: new Date().toISOString()
@@ -663,6 +672,23 @@ export async function processContractTermination(data: TerminationData): Promise
 
   console.log(`  ✅ Data fim atualizada para: ${terminationDate}`);
   console.log(`  ✅ Valor devolvido do caução: R$ ${correctedDeposit.toFixed(2)}`);
+  console.log(`  ✅ Status da locação atualizado para: ended`);
+
+  const propertyId = rentalStartDate.data?.property_id;
+  if (propertyId) {
+    const { error: updatePropertyError } = await supabase
+      .from("properties")
+      .update({ status: "available" })
+      .eq("id", propertyId);
+
+    if (updatePropertyError) {
+      // Não interrompe a rescisão por isso -- o financeiro já foi todo
+      // processado e gravado; só avisa no log pra alguém liberar manualmente.
+      console.error("❌ Erro ao liberar o imóvel como disponível:", updatePropertyError);
+    } else {
+      console.log(`  ✅ Imóvel ${propertyId} liberado como disponível`);
+    }
+  }
 
   // ==========================================
   // PASSO 7: DELETAR pagamentos futuros

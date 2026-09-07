@@ -102,75 +102,34 @@ const mapRentalData = (data: any): Rental => {
 };
 
 export const rentalService = {
+  /**
+   * ATÉ 07/set/2026 esta função encerrava locações sozinha (`status: "ended"`)
+   * e já liberava o imóvel (`properties.status: "available"`) assim que a
+   * `end_date` passava -- sem nenhuma ação humana. Isso causava dois
+   * problemas reais:
+   *
+   * 1. A tela de Locações escondia TODOS os botões de ação (Renovar,
+   *    Rescindir, Excluir) assim que a data fim passava, então quando o
+   *    inquilino demorava alguns dias pra confirmar renovação ou
+   *    desocupação, ninguém conseguia mais fazer nada pela tela.
+   * 2. O imóvel já aparecia como "disponível" pra um novo inquilino mesmo
+   *    que o antigo ainda estivesse morando lá, sem devolver a chave e sem
+   *    acertar o caução -- risco de dupla ocupação.
+   *
+   * Decisão (07/set/2026): parar de encerrar sozinho. Uma locação vencida
+   * (data fim no passado) continua "active" -- e com todos os botões
+   * disponíveis -- até alguém realmente processar isso pela tela: Renovar
+   * Contrato, ou Rescisão de Contrato (que já funciona sem multa nenhuma se
+   * ninguém marcar as caixinhas de multa -- serve tanto pra rescisão
+   * antecipada quanto pro encerramento normal no fim do prazo). O aviso
+   * visual "Vencido" na tela de Locações substitui esse encerramento
+   * automático (ver getStatusBadge em rentals.tsx).
+   *
+   * Função mantida (sem fazer nada) só pra não quebrar as chamadas em
+   * getAll()/getById() -- pode ser removida de vez numa limpeza futura.
+   */
   async checkAndUpdateExpiredRentals(): Promise<void> {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      
-      console.log("🔍 [rentalService.checkAndUpdateExpiredRentals] Verificando contratos expirados...");
-      
-      const { data: expiredRentals, error } = await supabase
-        .from("rentals")
-        .select("id, tenant_id, property_id, end_date")
-        .eq("status", "active")
-        .not("end_date", "is", null)
-        .lt("end_date", today);
-
-      if (error) {
-        console.error("❌ [rentalService.checkAndUpdateExpiredRentals] Erro:", error);
-        return;
-      }
-
-      if (!expiredRentals || expiredRentals.length === 0) {
-        console.log("✅ [rentalService.checkAndUpdateExpiredRentals] Nenhum contrato expirado encontrado");
-        return;
-      }
-
-      console.log(`📋 [rentalService.checkAndUpdateExpiredRentals] ${expiredRentals.length} contrato(s) expirado(s) encontrado(s)`);
-
-      for (const rental of expiredRentals) {
-        console.log(`🔄 [rentalService.checkAndUpdateExpiredRentals] Encerrando contrato ${rental.id}...`);
-        
-        const { error: rentalError } = await supabase
-          .from("rentals")
-          .update({ status: "ended" })
-          .eq("id", rental.id);
-
-        if (rentalError) {
-          console.error(`❌ Erro ao atualizar locação ${rental.id}:`, rentalError);
-          continue;
-        }
-
-        if (rental.property_id) {
-          const { error: propertyError } = await supabase
-            .from("properties")
-            .update({ status: "available" })
-            .eq("id", rental.property_id);
-
-          if (propertyError) {
-            console.error(`❌ Erro ao atualizar imóvel ${rental.property_id}:`, propertyError);
-          }
-        }
-
-        if (rental.tenant_id) {
-          const { error: tenantError } = await supabase
-            .from("tenants")
-            .update({ status: "active" })
-            .eq("id", rental.tenant_id);
-
-          if (tenantError) {
-            console.error(`❌ Erro ao atualizar inquilino ${rental.tenant_id}:`, tenantError);
-          }
-        }
-
-        console.log(`✅ [rentalService.checkAndUpdateExpiredRentals] Contrato ${rental.id} encerrado com sucesso`);
-      }
-
-      rentalService.invalidateCache();
-      
-      console.log("✅ [rentalService.checkAndUpdateExpiredRentals] Verificação concluída");
-    } catch (error) {
-      console.error("❌ [rentalService.checkAndUpdateExpiredRentals] Erro inesperado:", error);
-    }
+    return;
   },
 
   async getAll(forceRefresh = false): Promise<Rental[]> {
