@@ -217,6 +217,107 @@ Then(
   }
 );
 
+// ============================================================================
+// LOCAÇÃO COM A DATA FIM VENCIDA (issue #91, 07/set/2026)
+//
+// Até 07/set/2026 existiam DUAS travas: (1) um serviço rodava sozinho e
+// encerrava a locação só porque a data fim passou (liberando o imóvel sem
+// ninguém conferir), e (2) a tela escondia todos os botões de ação da
+// locação vencida. Estes passos protegem as duas correções de uma vez: a
+// locação segue "active" no banco com o imóvel ainda "rented", e a tela
+// mostra o aviso "Vencido" sem tirar nenhum botão.
+// ============================================================================
+
+Given('uma locação ativa cuja data fim já passou', async function (this: import('../support/world').CustomWorld) {
+  const sufixo = Date.now();
+  const tenant = await this.createTenant({ name: `Vencida E2E ${sufixo}` });
+
+  const hoje = new Date();
+  const inicio = new Date(hoje);
+  inicio.setFullYear(inicio.getFullYear() - 1);
+  inicio.setDate(inicio.getDate() - 10);
+
+  // 10 dias no passado: exatamente o caso real -- o contrato acabou e o
+  // inquilino ainda não respondeu se renova ou desocupa.
+  const fimVencido = new Date(hoje);
+  fimVencido.setDate(fimVencido.getDate() - 10);
+
+  const rental = await this.createRental({
+    start_date: inicio.toISOString().split('T')[0],
+    end_date: fimVencido.toISOString().split('T')[0],
+    rent_value: 1500,
+    tenant_id: tenant.id,
+  } as any);
+
+  // O imóvel precisa estar ocupado: o bug antigo liberava ele sozinho.
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+  await supabaseAdmin.from('properties').update({ status: 'rented' }).eq('id', rental.property_id);
+
+  this.rentalId = rental.id;
+  this.testData = {
+    ...this.testData,
+    vencida: {
+      tenantName: tenant.name,
+      propertyId: rental.property_id,
+      endDate: fimVencido.toISOString().split('T')[0],
+    },
+  };
+});
+
+When('abro a tela de Locações e procuro por essa locação', async function (this: import('../support/world').CustomWorld) {
+  await this.page.goto('/rentals');
+  await this.page.waitForLoadState('domcontentloaded');
+
+  const busca = this.page.locator('#rentals-search-input');
+  await busca.fill(this.testData.vencida.tenantName);
+  await this.page.waitForTimeout(800);
+});
+
+Then('o status dela deve aparecer como {string}', async function (this: import('../support/world').CustomWorld, statusEsperado: string) {
+  await expect(
+    this.page.getByText(statusEsperado, { exact: true }).first(),
+    `a locação com data fim vencida deveria mostrar o aviso "${statusEsperado}" na coluna Status`
+  ).toBeVisible({ timeout: 10000 });
+});
+
+Then(
+  'os botões {string}, {string} e {string} devem estar disponíveis',
+  async function (this: import('../support/world').CustomWorld, _b1: string, _b2: string, _b3: string) {
+    // Os três botões que sumiam junto com a data fim. Os ids são fixos por
+    // locação (ver src/pages/rentals.tsx).
+    for (const id of ['renew', 'terminate', 'delete']) {
+      await expect(
+        this.page.locator(`#rentals-${id}-${this.rentalId}`),
+        `o botão "${id}" sumiu da locação vencida -- é exatamente o bug da issue #91`
+      ).toBeVisible({ timeout: 10000 });
+    }
+  }
+);
+
+Then('o status dela no banco deve continuar {string}', async function (this: import('../support/world').CustomWorld, statusEsperado: string) {
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+  const { data: rental } = await supabaseAdmin.from('rentals').select('status').eq('id', this.rentalId).single();
+
+  expect(
+    rental?.status,
+    `a locação foi encerrada sozinha só porque a data fim passou -- o encerramento automático voltou (issue #91)`
+  ).toBe(statusEsperado);
+});
+
+Then('o imóvel dela deve continuar {string}', async function (this: import('../support/world').CustomWorld, statusEsperado: string) {
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+  const { data: property } = await supabaseAdmin
+    .from('properties')
+    .select('status')
+    .eq('id', this.testData.vencida.propertyId)
+    .single();
+
+  expect(
+    property?.status,
+    'o imóvel foi liberado sozinho antes de alguém encerrar a locação de verdade -- risco de dupla ocupação (issue #91)'
+  ).toBe(statusEsperado);
+});
+
 Given('que existe uma locação com caução parcelado em 3x:', async function(dataTable: any) {
   const installments = dataTable.hashes();
   

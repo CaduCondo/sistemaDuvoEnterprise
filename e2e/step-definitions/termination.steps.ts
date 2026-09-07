@@ -677,6 +677,114 @@ When(
   }
 );
 
+// ============================================================================
+// FIM NATURAL DO CONTRATO -- rescisão SEM multa (issue #91, 07/set/2026)
+//
+// O inquilino ficou até a data fim, então não há multa a cobrar. O
+// fechamento das contas usa o mesmo botão "Rescisão de Contrato", só que
+// sem marcar nenhuma caixinha de multa. É ESTA rescisão que encerra a
+// locação e libera o imóvel -- antes isso era feito por um serviço
+// automático, só pela data, sem ninguém conferir.
+// ============================================================================
+
+When(
+  /^eu registrar a rescisão em "([^"]+)" sem marcar nenhuma cláusula de multa$/,
+  async function (this: CustomWorld, dataSaidaBR: string) {
+    const iso = paraISO(dataSaidaBR);
+    const [ano, mes] = iso.split('-');
+
+    this.testData.dataRescisao = iso;
+    this.testData.periodoRescisao = { mes, ano };
+    this.testData.clausula = null;
+
+    if (!(await this.page.locator('#termination-date').isVisible().catch(() => false))) {
+      await abrirDialogoDeRescisao(this);
+    }
+
+    await this.page.locator('#termination-date').fill(iso);
+    await this.page.waitForTimeout(500);
+
+    // Nenhuma caixinha de multa é marcada de propósito -- é isso que faz a
+    // multa sair R$ 0,00, sem precisar de tela nova nem de cálculo novo.
+    for (const seletor of Object.values(CAIXA_POR_CLAUSULA)) {
+      const caixa = this.page.locator(seletor);
+      if (await caixa.isVisible().catch(() => false)) {
+        await expect(
+          caixa,
+          `a caixinha ${seletor} veio marcada sozinha -- a rescisão sem multa depende de todas estarem desmarcadas`
+        ).toHaveAttribute('aria-checked', 'false');
+      }
+    }
+
+    await this.page.locator('#termination-confirm').click();
+
+    const aviso = this.page.locator('#termination-deposit-warning-dialog');
+    if (await aviso.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await this.page.locator('#termination-deposit-warning-yes').click();
+    }
+
+    await expect(this.page.locator('#termination-date')).toBeHidden({ timeout: 45000 });
+    await this.page.waitForTimeout(2000);
+  }
+);
+
+Then(
+  'o recebimento de aluguel da rescisão não deve ter linha de {string}',
+  async function (this: CustomWorld, linha: string) {
+    const { supabaseAdmin } = await import('../helpers/database.helper');
+    const { data: pagamentos } = await supabaseAdmin
+      .from('payments')
+      .select('breakdown, payment_kind')
+      .eq('rental_id', this.rentalId!)
+      .eq('payment_kind', 'rent')
+      .eq('reference_month', this.testData.periodoRescisao.mes)
+      .eq('reference_year', this.testData.periodoRescisao.ano);
+
+    expect(pagamentos?.length, 'não achei o recebimento de aluguel da rescisão').toBeGreaterThan(0);
+
+    const temMulta = (pagamentos || []).some((p: any) =>
+      linhasDoBreakdown(p.breakdown).some((i: any) =>
+        String(i?.description || '').toLowerCase().includes(linha.toLowerCase())
+      )
+    );
+
+    expect(
+      temMulta,
+      `o inquilino ficou até o fim do contrato, então não pode existir "${linha}" na Formação de Valores (issue #91)`
+    ).toBe(false);
+  }
+);
+
+Then('o status da locação no banco deve ser {string}', async function (this: CustomWorld, statusEsperado: string) {
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+  const { data: rental } = await supabaseAdmin.from('rentals').select('status').eq('id', this.rentalId!).single();
+
+  expect(
+    rental?.status,
+    'a rescisão deveria encerrar a locação na hora -- essa responsabilidade saiu do serviço automático e passou a ser dela (issue #91)'
+  ).toBe(statusEsperado);
+});
+
+Then('o imóvel da locação deve ficar com status {string}', async function (this: CustomWorld, statusEsperado: string) {
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+  const { data: rental } = await supabaseAdmin
+    .from('rentals')
+    .select('property_id')
+    .eq('id', this.rentalId!)
+    .single();
+
+  const { data: property } = await supabaseAdmin
+    .from('properties')
+    .select('status')
+    .eq('id', rental!.property_id)
+    .single();
+
+  expect(
+    property?.status,
+    'o imóvel deveria ser liberado no momento da rescisão -- é o que substituiu o antigo serviço automático (issue #91)'
+  ).toBe(statusEsperado);
+});
+
 Then('devo ver a pergunta {string}', async function (this: CustomWorld, pergunta: string) {
   await expect(
     this.page.locator('#termination-deposit-warning-dialog'),

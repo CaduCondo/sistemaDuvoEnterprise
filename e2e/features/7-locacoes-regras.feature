@@ -77,6 +77,21 @@ Funcionalidade: Regras de Negócio de Locações
     E deve existir um recebimento de aluguel pendente para cada mês até a nova data fim
     E o último recebimento deve ser proporcional aos dias até a nova data fim
 
+  # ⚠️ NOVO (07/set/2026) — bug real relatado pelo Cadu, issue #91: quando a
+  # data fim passava, o sistema encerrava a locação sozinho E a tela escondia
+  # todos os botões de ação. Como o inquilino costuma responder com alguns
+  # dias de atraso, a equipe ficava travada justamente na hora de agir.
+  # Agora a locação continua "Ativa" (com aviso "Vencido") até alguém
+  # decidir: Renovar ou Rescindir.
+  @sistemaCompleto
+  Cenário: Locação com a data fim vencida continua ativa e com os botões de ação
+    Dado uma locação ativa cuja data fim já passou
+    Quando abro a tela de Locações e procuro por essa locação
+    Então o status dela deve aparecer como "Vencido"
+    E os botões "Renovar Contrato", "Rescisão de Contrato" e "Excluir" devem estar disponíveis
+    E o status dela no banco deve continuar "active"
+    E o imóvel dela deve continuar "rented"
+
   # ✅ NOVO: Testa carregamento de parcelas ao visualizar locação
   @sistemaCompleto
   Cenário: Visualizar locação - Carregar dados de caução da tabela

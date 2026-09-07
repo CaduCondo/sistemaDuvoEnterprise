@@ -76,6 +76,20 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
     E deve existir um Recebimento de Rescisão na aba "Cauções"
     E a devolução do caução NÃO deve aparecer na aba "Locações"
 
+  # ⚠️ NOVO (07/set/2026) — issue #91. Fim natural do contrato: o inquilino
+  # ficou até a data fim, então NÃO há multa nenhuma a cobrar. O fechamento
+  # das contas (devolver caução, cobrar reforma) usa o MESMO botão "Rescisão
+  # de Contrato", só que sem marcar nenhuma caixinha de multa -- e é ESTA
+  # rescisão que encerra a locação e libera o imóvel, no momento certo.
+  # Antes, um serviço automático fazia isso sozinho, só pela data.
+  @sistemaCompleto
+  Cenário: Encerrar uma locação vencida sem multa encerra a locação e libera o imóvel
+    Dado que o inquilino pagou todas as parcelas de caução
+    Quando eu registrar a rescisão em "03/09/2026" sem marcar nenhuma cláusula de multa
+    Então o recebimento de aluguel da rescisão não deve ter linha de "Multa Rescisória"
+    E o status da locação no banco deve ser "ended"
+    E o imóvel da locação deve ficar com status "available"
+
   @sistemaCompleto
   Cenário: O recebimento de aluguel soma proporcional do aluguel, proporcional da garagem e multa da cláusula
     # Protege a composição do recebimento de aluguel da rescisão e o fato de a
