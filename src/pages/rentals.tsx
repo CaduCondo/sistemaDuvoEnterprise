@@ -287,11 +287,17 @@ export default function RentalsPage() {
 
       if (statusFilter === "all") return matchesSearch;
 
-      // Contratos ATIVOS = status active E não vencidos
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const isExpired = rental.endDate && new Date(rental.endDate) < today;
-      const effectiveStatus = (rental.isActive && !isExpired) ? "active" : "terminated";
+      // ⚠️ Corrigido em 08/set/2026 (issue #91, 2ª parte). Antes, uma locação
+      // com a data fim vencida contava como "terminated" AQUI -- então ela
+      // sumia da aba "Ativas", que é a aba padrão da tela. Era mais um jeito
+      // de a locação vencida "desaparecer" bem na hora em que a equipe
+      // precisava agir (renovar ou fechar as contas), junto com a trava dos
+      // botões que já foi removida.
+      //
+      // Agora a data fim NÃO decide mais nada aqui: quem manda é o status
+      // real da locação. Uma locação vencida continua em "Ativas", com o
+      // aviso "Vencido" no lugar de "Ativa" -- ver getStatusBadge.
+      const effectiveStatus = rental.isActive ? "active" : "terminated";
 
       return matchesSearch && statusFilter === effectiveStatus;
     });
@@ -1167,8 +1173,12 @@ export default function RentalsPage() {
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
                   const isExpired = rental.endDate && new Date(rental.endDate) < today;
-                  const isVisuallyActive = rental.isActive && !isExpired;
-                  
+                  // ⚠️ Corrigido em 08/set/2026 (issue #91, 2ª parte): a data
+                  // fim vencida não torna a locação "encerrada" -- ela segue
+                  // ativa até alguém renovar ou rescindir. A data vira só o
+                  // aviso "Vencido", igual à visão em tabela.
+                  const isVisuallyActive = rental.isActive;
+
                   // Aplicar cores APENAS para contratos ativos dentro de 60 dias
                   // Vermelho: ≤30 dias | Amarelo: 31-60 dias
                   const shouldShowAlert = rental.isActive && !isExpired && (alert.level === "warning" || alert.level === "critical");
@@ -1202,9 +1212,15 @@ export default function RentalsPage() {
                           <div className="flex flex-col gap-1.5 items-end flex-shrink-0">
                             {isVisuallyActive ? (
                               <>
-                                <Badge className={`${badgeClasses} px-3 py-1 text-xs font-medium rounded-md whitespace-nowrap`}>
-                                  Ativa
-                                </Badge>
+                                {isExpired ? (
+                                  <Badge className="bg-amber-500 text-white hover:bg-amber-600 px-3 py-1 text-xs font-medium rounded-md whitespace-nowrap">
+                                    Vencido
+                                  </Badge>
+                                ) : (
+                                  <Badge className={`${badgeClasses} px-3 py-1 text-xs font-medium rounded-md whitespace-nowrap`}>
+                                    Ativa
+                                  </Badge>
+                                )}
                                 {alert.level !== "normal" && (
                                   <Badge variant="outline" className={`text-xs whitespace-nowrap ${
                                     alert.level === "critical" 
