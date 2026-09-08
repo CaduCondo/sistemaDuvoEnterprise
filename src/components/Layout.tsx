@@ -47,6 +47,29 @@ interface LayoutProps {
   children: ReactNode;
 }
 
+/**
+ * As telas que têm permissão por perfil, e o nome delas em
+ * `role_menu_permissions`.
+ *
+ * Serve para DUAS coisas, e é importante que sejam a mesma lista: montar o
+ * menu (esconder o que o perfil não pode ver) e barrar a entrada na tela
+ * (ver a guarda de rota dentro do Layout). Até 08/set/2026 só existia a
+ * primeira -- o menu escondia o link, mas quem digitasse o endereço na
+ * barra entrava normal. Ver issue #94.
+ *
+ * Rotas que NÃO estão aqui (ex.: /kanban) seguem livres como sempre foram:
+ * esta lista só descreve o que já tinha regra de permissão.
+ */
+const MAPA_DE_MENUS: Record<string, string> = {
+  "/dashboard": "dashboard",
+  "/properties": "properties",
+  "/tenants": "tenants",
+  "/rentals": "rentals",
+  "/payments": "payments",
+  "/financial": "financial",
+  "/settings": "settings",
+};
+
 export function Layout({ children }: LayoutProps) {
   const router = useRouter();
   const { showAlert } = useAlert();
@@ -57,6 +80,11 @@ export function Layout({ children }: LayoutProps) {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [permissions, setPermissions] = useState<any[]>([]);
   const [mounted, setMounted] = useState(false);
+  // Só vira true quando as permissões chegaram do banco COM SUCESSO. Se a
+  // busca falhar (rede, etc.), continua false de propósito -- ver o
+  // comentário da guarda de rota mais abaixo.
+  const [permissoesCarregadas, setPermissoesCarregadas] = useState(false);
+  const [acessoNegado, setAcessoNegado] = useState(false);
 
   const scrollProgress = useScrollProgress();
   const scrollDirection = useScrollDirection();
@@ -93,8 +121,13 @@ export function Layout({ children }: LayoutProps) {
     try {
       const perms = await roleMenuPermissionService.getAll();
       setPermissions(perms);
+      setPermissoesCarregadas(true);
     } catch (error) {
       console.error("Error loading permissions:", error);
+      // Continua com `permissoesCarregadas = false`: sem a lista de
+      // permissões não dá para decidir quem pode o quê, e trancar todo mundo
+      // fora por causa de uma falha de rede seria pior do que o risco. A
+      // barreira que não pode falhar é a do servidor (ver issue #94).
     }
   };
 
@@ -199,17 +232,7 @@ export function Layout({ children }: LayoutProps) {
     if (!authUser?.role) return false;
     if (authUser.role === "admin") return true;
 
-    const menuItemMap: Record<string, string> = {
-      "/dashboard": "dashboard",
-      "/properties": "properties",
-      "/tenants": "tenants",
-      "/rentals": "rentals",
-      "/payments": "payments",
-      "/financial": "financial",
-      "/settings": "settings",
-    };
-
-    const menuItem = menuItemMap[menuPath];
+    const menuItem = MAPA_DE_MENUS[menuPath];
     if (!menuItem) return false;
 
     if (menuPath === "/financial" && authUser.role === "broker") return true;
@@ -218,15 +241,69 @@ export function Layout({ children }: LayoutProps) {
       (p) => p.role === authUser.role && p.menu_id === menuItem
     );
 
-    return permission ? true : false;
+    if (!permission) return false;
+
+    // ⚠️ Corrigido em 08/set/2026 (issue #94). Antes bastava a LINHA existir
+    // para liberar a tela -- o campo `can_access` era ignorado.
+    //
+    // Convive com dois jeitos de negar acesso, e os dois precisam valer:
+    //   • pela tela de Configurações, tirar acesso DELETA a linha
+    //     (ver roleMenuPermissionService.updatePermission) -- some do find
+    //     acima e já era negado antes;
+    //   • pelo seed/migrations originais, a linha existe com
+    //     `can_access = false` (ex.: 'financial' + 'properties'). Essas
+    //     estavam liberando acesso indevidamente.
+    //
+    // Linha antiga sem o campo preenchido conta como liberada (é o DEFAULT
+    // true da coluna) -- por isso `!== false`, e não `=== true`.
+    return (permission as { can_access?: boolean }).can_access !== false;
   };
 
+  /**
+   * GUARDA DE ROTA (issue #94, 08/set/2026).
+   *
+   * Antes, a permissão por perfil só escondia o link no menu -- digitar o
+   * endereço na barra entrava do mesmo jeito. Um usuário do perfil
+   * Financeiro abria /settings e mexia em usuários e taxas. Os 12 cenários
+   * de permissão da suíte apontavam isso desde sempre; ninguém via porque a
+   * rodada nunca terminava.
+   *
+   * Só age nas telas do MAPA_DE_MENUS, e só depois que as permissões
+   * chegaram do banco -- senão barraria quem tem direito enquanto carrega.
+   */
+  const rotaAtual = router.pathname;
+  const rotaTemRegraDePermissao = rotaAtual in MAPA_DE_MENUS;
+
+  useEffect(() => {
+    if (!permissoesCarregadas || !authUser?.role) return;
+
+    if (!rotaTemRegraDePermissao) {
+      setAcessoNegado(false);
+      return;
+    }
+
+    if (shouldShowMenu(rotaAtual)) {
+      setAcessoNegado(false);
+      return;
+    }
+
+    setAcessoNegado(true);
+
+    // Mandar para o Painel resolve o caso normal. Se for o próprio Painel
+    // que o perfil não pode ver, não redireciona (viraria um laço): a tela
+    // de "sem permissão" abaixo é a resposta.
+    if (rotaAtual !== "/dashboard") {
+      router.replace("/dashboard");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permissoesCarregadas, permissions, authUser?.role, rotaAtual, rotaTemRegraDePermissao]);
+
   const menuItems = [
-    { 
-      name: "Painel", 
-      path: "/dashboard", 
+    {
+      name: "Painel",
+      path: "/dashboard",
       icon: Home,
-      permission: "canViewDashboard" 
+      permission: "canViewDashboard"
     },
     { 
       name: "Imóveis", 
@@ -563,7 +640,23 @@ export function Layout({ children }: LayoutProps) {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        {children}
+        {acessoNegado && rotaTemRegraDePermissao ? (
+          // Nunca renderiza o conteúdo da tela proibida -- nem por um
+          // instante, enquanto o redirecionamento acontece (issue #94).
+          <div
+            id="layout-acesso-negado"
+            className="flex flex-col items-center justify-center gap-3 py-24 text-center"
+          >
+            <Lock className="h-10 w-10 text-muted-foreground" />
+            <h2 className="text-xl font-semibold">Acesso negado</h2>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Seu perfil não tem permissão para abrir esta tela. Se você acredita
+              que deveria ter, fale com um administrador.
+            </p>
+          </div>
+        ) : (
+          children
+        )}
       </motion.main>
 
       {/* Edit Profile Dialog */}
