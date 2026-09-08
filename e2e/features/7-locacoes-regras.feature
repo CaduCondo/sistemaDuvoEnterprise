@@ -90,7 +90,7 @@ Funcionalidade: Regras de Negócio de Locações
     Então o status dela deve aparecer como "Vencido"
     E os botões "Renovar Contrato", "Rescisão de Contrato" e "Excluir" devem estar disponíveis
     E o status dela no banco deve continuar "active"
-    E o imóvel dela deve continuar "rented"
+    E o imóvel dela deve continuar "occupied"
 
   # ✅ NOVO: Testa carregamento de parcelas ao visualizar locação
   @sistemaCompleto

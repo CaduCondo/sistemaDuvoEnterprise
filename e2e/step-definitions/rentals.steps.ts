@@ -250,8 +250,18 @@ Given('uma locação ativa cuja data fim já passou', async function (this: impo
   } as any);
 
   // O imóvel precisa estar ocupado: o bug antigo liberava ele sozinho.
+  // ⚠️ "occupied" é o status do IMÓVEL; "rented" é o do INQUILINO -- a
+  // constraint properties_status_check só aceita available/occupied/
+  // unavailable. Escrevi "rented" aqui na primeira versão e o CI pegou.
   const { supabaseAdmin } = await import('../helpers/database.helper');
-  await supabaseAdmin.from('properties').update({ status: 'rented' }).eq('id', rental.property_id);
+  const { error: erroOcupar } = await supabaseAdmin
+    .from('properties')
+    .update({ status: 'occupied' })
+    .eq('id', rental.property_id);
+
+  if (erroOcupar) {
+    throw new Error(`não consegui deixar o imóvel como ocupado: ${erroOcupar.message}`);
+  }
 
   this.rentalId = rental.id;
   this.testData = {
