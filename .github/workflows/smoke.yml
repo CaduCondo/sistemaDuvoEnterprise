@@ -6,12 +6,16 @@ name: Smoke Test
 #      diz "pode seguir" ou "parou de pe". So os cenarios marcados @smoke:
 #      os poucos caminhos que, se quebrarem, param o sistema.
 #
-#   2. "sistema_completo" — so comeca DEPOIS que a "smoke" passar (`needs:
-#      smoke`). Roda todo o resto: todos os cenarios marcados
-#      @sistemaCompleto, ou seja, TODAS as regras de negocio que a rodada 1
-#      nao cobriu, sem repetir nenhum cenario da rodada 1. Mais lenta, mas
-#      nao trava a rodada rapida nem a esperada por quem so quer saber "o
-#      basico continua de pe?".
+#   2. "sistema_completo" — roda DEPOIS da "smoke", mas roda SEMPRE, mesmo
+#      que a smoke tenha ficado vermelha (`needs: smoke` + `if: always()`,
+#      decisao do Cadu em 07/set/2026). Roda todo o resto: todos os cenarios
+#      marcados @sistemaCompleto, ou seja, TODAS as regras de negocio que a
+#      rodada 1 nao cobriu, sem repetir nenhum cenario da rodada 1.
+#
+#      Por que roda sempre: antes, uma smoke vermelha impedia a rodada
+#      completa de comecar -- justamente no push que quebrou algo, ficavamos
+#      cegos sobre o resto do sistema. O objetivo e sempre terminar com UM
+#      relatorio com TODOS os bugs encontrados, nao parar no primeiro erro.
 #
 # Por que existe a divisao:
 #   O workflow "E2E Tests" (suite antiga) rodava tudo junto a cada push,
@@ -100,6 +104,10 @@ jobs:
   sistema_completo:
     name: Sistema completo (2a rodada)
     needs: smoke
+    # Roda mesmo com a smoke vermelha -- ver explicacao no topo do arquivo.
+    # "needs" aqui so serve para a ORDEM (nao rodar as duas ao mesmo tempo,
+    # que brigariam pelos mesmos dados de teste), nao para condicionar.
+    if: always()
     runs-on: ubuntu-latest
     # ⚠️ Subido de 30 para 45 em 07/set/2026 (issue #66). Nas rodadas de
     # 06 e 07/set o job foi cancelado no limite de 30min TRES vezes seguidas,
