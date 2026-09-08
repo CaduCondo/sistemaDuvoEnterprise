@@ -21,19 +21,51 @@ Given('existe um inquilino {string}', async function(tenantName: string) {
   };
 });
 
-Given('que existe uma locação ativa', async function() {
-  // Mock: assumir que existe locação criada
-  this.testData = {
-    ...this.testData,
-    hasActiveRental: true
+/**
+ * ⚠️ Consertado em 08/set/2026 (issue #95).
+ *
+ * Estes dois passos eram MOCK: só gravavam uma bandeirinha em `testData`
+ * ("hasActiveRental: true") sem criar locação nenhuma no banco. O cenário
+ * seguia como se tivesse uma locação, e o primeiro passo que precisava dela
+ * de verdade explodia com:
+ *
+ *   Falha ao criar pagamento: null value in column "rental_id" of relation
+ *   "payments" violates not-null constraint
+ *
+ * Derrubava 3 cenários de "Editar locação" -- todos por defeito do teste,
+ * nenhum bug do sistema. Agora criam a locação de verdade e guardam o id,
+ * que é o que `upsertMonthlyPayment` e os passos de edição esperam.
+ */
+async function criarLocacaoAtivaDeTeste(world: any, aluguel: number) {
+  const sufixo = Date.now();
+  const tenant = await world.createTenant({ name: `Locacao Ativa E2E ${sufixo}` });
+
+  const rental = await world.createRental({
+    start_date: '2026-01-01',
+    end_date: '2026-12-31',
+    rent_due_day: 10,
+    rent_value: aluguel,
+    tenant_id: tenant.id,
+  });
+
+  world.rentalId = rental.id;
+  world.testData = {
+    ...world.testData,
+    rentalId: rental.id,
+    hasActiveRental: true,
+    rental: { id: rental.id, rent: String(aluguel), tenantName: tenant.name },
   };
+
+  return rental;
+}
+
+Given('que existe uma locação ativa', async function () {
+  await criarLocacaoAtivaDeTeste(this, 2500);
 });
 
-Given('que existe uma locação ativa com aluguel de {string}', async function(rentValue: string) {
-  this.testData = {
-    ...this.testData,
-    rental: { rent: rentValue }
-  };
+Given('que existe uma locação ativa com aluguel de {string}', async function (rentValue: string) {
+  const aluguel = parseFloat(rentValue.replace(/\./g, '').replace(',', '.'));
+  await criarLocacaoAtivaDeTeste(this, aluguel);
 });
 
 Given('o dia de vencimento é {string}', async function(paymentDay: string) {
