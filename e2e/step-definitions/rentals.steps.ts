@@ -536,22 +536,52 @@ When('abro a locação em modo {string}', async function(mode: string) {
   await this.page.waitForTimeout(500);
 });
 
-When('edito a locação', async function() {
-  const editButton = this.page.getByRole('button', { name: /editar/i });
-  await editButton.click();
-  await this.page.waitForTimeout(500);
+/**
+ * ⚠️ Consertado em 08/set/2026 (issue #95).
+ *
+ * Estes passos procuravam um botão "Editar" na tela em que o navegador
+ * estivesse -- sem nunca ir para Locações nem achar a locação do cenário.
+ * Como o `Dado` anterior cria a locação direto no banco (rápido, sem passar
+ * pela tela), o navegador continuava parado no Painel: o botão nunca
+ * aparecia e o passo estourava os 20s.
+ *
+ * O caminho real da edição é: abrir a locação (clique na linha, que abre em
+ * modo Visualizar) e então clicar em "Editar" (#rental-form-edit) dentro do
+ * diálogo -- não existe botão de editar direto na listagem.
+ */
+async function abrirLocacaoDoCenarioParaEdicao(world: any) {
+  const nomeInquilino = world.testData?.rental?.tenantName;
+  if (!nomeInquilino) {
+    throw new Error(
+      'nenhuma locação de teste foi criada -- falta o passo "Dado que existe uma locação ativa"'
+    );
+  }
+
+  await world.page.goto('/rentals');
+  await world.page.waitForLoadState('domcontentloaded');
+
+  // A locação vem do banco: filtra pelo inquilino do cenário para não
+  // esbarrar em nenhum outro registro da lista.
+  await world.page.locator('#rentals-search-input').fill(nomeInquilino);
+  await world.page.waitForTimeout(800);
+
+  await world.page.getByText(nomeInquilino).first().click();
+  await world.page.waitForTimeout(800);
+
+  const botaoEditar = world.page.locator('#rental-form-edit');
+  await botaoEditar.click();
+  await world.page.waitForTimeout(500);
+}
+
+When('edito a locação', async function () {
+  await abrirLocacaoDoCenarioParaEdicao(this);
 });
 
-When('edito a locação em {string}', async function(date: string) {
-  // Simular data atual no contexto do teste
-  this.testData = {
-    ...this.testData,
-    currentDate: date
-  };
-  
-  const editButton = this.page.getByRole('button', { name: /editar/i });
-  await editButton.click();
-  await this.page.waitForTimeout(500);
+When('edito a locação em {string}', async function (date: string) {
+  // Guarda a data que o cenário considera "hoje" -- usada nas asserções
+  // sobre quais recebimentos podem ou não ser alterados.
+  this.testData = { ...this.testData, currentDate: date };
+  await abrirLocacaoDoCenarioParaEdicao(this);
 });
 
 When('altero o valor do aluguel de {string} para {string}', async function(oldValue: string, newValue: string) {
