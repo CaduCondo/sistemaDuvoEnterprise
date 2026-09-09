@@ -334,12 +334,28 @@ Then('devo ver a lista de {string}', async function (this: CustomWorld, entityNa
   expect(hasContent).toBe(true);
 });
 
+/**
+ * ⚠️ Corrigido em 09/set/2026 (issue #95): estes dois passos usavam uma
+ * lista de seletores SEM `.first()`. Numa tela em modo tabela, tanto o
+ * container (#tenants-page) quanto a `table` de dentro dele casam -- o
+ * Playwright achava 2 elementos e falhava por ambiguidade ("strict mode
+ * violation"), mesmo com a lista aparecendo certinha na tela.
+ *
+ * As telas têm duas visões (cards e tabela) e a padrão é cards, então o
+ * seletor precisa aceitar as duas -- daí a lista, agora com `.first()`,
+ * igual aos passos de locações e pagamentos logo abaixo, que já estavam
+ * certos.
+ */
 Then('devo ver a lista de imóveis', async function (this: CustomWorld) {
-  await expect(this.page.locator('table, [role="grid"], #properties-page')).toBeVisible({ timeout: 5000 });
+  await expect(
+    this.page.locator('table, [role="grid"], #properties-page').first()
+  ).toBeVisible({ timeout: 5000 });
 });
 
 Then('devo ver a lista de inquilinos', async function (this: CustomWorld) {
-  await expect(this.page.locator('table, [role="grid"], #tenants-page')).toBeVisible({ timeout: 5000 });
+  await expect(
+    this.page.locator('table, [role="grid"], #tenants-page').first()
+  ).toBeVisible({ timeout: 5000 });
 });
 
 Then('devo ver a lista de locações', async function (this: CustomWorld) {

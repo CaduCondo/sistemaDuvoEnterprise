@@ -8,9 +8,25 @@ import { CustomWorld } from '../support/world';
  * src/components/tenants/TenantFilters.tsx.
  */
 
+/**
+ * ⚠️ Corrigido em 09/set/2026 (issue #95). O passo abria o filtro certo,
+ * mas escolhia a opção com `getByText(/Locatário/i)` -- que varre a PÁGINA
+ * INTEIRA. Como "Locatário" também é o status escrito na linha de cada
+ * inquilino, o seletor achou 113 elementos e o cenário morreu por
+ * ambiguidade, sem nada de errado no sistema.
+ *
+ * Agora a opção é procurada só DENTRO da lista aberta do filtro
+ * (role="option"), que é onde ela de fato está.
+ */
 When('seleciono o filtro de status {string}', async function (this: CustomWorld, statusLabel: string) {
   await this.page.locator('#tenant-filters-status').click();
-  await this.page.getByText(new RegExp(statusLabel, 'i')).click();
+  await this.page.waitForTimeout(300);
+
+  await this.page
+    .getByRole('option', { name: new RegExp(statusLabel, 'i') })
+    .first()
+    .click();
+
   await this.page.waitForTimeout(500);
 });
 
