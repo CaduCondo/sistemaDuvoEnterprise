@@ -69,7 +69,12 @@ export function useProperties(): UsePropertiesReturn {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useState<"alphabetical" | "price-asc" | "price-desc">("alphabetical");
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  // ⚠️ Corrigido em 09/set/2026: o padrão do sistema é abrir TODA tela em
+  // lista -- o usuário troca para grade se quiser. Locações já abria em
+  // "table" e Inquilinos em "list"; a tela de Imóveis tinha ficado para
+  // trás, ainda abrindo em grade. Achado pelo Cadu ao ver os testes
+  // procurando linha de tabela numa tela que abria em cards.
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const [loading, setLoading] = useState(true);
   const [pendingRentAdjustment, setPendingRentAdjustment] = useState<{
     propertyId: string;

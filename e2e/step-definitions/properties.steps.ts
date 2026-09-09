@@ -1,6 +1,7 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import { CustomWorld } from '../support/world';
+import { comMarcaDeTeste } from '../helpers/database.helper';
 
 /**
  * Step Definitions específicos da página /properties (feature 5-imoveis-crud).
@@ -182,7 +183,12 @@ When('preencho todos os campos obrigatórios:', async function (this: CustomWorl
       // DEV, e sem isso o Playwright recusa por ambiguidade.
       await this.page.getByRole('option', { name: new RegExp(valor, 'i') }).first().click();
     } else if (campo === 'complemento') {
-      await this.page.locator('#property-complement').fill(valor);
+      // Sela o registro criado PELA TELA, para a limpeza conseguir achá-lo
+      // depois (issue #97). Sem isso, todo imóvel criado por cenário ficava
+      // no banco para sempre -- o "Criar imóvel com sucesso" é @smoke e
+      // rodava a cada push. As asserções continuam valendo: elas procuram
+      // o texto original, que segue lá como começo do valor.
+      await this.page.locator('#property-complement').fill(comMarcaDeTeste(valor));
     } else if (campo === 'quartos') {
       await this.page.locator('#property-rooms').fill(valor);
     } else if (campo === 'banheiros') {
@@ -194,7 +200,8 @@ When('preencho todos os campos obrigatórios:', async function (this: CustomWorl
 
       // ---- Campos do formulário de Inquilino ----
     } else if (campo === 'nome' || campo === 'razão social') {
-      await this.page.locator('#tenant-name').fill(valor);
+      // Mesmo motivo do complemento acima (#97): sela o inquilino criado pela tela.
+      await this.page.locator('#tenant-name').fill(comMarcaDeTeste(valor));
     } else if (campo === 'cpf') {
       await this.page.locator('#tenant-document').fill(valor);
     } else if (campo === 'cnpj') {

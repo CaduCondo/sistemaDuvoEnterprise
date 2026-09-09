@@ -56,6 +56,34 @@ export const supabaseAdmin = createClient(
   }
 );
 
+/**
+ * Selo que marca TODO dado criado pela automação (issue #97).
+ *
+ * POR QUE EXISTE
+ *
+ * A limpeza antiga só apagava o que estava em `createdIds` -- uma lista em
+ * memória. Ela deixava dois buracos, e os dois estavam enchendo o banco de
+ * DEV de imóvel e inquilino de teste:
+ *
+ *   1. Registro criado PELA TELA (o cenário preenche o formulário e salva)
+ *      nunca passava por este helper, então nunca entrava na lista. O
+ *      cenário "Criar imóvel com sucesso" é @smoke: rodava a cada push e
+ *      deixava um imóvel para trás toda vez.
+ *   2. Quando o job do CI era cancelado (aconteceu muitas vezes no limite
+ *      de 30min), o AfterAll nem chegava a rodar -- a rodada inteira ficava
+ *      no banco.
+ *
+ * Com o selo no nome, a limpeza deixa de depender de memória: ela varre o
+ * banco procurando o selo e apaga o que achar, mesmo de rodadas passadas
+ * que morreram no meio.
+ */
+export const MARCA_TESTE = '[E2E]';
+
+/** Acrescenta o selo, sem duplicar se já estiver lá. */
+export function comMarcaDeTeste(valor: string): string {
+  return valor.includes(MARCA_TESTE) ? valor : `${valor} ${MARCA_TESTE}`;
+}
+
 // Rastreamento de dados criados nesta execução, para limpeza ao final
 const createdIds = {
   systemUsers: [] as string[],
@@ -291,7 +319,7 @@ export class DatabaseHelper {
     const { data, error } = await supabaseAdmin
       .from('locations')
       .insert({
-        name: overrides.name || `Localização Teste ${suffix}`,
+        name: comMarcaDeTeste(overrides.name || `Localização Teste ${suffix}`),
         city: overrides.city || 'São Paulo',
         state: overrides.state || 'SP',
         neighborhood: overrides.neighborhood || 'Centro',
@@ -329,7 +357,7 @@ export class DatabaseHelper {
       .insert({
         location_id: locationId,
         property_identifier: overrides.property_identifier || `IMO-${suffix}`,
-        complement: overrides.complement || 'Casa Teste',
+        complement: comMarcaDeTeste(overrides.complement || 'Casa Teste'),
         value: overrides.value ?? 1000,
         status: overrides.status || 'available',
         rooms: overrides.rooms ?? 2,
@@ -376,7 +404,7 @@ export class DatabaseHelper {
     const { data, error } = await supabaseAdmin
       .from('tenants')
       .insert({
-        name: overrides.name || `Inquilino Teste ${suffix}`,
+        name: comMarcaDeTeste(overrides.name || `Inquilino Teste ${suffix}`),
         document: overrides.document || `${suffix}00000`,
         document_type: overrides.document_type || 'cpf',
         cpf: overrides.cpf,
@@ -710,7 +738,89 @@ export class DatabaseHelper {
     createdIds.properties = [];
     createdIds.locations = [];
 
+    // Segunda passada: varre o banco pelo selo, pegando o que a lista em
+    // memória não alcança -- ver o comentário de MARCA_TESTE.
+    await this.limparPeloSeloDeTeste();
+
     console.log('✅ Limpeza concluída!\n');
+  }
+
+  /**
+   * Apaga TODO registro que carregue o selo de teste, venha ele de onde vier:
+   * criado pela tela, ou sobrado de uma rodada que foi cancelada no meio.
+   *
+   * Roda no começo E no fim da rodada (ver hooks.ts). No começo é o que
+   * limpa a sujeira acumulada; no fim é o que impede a rodada de sujar.
+   *
+   * A ordem importa: locação depende de imóvel e inquilino, então some
+   * primeiro. Os recebimentos e parcelas de caução vão junto com a locação.
+   */
+  static async limparPeloSeloDeTeste() {
+    const selo = `%${MARCA_TESTE}%`;
+    let total = 0;
+
+    const contar = (lista: unknown[] | null) => {
+      const n = lista?.length ?? 0;
+      total += n;
+      return n;
+    };
+
+    // 1) Locações de inquilinos selados (leva junto parcelas e recebimentos).
+    const { data: inquilinosSelados } = await supabaseAdmin
+      .from('tenants')
+      .select('id')
+      .like('name', selo);
+
+    for (const inquilino of inquilinosSelados ?? []) {
+      const { data: locacoes } = await supabaseAdmin
+        .from('rentals')
+        .select('id')
+        .eq('tenant_id', inquilino.id);
+
+      for (const locacao of locacoes ?? []) {
+        await supabaseAdmin.from('deposit_installments').delete().eq('rental_id', locacao.id);
+        await supabaseAdmin.from('payments').delete().eq('rental_id', locacao.id);
+        await supabaseAdmin.from('rentals').delete().eq('id', locacao.id);
+      }
+    }
+
+    // 2) Imóveis selados: as locações deles já sumiram acima quando o
+    //    inquilino era de teste; aqui garantimos o resto.
+    const { data: imoveisSelados } = await supabaseAdmin
+      .from('properties')
+      .select('id')
+      .like('complement', selo);
+
+    for (const imovel of imoveisSelados ?? []) {
+      const { data: locacoes } = await supabaseAdmin
+        .from('rentals')
+        .select('id')
+        .eq('property_id', imovel.id);
+
+      for (const locacao of locacoes ?? []) {
+        await supabaseAdmin.from('deposit_installments').delete().eq('rental_id', locacao.id);
+        await supabaseAdmin.from('payments').delete().eq('rental_id', locacao.id);
+        await supabaseAdmin.from('rentals').delete().eq('id', locacao.id);
+      }
+    }
+
+    const { data: imoveisApagados } = await supabaseAdmin
+      .from('properties').delete().like('complement', selo).select('id');
+    console.log(`   • imóveis: ${contar(imoveisApagados)}`);
+
+    const { data: inquilinosApagados } = await supabaseAdmin
+      .from('tenants').delete().like('name', selo).select('id');
+    console.log(`   • inquilinos: ${contar(inquilinosApagados)}`);
+
+    const { data: locaisApagados } = await supabaseAdmin
+      .from('locations').delete().like('name', selo).select('id');
+    console.log(`   • localizações: ${contar(locaisApagados)}`);
+
+    if (total > 0) {
+      console.log(`   ↳ ${total} registro(s) com o selo ${MARCA_TESTE} removidos.`);
+    }
+
+    return total;
   }
 }
 
