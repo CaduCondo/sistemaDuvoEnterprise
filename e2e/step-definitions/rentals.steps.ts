@@ -573,6 +573,37 @@ async function abrirLocacaoDoCenarioParaEdicao(world: any) {
   await world.page.waitForTimeout(500);
 }
 
+/**
+ * O valor do aluguel pertence ao IMÓVEL, não à locação -- por isso o setup
+ * mexe no imóvel. A AÇÃO que o cenário testa (salvar a locação e ver os
+ * recebimentos se ressincronizarem) continua sendo feita pela tela.
+ */
+When('o valor do imóvel dessa locação muda para {string}', async function (this: any, novoValor: string) {
+  const valor = parseFloat(novoValor.replace(/\./g, '').replace(',', '.'));
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+
+  const { data: locacao, error: erroBusca } = await supabaseAdmin
+    .from('rentals')
+    .select('property_id')
+    .eq('id', this.rentalId)
+    .single();
+
+  if (erroBusca || !locacao?.property_id) {
+    throw new Error(`não achei o imóvel da locação do cenário: ${erroBusca?.message ?? 'sem property_id'}`);
+  }
+
+  const { error: erroUpdate } = await supabaseAdmin
+    .from('properties')
+    .update({ value: valor })
+    .eq('id', locacao.property_id);
+
+  if (erroUpdate) {
+    throw new Error(`não consegui mudar o valor do imóvel: ${erroUpdate.message}`);
+  }
+
+  this.testData = { ...this.testData, novoValorDoImovel: valor };
+});
+
 When('edito a locação', async function () {
   await abrirLocacaoDoCenarioParaEdicao(this);
 });

@@ -1068,6 +1068,32 @@ Para cada mês do contrato:
 - **Se método de pagamento mudar**: 
   - Atualizar `payment_method` em todas as parcelas pendentes
 
+> **📌 Como se muda o valor do aluguel de uma locação** (confirmado no
+> código em 09/set/2026 — essa regra não estava escrita em lugar nenhum)
+>
+> **O valor do aluguel NÃO fica na locação: ele pertence ao cadastro do
+> IMÓVEL.** Na tela de Locação ele aparece só para leitura (o formulário
+> mostra o valor do imóvel escolhido, sem campo para editar).
+>
+> Então, para reajustar o aluguel de uma locação em andamento, o caminho é:
+>
+> 1. Editar o **imóvel** e gravar o valor novo.
+> 2. Abrir a **locação** daquele imóvel e clicar em salvar — **mesmo sem
+>    mexer em mais nada na tela**.
+>
+> É o passo 2 que atualiza o dinheiro: ao salvar, o sistema compara o valor
+> do imóvel com o valor gravado na locação e, se estiverem diferentes,
+> ressincroniza os recebimentos (ver `rentPaymentsChanged` em
+> `rentalService.update`). Sem esse segundo passo, o imóvel fica com o valor
+> novo mas os recebimentos continuam cobrando o antigo.
+>
+> Os recebimentos **já pagos não mudam** — eles guardam o valor da época
+> (snapshot). Só os pendentes/futuros passam a valer o valor novo.
+>
+> Protegido pelos cenários "Editar locação - Atualizar valor do aluguel" e
+> "Editar locação - Preservar snapshot em pagamentos pagos"
+> (`e2e/features/7-locacoes-regras.feature`).
+
 #### 3. Caução e Parcelamento
 
 **3.1 Valor do Caução**

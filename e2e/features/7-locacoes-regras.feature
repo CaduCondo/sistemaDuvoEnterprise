@@ -163,11 +163,25 @@ Funcionalidade: Regras de Negócio de Locações
     E cada pagamento deve ter valor de "2500.00"
     E todos os pagamentos devem vencer no dia 10
 
+  # ⚠️ REESCRITOS em 09/set/2026 (issue #95).
+  #
+  # Os dois cenários mandavam "alterar o valor do aluguel" dentro do
+  # formulário de Locação -- e esse campo NÃO EXISTE lá. Conferido em
+  # RentalFormDialog.tsx: o valor do aluguel é só EXIBIDO
+  # (`formatCurrency(selectedProperty?.value)`), porque ele pertence ao
+  # cadastro do IMÓVEL, não ao da locação.
+  #
+  # O caminho real (confirmado em rentalService.update -- a variável
+  # `rentPaymentsChanged` compara `rental.value` com `oldRental.monthlyRent`)
+  # é: muda-se o valor do IMÓVEL e depois basta abrir a locação e SALVAR,
+  # mesmo sem mexer em mais nada -- os recebimentos são ressincronizados
+  # com o valor novo. É a regra que o Cadu lembrava "mais ou menos"; agora
+  # está confirmada no código e protegida por estes cenários.
   @sistemaCompleto
   Cenário: Editar locação - Atualizar valor do aluguel
     Dado que existe uma locação ativa
-    Quando edito a locação
-    E altero o valor do aluguel de "2500.00" para "2800.00"
+    Quando o valor do imóvel dessa locação muda para "2800.00"
+    E edito a locação
     E salvo as alterações
     Então os pagamentos futuros devem ser atualizados para "2800.00"
     E os pagamentos já pagos devem manter o valor original
@@ -176,8 +190,8 @@ Funcionalidade: Regras de Negócio de Locações
   Cenário: Editar locação - Preservar snapshot em pagamentos pagos
     Dado que existe uma locação ativa com aluguel de "2500.00"
     E o pagamento de Janeiro/2026 está "Pago" com valor de "2500.00"
-    Quando edito a locação
-    E altero o valor do aluguel para "2800.00"
+    Quando o valor do imóvel dessa locação muda para "2800.00"
+    E edito a locação
     E altero a garagem para "400.00"
     E salvo as alterações
     E visualizo o recibo do pagamento de Janeiro/2026
