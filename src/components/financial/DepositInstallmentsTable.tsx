@@ -737,7 +737,10 @@ export function DepositInstallmentsTable({
               {/* ✅ CORRIGIDO: Filtro com opções corretas e padrão "Ativas" */}
               <div className="flex gap-2 items-center">
                 <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-                  <SelectTrigger className="w-[180px]">
+                  {/* data-testid: gancho dos testes automatizados (#95). Sem
+                      ele os cenários caíam no #status-filter da tela de
+                      Locações, que é outro filtro. */}
+                  <SelectTrigger className="w-[180px]" data-testid="status-filter">
                     <SelectValue placeholder="Status da Locação" />
                   </SelectTrigger>
                   <SelectContent>
@@ -919,6 +922,7 @@ export function DepositInstallmentsTable({
                               ) : (
                                 <span
                                   className="cursor-pointer hover:bg-blue-50 px-3 py-2 rounded block text-right"
+                                  data-testid="edit-partner-commission"
                                   onClick={() => handleStartEdit(installment, "partner_commission")}
                                 >
                                   {formatCurrency(installment.partner_commission || 0)}
@@ -949,6 +953,7 @@ export function DepositInstallmentsTable({
                             ) : (
                               <span
                                 className="cursor-pointer hover:bg-blue-50 px-3 py-2 rounded block text-right"
+                                data-testid="edit-internal-commission"
                                 onClick={() => handleStartEdit(installment, "internal_commission")}
                               >
                                 {formatCurrency(installment.internal_commission || 0)}
@@ -1047,6 +1052,7 @@ export function DepositInstallmentsTable({
                           ) : (
                             <span
                               className="cursor-pointer hover:bg-blue-50 px-3 py-2 rounded block text-right"
+                              data-testid={`edit-amount-${installment.installment_number}`}
                               onClick={() => handleStartEdit(installment, "amount")}
                             >
                               {formatCurrency(installment.amount)}
@@ -1098,6 +1104,7 @@ export function DepositInstallmentsTable({
                             ) : (
                               <span
                                 className="cursor-pointer hover:bg-blue-50 px-3 py-2 rounded block text-right"
+                                data-testid="edit-returned-deposit"
                                 onClick={() => handleStartEdit(installment, "returned_deposit_amount")}
                               >
                                 {rental?.status !== "active" && rental?.returned_deposit_amount 
