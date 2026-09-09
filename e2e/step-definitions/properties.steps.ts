@@ -231,15 +231,42 @@ Then('o imóvel deve permanecer na lista', async function (this: CustomWorld) {
   }
 });
 
+/**
+ * ⚠️ Consertado em 09/set/2026 (issue #95).
+ *
+ * Os dois passos procuravam uma LINHA DE TABELA (`tr`) do imóvel. Só que a
+ * tela de Imóveis abre na visão em CARDS (`viewMode` começa em "grid" --
+ * ver useProperties.ts): não existe `tr` nenhum ali, então os passos
+ * esperavam os 20s e morriam.
+ *
+ * Também não existe botão de "editar" por item: a edição abre clicando no
+ * próprio card (onCardClick). O único botão do card é o de excluir.
+ *
+ * Agora os passos usam os ids fixos que o card passou a expor
+ * (#property-card-{id} / #property-delete-{id}), localizados pelo
+ * identificador do imóvel -- funciona na visão padrão, sem depender de
+ * layout nem de rótulo.
+ */
+async function acharCardDoImovel(world: CustomWorld, identifier: string) {
+  await world.page.waitForLoadState('domcontentloaded');
+  const card = world.page.locator(`[data-property-identifier="${identifier}"]`);
+  await expect(
+    card,
+    `não achei o imóvel "${identifier}" na tela -- ele foi criado pelo cenário?`
+  ).toBeVisible({ timeout: 10000 });
+  return card;
+}
+
 When('clico no botão de editar do imóvel {string}', async function (this: CustomWorld, identifier: string) {
-  const row = this.page.locator('tr', { hasText: identifier });
-  await row.getByRole('button').first().click();
-  await this.page.waitForTimeout(500);
+  const card = await acharCardDoImovel(this, identifier);
+  // Não há botão "editar": clicar no card abre o formulário em edição.
+  await card.click();
+  await this.page.waitForTimeout(800);
 });
 
 When('clico no botão de deletar do imóvel {string}', async function (this: CustomWorld, identifier: string) {
-  const row = this.page.locator('tr', { hasText: identifier });
-  await row.getByRole('button', { name: /deletar|excluir/i }).click();
+  const card = await acharCardDoImovel(this, identifier);
+  await card.locator('[id^="property-delete-"]').click();
   await this.page.waitForTimeout(500);
 });
 

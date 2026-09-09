@@ -55,7 +55,13 @@ export const PropertyCard = memo(function PropertyCard({
   );
 
   return (
-    <Card 
+    <Card
+      // Ganchos dos testes automatizados (#95): a visão em cards é a padrão
+      // da tela, e antes não havia como um teste apontar para um imóvel
+      // específico -- ele tentava achar uma linha de tabela que só existe na
+      // outra visão.
+      id={`property-card-${property.id}`}
+      data-property-identifier={property.property_identifier}
       className="card-hover-effect touch-target-card border shadow-sm hover:shadow-md transition-shadow w-full"
       onClick={() => onCardClick(property)}
     >
@@ -123,6 +129,7 @@ export const PropertyCard = memo(function PropertyCard({
             </span>
           </div>
           <Button
+            id={`property-delete-${property.id}`}
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
