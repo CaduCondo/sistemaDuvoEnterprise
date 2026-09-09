@@ -262,19 +262,67 @@ When('clico no menu {string}', async function (this: CustomWorld, menuName: stri
   await this.page.waitForLoadState('domcontentloaded');
 });
 
+/**
+ * ⚠️ Reescrito em 09/set/2026 (issue #95).
+ *
+ * Os dois passos procuravam o menu pelo TEXTO, e dois nomes nos cenários
+ * nunca bateram com a tela:
+ *
+ *   cenário diz "Dashboard"   -> o menu real se chama "Painel"
+ *   cenário diz "Pagamentos"  -> o menu real se chama "Recebimentos"
+ *
+ * Além de errado, buscar por texto era frágil: /Pagamentos/i chegou a
+ * casar com 2 elementos ("Aluguéis Recebidos", links do Painel...) e
+ * quebrar por ambiguidade.
+ *
+ * Agora o passo traduz o nome do cenário para o id fixo do link no menu
+ * (#layout-nav-dashboard, #layout-nav-payments, ...) -- um por tela, sem
+ * ambiguidade, e imune a mudança de rótulo. Os nomes antigos continuam
+ * aceitos para não quebrar cenário nenhum.
+ */
+const MENU_POR_NOME: Record<string, string> = {
+  dashboard: 'dashboard',
+  painel: 'dashboard',
+  imoveis: 'properties',
+  inquilinos: 'tenants',
+  locacoes: 'rentals',
+  pagamentos: 'payments',
+  recebimentos: 'payments',
+  financeiro: 'financial',
+  configuracoes: 'settings',
+};
+
+function idDoMenu(nomeNoCenario: string): string {
+  const chave = nomeNoCenario
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+  const rota = MENU_POR_NOME[chave];
+  if (!rota) {
+    throw new Error(
+      `menu desconhecido no cenário: "${nomeNoCenario}". Os aceitos são: ${Object.keys(MENU_POR_NOME).join(', ')}`
+    );
+  }
+  return `#layout-nav-${rota}`;
+}
+
 Then('devo ver os seguintes menus:', async function (this: CustomWorld, dataTable: any) {
-  const menuItems = dataTable.hashes();
-  for (const item of menuItems) {
-    const menu = this.page.getByRole('link', { name: new RegExp(escapeRegex(item.menu), 'i') });
-    await expect(menu).toBeVisible({ timeout: 5000 });
+  for (const item of dataTable.hashes()) {
+    await expect(
+      this.page.locator(idDoMenu(item.menu)),
+      `o menu "${item.menu}" deveria estar visível para este perfil`
+    ).toBeVisible({ timeout: 5000 });
   }
 });
 
 Then('NÃO devo ver os seguintes menus:', async function (this: CustomWorld, dataTable: any) {
-  const menuItems = dataTable.hashes();
-  for (const item of menuItems) {
-    const menu = this.page.getByRole('link', { name: new RegExp(escapeRegex(item.menu), 'i') });
-    await expect(menu).not.toBeVisible();
+  for (const item of dataTable.hashes()) {
+    await expect(
+      this.page.locator(idDoMenu(item.menu)),
+      `o menu "${item.menu}" NÃO deveria aparecer para este perfil`
+    ).not.toBeVisible();
   }
 });
 
