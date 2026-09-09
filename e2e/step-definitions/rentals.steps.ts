@@ -643,19 +643,36 @@ When('altero a data de início para {string}', async function(date: string) {
   }
 });
 
-When('altero a garagem para {string}', async function(value: string) {
-  const garageCheckbox = this.page.getByText(/possui garagem/i);
-  await garageCheckbox.click();
-  await this.page.waitForTimeout(300);
-  
-  const garageInput = this.page.locator('[id*="garage"]');
-  await garageInput.fill(value);
+/**
+ * ⚠️ Consertado em 09/set/2026 (issue #95): os dois passos usavam
+ * seletores por texto/parcial que não batiam com a tela real.
+ *
+ *  • a garagem: `[id*="garage"]` é ambíguo e o clique ia num texto solto;
+ *    os ids reais são #rental-has-garage (a caixinha) e
+ *    #rental-garage-value (o campo);
+ *  • salvar: procurava um botão /salvar/i, mas no formulário de Locação o
+ *    botão se chama "Atualizar Locação" (ou "Criar Locação") -- id fixo
+ *    #rental-form-submit. Por isso estourava os 20s.
+ */
+When('altero a garagem para {string}', async function (value: string) {
+  const caixaGaragem = this.page.locator('#rental-has-garage');
+
+  // Só marca se ainda não estiver marcada -- clicar de novo desmarcaria.
+  const jaMarcada = await caixaGaragem.getAttribute('aria-checked');
+  if (jaMarcada !== 'true') {
+    await caixaGaragem.click();
+    await this.page.waitForTimeout(300);
+  }
+
+  await this.page.locator('#rental-garage-value').fill(value);
 });
 
-When('salvo as alterações', async function() {
-  const saveButton = this.page.getByRole('button', { name: /salvar/i });
-  await saveButton.click();
-  await this.page.waitForTimeout(2000);
+When('salvo as alterações', async function () {
+  await this.page.locator('#rental-form-submit').click();
+  // A gravação mexe em locação + recebimentos: espera o diálogo fechar,
+  // em vez de torcer por um tempo fixo.
+  await expect(this.page.locator('#rental-form-submit')).toBeHidden({ timeout: 15000 });
+  await this.page.waitForTimeout(1000);
 });
 
 When('visualizo o {string}', async function(documentName: string) {
