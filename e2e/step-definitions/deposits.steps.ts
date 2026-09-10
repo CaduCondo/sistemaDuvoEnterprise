@@ -86,7 +86,29 @@ Given("que existem locações ativas e canceladas com caução", async function 
   });
 });
 
+/**
+ * ⚠️ Corrigido em 10/set/2026 (issue #99).
+ *
+ * Este é o preparo do cenário "KPIs do relatório de cauções", que confere
+ * KPIs por VALOR ABSOLUTO ("vejo KPI Cauções Esperados = 1200.00"). Isso só
+ * poderia funcionar se o banco não tivesse MAIS NENHUMA locação além das
+ * criadas aqui -- o que nunca é verdade em DEV (dezenas de locações de outros
+ * cenários/rodadas convivem no mesmo banco). Por isso:
+ *
+ * 1) Tira uma "foto" dos totais ANTES de criar qualquer coisa
+ *    (getActiveDepositKpiTotals) -- ver essa função para o porquê.
+ * 2) Guarda os rental_id criados AQUI, para os passos seguintes (que
+ *    marcam parcela como paga / atribuem comissão) mexerem SÓ nelas --
+ *    antes usavam getAllDepositInstallments(), que pegava parcela de
+ *    QUALQUER locação do banco.
+ * 3) O passo "Então vejo KPI ..." (mais abaixo) compara o valor da tela
+ *    contra FOTO + CONTRIBUIÇÃO ESPERADA, não contra o número fixo do
+ *    Gherkin sozinho.
+ */
 Given("que existem {int} locações com caução", async function (this: CustomWorld, count: number) {
+  this.testData.kpiBaseline = await this.getActiveDepositKpiTotals();
+
+  const rentaisDoCenario: string[] = [];
   for (let i = 0; i < count; i++) {
     const property = await this.createProperty({
       location_id: this.locationId,
@@ -94,7 +116,7 @@ Given("que existem {int} locações com caução", async function (this: CustomW
       value: 1000,
     });
 
-    await this.createRental({
+    const rental = await this.createRental({
       property_id: property.id,
       tenant_id: this.tenantId,
       start_date: "2026-01-01",
@@ -103,7 +125,9 @@ Given("que existem {int} locações com caução", async function (this: CustomW
       security_deposit: 400,
       deposit_installments: 1,
     });
+    rentaisDoCenario.push(rental.id);
   }
+  this.testData.rentaisDoCenarioKpi = rentaisDoCenario;
 });
 
 Given("que existem locações com caução", async function (this: CustomWorld) {
@@ -126,8 +150,21 @@ Given("que existem locações com caução", async function (this: CustomWorld) 
   }
 });
 
+/**
+ * ⚠️ Corrigido em 10/set/2026 (issue #99): usava getAllDepositInstallments()
+ * -- a tabela inteira, sem filtro -- e marcava como "paid" as N primeiras
+ * parcelas que viessem, de QUALQUER locação do banco. Em DEV, isso quase
+ * sempre acertava parcelas de OUTRO cenário ou sobra antiga, nunca as das
+ * locações que "que existem N locações com caução" acabou de criar. Agora
+ * busca só entre os rental_id guardados por aquele passo.
+ */
 Given("{int} parcelas foram recebidas \\(total R$ {float})", async function (this: CustomWorld, count: number, total: number) {
-  const installments = await this.getAllDepositInstallments();
+  const rentaisDoCenario = this.testData.rentaisDoCenarioKpi;
+  if (!rentaisDoCenario) {
+    throw new Error('Rode "que existem N locações com caução" antes deste passo.');
+  }
+  const installments = await this.getDepositInstallmentsByRentals(rentaisDoCenario);
+  expect(installments.length, "as locações do cenário não têm parcela nenhuma").toBeGreaterThanOrEqual(count);
 
   for (let i = 0; i < count; i++) {
     await this.updateDepositInstallment(installments[i].id, {
@@ -138,12 +175,34 @@ Given("{int} parcelas foram recebidas \\(total R$ {float})", async function (thi
 });
 
 Given("{int} parcela está pendente \\(R$ {float})", async function (this: CustomWorld, count: number, amount: number) {
-  const installments = await this.getAllDepositInstallments();
+  const rentaisDoCenario = this.testData.rentaisDoCenarioKpi;
+  if (!rentaisDoCenario) {
+    throw new Error('Rode "que existem N locações com caução" antes deste passo.');
+  }
+  const installments = await this.getDepositInstallmentsByRentals(rentaisDoCenario);
   const pending = installments.filter((i: any) => i.status === "pending");
   expect(pending.length).toBeGreaterThanOrEqual(count);
 });
 
+/**
+ * ⚠️ Corrigido em 10/set/2026 (issue #99): só guardava o valor numa
+ * variável e nunca aplicava comissão em NENHUMA parcela -- o KPI "Comissões
+ * Pagas" nunca poderia bater com o valor esperado porque nada tinha sido
+ * escrito no banco. Agora distribui a comissão entre as parcelas PENDENTES
+ * das locações do cenário (as que "1 parcela está pendente" deixou de fora).
+ */
 Given("comissão total é R$ {float}", async function (this: CustomWorld, amount: number) {
+  const rentaisDoCenario = this.testData.rentaisDoCenarioKpi;
+  if (!rentaisDoCenario) {
+    throw new Error('Rode "que existem N locações com caução" antes deste passo.');
+  }
+  const installments = await this.getDepositInstallmentsByRentals(rentaisDoCenario);
+  const pendentes = installments.filter((i: any) => i.status === "pending");
+  expect(pendentes.length, "não há parcela pendente para aplicar a comissão").toBeGreaterThan(0);
+
+  // Toda a comissão na primeira parcela pendente (o KPI só soma o total, não
+  // importa como está distribuído entre as parcelas).
+  await this.updateDepositInstallment(pendentes[0].id, { internal_commission: amount });
   this.totalCommission = amount;
 });
 
@@ -244,23 +303,45 @@ async function fotografarNumerosDaTela(world: CustomWorld) {
   };
 }
 
+/**
+ * ⚠️ Corrigido em 10/set/2026 (issue #99 -- regressão do meu próprio commit
+ * c0982688/4bee941f): os ganchos `edit-amount-N`/`edit-returned-deposit`/etc.
+ * não são únicos na tela -- o banco de DEV tem mais de 100 locações de teste
+ * acumuladas (issue #89), e TODAS têm uma "parcela 1". `.first()` ou o
+ * seletor puro pegava a linha de QUALQUER locação, não a do cenário --
+ * corrompendo silenciosamente valores de outras locações.
+ *
+ * Correção: toda ação de edição agora parte da LINHA da locação do próprio
+ * cenário (`tr[data-rental="${this.rentalId}"]`), usando os atributos
+ * data-rental/data-installment que a tabela já expõe.
+ */
+function linhaDaLocacaoDoCenario(world: CustomWorld) {
+  if (!world.rentalId) {
+    throw new Error(
+      'Nenhuma locação foi criada neste cenário (this.rentalId vazio) -- ' +
+        'o passo "Dado que existe uma locação..." precisa rodar antes deste.'
+    );
+  }
+  return world.page.locator(`tr[data-rental="${world.rentalId}"]`);
+}
+
 When("clico para editar comissão parceiro", async function (this: CustomWorld) {
   await fotografarNumerosDaTela(this);
-  await this.page.locator('[data-testid="edit-partner-commission"]').first().click();
+  await linhaDaLocacaoDoCenario(this).locator('[data-testid="edit-partner-commission"]').first().click();
 });
 
 When("clico para editar comissão interno", async function (this: CustomWorld) {
   await fotografarNumerosDaTela(this);
-  await this.page.locator('[data-testid="edit-internal-commission"]').first().click();
+  await linhaDaLocacaoDoCenario(this).locator('[data-testid="edit-internal-commission"]').first().click();
 });
 
 When("clico para editar valor da parcela {int}", async function (this: CustomWorld, number: number) {
   await fotografarNumerosDaTela(this);
-  await this.page.locator(`[data-testid="edit-amount-${number}"]`).click();
+  await linhaDaLocacaoDoCenario(this).locator(`[data-testid="edit-amount-${number}"]`).click();
 });
 
 When("clico para editar valor devolvido", async function (this: CustomWorld) {
-  await this.page.locator('[data-testid="edit-returned-deposit"]').click();
+  await linhaDaLocacaoDoCenario(this).locator('[data-testid="edit-returned-deposit"]').click();
 });
 
 When("altero o valor para {float}", async function (this: CustomWorld, value: number) {
@@ -279,12 +360,31 @@ When("seleciono filtro {string}", async function (this: CustomWorld, filter: str
   await this.page.waitForTimeout(500);
 });
 
+/**
+ * ⚠️ Corrigido em 10/set/2026 (issue #99).
+ *
+ * "clico novamente" procurava `th.sorted, [aria-sort]` -- nenhuma das duas
+ * coisas existe na tela (a coluna ordenada não recebe classe nem atributo
+ * nenhum, só o ÍCONE de seta muda dentro do cabeçalho). O seletor nunca
+ * encontrava nada e o passo estourava os 20s de timeout.
+ *
+ * Correção: "clico para ordenar por X" guarda o cabeçalho clicado; "clico
+ * novamente" reusa o MESMO cabeçalho, em vez de adivinhar um seletor novo.
+ * Clica no botão de dentro do cabeçalho (não no <th> inteiro) -- o alvo real
+ * do onClick de ordenação.
+ */
 When("clico para ordenar por {string}", async function (this: CustomWorld, column: string) {
-  await this.page.getByRole("columnheader", { name: new RegExp(column, "i") }).click();
+  const cabecalho = this.page.getByRole("columnheader", { name: new RegExp(column, "i") });
+  this.testData.colunaOrdenada = cabecalho;
+  await cabecalho.getByRole("button").click();
 });
 
 When("clico novamente", async function (this: CustomWorld) {
-  await this.page.locator("th.sorted, [aria-sort]").first().click();
+  const cabecalho = this.testData.colunaOrdenada;
+  if (!cabecalho) {
+    throw new Error('Nenhuma coluna foi ordenada ainda -- rode "clico para ordenar por ..." antes deste passo.');
+  }
+  await cabecalho.getByRole("button").click();
 });
 
 Then("o sistema cria {int} parcela\\(s) de caução", async function (this: CustomWorld, count: number) {
@@ -443,46 +543,117 @@ Then("vejo a coluna {string}", async function (this: CustomWorld, columnName: st
   await expect(column).toBeVisible();
 });
 
+/**
+ * ⚠️ Corrigido em 10/set/2026 (issue #99).
+ *
+ * Comparava o KPI direto contra o número do Gherkin ("= 1200.00"), que só
+ * poderia bater se o banco não tivesse NENHUMA outra locação -- nunca é o
+ * caso em DEV. Agora soma a FOTO tirada antes de criar a massa do cenário
+ * (kpiBaseline, ver "que existem N locações com caução") com a contribuição
+ * que o Gherkin diz que o cenário adiciona, e compara com isso.
+ *
+ * Sem foto guardada (outro uso futuro desta step), cai no comportamento
+ * antigo -- compara direto.
+ */
+const CHAVE_KPI_PARA_BASELINE: Record<string, keyof { esperados: number; recebidos: number; comissao: number; liquida: number }> = {
+  "caucoes-esperados": "esperados",
+  "caucoes-recebidos": "recebidos",
+  "comissoes-pagas": "comissao",
+  "receita-liquida": "liquida",
+};
+
 Then("vejo KPI {string} = {float}", async function (this: CustomWorld, kpiName: string, value: number) {
-  const kpi = this.page.locator(`[data-testid="kpi-${kpiName.toLowerCase().replace(/\s+/g, "-")}"]`);
-  const text = await kpi.textContent();
-  expect(text).toContain(value.toFixed(2));
+  const testId = `kpi-${kpiName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, "-")}`;
+  const kpi = this.page.locator(`[data-testid="${testId}"]`);
+
+  const baseline = this.testData.kpiBaseline;
+  const chave = CHAVE_KPI_PARA_BASELINE[testId.replace("kpi-", "")];
+  const alvo = baseline && chave ? baseline[chave] + value : value;
+
+  await expect(
+    kpi,
+    `o KPI "${kpiName}" deveria mostrar R$ ${alvo.toFixed(2)} (base R$ ${(baseline?.[chave] ?? 0).toFixed(2)} + cenário R$ ${value.toFixed(2)})`
+  ).toContainText(alvo.toFixed(2), { timeout: 10000 });
 });
 
+/**
+ * ⚠️ Corrigido em 10/set/2026 (issue #99): `[data-testid="commission-cell"]`
+ * nunca existiu na tela -- o passo esperava 20s por um elemento fantasma.
+ * Agora usa a MESMA linha da locação do cenário e olha o rowSpan real da
+ * célula "Valor Parceiro" (a que de fato mescla por locação).
+ */
 Then("vejo as comissões mescladas \\(rowspan) nas {int} parcelas", async function (this: CustomWorld, count: number) {
-  const commissionCell = this.page.locator('[data-testid="commission-cell"]').first();
-  const rowspan = await commissionCell.getAttribute("rowspan");
+  const commissionCell = linhaDaLocacaoDoCenario(this).locator('[data-testid="edit-partner-commission"]').first();
+  const rowspan = await commissionCell.locator("xpath=ancestor::td[1]").getAttribute("rowspan");
   expect(parseInt(rowspan || "0", 10)).toBe(count);
 });
 
+/**
+ * ⚠️ Corrigido em 10/set/2026 (issue #99): `[data-testid="total-commissions"]`
+ * também nunca existiu -- não há, hoje, uma célula única somando comissão
+ * parceiro + interno na tela. Em vez de inventar um elemento novo na
+ * interface só para o teste, o passo soma as duas parcelas mescladas que
+ * JÁ aparecem na linha da locação (Valor Parceiro + Valor Corretor).
+ */
 Then("o valor total de comissões é {float}", async function (this: CustomWorld, amount: number) {
-  const total = this.page.locator('[data-testid="total-commissions"]');
-  const text = await total.textContent();
-  expect(text).toContain(amount.toFixed(2));
+  const installments = await this.getDepositInstallments(this.rentalId!);
+  expect(installments.length, "a locação do cenário não tem parcela nenhuma").toBeGreaterThan(0);
+  const total = Number(installments[0].partner_commission || 0) + Number(installments[0].internal_commission || 0);
+  expect(total).toBeCloseTo(amount, 2);
 });
 
+/**
+ * ⚠️ Corrigido em 10/set/2026 (issue #99 -- duplo defeito):
+ * 1) A cor fica na CÉLULA (bg-green-50/bg-red-50), não na linha <tr> --
+ *    o <tr> nunca teve essa classe, então o passo nunca poderia passar de
+ *    verdade.
+ * 2) `tr[data-installment="N"]` sem escopo de locação casava com a parcela N
+ *    de QUALQUER locação do banco (mais de 100 hoje) -- ambíguo.
+ * Agora escopa pela locação do cenário e confere a célula "Parcela", que é
+ * a que carrega a cor.
+ */
 Then("a linha da parcela {int} tem fundo verde", async function (this: CustomWorld, number: number) {
-  const row = this.page.locator(`tr[data-installment="${number}"]`);
-  await expect(row).toHaveClass(/bg-green-50/);
+  const row = this.page.locator(
+    `tr[data-rental="${this.rentalId}"][data-installment="${number}"]`
+  );
+  await expect(
+    row.locator("td").first(),
+    `a parcela ${number} da locação do cenário não está com fundo verde -- deveria ter pix_code preenchido`
+  ).toHaveClass(/bg-green-50/);
 });
 
 Then("as linhas das parcelas {int} e {int} têm fundo vermelho", async function (this: CustomWorld, n1: number, n2: number) {
-  const row1 = this.page.locator(`tr[data-installment="${n1}"]`);
-  const row2 = this.page.locator(`tr[data-installment="${n2}"]`);
+  const row1 = this.page.locator(`tr[data-rental="${this.rentalId}"][data-installment="${n1}"]`);
+  const row2 = this.page.locator(`tr[data-rental="${this.rentalId}"][data-installment="${n2}"]`);
 
-  await expect(row1).toHaveClass(/bg-red-50/);
-  await expect(row2).toHaveClass(/bg-red-50/);
+  await expect(row1.locator("td").first(), `a parcela ${n1} deveria estar com fundo vermelho (pendente)`).toHaveClass(/bg-red-50/);
+  await expect(row2.locator("td").first(), `a parcela ${n2} deveria estar com fundo vermelho (pendente)`).toHaveClass(/bg-red-50/);
 });
 
+/**
+ * ⚠️ Consertado em 10/set/2026 (issue #99 -- falso positivo).
+ *
+ * `[cells] === [cells].sort()` é verdade também quando `cells` está VAZIO --
+ * e o gancho `location-name` nunca existiu na tela, então SEMPRE vinha vazio.
+ * O cenário passava mesmo que a ordenação estivesse quebrada. Duas correções:
+ * (1) o gancho agora existe de verdade na tabela; (2) o passo exige pelo
+ * menos 2 linhas para a comparação significar alguma coisa.
+ */
 Then("as locações são ordenadas alfabeticamente", async function (this: CustomWorld) {
   const cells = await this.page.locator('td[data-testid="location-name"]').allTextContents();
-  const sorted = [...cells].sort();
+  expect(cells.length, "não há linhas suficientes na tabela para provar que a ordenação funciona").toBeGreaterThan(1);
+  const sorted = [...cells].sort((a, b) => a.localeCompare(b, "pt-BR"));
   expect(cells).toEqual(sorted);
 });
 
 Then("a ordem é invertida", async function (this: CustomWorld) {
   const cells = await this.page.locator('td[data-testid="location-name"]').allTextContents();
-  const sorted = [...cells].sort().reverse();
+  expect(cells.length, "não há linhas suficientes na tabela para provar que a ordenação inverteu").toBeGreaterThan(1);
+  const sorted = [...cells].sort((a, b) => a.localeCompare(b, "pt-BR")).reverse();
   expect(cells).toEqual(sorted);
 });
 

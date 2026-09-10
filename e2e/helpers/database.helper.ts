@@ -485,9 +485,19 @@ export class DatabaseHelper {
       await this.updateProperty(propertyId, { status: 'occupied' });
     }
 
-    // Criar parcelas de caução na tabela filha `deposit_installments`
+    // Criar parcelas de caução na tabela filha `deposit_installments`.
+    //
+    // ⚠️ Corrigido em 10/set/2026 (issue #99): a regra documentada em
+    // docs/REGRAS_DE_NEGOCIO.md ("Divisão igualitária com ajuste de centavos
+    // na última parcela") não estava sendo seguida aqui -- toda parcela
+    // recebia o MESMO valor arredondado, então R$1000 em 3x virava
+    // 333,33 + 333,33 + 333,33 = 999,99 (faltava 1 centavo). A ÚLTIMA
+    // parcela precisa absorver a sobra do arredondamento.
     const totalInstallments = overrides.deposit_installments ?? 1;
-    const installmentAmount = Math.round(((overrides.security_deposit ?? rentValue) / totalInstallments) * 100) / 100;
+    const totalDeposit = overrides.security_deposit ?? rentValue;
+    const installmentAmountBase = Math.round((totalDeposit / totalInstallments) * 100) / 100;
+    const somaDasAnteriores = Math.round(installmentAmountBase * (totalInstallments - 1) * 100) / 100;
+    const ultimaParcelaAmount = Math.round((totalDeposit - somaDasAnteriores) * 100) / 100;
     const firstDueDate = overrides.deposit_payment_date || overrides.start_date || '2026-01-01';
 
     for (let n = 1; n <= totalInstallments; n++) {
@@ -499,7 +509,7 @@ export class DatabaseHelper {
         rental_id: data.id,
         installment_number: n,
         installment_total: totalInstallments,
-        amount: installmentAmount,
+        amount: n === totalInstallments ? ultimaParcelaAmount : installmentAmountBase,
         due_date: dueDate,
       });
     }
@@ -556,10 +566,56 @@ export class DatabaseHelper {
     return data || [];
   }
 
-  static async getAllDepositInstallments() {
+  /**
+   * ⚠️ Renomeado e corrigido em 10/set/2026 (issue #99): chamava-se
+   * `getAllDepositInstallments` e buscava a tabela `deposit_installments`
+   * INTEIRA, sem filtro nenhum. Os cenários de KPI usavam isso para marcar
+   * parcelas como "paid" -- só que, com o banco de DEV cheio de sobras de
+   * outros testes (issue #89), as parcelas marcadas eram de QUALQUER
+   * locação, nunca as que o próprio cenário tinha acabado de criar. Isso
+   * corrompia dado de outros cenários/rodadas e nunca testava o que o
+   * cenário dizia testar.
+   *
+   * Agora exige a lista de rental_id do próprio cenário.
+   */
+  /**
+   * Soma os 3 números-base que a tela Financeiro > Cauções mostra nos KPIs,
+   * hoje, para as locações ATIVAS (o filtro padrão da tela) -- espelhando
+   * exatamente a conta de DepositInstallmentsTable.tsx (issue #99):
+   *   - Esperados: soma de `amount` de toda parcela de locação ativa
+   *   - Recebidos: soma de `amount` só das parcelas com pix_code preenchido
+   *   - Comissão: soma de partner_commission + internal_commission
+   *
+   * Usado para checar KPIs por DIFERENÇA (antes/depois) em vez de valor
+   * absoluto -- o banco de DEV tem outras dezenas de locações além das do
+   * cenário, então nenhum KPI vai bater com um número fixo isolado.
+   */
+  static async getActiveDepositKpiTotals() {
+    const { data, error } = await supabaseAdmin
+      .from('deposit_installments')
+      .select('amount, pix_code, partner_commission, internal_commission, rental:rentals!rental_id(status)');
+    if (error) throw new Error(`Falha ao somar KPIs de caução: ${error.message}`);
+
+    let esperados = 0;
+    let recebidos = 0;
+    let comissao = 0;
+    for (const inst of (data || []) as any[]) {
+      if (inst.rental?.status !== 'active') continue;
+      esperados += Number(inst.amount || 0);
+      if (inst.pix_code && String(inst.pix_code).trim() !== '') {
+        recebidos += Number(inst.amount || 0);
+      }
+      comissao += Number(inst.partner_commission || 0) + Number(inst.internal_commission || 0);
+    }
+    return { esperados, recebidos, comissao, liquida: recebidos - comissao };
+  }
+
+  static async getDepositInstallmentsByRentals(rentalIds: string[]) {
+    if (rentalIds.length === 0) return [];
     const { data, error } = await supabaseAdmin
       .from('deposit_installments')
       .select('*')
+      .in('rental_id', rentalIds)
       .order('due_date', { ascending: true });
     if (error) throw new Error(`Falha ao buscar parcelas de caução: ${error.message}`);
     return data || [];

@@ -53,7 +53,7 @@ Funcionalidade: Permissões do Perfil Admin
   Cenário: Admin pode acessar página Financeiro
     Quando clico no menu "Financeiro"
     Então devo ser redirecionado para "/financial"
-    E devo ver as abas de "Parcelas de Caução" e "Despesas de Locação"
+    E devo ver as abas de "Locações" e "Cauções"
 
   @sistemaCompleto
   Cenário: Admin pode acessar Configurações

@@ -64,7 +64,7 @@ Funcionalidade: Permissões do Perfil Financeiro
   Cenário: Financeiro PODE acessar página Financeiro
     Quando clico no menu "Financeiro"
     Então devo ser redirecionado para "/financial"
-    E devo ver as abas de "Parcelas de Caução" e "Despesas de Locação"
+    E devo ver as abas de "Locações" e "Cauções"
     E devo poder visualizar relatórios
 
   @sistemaCompleto

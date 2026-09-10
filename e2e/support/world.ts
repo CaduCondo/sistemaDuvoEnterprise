@@ -74,8 +74,12 @@ export class CustomWorld extends World {
     return DatabaseHelper.getDepositInstallments(rentalId);
   }
 
-  async getAllDepositInstallments() {
-    return DatabaseHelper.getAllDepositInstallments();
+  async getDepositInstallmentsByRentals(rentalIds: string[]) {
+    return DatabaseHelper.getDepositInstallmentsByRentals(rentalIds);
+  }
+
+  async getActiveDepositKpiTotals() {
+    return DatabaseHelper.getActiveDepositKpiTotals();
   }
 
   async updateDepositInstallment(id: string, updates: Record<string, any>) {

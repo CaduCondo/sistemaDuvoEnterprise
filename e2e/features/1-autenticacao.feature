@@ -196,8 +196,8 @@ Funcionalidade: Autenticação de Usuários
     Dado que existe um usuário só para este teste de gerenciamento
     Quando eu editar o nome dele pelo servidor para "Nome Editado E2E"
     Então o nome dele no banco deve ser "Nome Editado E2E"
-    Quando ele troca a própria senha pelo servidor para "NovaSenha@123"
-    Então a senha dele no banco deve ser "NovaSenha@123"
+    Quando ele troca a própria senha pelo servidor para "NovaSenha@1"
+    Então a senha dele no banco deve ser "NovaSenha@1"
     Quando eu excluir esse usuário pelo servidor
     Então ele não deve mais existir no banco
 

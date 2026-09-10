@@ -256,14 +256,15 @@ Then('devo ver {string}', async function (this: CustomWorld, text: string) {
 
 /** =================== MENUS E NAVEGAÇÃO =================== */
 
-When('clico no menu {string}', async function (this: CustomWorld, menuName: string) {
-  const menu = this.page.getByRole('link', { name: new RegExp(escapeRegex(menuName), 'i') });
-  await menu.click();
-  await this.page.waitForLoadState('domcontentloaded');
-});
-
 /**
- * ⚠️ Reescrito em 09/set/2026 (issue #95).
+ * ⚠️ Reescrito em 09/set/2026 (issue #95) e corrigido de novo em 10/set/2026
+ * (issue #99): a correção de #95 criou a função `idDoMenu` (mais abaixo) que
+ * traduz "Dashboard"->"Painel" e "Pagamentos"->"Recebimentos" para o id fixo
+ * do link -- mas só ligou essa função no passo que CONFERE o menu
+ * ("devo ver os seguintes menus:"), esquecendo o passo que CLICA no menu,
+ * que continuou buscando por texto. Resultado: exatamente o defeito que a
+ * #95 dizia ter corrigido continuava acontecendo em todo cenário que usa
+ * "Quando clico no menu ...".
  *
  * Os dois passos procuravam o menu pelo TEXTO, e dois nomes nos cenários
  * nunca bateram com a tela:
@@ -275,8 +276,8 @@ When('clico no menu {string}', async function (this: CustomWorld, menuName: stri
  * casar com 2 elementos ("Aluguéis Recebidos", links do Painel...) e
  * quebrar por ambiguidade.
  *
- * Agora o passo traduz o nome do cenário para o id fixo do link no menu
- * (#layout-nav-dashboard, #layout-nav-payments, ...) -- um por tela, sem
+ * Agora os dois passos traduzem o nome do cenário para o id fixo do link no
+ * menu (#layout-nav-dashboard, #layout-nav-payments, ...) -- um por tela, sem
  * ambiguidade, e imune a mudança de rótulo. Os nomes antigos continuam
  * aceitos para não quebrar cenário nenhum.
  */
@@ -307,6 +308,12 @@ function idDoMenu(nomeNoCenario: string): string {
   }
   return `#layout-nav-${rota}`;
 }
+
+When('clico no menu {string}', async function (this: CustomWorld, menuName: string) {
+  const menu = this.page.locator(idDoMenu(menuName));
+  await menu.click();
+  await this.page.waitForLoadState('domcontentloaded');
+});
 
 Then('devo ver os seguintes menus:', async function (this: CustomWorld, dataTable: any) {
   for (const item of dataTable.hashes()) {

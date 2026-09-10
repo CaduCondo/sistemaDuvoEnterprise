@@ -893,15 +893,17 @@ export function DepositInstallmentsTable({
                       <TableRow
                         key={installment.id}
                         className="hover:bg-gray-50"
-                        // Ganchos dos testes automatizados (#95/#76): identificam
-                        // a linha pela parcela e pela locação, sem depender de
-                        // posição nem de texto na tela.
+                        // Ganchos dos testes automatizados (#95/#76/#99):
+                        // identificam a linha pela parcela, pela locação, e
+                        // pelo status da locação (ativa/cancelada) -- sem
+                        // depender de posição nem de texto na tela.
                         data-installment={installment.installment_number}
                         data-rental={rentalId}
+                        data-rental-status={rental?.status || "unknown"}
                       >
                         {/* Local - mesclado - SEM COLORAÇÃO */}
                         {shouldRenderCell(rentalId, index) && (
-                          <TableCell rowSpan={getRowSpan(rentalId)}>
+                          <TableCell rowSpan={getRowSpan(rentalId)} data-testid="location-name">
                             {location?.name || "N/A"}
                           </TableCell>
                         )}
