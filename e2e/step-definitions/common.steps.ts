@@ -258,7 +258,7 @@ Then('devo ver {string}', async function (this: CustomWorld, text: string) {
 
 /**
  * ⚠️ Reescrito em 09/set/2026 (issue #95) e corrigido de novo em 10/set/2026
- * (issue #99): a correção de #95 criou a função `idDoMenu` (mais abaixo) que
+ * (issue #98): a correção de #95 criou a função `idDoMenu` (mais abaixo) que
  * traduz "Dashboard"->"Painel" e "Pagamentos"->"Recebimentos" para o id fixo
  * do link -- mas só ligou essa função no passo que CONFERE o menu
  * ("devo ver os seguintes menus:"), esquecendo o passo que CLICA no menu,

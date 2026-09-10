@@ -487,7 +487,7 @@ export class DatabaseHelper {
 
     // Criar parcelas de caução na tabela filha `deposit_installments`.
     //
-    // ⚠️ Corrigido em 10/set/2026 (issue #99): a regra documentada em
+    // ⚠️ Corrigido em 10/set/2026 (issue #98): a regra documentada em
     // docs/REGRAS_DE_NEGOCIO.md ("Divisão igualitária com ajuste de centavos
     // na última parcela") não estava sendo seguida aqui -- toda parcela
     // recebia o MESMO valor arredondado, então R$1000 em 3x virava
@@ -567,7 +567,7 @@ export class DatabaseHelper {
   }
 
   /**
-   * ⚠️ Renomeado e corrigido em 10/set/2026 (issue #99): chamava-se
+   * ⚠️ Renomeado e corrigido em 10/set/2026 (issue #98): chamava-se
    * `getAllDepositInstallments` e buscava a tabela `deposit_installments`
    * INTEIRA, sem filtro nenhum. Os cenários de KPI usavam isso para marcar
    * parcelas como "paid" -- só que, com o banco de DEV cheio de sobras de
@@ -581,7 +581,7 @@ export class DatabaseHelper {
   /**
    * Soma os 3 números-base que a tela Financeiro > Cauções mostra nos KPIs,
    * hoje, para as locações ATIVAS (o filtro padrão da tela) -- espelhando
-   * exatamente a conta de DepositInstallmentsTable.tsx (issue #99):
+   * exatamente a conta de DepositInstallmentsTable.tsx (issue #98):
    *   - Esperados: soma de `amount` de toda parcela de locação ativa
    *   - Recebidos: soma de `amount` só das parcelas com pix_code preenchido
    *   - Comissão: soma de partner_commission + internal_commission

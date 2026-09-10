@@ -87,7 +87,7 @@ Given("que existem locações ativas e canceladas com caução", async function 
 });
 
 /**
- * ⚠️ Corrigido em 10/set/2026 (issue #99).
+ * ⚠️ Corrigido em 10/set/2026 (issue #98).
  *
  * Este é o preparo do cenário "KPIs do relatório de cauções", que confere
  * KPIs por VALOR ABSOLUTO ("vejo KPI Cauções Esperados = 1200.00"). Isso só
@@ -151,7 +151,7 @@ Given("que existem locações com caução", async function (this: CustomWorld) 
 });
 
 /**
- * ⚠️ Corrigido em 10/set/2026 (issue #99): usava getAllDepositInstallments()
+ * ⚠️ Corrigido em 10/set/2026 (issue #98): usava getAllDepositInstallments()
  * -- a tabela inteira, sem filtro -- e marcava como "paid" as N primeiras
  * parcelas que viessem, de QUALQUER locação do banco. Em DEV, isso quase
  * sempre acertava parcelas de OUTRO cenário ou sobra antiga, nunca as das
@@ -185,7 +185,7 @@ Given("{int} parcela está pendente \\(R$ {float})", async function (this: Custo
 });
 
 /**
- * ⚠️ Corrigido em 10/set/2026 (issue #99): só guardava o valor numa
+ * ⚠️ Corrigido em 10/set/2026 (issue #98): só guardava o valor numa
  * variável e nunca aplicava comissão em NENHUMA parcela -- o KPI "Comissões
  * Pagas" nunca poderia bater com o valor esperado porque nada tinha sido
  * escrito no banco. Agora distribui a comissão entre as parcelas PENDENTES
@@ -304,7 +304,7 @@ async function fotografarNumerosDaTela(world: CustomWorld) {
 }
 
 /**
- * ⚠️ Corrigido em 10/set/2026 (issue #99 -- regressão do meu próprio commit
+ * ⚠️ Corrigido em 10/set/2026 (issue #98 -- regressão do meu próprio commit
  * c0982688/4bee941f): os ganchos `edit-amount-N`/`edit-returned-deposit`/etc.
  * não são únicos na tela -- o banco de DEV tem mais de 100 locações de teste
  * acumuladas (issue #89), e TODAS têm uma "parcela 1". `.first()` ou o
@@ -361,7 +361,7 @@ When("seleciono filtro {string}", async function (this: CustomWorld, filter: str
 });
 
 /**
- * ⚠️ Corrigido em 10/set/2026 (issue #99).
+ * ⚠️ Corrigido em 10/set/2026 (issue #98).
  *
  * "clico novamente" procurava `th.sorted, [aria-sort]` -- nenhuma das duas
  * coisas existe na tela (a coluna ordenada não recebe classe nem atributo
@@ -544,7 +544,7 @@ Then("vejo a coluna {string}", async function (this: CustomWorld, columnName: st
 });
 
 /**
- * ⚠️ Corrigido em 10/set/2026 (issue #99).
+ * ⚠️ Corrigido em 10/set/2026 (issue #98).
  *
  * Comparava o KPI direto contra o número do Gherkin ("= 1200.00"), que só
  * poderia bater se o banco não tivesse NENHUMA outra locação -- nunca é o
@@ -581,7 +581,7 @@ Then("vejo KPI {string} = {float}", async function (this: CustomWorld, kpiName: 
 });
 
 /**
- * ⚠️ Corrigido em 10/set/2026 (issue #99): `[data-testid="commission-cell"]`
+ * ⚠️ Corrigido em 10/set/2026 (issue #98): `[data-testid="commission-cell"]`
  * nunca existiu na tela -- o passo esperava 20s por um elemento fantasma.
  * Agora usa a MESMA linha da locação do cenário e olha o rowSpan real da
  * célula "Valor Parceiro" (a que de fato mescla por locação).
@@ -593,7 +593,7 @@ Then("vejo as comissões mescladas \\(rowspan) nas {int} parcelas", async functi
 });
 
 /**
- * ⚠️ Corrigido em 10/set/2026 (issue #99): `[data-testid="total-commissions"]`
+ * ⚠️ Corrigido em 10/set/2026 (issue #98): `[data-testid="total-commissions"]`
  * também nunca existiu -- não há, hoje, uma célula única somando comissão
  * parceiro + interno na tela. Em vez de inventar um elemento novo na
  * interface só para o teste, o passo soma as duas parcelas mescladas que
@@ -607,7 +607,7 @@ Then("o valor total de comissões é {float}", async function (this: CustomWorld
 });
 
 /**
- * ⚠️ Corrigido em 10/set/2026 (issue #99 -- duplo defeito):
+ * ⚠️ Corrigido em 10/set/2026 (issue #98 -- duplo defeito):
  * 1) A cor fica na CÉLULA (bg-green-50/bg-red-50), não na linha <tr> --
  *    o <tr> nunca teve essa classe, então o passo nunca poderia passar de
  *    verdade.
@@ -635,7 +635,7 @@ Then("as linhas das parcelas {int} e {int} têm fundo vermelho", async function 
 });
 
 /**
- * ⚠️ Consertado em 10/set/2026 (issue #99 -- falso positivo).
+ * ⚠️ Consertado em 10/set/2026 (issue #98 -- falso positivo).
  *
  * `[cells] === [cells].sort()` é verdade também quando `cells` está VAZIO --
  * e o gancho `location-name` nunca existiu na tela, então SEMPRE vinha vazio.

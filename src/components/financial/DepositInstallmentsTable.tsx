@@ -893,7 +893,7 @@ export function DepositInstallmentsTable({
                       <TableRow
                         key={installment.id}
                         className="hover:bg-gray-50"
-                        // Ganchos dos testes automatizados (#95/#76/#99):
+                        // Ganchos dos testes automatizados (#95/#76/#98):
                         // identificam a linha pela parcela, pela locação, e
                         // pelo status da locação (ativa/cancelada) -- sem
                         // depender de posição nem de texto na tela.
