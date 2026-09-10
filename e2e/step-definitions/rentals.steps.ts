@@ -36,15 +36,23 @@ Given('existe um inquilino {string}', async function(tenantName: string) {
  * nenhum bug do sistema. Agora criam a locação de verdade e guardam o id,
  * que é o que `upsertMonthlyPayment` e os passos de edição esperam.
  */
-async function criarLocacaoAtivaDeTeste(world: any, aluguel: number) {
+async function criarLocacaoAtivaDeTeste(
+  world: any,
+  aluguel: number,
+  opcoes: { fim?: string; garagem?: number } = {}
+) {
   const sufixo = Date.now();
   const tenant = await world.createTenant({ name: `Locacao Ativa E2E ${sufixo}` });
 
+  const garagem = opcoes.garagem ?? 0;
+
   const rental = await world.createRental({
     start_date: '2026-01-01',
-    end_date: '2026-12-31',
+    end_date: opcoes.fim ?? '2026-12-31',
     rent_due_day: 10,
     rent_value: aluguel,
+    has_garage: garagem > 0,
+    garage_value: garagem,
     tenant_id: tenant.id,
   });
 
@@ -53,10 +61,29 @@ async function criarLocacaoAtivaDeTeste(world: any, aluguel: number) {
     ...world.testData,
     rentalId: rental.id,
     hasActiveRental: true,
-    rental: { id: rental.id, rent: String(aluguel), tenantName: tenant.name },
+    // Guardados soltos porque várias asserções precisam deles como número
+    // (ex.: "não apenas o valor do aluguel", que confere aluguel + garagem).
+    rentValue: aluguel,
+    garageValue: garagem,
+    rental: {
+      id: rental.id,
+      rent: String(aluguel),
+      garage: String(garagem),
+      endDate: opcoes.fim ?? '2026-12-31',
+      tenantName: tenant.name,
+    },
   };
 
   return rental;
+}
+
+/** "1.500,00" / "1500.00" -> 1500 */
+function valorParaNumero(texto: string): number {
+  const limpo = String(texto).trim();
+  // Formato brasileiro ("1.500,00") tem vírgula como separador decimal.
+  return limpo.includes(',')
+    ? parseFloat(limpo.replace(/\./g, '').replace(',', '.'))
+    : parseFloat(limpo.replace(/,/g, ''));
 }
 
 Given('que existe uma locação ativa', async function () {
@@ -75,11 +102,17 @@ Given('o dia de vencimento é {string}', async function(paymentDay: string) {
   };
 });
 
+/**
+ * ⚠️ Consertado em 10/set/2026 (issue #76 -- falsos positivos).
+ *
+ * Era um MOCK: só anotava a data num objeto em memória, sem criar locação
+ * nenhuma. O cenário "Encerrar locação antecipadamente" rodava inteiro em cima
+ * do nada -- e o passo final ("os pagamentos após X devem ser cancelados")
+ * também não conferia nada, então ninguém percebia.
+ */
 Given('que existe uma locação ativa com término em {string}', async function(endDate: string) {
-  this.testData = {
-    ...this.testData,
-    rental: { endDate }
-  };
+  const [dia, mes, ano] = endDate.split('/');
+  await criarLocacaoAtivaDeTeste(this, 2500, { fim: `${ano}-${mes}-${dia}` });
 });
 
 /**
@@ -999,11 +1032,54 @@ Then('o pagamento de referência Junho\\/2026 deve ser atualizado para {string}'
   await expectPaymentAmount(this, '06', '2026', value);
 });
 
+/**
+ * ⚠️ Consertado em 10/set/2026 (issue #76 -- falsos positivos).
+ *
+ * Este passo só guardava o valor esperado numa variável e ia embora: passava
+ * sempre, mesmo que NENHUM recebimento futuro tivesse sido atualizado. Agora
+ * ele confere de verdade, no banco.
+ *
+ * "Futuro" = com vencimento DEPOIS do mês em que a edição foi feita (a data
+ * que o cenário chamou de "hoje", guardada por "edito a locação em ...").
+ */
 Then('pagamentos futuros devem ter {string}', async function(value: string) {
-  this.testData = {
-    ...this.testData,
-    futurePaymentsValue: value
-  };
+  const DatabaseHelper = (await import('../helpers/database.helper')).default;
+  const recebimentos = await DatabaseHelper.getPaymentsByRental(this.rentalId);
+
+  expect(
+    recebimentos.length,
+    'a locação do cenário não tem recebimento nenhum -- não dá para afirmar que os futuros foram atualizados'
+  ).toBeGreaterThan(0);
+
+  const hoje = this.testData?.currentDate;
+  if (!hoje) {
+    throw new Error(
+      'O cenário não disse qual data considerar como "hoje" -- use o passo "edito a locação em {data}" antes deste.'
+    );
+  }
+  const [, mesHoje, anoHoje] = hoje.split('/').map(Number);
+  const corte = anoHoje * 12 + mesHoje; // mês da edição, em número contínuo
+
+  const esperado = parseFloat(value.replace(/\./g, '').replace(',', '.'));
+
+  const futuros = recebimentos.filter((p: any) => {
+    const ordem = Number(p.reference_year) * 12 + Number(p.reference_month);
+    return ordem > corte && p.status !== 'paid';
+  });
+
+  expect(
+    futuros.length,
+    `nenhum recebimento com vencimento depois de ${hoje} foi encontrado -- ` +
+      'sem eles o cenário não prova nada (a locação foi criada com recebimentos suficientes?)'
+  ).toBeGreaterThan(0);
+
+  for (const recebimento of futuros) {
+    expect(
+      Number(recebimento.expected_amount),
+      `o recebimento de ${recebimento.reference_month}/${recebimento.reference_year} continuou em ` +
+        `R$ ${recebimento.expected_amount} -- deveria ter passado para R$ ${esperado} junto com o aluguel novo`
+    ).toBeCloseTo(esperado, 2);
+  }
 });
 
 Then('no campo {string} devo ver {string}', async function(fieldName: string, value: string) {
@@ -1014,9 +1090,48 @@ Then('no campo {string} devo ver {string}', async function(fieldName: string, va
   await expect(valueElement).toBeVisible();
 });
 
+/**
+ * ⚠️ Consertado em 10/set/2026 (issue #76 -- falsos positivos).
+ *
+ * Era só um `waitForTimeout(200)` com o comentário "validação implícita".
+ * Não validava nada: o cenário passaria com o comprovante mostrando só o
+ * aluguel, que é exatamente o bug que ele deveria pegar.
+ *
+ * A regra: no Comprovante de Contrato, o "Valor Total" é aluguel + garagem.
+ * Então o comprovante NÃO pode mostrar o valor do aluguel sozinho como total.
+ */
 Then('não apenas o valor do aluguel', async function() {
-  // Validação implícita - se a soma foi feita corretamente
-  await this.page.waitForTimeout(200);
+  const aluguel = this.testData?.rentValue;
+  const garagem = this.testData?.garageValue;
+
+  if (aluguel == null || garagem == null) {
+    throw new Error(
+      'O cenário não guardou os valores de aluguel e garagem -- o passo ' +
+        '"existe uma locação com:" precisa registrá-los em testData antes deste.'
+    );
+  }
+
+  const formatar = (n: number) =>
+    n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const total = Number(aluguel) + Number(garagem);
+
+  // O total correto tem que estar na tela...
+  await expect(
+    this.page.getByText(new RegExp(formatar(total).replace(/[.]/g, '\\.'))).first(),
+    `o comprovante não mostra o valor total de R$ ${formatar(total)} (aluguel + garagem)`
+  ).toBeVisible({ timeout: 5000 });
+
+  // ...e o aluguel sozinho NÃO pode estar aparecendo como "Valor Total".
+  const rotuloTotal = this.page
+    .locator('*', { hasText: /valor total/i })
+    .filter({ hasText: new RegExp(formatar(Number(aluguel)).replace(/[.]/g, '\\.')) });
+
+  expect(
+    await rotuloTotal.count(),
+    `o comprovante está mostrando R$ ${formatar(Number(aluguel))} como "Valor Total" -- ` +
+      'esse é só o aluguel, a garagem ficou de fora da soma'
+  ).toBe(0);
 });
 
 Then('a data de término deve ser atualizada para {string}', async function(date: string) {
@@ -1030,11 +1145,39 @@ Then('a data de término deve ser atualizada para {string}', async function(date
   expect(value).toBe(expectedValue);
 });
 
+/**
+ * ⚠️ Consertado em 10/set/2026 (issue #76 -- falsos positivos).
+ *
+ * Era só uma anotação em memória; passava sempre. Agora confere no banco.
+ *
+ * O que a rescisão faz de verdade (src/services/terminationService.ts, PASSO
+ * 7): APAGA todo recebimento com vencimento a partir do dia 1º do mês SEGUINTE
+ * ao da rescisão. Então "cancelado", aqui, significa "não existe mais".
+ */
 Then('os pagamentos após {string} devem ser cancelados', async function(date: string) {
-  this.testData = {
-    ...this.testData,
-    cancelledAfter: date
-  };
+  const DatabaseHelper = (await import('../helpers/database.helper')).default;
+  const recebimentos = await DatabaseHelper.getPaymentsByRental(this.rentalId);
+
+  const [, mes, ano] = date.split('/').map(Number);
+  // Dia 1º do mês seguinte ao da rescisão -- o mesmo corte usado pelo sistema.
+  const corte = new Date(Date.UTC(ano, mes, 1));
+
+  const sobraram = recebimentos.filter((p: any) => p.due_date && new Date(p.due_date) >= corte);
+
+  expect(
+    sobraram.length,
+    `depois da rescisão em ${date} ainda existem ${sobraram.length} recebimento(s) com vencimento ` +
+      `a partir de ${corte.toISOString().split('T')[0]}: ` +
+      sobraram.map((p: any) => `${p.reference_month}/${p.reference_year} (${p.due_date})`).join(', ')
+  ).toBe(0);
+
+  // Rede contra o próprio teste passar por engano: se a locação ficou SEM
+  // nenhum recebimento, o "zero acima" não prova que os futuros foram apagados
+  // -- prova que nunca houve recebimento nenhum.
+  expect(
+    recebimentos.length,
+    'a locação ficou sem recebimento nenhum -- o cenário não consegue provar que só os futuros foram apagados'
+  ).toBeGreaterThan(0);
 });
 
 Then('o imóvel deve ficar {string}', async function(status: string) {

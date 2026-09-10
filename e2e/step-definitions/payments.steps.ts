@@ -78,11 +78,48 @@ Given('que existe uma locação com aluguel de {string}', async function(value: 
   };
 });
 
+/**
+ * ⚠️ Consertado em 10/set/2026 (issue #76 -- falsos positivos).
+ *
+ * Era um MOCK: guardava a tabela do cenário em memória e não criava locação
+ * nenhuma. Todo cenário que começava por aqui rodava em cima do nada -- e o
+ * "Comprovante de Contrato - Somar aluguel e garagem" terminava num passo que
+ * também não conferia nada, então o par se escondia mutuamente.
+ */
 Given('que existe uma locação com:', async function(dataTable: any) {
   const data = dataTable.rowsHash();
+
+  const numero = (texto: string | undefined) => {
+    if (!texto) return 0;
+    const limpo = String(texto).trim();
+    return limpo.includes(',')
+      ? parseFloat(limpo.replace(/\./g, '').replace(',', '.'))
+      : parseFloat(limpo.replace(/,/g, ''));
+  };
+
+  const aluguel = numero(data['Aluguel'] ?? data['Valor'] ?? data['Valor Aluguel']);
+  const garagem = numero(data['Garagem'] ?? data['Valor Garagem']);
+
+  const sufixo = Date.now();
+  const tenant = await this.createTenant({ name: `Locacao Comprovante E2E ${sufixo}` });
+
+  const rental = await this.createRental({
+    start_date: '2026-01-01',
+    end_date: '2026-12-31',
+    rent_due_day: 10,
+    rent_value: aluguel,
+    has_garage: garagem > 0,
+    garage_value: garagem,
+    tenant_id: tenant.id,
+  });
+
+  this.rentalId = rental.id;
   this.testData = {
     ...this.testData,
-    rental: data
+    rentalId: rental.id,
+    rentValue: aluguel,
+    garageValue: garagem,
+    rental: { ...data, id: rental.id, tenantName: tenant.name },
   };
 });
 
