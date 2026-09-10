@@ -36,7 +36,7 @@ setDefaultTimeout(20 * 1000);
 BeforeAll(async function () {
   await DatabaseHelper.ensureDefaultTestUsers();
 
-  // Varre e apaga sobras de rodadas anteriores (issue #97). A limpeza do
+  // Varre e apaga sobras de rodadas anteriores (issue #89). A limpeza do
   // fim (AfterAll) só roda se a rodada CHEGAR ao fim -- nas várias vezes em
   // que o job foi cancelado no limite de tempo, tudo ficou para trás. Como
   // resultado, o banco de DEV foi acumulando imóvel e inquilino de teste

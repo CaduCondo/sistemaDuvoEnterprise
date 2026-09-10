@@ -527,7 +527,7 @@ export function DepositInstallmentsTable({
   }, [visibleData, terminationByRental]);
 
   /**
-   * Exporta para Excel o que está NA TELA (issue #98).
+   * Exporta para Excel o que está NA TELA (issue #97).
    *
    * Dois defeitos consertados aqui em 10/set/2026:
    *

@@ -184,7 +184,7 @@ When('preencho todos os campos obrigatórios:', async function (this: CustomWorl
       await this.page.getByRole('option', { name: new RegExp(valor, 'i') }).first().click();
     } else if (campo === 'complemento') {
       // Sela o registro criado PELA TELA, para a limpeza conseguir achá-lo
-      // depois (issue #97). Sem isso, todo imóvel criado por cenário ficava
+      // depois (issue #89). Sem isso, todo imóvel criado por cenário ficava
       // no banco para sempre -- o "Criar imóvel com sucesso" é @smoke e
       // rodava a cada push. As asserções continuam valendo: elas procuram
       // o texto original, que segue lá como começo do valor.
@@ -200,7 +200,7 @@ When('preencho todos os campos obrigatórios:', async function (this: CustomWorl
 
       // ---- Campos do formulário de Inquilino ----
     } else if (campo === 'nome' || campo === 'razão social') {
-      // Mesmo motivo do complemento acima (#97): sela o inquilino criado pela tela.
+      // Mesmo motivo do complemento acima (#89): sela o inquilino criado pela tela.
       await this.page.locator('#tenant-name').fill(comMarcaDeTeste(valor));
     } else if (campo === 'cpf') {
       await this.page.locator('#tenant-document').fill(valor);

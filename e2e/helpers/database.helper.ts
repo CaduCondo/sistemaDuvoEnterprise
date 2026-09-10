@@ -57,7 +57,7 @@ export const supabaseAdmin = createClient(
 );
 
 /**
- * Selo que marca TODO dado criado pela automação (issue #97).
+ * Selo que marca TODO dado criado pela automação (issue #89).
  *
  * POR QUE EXISTE
  *
