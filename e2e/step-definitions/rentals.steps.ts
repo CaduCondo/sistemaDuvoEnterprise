@@ -743,28 +743,73 @@ Then('na aba {string} devo ver:', async function(tabName: string, dataTable: any
   }
 });
 
-Then('no banco de dados a parcela {int} deve ter:', async function(installmentNumber: number, dataTable: any) {
-  const expected = dataTable.rowsHash();
-  
-  // Validação via query ao banco (necessita DatabaseHelper)
-  // Por enquanto, apenas log
-  console.log(`Validar parcela ${installmentNumber}:`, expected);
-  
-  this.testData = {
-    ...this.testData,
-    dbValidation: { installmentNumber, expected }
+/**
+ * ⚠️ FALSO POSITIVO corrigido em 09/set/2026 (issue #76).
+ *
+ * O passo se chamava "no banco de dados a parcela X deve ter" e o corpo
+ * era um `console.log` com o comentário "Por enquanto, apenas log". Ou
+ * seja: prometia conferir o banco e não conferia nada -- passava sempre,
+ * mesmo que a parcela de caução estivesse com data ou valor errado.
+ *
+ * Agora lê a parcela de verdade e compara campo a campo. Aceita data em
+ * dd/mm/aaaa (como o cenário escreve) ou aaaa-mm-dd (como o banco guarda),
+ * e "NULL"/"(preenchido)" para quando o cenário só quer saber se o campo
+ * está vazio ou não.
+ */
+async function conferirParcelaDeCaucao(
+  world: any,
+  numeroDaParcela: number,
+  esperado: Record<string, string>
+) {
+  const DatabaseHelper = (await import('../helpers/database.helper')).default;
+  const parcelas = await DatabaseHelper.getDepositInstallments(world.rentalId);
+
+  const parcela = parcelas.find((p: any) => p.installment_number === numeroDaParcela);
+  expect(
+    parcela,
+    `não existe parcela ${numeroDaParcela} de caução nesta locação (achei ${parcelas.length})`
+  ).toBeTruthy();
+
+  const paraISO = (valor: string) => {
+    const brasileira = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return brasileira ? `${brasileira[3]}-${brasileira[2]}-${brasileira[1]}` : valor;
   };
+
+  for (const [campo, valorEsperado] of Object.entries(esperado)) {
+    const valorNoBanco = (parcela as any)[campo];
+
+    if (/^null$/i.test(valorEsperado)) {
+      expect(valorNoBanco, `parcela ${numeroDaParcela}: ${campo} deveria estar vazio`).toBeFalsy();
+      continue;
+    }
+
+    if (/^\(preenchido\)$/i.test(valorEsperado)) {
+      expect(valorNoBanco, `parcela ${numeroDaParcela}: ${campo} deveria estar preenchido`).toBeTruthy();
+      continue;
+    }
+
+    // Campos de dinheiro comparam por número; o resto, por texto.
+    if (/amount|valor|commission/i.test(campo)) {
+      const esperadoNumero = parseFloat(valorEsperado.replace(/\./g, '').replace(',', '.'));
+      expect(
+        Number(valorNoBanco),
+        `parcela ${numeroDaParcela}: ${campo} está R$ ${valorNoBanco}, esperava R$ ${esperadoNumero}`
+      ).toBeCloseTo(esperadoNumero, 2);
+    } else {
+      expect(
+        String(valorNoBanco ?? ''),
+        `parcela ${numeroDaParcela}: ${campo} está "${valorNoBanco}", esperava "${valorEsperado}"`
+      ).toContain(paraISO(valorEsperado));
+    }
+  }
+}
+
+Then('no banco de dados a parcela {int} deve ter:', async function (this: any, installmentNumber: number, dataTable: any) {
+  await conferirParcelaDeCaucao(this, installmentNumber, dataTable.rowsHash());
 });
 
-Then('a parcela {int} deve ter:', async function(installmentNumber: number, dataTable: any) {
-  const expected = dataTable.rowsHash();
-  
-  console.log(`Validar parcela ${installmentNumber}:`, expected);
-  
-  this.testData = {
-    ...this.testData,
-    dbValidation: { installmentNumber, expected }
-  };
+Then('a parcela {int} deve ter:', async function (this: any, installmentNumber: number, dataTable: any) {
+  await conferirParcelaDeCaucao(this, installmentNumber, dataTable.rowsHash());
 });
 
 Then('no bloco {string} devo ver:', async function(blockName: string, dataTable: any) {
@@ -862,16 +907,69 @@ Then('todos os pagamentos devem vencer no dia {int}', async function(day: number
   }
 });
 
-Then('os pagamentos futuros devem ser atualizados para {string}', async function(value: string) {
-  await this.page.waitForTimeout(500);
-  this.testData = {
-    ...this.testData,
-    expectedFutureValue: value
-  };
+/**
+ * ⚠️ FALSO POSITIVO corrigido em 09/set/2026 (issue #76).
+ *
+ * Estes dois passos NÃO VERIFICAVAM NADA: o primeiro só guardava o valor
+ * numa variável e o segundo só esperava meio segundo. Passavam sempre --
+ * inclusive se o sistema não atualizasse recebimento nenhum, ou pior, se
+ * ele estragasse os já pagos.
+ *
+ * E são justamente os passos que protegem a regra do reajuste de aluguel
+ * (ver REGRAS_DE_NEGOCIO.md 2.3): ao salvar a locação, os recebimentos
+ * pendentes/futuros passam a valer o valor novo, e os já pagos ficam
+ * intocados, guardando o valor da época.
+ */
+Then('os pagamentos futuros devem ser atualizados para {string}', async function (this: any, value: string) {
+  const esperado = parseFloat(value.replace(/\./g, '').replace(',', '.'));
+  const DatabaseHelper = (await import('../helpers/database.helper')).default;
+  const recebimentos = await DatabaseHelper.getPaymentsByRental(this.rentalId);
+
+  const pendentes = recebimentos.filter((p: any) => p.status !== 'paid');
+
+  expect(
+    pendentes.length,
+    'a locação não tem nenhum recebimento pendente para conferir -- o cenário não provou nada'
+  ).toBeGreaterThan(0);
+
+  for (const recebimento of pendentes) {
+    expect(
+      Number(recebimento.expected_amount),
+      `recebimento ${recebimento.reference_month}/${recebimento.reference_year} continuou em ` +
+        `R$ ${recebimento.expected_amount} -- deveria ter passado para R$ ${esperado}`
+    ).toBeCloseTo(esperado, 2);
+  }
+
+  this.testData = { ...this.testData, expectedFutureValue: value };
 });
 
-Then('os pagamentos já pagos devem manter o valor original', async function() {
-  await this.page.waitForTimeout(500);
+Then('os pagamentos já pagos devem manter o valor original', async function (this: any) {
+  const DatabaseHelper = (await import('../helpers/database.helper')).default;
+  const recebimentos = await DatabaseHelper.getPaymentsByRental(this.rentalId);
+
+  const pagos = recebimentos.filter((p: any) => p.status === 'paid');
+  const valorNovo = this.testData?.expectedFutureValue
+    ? parseFloat(String(this.testData.expectedFutureValue).replace(/\./g, '').replace(',', '.'))
+    : null;
+
+  for (const pago of pagos) {
+    // O que importa é que o valor da época NÃO foi trocado pelo novo.
+    if (valorNovo !== null) {
+      expect(
+        Number(pago.expected_amount),
+        `o recebimento JÁ PAGO de ${pago.reference_month}/${pago.reference_year} foi alterado para ` +
+          `o valor novo (R$ ${pago.expected_amount}) -- pagamento pago é histórico e não pode mudar`
+      ).not.toBeCloseTo(valorNovo, 2);
+    }
+
+    if (pago.paid_amount != null) {
+      expect(
+        Number(pago.paid_amount),
+        `o valor efetivamente pago de ${pago.reference_month}/${pago.reference_year} não bate mais ` +
+          'com o que estava registrado'
+      ).toBeCloseTo(Number(pago.expected_amount), 2);
+    }
+  }
 });
 
 async function expectPaymentAmount(world: any, monthNumber: string, year: string, expectedValue: string) {
