@@ -1,5 +1,8 @@
 import { Given, When, Then } from "@cucumber/cucumber";
 import { expect } from "@playwright/test";
+import * as os from "os";
+import * as path from "path";
+import * as XLSX from "xlsx";
 import { CustomWorld } from "../support/world";
 
 /**
@@ -217,15 +220,42 @@ When("acesso o relatório financeiro de cauções", async function (this: Custom
   await this.page.waitForTimeout(500);
 });
 
+/**
+ * Fotografa os números da tela ANTES de mexer neles (issue #76).
+ *
+ * "os KPIs são recalculados" e "o total de cauções é recalculado" não têm como
+ * conferir um valor absoluto: o relatório mostra as cauções de TODAS as
+ * locações do banco, não só as do cenário. O que dá para exigir com segurança
+ * é que o número tenha MUDADO depois da edição -- e isso só funciona se
+ * guardarmos o valor anterior aqui, antes do clique.
+ */
+async function fotografarNumerosDaTela(world: CustomWorld) {
+  const ler = async (testId: string) => {
+    const el = world.page.locator(`[data-testid="${testId}"]`).first();
+    return (await el.textContent().catch(() => null))?.trim() ?? null;
+  };
+
+  world.testData.numerosAntes = {
+    esperados: await ler("kpi-caucoes-esperados"),
+    recebidos: await ler("kpi-caucoes-recebidos"),
+    comissoes: await ler("kpi-comissoes-pagas"),
+    liquida: await ler("kpi-receita-liquida"),
+    linhaTotal: await ler("deposits-total-row"),
+  };
+}
+
 When("clico para editar comissão parceiro", async function (this: CustomWorld) {
+  await fotografarNumerosDaTela(this);
   await this.page.locator('[data-testid="edit-partner-commission"]').first().click();
 });
 
 When("clico para editar comissão interno", async function (this: CustomWorld) {
+  await fotografarNumerosDaTela(this);
   await this.page.locator('[data-testid="edit-internal-commission"]').first().click();
 });
 
 When("clico para editar valor da parcela {int}", async function (this: CustomWorld, number: number) {
+  await fotografarNumerosDaTela(this);
   await this.page.locator(`[data-testid="edit-amount-${number}"]`).click();
 });
 
@@ -326,12 +356,55 @@ Then("todas as parcelas mostram comissão interno {float}", async function (this
   }
 });
 
+/**
+ * ⚠️ Consertado em 10/set/2026 (issue #76 -- falsos positivos).
+ *
+ * Os dois passos abaixo eram só um `waitForTimeout(500)`: passavam SEMPRE,
+ * mesmo que a tela não recalculasse nada. Agora exigem que o número tenha de
+ * fato mudado em relação à foto tirada antes da edição
+ * (ver fotografarNumerosDaTela).
+ */
 Then("os KPIs são recalculados", async function (this: CustomWorld) {
-  await this.page.waitForTimeout(500);
+  const antes = this.testData.numerosAntes;
+  if (!antes) {
+    throw new Error(
+      'Nenhuma foto dos KPIs foi tirada antes da edição -- o passo "clico para editar ..." precisa rodar antes deste.'
+    );
+  }
+
+  // "Comissões Pagas" e "Receita Líquida" são os dois KPIs que dependem das
+  // comissões; alterar uma comissão TEM que mexer nos dois.
+  await expect(
+    this.page.locator('[data-testid="kpi-comissoes-pagas"]'),
+    `o KPI "Comissões Pagas" continuou em ${antes.comissoes} depois de salvar a comissão -- a tela não recalculou`
+  ).not.toHaveText(antes.comissoes ?? "", { timeout: 10000 });
+
+  await expect(
+    this.page.locator('[data-testid="kpi-receita-liquida"]'),
+    `o KPI "Receita Líquida" continuou em ${antes.liquida} -- ele desconta as comissões, então tinha que mudar junto`
+  ).not.toHaveText(antes.liquida ?? "", { timeout: 10000 });
 });
 
 Then("o total de cauções é recalculado", async function (this: CustomWorld) {
-  await this.page.waitForTimeout(500);
+  const antes = this.testData.numerosAntes;
+  if (!antes) {
+    throw new Error(
+      'Nenhuma foto dos totais foi tirada antes da edição -- o passo "clico para editar valor da parcela N" precisa rodar antes deste.'
+    );
+  }
+
+  // O KPI "Cauções Esperados" é a soma do valor de todas as parcelas visíveis;
+  // mudar o valor de uma parcela obriga ele a mudar.
+  await expect(
+    this.page.locator('[data-testid="kpi-caucoes-esperados"]'),
+    `o KPI "Cauções Esperados" continuou em ${antes.esperados} depois de mudar o valor da parcela -- a soma não foi refeita`
+  ).not.toHaveText(antes.esperados ?? "", { timeout: 10000 });
+
+  // E a linha de TOTAL do rodapé da tabela tem que acompanhar.
+  await expect(
+    this.page.locator('[data-testid="deposits-total-row"]'),
+    "a linha de TOTAL do rodapé da tabela não mudou depois da edição"
+  ).not.toHaveText(antes.linhaTotal ?? "", { timeout: 10000 });
 });
 
 Then("o valor devolvido é {float}", async function (this: CustomWorld, amount: number) {
@@ -416,13 +489,67 @@ Then("a ordem é invertida", async function (this: CustomWorld) {
 Then("um arquivo XLSX é baixado", async function (this: CustomWorld) {
   const download = await this.page.waitForEvent("download");
   expect(download.suggestedFilename()).toMatch(/\.xlsx$/);
+
+  // Guarda o arquivo em disco para os dois passos seguintes conseguirem ABRIR
+  // a planilha (issue #76): antes eles não conferiam nada.
+  const destino = path.join(
+    os.tmpdir(),
+    `e2e-caucoes-${Date.now()}-${download.suggestedFilename()}`
+  );
+  await download.saveAs(destino);
+  this.testData.xlsxBaixado = destino;
 });
 
+/** Abre a planilha baixada e devolve as linhas como objetos. */
+function lerPlanilhaBaixada(world: CustomWorld): Record<string, unknown>[] {
+  const caminho = world.testData.xlsxBaixado;
+  if (!caminho) {
+    throw new Error('Nenhuma planilha foi guardada -- o passo "um arquivo XLSX é baixado" precisa rodar antes deste.');
+  }
+  const wb = XLSX.readFile(caminho);
+  const aba = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json<Record<string, unknown>>(aba, { defval: "" });
+}
+
 Then("o arquivo contém todas as parcelas visíveis", async function (this: CustomWorld) {
-  // Verificação completa exigiria ler o XLSX baixado; fora do escopo desta
-  // suíte por ora — o download em si já é validado no step anterior.
+  const linhas = lerPlanilhaBaixada(this);
+  // A última linha é o TOTAL (ver o passo seguinte); as demais são parcelas.
+  const parcelas = linhas.filter((l) => String(l["Local"]).trim() !== "TOTAL");
+
+  const naTela = await this.page.locator("tbody tr[data-installment]").count();
+  const visiveisNaTela = naTela > 0
+    ? naTela
+    // Fallback: a tabela agrupa por locação; se o atributo não existir, conta
+    // as linhas que não são a de TOTAL.
+    : (await this.page.locator("tbody tr").count()) - 1;
+
+  expect(
+    parcelas.length,
+    `a planilha veio com ${parcelas.length} parcela(s), mas a tela mostrava ${visiveisNaTela}. ` +
+      "Isso costuma significar que a exportação ignorou o filtro da tela."
+  ).toBe(visiveisNaTela);
+
+  // E cada parcela exportada precisa ter os campos que dão sentido à planilha.
+  for (const linha of parcelas) {
+    expect(String(linha["Parcela"])).toMatch(/^\d+\/\d+$/);
+    expect(linha["Inquilino"]).toBeTruthy();
+  }
 });
 
 Then("o arquivo contém a linha de totais", async function (this: CustomWorld) {
-  // Idem acima.
+  const linhas = lerPlanilhaBaixada(this);
+  const total = linhas[linhas.length - 1];
+
+  expect(
+    String(total?.["Local"]).trim(),
+    "a última linha da planilha não é a linha de TOTAL"
+  ).toBe("TOTAL");
+
+  // O total do valor das parcelas tem que bater com a soma das linhas acima.
+  const parcelas = linhas.slice(0, -1);
+  const somaEsperada = parcelas.reduce((soma, l) => soma + Number(l["Valor Parcela"] || 0), 0);
+  expect(
+    Number(total["Valor Parcela"]),
+    "o TOTAL da coluna 'Valor Parcela' não bate com a soma das parcelas da própria planilha"
+  ).toBeCloseTo(somaEsperada, 2);
 });

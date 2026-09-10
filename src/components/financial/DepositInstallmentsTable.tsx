@@ -374,35 +374,6 @@ export function DepositInstallmentsTable({
     setEditingValue("");
   }, []);
 
-  const exportToExcel = useCallback(() => {
-    const excelData = data.map((inst) => ({
-      Local: inst.rental?.property?.location?.name || "-",
-      Complemento: inst.rental?.property?.complement || "-",
-      Inquilino: inst.rental?.tenant?.name || "-",
-      "Valor Aluguel": inst.rental?.rent_value || 0,
-      "Valor Total Caução": inst.rental?.security_deposit || 0,
-      "Corretor Parceiro": inst.rental?.has_partner_broker ? "Sim" : "Não",
-      "Valor Pg Corretor Parceiro": inst.partner_commission || 0,
-      "Valor Pg Corretor Interno": inst.internal_commission || 0,
-      Parcela: `${inst.installment_number}/${inst.total_installments}`,
-      "Data Pagamento": inst.payment_date || "-",
-      "Valor Parcela": inst.amount || 0,
-      "Código PIX": inst.pix_code || "-",
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(excelData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Cauções");
-
-    const today = new Date().toISOString().split("T")[0];
-    XLSX.writeFile(wb, `Detalhamento_Caucoes_${today}.xlsx`);
-
-    toast({
-      title: "Sucesso",
-      description: "Planilha exportada com sucesso!",
-    });
-  }, [data, toast]);
-
   const handlePrint = useCallback(() => {
     window.print();
   }, []);
@@ -555,6 +526,69 @@ export function DepositInstallmentsTable({
     };
   }, [visibleData, terminationByRental]);
 
+  /**
+   * Exporta para Excel o que está NA TELA (issue #98).
+   *
+   * Dois defeitos consertados aqui em 10/set/2026:
+   *
+   * 1. Exportava `data` -- a lista crua do banco. Se a pessoa filtrasse por
+   *    "Ativas" e clicasse em Exportar, a planilha vinha com tudo, inclusive
+   *    as canceladas que a tela estava escondendo. Agora usa `visibleData`,
+   *    exatamente o array que a tabela desenha.
+   *
+   * 2. A planilha não tinha linha de TOTAL, embora a tabela da tela tenha.
+   *    Quem exportava precisava somar na mão. Agora a última linha repete os
+   *    mesmos totais do rodapé da tela.
+   *
+   * ⚠️ Precisa ficar DEPOIS de `visibleData`/`totaisDoRodape`: são `const`, e
+   * usá-las antes da declaração quebra a tela inteira ao carregar.
+   */
+  const exportToExcel = useCallback(() => {
+    const excelData: Record<string, string | number>[] = visibleData.map((inst) => ({
+      Local: inst.rental?.property?.location?.name || "-",
+      Complemento: inst.rental?.property?.complement || "-",
+      Inquilino: inst.rental?.tenant?.name || "-",
+      "Valor Aluguel": inst.rental?.rent_value || 0,
+      "Valor Total Caução": inst.rental?.security_deposit || 0,
+      "Corretor Parceiro": inst.rental?.has_partner_broker ? "Sim" : "Não",
+      "Valor Pg Corretor Parceiro": inst.partner_commission || 0,
+      "Valor Pg Corretor Interno": inst.internal_commission || 0,
+      Parcela: `${inst.installment_number}/${inst.total_installments}`,
+      "Data Pagamento": inst.payment_date || "-",
+      "Valor Parcela": inst.amount || 0,
+      "Código PIX": inst.pix_code || "-",
+    }));
+
+    if (excelData.length > 0) {
+      excelData.push({
+        Local: "TOTAL",
+        Complemento: "",
+        Inquilino: "",
+        "Valor Aluguel": "",
+        "Valor Total Caução": totaisDoRodape.totalCaucao,
+        "Corretor Parceiro": "",
+        "Valor Pg Corretor Parceiro": totaisDoRodape.totalParceiro,
+        "Valor Pg Corretor Interno": totaisDoRodape.totalCorretor,
+        Parcela: "",
+        "Data Pagamento": "",
+        "Valor Parcela": visibleData.reduce((soma, inst) => soma + Number(inst.amount || 0), 0),
+        "Código PIX": "",
+      });
+    }
+
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Cauções");
+
+    const today = new Date().toISOString().split("T")[0];
+    XLSX.writeFile(wb, `Detalhamento_Caucoes_${today}.xlsx`);
+
+    toast({
+      title: "Sucesso",
+      description: "Planilha exportada com sucesso!",
+    });
+  }, [visibleData, totaisDoRodape, toast]);
+
   // Calcular rowSpan para cada linha (para mesclar células da mesma locação)
   const rowSpanMap = useMemo(() => {
     const map = new Map<string, { start: number; count: number }>();
@@ -663,7 +697,7 @@ export function DepositInstallmentsTable({
                   <Wallet className="h-5 w-5 text-blue-500" />
                   <p className="text-sm font-medium text-muted-foreground">Cauções Esperados</p>
                 </div>
-                <h3 className="text-2xl font-bold text-blue-500">
+                <h3 className="text-2xl font-bold text-blue-500" data-testid="kpi-caucoes-esperados">
                   {formatCurrency(totalExpected)}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -680,7 +714,7 @@ export function DepositInstallmentsTable({
                   <HandCoins className="h-5 w-5 text-green-500" />
                   <p className="text-sm font-medium text-muted-foreground">Cauções Recebidos</p>
                 </div>
-                <h3 className="text-2xl font-bold text-green-500">
+                <h3 className="text-2xl font-bold text-green-500" data-testid="kpi-caucoes-recebidos">
                   {formatCurrency(totalReceived)}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -697,7 +731,7 @@ export function DepositInstallmentsTable({
                   <TrendingUp className="h-5 w-5 text-orange-500" />
                   <p className="text-sm font-medium text-muted-foreground">Comissões Pagas</p>
                 </div>
-                <h3 className="text-2xl font-bold text-orange-500">
+                <h3 className="text-2xl font-bold text-orange-500" data-testid="kpi-comissoes-pagas">
                   {formatCurrency(totalCommission)}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -714,7 +748,7 @@ export function DepositInstallmentsTable({
                   <Wallet className="h-5 w-5 text-purple-500" />
                   <p className="text-sm font-medium text-muted-foreground">Receita Líquida</p>
                 </div>
-                <h3 className="text-2xl font-bold text-purple-500">
+                <h3 className="text-2xl font-bold text-purple-500" data-testid="kpi-receita-liquida">
                   {formatCurrency(netRevenue)}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -856,9 +890,14 @@ export function DepositInstallmentsTable({
                     const totalDepositValue = allInstallmentsForRental.reduce((sum, i) => sum + (i.amount || 0), 0);
 
                     return (
-                      <TableRow 
-                        key={installment.id} 
+                      <TableRow
+                        key={installment.id}
                         className="hover:bg-gray-50"
+                        // Ganchos dos testes automatizados (#95/#76): identificam
+                        // a linha pela parcela e pela locação, sem depender de
+                        // posição nem de texto na tela.
+                        data-installment={installment.installment_number}
+                        data-rental={rentalId}
                       >
                         {/* Local - mesclado - SEM COLORAÇÃO */}
                         {shouldRenderCell(rentalId, index) && (
@@ -1163,7 +1202,7 @@ export function DepositInstallmentsTable({
                   {/* Linha de TOTAL (28/ago/2026). As colunas sem soma ficam
                       vazias de proposito — um traco ali sugeriria "zero". */}
                   {visibleData.length > 0 && (
-                    <TableRow className="bg-muted/60 font-bold border-t-2 hover:bg-muted/60">
+                    <TableRow className="bg-muted/60 font-bold border-t-2 hover:bg-muted/60" data-testid="deposits-total-row">
                       <TableCell className="text-right whitespace-nowrap" colSpan={4}>
                         TOTAL
                       </TableCell>
