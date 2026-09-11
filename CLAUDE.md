@@ -16,10 +16,8 @@
 
 - Editor: VS Code, com a extensão Claude Code instalada.
 - Supabase: bancos de dados separados de dev e prod (atenção: alguns campos já divergiram de tipo entre os dois bancos — ver ticket "attachments de deposit_installments" no kanban — sempre confirmar o schema real antes de escrever SQL para produção).
-- Kanban de tarefas: https://duvoenterprise.com.br/kanban — é a fonte de verdade sobre bugs conhecidos e prioridades, não este arquivo. Respeitar a prioridade e a ordem das tarefas de lá; bugs novos que forem aparecendo devem virar tickets novos no kanban, respeitando a prioridade (não furar fila).
-  - Por baixo do capô, esse kanban é só duas tabelas no Supabase de **produção** (`kanban_cards` e `kanban_card_tasks`, ref `alvghyfbzrpjwhckmkwx`) — o mesmo banco que o site usa. O `.env.local` do projeto aponta para o Supabase de DEV (`yrknfweilbuwrhzzwnrr`); não existe credencial de produção no repositório. Então, sem uma `SUPABASE_SERVICE_ROLE_KEY` de produção à mão, o jeito de ler/escrever o kanban interno é pela tela mesmo (`https://duvoenterprise.com.br/kanban`, dentro do "Gerenciador"), via navegador.
-  - **Login no Gerenciador é sempre o Cadu quem faz.** O botão "Entrar" não deve ser clicado pelo Claude mesmo com o e-mail/senha já preenchidos pelo autofill do navegador — pedir para o Cadu logar na aba antes de continuar.
-  - Cadu pretende, no futuro, parar de usar esse kanban interno e usar só o do GitHub (issues + Project "Sistema DUvoEnterprise") — mais usado no mercado. Até ele avisar que fez a troca, os dois continuam sendo mantidos sincronizados (ver "Os dois kanbans sempre sincronizados e priorizados" abaixo).
+- Kanban de tarefas: **GitHub apenas** (Issues do repositório `CaduCondo/sistemaDuvoEnterprise` + Project "Sistema DUvoEnterprise", github.com/users/CaduCondo/projects/4) — é a fonte de verdade sobre bugs conhecidos e prioridades, não este arquivo. Respeitar a prioridade e a ordem das tarefas de lá; bugs novos que forem aparecendo devem virar issues novas, respeitando a prioridade (não furar fila).
+  - **O kanban interno do sistema (`duvoenterprise.com.br/kanban`) foi descontinuado em 10/set/2026** — Cadu avisou para parar de usar. Não criar, atualizar nem consultar mais cards ali. Ele existia por baixo do capô como duas tabelas no Supabase de produção (`kanban_cards`/`kanban_card_tasks`) — a tela em si continua no ar (é uma funcionalidade do próprio sistema), só não é mais o backlog de trabalho do Claude.
 - Pasta do projeto conectada diretamente (21/ago/2026): o Claude consegue ler e escrever os arquivos locais do Cadu (a mesma pasta aberta no VS Code) sem precisar passar por Git. Isso significa que o código já aparece atualizado no VS Code do Cadu assim que o Claude termina de mexer — ele não precisa dar `git pull`. `git commit`/`git push` continuam sendo só para levar a mudança para o GitHub/produção (Vercel), e continuam exigindo autorização do Cadu como sempre.
 
 ## Regras de trabalho
@@ -54,22 +52,21 @@
 
 ### Fluxo padrão para bug/feature novo encontrado
 
-Regra do Cadu (vale sempre, sem precisar pedir de novo): "crie o ticket no
-kanban do sistema duvoenterprise, preencha com todos os detalhes para que
-o ticket explique exatamente o que é o erro, o que deve ser feito como
-tarefas e que tenha os critérios de aceitação, escritos em BDD para que
-seja testado os cenários. Replique esse ticket para o kanban do GitHub.
-Atualize a documentação e os manuais caso necessário para que tudo
-sempre reflita a realidade."
+Regra do Cadu (vale sempre, sem precisar pedir de novo): "crie o ticket
+explicando exatamente o que é o erro, o que deve ser feito como tarefas
+e que tenha os critérios de aceitação, escritos em BDD para que seja
+testado os cenários. Atualize a documentação e os manuais caso necessário
+para que tudo sempre reflita a realidade."
 
-Na prática, isso significa:
+Desde 10/set/2026, "o ticket" é só a issue do GitHub — o kanban interno
+foi descontinuado (ver "Ambiente do usuário" acima). Na prática, isso
+significa:
 
-1. Criar o ticket no kanban interno (https://duvoenterprise.com.br/kanban), respeitando prioridade/coluna, explicando exatamente o que é o erro (contexto + causa raiz, com arquivo/linha se já identificada no código) e o impacto.
+1. Criar a issue no GitHub (`CaduCondo/sistemaDuvoEnterprise`), com label e adicionada ao Project "Sistema DUvoEnterprise", explicando exatamente o que é o erro (contexto + causa raiz, com arquivo/linha se já identificada no código) e o impacto, respeitando a prioridade da fila (não furar).
 2. Listar as tarefas necessárias para corrigir.
 3. Escrever os critérios de aceitação em BDD/Gherkin (Dado/Quando/Então), cobrindo os cenários que precisam ser testados.
-4. Espelhar o mesmo ticket como issue no GitHub (`CaduCondo/sistemaDuvoEnterprise`), com label e adicionado ao Project "Sistema DUvoEnterprise", com o mesmo conteúdo.
-5. Ao implementar a correção, manter os dois tickets sincronizados (status e conteúdo) — se algum critério de aceitação mudar durante o desenvolvimento (ex.: uma regra de negócio foi refinada com o Cadu), corrigir o texto nos dois lugares, não só num.
-6. Atualizar a documentação e os manuais relevantes (ex.: `docs/REGRAS_DE_NEGOCIO.md`) sempre que necessário, para que reflitam o comportamento real do sistema, e não o que já foi corrigido/mudado.
+4. Ao implementar a correção, manter a issue atualizada (status e conteúdo) — se algum critério de aceitação mudar durante o desenvolvimento (ex.: uma regra de negócio foi refinada com o Cadu), corrigir o texto lá.
+5. Atualizar a documentação e os manuais relevantes (ex.: `docs/REGRAS_DE_NEGOCIO.md`) sempre que necessário, para que reflitam o comportamento real do sistema, e não o que já foi corrigido/mudado.
 
 ### Claude é o dono do backlog — ciclo de trabalho contínuo
 
@@ -89,8 +86,8 @@ pode variar conforme o caso, mas nenhum passo pode ser pulado):
    urgência — não segue só a ordem que o Cadu foi citando os itens,
    porque o Cadu mesmo não sabe qual é a melhor ordem técnica.
 2. **Todo trabalho nasce como item do backlog primeiro.** Antes de mexer
-   em código, o item já precisa existir no kanban interno e como issue
-   no GitHub (ver seção acima), mesmo que ainda incompleto.
+   em código, o item já precisa existir como issue no GitHub (ver seção
+   acima), mesmo que ainda incompleto.
 3. **Preencher o item enquanto analisa.** Ao investigar o problema, ir
    completando contexto, causa raiz e critérios de aceitação (BDD) do
    próprio item — o ticket tem que ficar cada vez mais claro conforme o
@@ -106,15 +103,15 @@ pode variar conforme o caso, mas nenhum passo pode ser pulado):
      pro Cadu dar o push manualmente (passando o branch/commit certo).
 6. **Depois do push, checar o GitHub Actions.** Ver se os testes
    automatizados passaram. Se algum teste falhou, investigar o erro e
-   criar um novo item no backlog (kanban + issue no GitHub) já
-   descrevendo o bug encontrado pela automação — seguindo o mesmo
-   padrão da seção "Fluxo padrão" acima (contexto, tarefas, BDD).
+   criar uma nova issue no GitHub já descrevendo o bug encontrado pela
+   automação — seguindo o mesmo padrão da seção "Fluxo padrão" acima
+   (contexto, tarefas, BDD).
 7. **Priorizar o que for criado no passo 6** dentro do backlog, junto
    com o resto (não é só "jogar lá pra depois" — decidir onde entra na
    fila, usando o mesmo critério do passo 1).
-8. **Fechar o item.** Atualizar kanban interno e issue do GitHub
-   (mover de coluna, fechar), com um comentário simples explicando o
-   que foi feito.
+8. **Fechar o item.** Atualizar a issue do GitHub (mover de coluna no
+   Project, fechar), com um comentário simples explicando o que foi
+   feito.
 9. **Checar a documentação E os testes automáticos — sempre, sem
    exceção.** Antes de considerar o item realmente concluído, avaliar
    explicitamente estas frentes (nenhuma pode ser pulada, mesmo quando a
@@ -154,37 +151,31 @@ pode variar conforme o caso, mas nenhum passo pode ser pulado):
    Pular esse passo no passado foi exatamente o que fez a documentação
    (e a cobertura de testes) acumular desatualização — por isso agora é
    sempre avaliado, em todos os casos.
-10. **Escolher e já sinalizar o próximo item** (kanban + GitHub), e
+10. **Escolher e já sinalizar o próximo item** (issue no GitHub), e
     recomeçar o ciclo — sem esperar o Cadu perguntar "qual o próximo?".
-    Ver "Os dois kanbans sempre sincronizados e priorizados" abaixo antes
-    de escolher: a escolha só é confiável se a fila estiver correta nos
-    dois lugares.
+    Ver "O backlog do GitHub sempre priorizado" abaixo antes de escolher:
+    a escolha só é confiável se a fila do Project estiver correta.
 
-### Os dois kanbans sempre sincronizados e priorizados
+### O backlog do GitHub sempre priorizado
 
-Regra do Cadu (31/ago/2026, vale sempre, sem precisar pedir de novo, além
-do "Fluxo padrão" acima que já cobre ticket-a-ticket): isto não é uma
+Regra do Cadu (31/ago/2026, adaptada em 10/set/2026 quando o kanban
+interno foi descontinuado — vale sempre, sem precisar pedir de novo,
+além do "Fluxo padrão" acima que já cobre issue-a-issue): isto não é uma
 auditoria pontual — é hábito permanente do ciclo, revisado a cada item
 trabalhado, não só quando alguém lembrar:
 
-1. **Mesmo conteúdo nos dois.** Todo ticket do kanban interno tem que ter
-   o par exato no GitHub Issues (`CaduCondo/sistemaDuvoEnterprise`) e
-   vice-versa — mesmo título, mesmo contexto/causa raiz, mesmas tarefas,
-   mesmos critérios de aceitação em BDD. Se algum dos dois tiver algo que
-   o outro não tem, replicar antes de seguir.
-2. **Uma fila só de prioridade.** Os tickets abertos, nos dois kanbans,
-   ficam ordenados do mais urgente para o menos urgente — sempre que um
-   item novo entra (bug achado, pedido do Cadu, falha do GitHub Actions),
-   reavaliar a posição dele na fila junto com o resto, não só apendar no
-   fim. O critério é o do passo 1 do ciclo (valor, custo/esforço, risco,
-   urgência).
-3. **Kanban interno precisa do Cadu logado.** Ver nota em "Ambiente do
-   usuário" — o Claude não faz login sozinho. Se a aba do Gerenciador não
-   estiver logada quando for hora de mexer no kanban interno, pedir para
-   o Cadu logar e continuar depois.
-4. Isso é preparação para o dia em que o Cadu avisar que só quer mais o
-   kanban do GitHub — quanto mais os dois já estiverem espelhados e
-   íntegros nesse dia, mais simples é a migração.
+1. **Toda issue aberta precisa estar no Project.** "Sistema DUvoEnterprise"
+   (github.com/users/CaduCondo/projects/4) é a visão de fila que importa —
+   uma issue sem o par no Project é invisível na hora de escolher o
+   próximo item. Em 10/set/2026 o Project estava desatualizado (parado
+   perto da issue #38, faltando tudo de #47 em diante) — antes de confiar
+   nele como fila de prioridade, conferir que está com as issues em dia.
+2. **Uma fila só de prioridade.** As issues abertas ficam ordenadas do
+   mais urgente para o menos urgente dentro das colunas do Project —
+   sempre que um item novo entra (bug achado, pedido do Cadu, falha do
+   GitHub Actions), reavaliar a posição dele na fila junto com o resto,
+   não só apendar no fim. O critério é o do passo 1 do ciclo (valor,
+   custo/esforço, risco, urgência).
 
 ### Esquema de tags dos testes BDD (`e2e/features/*.feature`)
 
