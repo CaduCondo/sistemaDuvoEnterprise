@@ -307,7 +307,7 @@ export class DatabaseHelper {
   static async ensureDefaultTestUsers() {
     await this.ensureTestUser({ ...TEST_CONFIG.users.admin, role: 'admin' });
     await this.ensureTestUser({ ...TEST_CONFIG.users.financial, role: 'financial' });
-    await this.ensureTestUser({ ...TEST_CONFIG.users.management, role: 'broker' });
+    await this.ensureTestUser({ ...TEST_CONFIG.users.broker, role: 'broker' });
   }
 
   // ==================== LOCALIZAÇÕES ====================

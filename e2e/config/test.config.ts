@@ -66,14 +66,14 @@ const TEST_CONFIG = {
       name: 'Financeiro Teste',
       role: 'financial'
     },
-    management: {
+    broker: {
       email: 'gestao@teste.com',
       password: 'Gestao@123',
-      name: 'Gestão Teste',
-      // ⚠️ O enum real de `system_users.role` é 'admin' | 'financial' | 'broker'
-      // (ver src/components/settings/UserDialog.tsx) — não existe role
-      // "management". O DatabaseHelper força role: 'broker' ao criar este
-      // usuário; o campo abaixo é só documentação.
+      name: 'Corretor Teste',
+      // O enum real de `system_users.role` é 'admin' | 'financial' | 'broker'
+      // (ver src/components/settings/UserDialog.tsx) — só existem esses 3
+      // perfis. Não existe (e nunca existiu de verdade) um perfil "Gestão"/
+      // "management" — issue #99, 11/set/2026, confirmado com o Cadu.
       role: 'broker'
     },
     // Credenciais propositalmente inválidas, para testar o fluxo de erro

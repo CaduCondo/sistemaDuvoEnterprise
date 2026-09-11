@@ -130,7 +130,7 @@ Análise de viabilidade para integrar um gateway de pagamento (Asaas) — ainda 
 1. **1-autenticacao.feature** `@autenticacao` - Login, logout e sessões
 2. **2-permissoes-admin.feature** `@permissoesAdmin` - Permissões do perfil Admin
 3. **3-permissoes-financeiro.feature** `@permissoesFinanceiro` - Permissões do perfil Financeiro
-4. **4-permissoes-gestao.feature** `@permissoesGestao` - Permissões do perfil Gestão
+4. **4-permissoes-corretor.feature** `@permissoesGestao` - Permissões do perfil Corretor (não existe perfil "Gestão" no sistema — issue #99)
 5. **5-imoveis-crud.feature** `@imoveis` - CRUD de imóveis
 6. **6-inquilinos-crud.feature** `@inquilinos` - CRUD de inquilinos
 7. **7-locacoes-regras.feature** `@locacoes` - Criação de locações e regras

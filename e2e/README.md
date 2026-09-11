@@ -115,7 +115,7 @@ Rode sempre `test:bdd:dry` primeiro depois de editar `.feature`/step definitions
 | `1-autenticacao.feature` | Login (perfis admin/financeiro/corretor), recuperação de senha, logout, e os cenários `@seguranca` que falam direto com `/api/auth/login` e `/api/users/*` (senha nunca volta, bloqueio por 3 tentativas, CRUD de usuário pelo servidor) |
 | `2-permissoes-admin.feature` | Acesso total, gestão de usuários, edição de permissões |
 | `3-permissoes-financeiro.feature` | Acesso restrito a Dashboard + Financeiro |
-| `4-permissoes-gestao.feature` | Acesso a operações, bloqueio de Financeiro/Configurações |
+| `4-permissoes-corretor.feature` | Acesso do corretor a quase tudo (Imóveis/Inquilinos/Locações/Pagamentos/Financeiro), bloqueio só de Configurações — não existe perfil "Gestão" no sistema (issue #99) |
 | `5-imoveis-crud.feature` | CRUD de imóveis, filtros, validações |
 | `6-inquilinos-crud.feature` | CRUD de inquilinos, CPF/CNPJ, busca de CEP |
 | `7-locacoes-regras.feature` | Caução, parcelamento, corretor parceiro, geração de pagamentos, renovação de contrato |

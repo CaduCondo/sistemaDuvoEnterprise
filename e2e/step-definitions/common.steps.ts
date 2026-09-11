@@ -104,12 +104,9 @@ Given('que fiz login como {string}', async function (this: CustomWorld, role: st
     case 'financeiro':
       await authHelper.loginAsFinancial();
       break;
-    case 'management':
-    case 'gestao':
-    case 'gestão':
     case 'broker':
     case 'corretor':
-      await authHelper.loginAsManagement();
+      await authHelper.loginAsBroker();
       break;
     default:
       throw new Error(`Perfil desconhecido: ${role}`);
@@ -129,7 +126,7 @@ Given('que estou logado como {string}', async function (this: CustomWorld, role:
       await authHelper.loginAsFinancial();
       break;
     default:
-      await authHelper.loginAsManagement();
+      await authHelper.loginAsBroker();
   }
   await this.page.waitForURL('**/dashboard', { timeout: 10000 });
 });

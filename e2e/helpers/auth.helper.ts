@@ -53,10 +53,11 @@ export class AuthHelper {
   }
 
   /**
-   * Login como Gestão
+   * Login como Corretor (broker) — não existe perfil "Gestão" no sistema,
+   * ver comentário em test.config.ts e issue #99.
    */
-  async loginAsManagement() {
-    const { email, password } = TEST_CONFIG.users.management;
+  async loginAsBroker() {
+    const { email, password } = TEST_CONFIG.users.broker;
     await this.login(email, password);
   }
 

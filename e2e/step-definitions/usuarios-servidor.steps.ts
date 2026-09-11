@@ -55,11 +55,11 @@ Given('que estou autenticado como admin pelo servidor', async function (this: Cu
 Given(
   'que estou autenticado como {string} pelo servidor',
   async function (this: CustomWorld, papel: string) {
-    // Hoje só "broker" é usado nos cenários (usuário "gestao" de TEST_CONFIG,
-    // que tem role broker -- ver o comentário em test.config.ts).
+    // Hoje só "broker" é usado nos cenários (ver comentário em test.config.ts
+    // sobre os 3 perfis reais do sistema).
     const credenciais =
       papel === 'broker'
-        ? TEST_CONFIG.users.management
+        ? TEST_CONFIG.users.broker
         : papel === 'financial'
         ? TEST_CONFIG.users.financial
         : TEST_CONFIG.users.admin;
