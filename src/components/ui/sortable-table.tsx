@@ -98,6 +98,7 @@ export function SortableTable<T extends Record<string, any>>({
                 data.map((row: any) => (
                   <TableRow
                     key={row.id}
+                    data-row-id={row.id}
                     onClick={() => onRowClick?.(row)}
                     className={cn(getRowClassName?.(row), onRowClick && "cursor-pointer")}
                   >

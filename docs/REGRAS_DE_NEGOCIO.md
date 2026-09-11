@@ -471,8 +471,8 @@ Página inicial com visão geral consolidada do negócio e métricas em tempo re
 
 **2.3 Imóveis Alugados**
 - Imóveis com pelo menos uma locação ativa
-- Status da locação: `is_active = true`
-- Query: `COUNT(DISTINCT property_id) FROM rentals WHERE is_active = true`
+- Status da locação: `status = 'active'` (não usar `is_active` — ver seção 4.1)
+- Query: `COUNT(DISTINCT property_id) FROM rentals WHERE status = 'active'`
 
 **2.4 Taxa de Ocupação**
 - Fórmula: `(Imóveis Alugados / Total de Imóveis) × 100`
@@ -485,15 +485,15 @@ Página inicial com visão geral consolidada do negócio e métricas em tempo re
 #### 3. Cards de Contratos e Pagamentos
 
 **3.1 Contratos Ativos**
-- Locações com status `is_active = true`
+- Locações com `status = 'active'` (não usar `is_active` — ver seção 4.1)
 - Conta apenas locações vigentes
-- Query: `COUNT(*) FROM rentals WHERE is_active = true`
+- Query: `COUNT(*) FROM rentals WHERE status = 'active'`
 
 **3.2 Contratos a Vencer (30 dias)**
 - Locações ativas com `end_date` entre hoje e hoje + 30 dias
 - Alerta para renovações necessárias
 - Cor: Amarelo (alerta)
-- Query: `WHERE is_active = true AND end_date BETWEEN NOW() AND NOW() + INTERVAL '30 days'`
+- Query: `WHERE status = 'active' AND end_date BETWEEN NOW() AND NOW() + INTERVAL '30 days'`
 
 **3.3 Total de Inquilinos**
 - Conta todos os inquilinos cadastrados
@@ -1131,8 +1131,18 @@ Se security_deposit > 0 e deposit_installments > 0:
 #### 4. Status da Locação
 
 **4.1 Status Disponíveis**
-- `is_active = true`: Locação ativa/vigente
-- `is_active = false`: Locação encerrada/rescindida
+- `status = 'active'`: Locação ativa/vigente
+- `status = 'ended'` ou `'terminated'`: Locação encerrada/rescindida
+
+> ⚠️ **Corrigido em 11/set/2026** (bug reportado pelo Cadu: filtro de
+> Status na tela de Locações não filtrava direito). O campo `status` é
+> quem manda de verdade — a rescisão (`terminationService.ts`) só
+> atualiza essa coluna. A coluna `is_active` também existe na tabela
+> `rentals`, mas a rescisão NUNCA a atualiza, então ela fica travada em
+> `true` para sempre depois de encerrar uma locação. Não confiar em
+> `is_active` em nenhuma tela ou relatório novo — usar sempre `status`.
+> O código (telas, dashboard, filtros) já foi corrigido para não depender
+> mais de `is_active`.
 
 **4.2 Mudança de Status Manual**
 - Admin/Broker pode encerrar locação manualmente
@@ -2274,7 +2284,7 @@ WHERE reference_month = X
 SELECT SUM(amount)
 FROM deposit_installments di
 JOIN rentals r ON di.rental_id = r.id
-WHERE r.is_active = [filtro]
+WHERE r.status = 'active' -- não usar `is_active`, ver seção 4.1 de "Status da Locação"
 ```
 - **Cor**: Azul
 - **Formato**: R$ 1.234,56

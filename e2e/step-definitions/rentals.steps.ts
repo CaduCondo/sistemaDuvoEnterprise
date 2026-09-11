@@ -116,6 +116,55 @@ Given('que existe uma locação ativa com término em {string}', async function(
 });
 
 /**
+ * Cobertura do bug reportado pelo Cadu em 11/set/2026: o filtro de Status
+ * da lista de Locações não filtrava direito -- "Ativo" mostrava locações
+ * encerradas junto, e "Encerrado" não achava nenhuma.
+ *
+ * Causa raiz (ver rentalService.ts mapRentalData): a rescisão só atualiza
+ * a coluna `status` da locação para "ended", nunca a coluna `is_active` --
+ * que ficava travada em `true` pra sempre. A tela usava `is_active` pra
+ * filtrar e `status` pra mostrar o selo colorido, então as duas coisas
+ * discordavam. O cenário abaixo recria esse exato estado (status="ended"
+ * com is_active forçado para `true`) pra provar que a tela agora decide
+ * tudo pelo `status`, e não regride pra confiar em `is_active` de novo.
+ */
+Given('que existe uma locação ativa do cenário', async function (this: any) {
+  const rental = await criarLocacaoAtivaDeTeste(this, 1800);
+  this.testData = { ...this.testData, locacaoAtivaId: rental.id };
+});
+
+Given('que existe uma locação encerrada do cenário', async function (this: any) {
+  const rental = await criarLocacaoAtivaDeTeste(this, 1900);
+  await this.updateRental(rental.id, { status: 'ended', is_active: true });
+  this.testData = { ...this.testData, locacaoEncerradaId: rental.id };
+});
+
+Then('o filtro de Status está com {string} selecionado', async function (this: any, opcao: string) {
+  await expect(this.page.locator('#rentals-status-filter')).toContainText(opcao);
+});
+
+When('seleciono o filtro de Status {string}', async function (this: any, opcao: string) {
+  await this.page.locator('#rentals-status-filter').click();
+  await this.page.getByRole('option', { name: opcao, exact: true }).click();
+});
+
+Then('vejo a locação ativa do cenário na lista', async function (this: any) {
+  await expect(this.page.locator(`[data-row-id="${this.testData.locacaoAtivaId}"]`)).toBeVisible();
+});
+
+Then('NÃO vejo a locação ativa do cenário na lista', async function (this: any) {
+  await expect(this.page.locator(`[data-row-id="${this.testData.locacaoAtivaId}"]`)).toHaveCount(0);
+});
+
+Then('vejo a locação encerrada do cenário na lista', async function (this: any) {
+  await expect(this.page.locator(`[data-row-id="${this.testData.locacaoEncerradaId}"]`)).toBeVisible();
+});
+
+Then('NÃO vejo a locação encerrada do cenário na lista', async function (this: any) {
+  await expect(this.page.locator(`[data-row-id="${this.testData.locacaoEncerradaId}"]`)).toHaveCount(0);
+});
+
+/**
  * ⚠️ As 4 steps abaixo usam "\\/" (barra escapada) porque, em Cucumber
  * Expressions, "/" sem escape significa ALTERNATIVA (ex.: "Janeiro/2026"
  * seria lido como "Janeiro" OU "2026", nunca o texto literal com barra).

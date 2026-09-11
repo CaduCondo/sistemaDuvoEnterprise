@@ -278,7 +278,9 @@ export const usePayments = () => {
             status: (rental.status === "inactive" ? "ended" : rental.status) as "active" | "terminated" | "ended",
             value: rental.rent_value,
             depositAmount: 0,
-            isActive: rental.is_active || false,
+            // Derivado de `status`, não da coluna `is_active` (ver comentário
+            // em rentalService.ts mapRentalData -- issue do filtro de Status).
+            isActive: rental.status === "active",
             hasGarage: false,
             hasPartnerBroker: false,
             attachments: [],
@@ -406,7 +408,9 @@ export const usePayments = () => {
             status: (rental.status === "inactive" ? "ended" : rental.status) as "active" | "terminated" | "ended",
             value: rental.rent_value,
             depositAmount: 0,
-            isActive: rental.is_active || false,
+            // Derivado de `status`, não da coluna `is_active` (ver comentário
+            // em rentalService.ts mapRentalData -- issue do filtro de Status).
+            isActive: rental.status === "active",
             hasGarage: false,
             hasPartnerBroker: false,
             attachments: [],

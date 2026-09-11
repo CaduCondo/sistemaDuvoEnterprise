@@ -9,6 +9,23 @@ Funcionalidade: Regras de Negócio de Locações
     Dado que fiz login como "admin"
     E estou na página "/rentals"
 
+  # Bug reportado pelo Cadu em 11/set/2026: o combo de Status vinha com
+  # "Ativo" selecionado, mas a tabela mostrava locações Ativas E Encerradas
+  # juntas, e escolher "Encerrado" não achava nenhuma. Causa raiz: a
+  # rescisão só atualiza a coluna `status` da locação, nunca `is_active`,
+  # e a tela filtrava por `is_active` só (ver rentalService.ts).
+  @sistemaCompleto
+  Cenário: Filtro de Status da lista respeita o status real da locação
+    Dado que existe uma locação ativa do cenário
+    E que existe uma locação encerrada do cenário
+    Quando acesso a página "/rentals"
+    Então o filtro de Status está com "Ativo" selecionado
+    E vejo a locação ativa do cenário na lista
+    E NÃO vejo a locação encerrada do cenário na lista
+    Quando seleciono o filtro de Status "Encerrado"
+    Então vejo a locação encerrada do cenário na lista
+    E NÃO vejo a locação ativa do cenário na lista
+
   @sistemaCompleto
   Cenário: Criar locação - Validar imóvel disponível
     Quando clico no botão "Nova Locação"

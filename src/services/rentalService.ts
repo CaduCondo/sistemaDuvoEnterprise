@@ -36,7 +36,16 @@ const mapRentalData = (data: any): Rental => {
     monthlyRent: Number(data.rent_value || 0),
     depositAmount: data.deposit_value ? Number(data.deposit_value) : 0,
     status: data.status as "active" | "ended" | "terminated",
-    isActive: data.is_active,
+    // ⚠️ Corrigido em 11/set/2026 (bug reportado pelo Cadu: filtro de Status
+    // em Locações não filtrava direito). Antes usava a coluna `is_active`
+    // do banco direto -- mas a rescisão (terminationService) só atualiza
+    // `status` para "ended", nunca essa coluna, então ela ficava travada em
+    // `true` para sempre depois de encerrar. Resultado: o filtro "Ativo"
+    // mostrava locações encerradas, e o filtro "Encerrado" não achava
+    // nenhuma. Agora `isActive` é sempre derivado de `status`, que é o
+    // campo que a rescisão realmente atualiza (mesmo padrão já usado em
+    // payments.tsx e usePayments.ts).
+    isActive: data.status === "active",
     attachments: (data.attachments as unknown as (string | Attachment)[]) || [],
     contractAttachments: (data.contract_attachments as unknown as string[]) || [],
     hasGarage: data.has_garage || false,
