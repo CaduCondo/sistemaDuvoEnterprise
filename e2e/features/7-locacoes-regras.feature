@@ -231,14 +231,23 @@ Funcionalidade: Regras de Negócio de Locações
       | Aluguel   | 2800.00 |
       | Garagem   | 400.00  |
 
+  # ⚠️ CORRIGIDO em 12/set/2026 (issue #99, cluster "bug no teste"): este
+  # cenário tentava alterar o valor do aluguel DENTRO do formulário de
+  # Locação ("E altero o valor do aluguel para..."), campo que não existe
+  # ali -- o valor pertence ao cadastro do IMÓVEL (mesmo motivo já
+  # documentado acima, nos cenários "Atualizar valor do aluguel" e
+  # "Preservar snapshot em pagamentos pagos"). O Playwright falhava com
+  # "Element is not an <input>...". Ajustado para o mesmo padrão correto
+  # dos dois cenários irmãos: muda o valor no imóvel primeiro, depois abre
+  # e salva a locação.
   @sistemaCompleto
   Cenário: Editar locação - Não atualizar pagamentos passados pendentes
     Dado que existe uma locação ativa com aluguel de "2500.00"
     E o pagamento de Novembro/2025 está "Pendente" com valor de "2500.00"
     E o pagamento de Dezembro/2025 está "Pendente" com valor de "2500.00"
     E o pagamento de Março/2026 está "Pendente" com valor de "2500.00"
-    Quando edito a locação em "15/02/2026"
-    E altero o valor do aluguel para "2800.00"
+    Quando o valor do imóvel dessa locação muda para "2800.00"
+    E edito a locação em "15/02/2026"
     E salvo as alterações
     Então o pagamento de Novembro/2025 deve manter "2500.00"
     E o pagamento de Dezembro/2025 deve manter "2500.00"

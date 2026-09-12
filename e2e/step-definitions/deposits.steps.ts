@@ -344,8 +344,20 @@ When("clico para editar valor devolvido", async function (this: CustomWorld) {
   await linhaDaLocacaoDoCenario(this).locator('[data-testid="edit-returned-deposit"]').click();
 });
 
+/**
+ * ⚠️ Corrigido em 12/set/2026 (issue #99, cluster "bug no teste").
+ *
+ * Este campo tem máscara de dinheiro que trata os dígitos digitados como
+ * CENTAVOS (formatCurrencyInput, em src/lib/masks.ts:
+ * `parseFloat(numeros) / 100`) -- é o mesmo tipo de máscara usada em vários
+ * campos de valor do sistema. `.fill("360")` virava R$ 3,60 (360 centavos),
+ * não R$ 360,00 -- por isso as asserções batiam sempre 100x menor que o
+ * esperado (ex.: "Expected: 360, Received: 3.6"). Precisa mandar o valor em
+ * centavos: 360.00 -> "36000".
+ */
 When("altero o valor para {float}", async function (this: CustomWorld, value: number) {
-  await this.page.locator('input[type="text"]:visible').first().fill(value.toString());
+  const centavos = Math.round(value * 100).toString();
+  await this.page.locator('input[type="text"]:visible').first().fill(centavos);
 });
 
 When("salvo a alteração", async function (this: CustomWorld) {
