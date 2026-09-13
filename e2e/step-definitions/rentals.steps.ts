@@ -749,8 +749,29 @@ When('altero a garagem para {string}', async function (value: string) {
   await this.page.locator('#rental-garage-value').fill(value);
 });
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "trava ao editar
+ * Locação" -- afeta as 4 cenários que usam este passo).
+ *
+ * Causa raiz real (lida direto em RentalFormDialog.tsx, handleSubmit,
+ * ramo de EDIÇÃO): salvar uma edição de Locação NÃO fecha o formulário na
+ * hora. Primeiro aparece um aviso de sucesso ("Locação atualizada com
+ * sucesso.") -- só quando esse aviso é fechado no botão OK (onConfirm) é
+ * que o formulário fecha de verdade, 250ms depois. O passo só clicava em
+ * "Atualizar Locação" e ficava esperando o botão sumir sozinho, sem nunca
+ * clicar em OK -- por isso travava nos 15s esperando um fechamento que
+ * dependia de um clique que nunca vinha. O mesmo padrão (achar o
+ * alertdialog e clicar em OK) já existe em common.steps.ts, no passo
+ * "fecho a mensagem de sucesso no botão OK" -- usado aqui porque salvar
+ * uma edição de Locação SEMPRE passa por esse aviso, não é opcional.
+ */
 When('salvo as alterações', async function () {
   await this.page.locator('#rental-form-submit').click();
+
+  const alerta = this.page.getByRole('alertdialog');
+  await expect(alerta, 'o aviso de sucesso não apareceu depois de salvar a locação').toBeVisible({ timeout: 15000 });
+  await alerta.getByRole('button', { name: /^OK$/i }).click();
+
   // A gravação mexe em locação + recebimentos: espera o diálogo fechar,
   // em vez de torcer por um tempo fixo.
   await expect(this.page.locator('#rental-form-submit')).toBeHidden({ timeout: 15000 });

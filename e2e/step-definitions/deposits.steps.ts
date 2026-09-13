@@ -354,10 +354,34 @@ When("clico para editar valor devolvido", async function (this: CustomWorld) {
  * não R$ 360,00 -- por isso as asserções batiam sempre 100x menor que o
  * esperado (ex.: "Expected: 360, Received: 3.6"). Precisa mandar o valor em
  * centavos: 360.00 -> "36000".
+ *
+ * ⚠️ 2º ajuste em 13/set/2026 (issue #99): esse fix sozinho NÃO resolveu --
+ * confirmado no CI (run 34766136643), o resultado mudou de "3.6" para "0",
+ * ou seja, o valor salvo no banco continua errado. Causa exata ainda não
+ * confirmada (não vou arriscar mais um palpite às cegas outra vez), mas
+ * duas coisas SUSPEITAS foram corrigidas agora, que já valem por si:
+ *
+ * 1) `input[type="text"]:visible` procurava em TODA a página, sem
+ *    escopo -- o mesmo tipo de bug de seletor ambíguo já documentado (e já
+ *    corrigido) em outros passos deste arquivo (ver `linhaDaLocacaoDoCenario`
+ *    acima). Escopado agora pela linha da locação do cenário.
+ * 2) Faltava conferir, logo depois de digitar, se o campo realmente ficou
+ *    com o valor certo ANTES de mandar salvar -- sem isso, se a digitação
+ *    caiu no campo errado, o erro só aparecia (confuso) no passo de
+ *    conferência final, longe da causa. Agora, se a digitação não "pegar",
+ *    o teste já falha aqui, apontando exatamente para a causa raiz real do
+ *    "salva 0" na próxima rodada do CI.
  */
 When("altero o valor para {float}", async function (this: CustomWorld, value: number) {
   const centavos = Math.round(value * 100).toString();
-  await this.page.locator('input[type="text"]:visible').first().fill(centavos);
+  const input = linhaDaLocacaoDoCenario(this).locator('input[type="text"]:visible').first();
+  await input.fill(centavos);
+
+  const esperado = value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  await expect(
+    input,
+    `depois de digitar "${centavos}", o campo deveria mostrar "R$ ${esperado}" -- se não mostra, a digitação caiu no campo errado`
+  ).toHaveValue(new RegExp(esperado.replace(".", "\\.")));
 });
 
 When("salvo a alteração", async function (this: CustomWorld) {

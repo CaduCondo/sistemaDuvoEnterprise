@@ -265,11 +265,26 @@ async function acharCardDoImovel(world: CustomWorld, identifier: string) {
   // -- o que também pode ser lento o bastante pra estourar o timeout.
   // Filtra pelo identificador antes de procurar o card, do mesmo jeito
   // que já é feito em rentals.steps.ts com #rentals-search-input.
+  //
+  // ⚠️ 2º ajuste em 13/set/2026: o primeiro fix acima não funcionava --
+  // conferido no CI (run 34768905762), erro idêntico ao de antes. Causa
+  // raiz real, achada lendo src/pages/properties.tsx: enquanto a tela
+  // ainda está buscando os imóveis no banco (`if (loading) return <p>
+  // Carregando...</p>`), a página INTEIRA -- inclusive a caixa de busca --
+  // não existe ainda no DOM. `waitForLoadState('domcontentloaded')` só
+  // espera a navegação, não essa busca. Como o banco de DEV tinha muito
+  // dado antigo acumulado, esse "Carregando..." podia demorar mais que o
+  // instante em que o passo checava `isVisible()` -- que, não achando o
+  // elemento, silenciosamente decidia "não filtrar" e seguia sem avisar
+  // ninguém (por isso o problema não aparecia nos logs). Trocado o
+  // "isVisible().catch(() => false)" por um espera de verdade
+  // (`waitFor({state:'visible'})`): agora, se a busca não aparecer, o
+  // teste falha alto e claro dizendo que a caixa de busca não apareceu,
+  // em vez de mascarar o problema seguindo sem filtrar.
   const busca = world.page.locator('#property-filters-search');
-  if (await busca.isVisible().catch(() => false)) {
-    await busca.fill(identifier);
-    await world.page.waitForTimeout(500);
-  }
+  await busca.waitFor({ state: 'visible', timeout: 15000 });
+  await busca.fill(identifier);
+  await world.page.waitForTimeout(500);
 
   const card = world.page.locator(`[data-property-identifier="${identifier}"]`).first();
   await expect(
