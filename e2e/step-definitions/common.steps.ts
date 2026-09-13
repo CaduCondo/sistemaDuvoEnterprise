@@ -695,11 +695,30 @@ When('preencho a renda mensal digitando {string}', async function (this: CustomW
   const locator = this.page.locator('input[name="monthlyIncome"], input#tenant-monthly-income');
   await locator.click();
   await locator.pressSequentially(value);
+  // Guarda o que já foi digitado, para o próximo step ("continuo digitando
+  // até") saber quantos dígitos faltam -- ver comentário abaixo.
+  this.testData.rendaMensalDigitada = value;
 });
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "CRUD de Inquilinos").
+ *
+ * `value.replace(/^\d+/, '')` apaga TODOS os dígitos de "500000" (a regex
+ * casa a string inteira, que é só números), sobrando uma string vazia --
+ * ou seja, o step não digitava mais nada e o campo ficava travado em
+ * "R$ 50,00", nunca chegando em "R$ 5.000,00". O erro no CI era
+ * "element(s) not found" para `input[value="R$ 5.000,00"]".
+ *
+ * O certo é digitar só os dígitos que ainda faltam: pega o que já foi
+ * digitado no step anterior (guardado em `this.testData.rendaMensalDigitada`)
+ * e manda só a diferença.
+ */
 When('continuo digitando até {string}', async function (this: CustomWorld, value: string) {
   const locator = this.page.locator('input[name="monthlyIncome"], input#tenant-monthly-income');
-  await locator.pressSequentially(value.replace(/^\d+/, ''));
+  const jaDigitado: string = this.testData.rendaMensalDigitada || '';
+  const faltam = value.startsWith(jaDigitado) ? value.slice(jaDigitado.length) : value;
+  await locator.pressSequentially(faltam);
+  this.testData.rendaMensalDigitada = value;
 });
 
 Then('o campo deve exibir {string}', async function (this: CustomWorld, expectedValue: string) {

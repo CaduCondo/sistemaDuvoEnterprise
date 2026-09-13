@@ -72,11 +72,16 @@ Funcionalidade: CRUD de Inquilinos
     Quando continuo digitando até "500000"
     Então o campo deve exibir "R$ 5.000,00"
 
+  # ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "CRUD de Inquilinos"): não
+  # existe (e nunca existiu) um botão "Buscar CEP" na tela -- a busca de
+  # endereço acontece sozinha assim que o CEP completa 8 dígitos
+  # (TenantFormDialog.tsx, handleCepChange, no onChange do campo). O teste
+  # ficava 20s esperando um botão que não existe até estourar timeout. O
+  # step "preencho o CEP com" já dispara a busca automática.
   @sistemaCompleto
   Cenário: Buscar CEP automaticamente
     Quando clico no botão "Novo Inquilino"
     E preencho o CEP com "01310-100"
-    E clico em "Buscar CEP"
     Então os campos de endereço devem ser preenchidos automaticamente
 
   @sistemaCompleto
