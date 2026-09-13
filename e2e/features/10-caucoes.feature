@@ -161,9 +161,17 @@ Funcionalidade: Gestão de Cauções
     E vejo KPI "Comissões Pagas" = 200.00
     E vejo KPI "Receita Líquida" = 600.00
 
+  # ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "tabela do Gherkin não
+  # bate com tela"): faltava "a locação tem corretor parceiro" antes de
+  # "a locação tem comissão parceiro" -- sem isso, has_partner_broker
+  # continua false no banco, e a coluna "Valor Parceiro" da tela
+  # (DepositInstallmentsTable.tsx) nunca mostra o span editável nesse
+  # caso (fica só um "-" fixo). O passo seguinte procurava um elemento
+  # que não existia e ficava girando até estourar os 20s.
   @sistemaCompleto
   Cenário: Comissões aparecem uma única vez por locação
     Dado que existe uma locação com caução em 3x
+    E a locação tem corretor parceiro
     E a locação tem comissão parceiro 360.00
     E a locação tem comissão interno 240.00
     Quando acesso o relatório financeiro de cauções
