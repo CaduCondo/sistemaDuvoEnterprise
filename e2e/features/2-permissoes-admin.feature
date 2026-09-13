@@ -64,11 +64,16 @@ Funcionalidade: Permissões do Perfil Admin
       | Usuários    |
       | Permissões  |
 
+  # ⚠️ Corrigido em 13/set/2026 (issue #99): o botão que abre o formulário
+  # se chama "Adicionar Usuário" (UsersTab.tsx) -- "Novo Usuário" é só o
+  # TÍTULO do formulário depois que ele abre, nunca foi o texto de um
+  # botão clicável. O passo procurava um botão que não existia e estourava
+  # os 20s.
   @sistemaCompleto
   Cenário: Admin pode criar usuário
     Quando acesso "/settings"
     E clico na aba "Usuários"
-    E clico em "Novo Usuário"
+    E clico em "Adicionar Usuário"
     Então devo ver o formulário de criação de usuário
 
   @sistemaCompleto

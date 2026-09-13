@@ -17,15 +17,38 @@ import { CustomWorld } from '../support/world';
  *
  * Agora a opção é procurada só DENTRO da lista aberta do filtro
  * (role="option"), que é onde ela de fato está.
+ *
+ * ⚠️ 2º ajuste em 13/set/2026 (issue #99): essa correção de 09/set não
+ * era o bug real -- `role="option"` nunca existiu aqui. Lendo
+ * TenantFilters.tsx: a lista de status é um Popover com CHECKBOXES
+ * (`<label><Checkbox id="tenant-status-{value}"/>...</label>`), não um
+ * listbox. `getByRole('option')` nunca encontrava nada e o passo ficava
+ * girando até estourar os 20s (era esse o erro real: "function timed
+ * out", não ambiguidade). Clicar por TEXTO de novo reintroduziria o
+ * mesmo risco de ambiguidade de 09/set ("Locatário" também aparece na
+ * tabela) -- em vez disso, clica direto no checkbox pelo id fixo,
+ * mapeando o rótulo em português pro valor real (mesmo mapa de
+ * TenantFilters.tsx: active/rented/inactive).
  */
 When('seleciono o filtro de status {string}', async function (this: CustomWorld, statusLabel: string) {
   await this.page.locator('#tenant-filters-status').click();
   await this.page.waitForTimeout(300);
 
-  await this.page
-    .getByRole('option', { name: new RegExp(statusLabel, 'i') })
-    .first()
-    .click();
+  const valorPorRotulo: Record<string, string> = {
+    'disponível': 'active',
+    'disponivel': 'active',
+    'locatário': 'rented',
+    'locatario': 'rented',
+    'inativo': 'inactive',
+  };
+  const valor = valorPorRotulo[statusLabel.toLowerCase()];
+  if (valor) {
+    await this.page.locator(`#tenant-status-${valor}`).click();
+  } else {
+    // Rótulo não mapeado: cai pro texto, escopado ao Popover aberto.
+    await this.page.getByText(new RegExp(`^${statusLabel}$`, 'i')).first().click();
+  }
+  await this.page.keyboard.press('Escape');
 
   await this.page.waitForTimeout(500);
 });

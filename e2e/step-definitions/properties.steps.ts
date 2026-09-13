@@ -81,10 +81,21 @@ Then('devo ver apenas imóveis que contenham {string} no endereço ou localizaç
   }
 });
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "tabela do Gherkin não
+ * bate com tela"): a lista de locais é um Popover com CHECKBOXES
+ * (PropertyFilters.tsx, LocationList) -- nunca foi um <select>/listbox,
+ * então nunca teve elemento com role="option". `getByRole('option', ...)`
+ * nunca encontrava nada e o passo ficava girando até estourar os 20s. O
+ * certo é clicar no texto da opção (rótulo do checkbox) dentro do Popover
+ * aberto, e fechar com Escape depois (o Popover não fecha sozinho ao
+ * marcar o checkbox, porque é seleção múltipla).
+ */
 When('seleciono a localização {string}', async function (this: CustomWorld, locationName: string) {
   const select = this.page.locator('#property-filters-location-desktop, #property-filters-location-mobile').first();
   await select.click();
-  await this.page.getByRole('option', { name: new RegExp(locationName, 'i') }).click();
+  await this.page.getByText(new RegExp(`^${locationName}$`, 'i')).click();
+  await this.page.keyboard.press('Escape');
   await this.page.waitForTimeout(500);
 });
 
@@ -92,6 +103,15 @@ Then('devo ver apenas imóveis desta localização', async function (this: Custo
   await expect(this.page.locator('table tbody tr').first()).toBeVisible({ timeout: 5000 });
 });
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99): a checagem de visibilidade dos
+ * candidatos rodava uma ÚNICA vez, na hora -- se a tela ainda estivesse
+ * carregando os dados (mesmo tipo de causa já corrigida em
+ * `acharCardDoImovel`, mais acima neste arquivo: enquanto a tela busca no
+ * banco, os filtros nem existem no DOM ainda), todos os candidatos vinham
+ * "invisíveis" e o passo desistia na hora, com "Nenhum filtro de status
+ * visível". Agora tenta de novo por até 10s antes de desistir de vez.
+ */
 When('seleciono o status {string}', async function (this: CustomWorld, status: string) {
   // Reaproveitado nas páginas de Imóveis, Inquilinos e Pagamentos — tenta os
   // seletores conhecidos de cada uma.
@@ -101,16 +121,20 @@ When('seleciono o status {string}', async function (this: CustomWorld, status: s
     '#tenant-filters-status',
     '[id*="status-filter"]',
   ];
-  for (const selector of candidates) {
-    const el = this.page.locator(selector).first();
-    if (await el.isVisible().catch(() => false)) {
-      await el.click();
-      await this.page.getByRole('option', { name: new RegExp(status, 'i') }).click();
-      await this.page.waitForTimeout(500);
-      return;
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    for (const selector of candidates) {
+      const el = this.page.locator(selector).first();
+      if (await el.isVisible().catch(() => false)) {
+        await el.click();
+        await this.page.getByRole('option', { name: new RegExp(status, 'i') }).click();
+        await this.page.waitForTimeout(500);
+        return;
+      }
     }
+    await this.page.waitForTimeout(300);
   }
-  throw new Error('Nenhum filtro de status visível na página atual');
+  throw new Error('Nenhum filtro de status visível na página atual (esperei 10s)');
 });
 
 Then('devo ver apenas imóveis disponíveis', async function (this: CustomWorld) {

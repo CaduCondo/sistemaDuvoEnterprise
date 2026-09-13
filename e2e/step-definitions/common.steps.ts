@@ -222,8 +222,17 @@ Then('devo ver a página do dashboard', async function (this: CustomWorld) {
   await expect(this.page.locator('#dashboard-page')).toBeVisible({ timeout: 5000 });
 });
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99): `[role="alert"]` sozinho
+ * também casa com o anunciador de rota que o Next.js injeta em toda
+ * página (`#__next-route-announcer__`, sempre vazio) -- isso é um
+ * FALSO POSITIVO em potencial: o passo podia passar mesmo sem nenhuma
+ * mensagem de erro de verdade, só por esse elemento existir. Excluído da
+ * checagem (o `.or(getByText(...))` continua pegando o erro de verdade
+ * pelo texto, então nada de real se perde).
+ */
 Then('devo ver uma mensagem de erro', async function (this: CustomWorld) {
-  const errorMessage = this.page.locator('[role="alert"]').or(
+  const errorMessage = this.page.locator('[role="alert"]:not(#__next-route-announcer__)').or(
     this.page.getByText(/erro|inválid|falhou|obrigat|incorreta|bloqueada/i)
   );
   await expect(errorMessage.first()).toBeVisible({ timeout: 5000 });
@@ -484,8 +493,17 @@ Then('os cards devem ter a mesma altura', async function (this: CustomWorld) {
   expect(uniqueRounded.size).toBeLessThanOrEqual(2); // pequena tolerância
 });
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99): procurava `[id*="month-filter"]`
+ * / `[id*="year-filter"]` -- os ids de verdade (PaymentFilters.tsx) são
+ * "payment-filters-month" e "payment-filters-year", ou seja "filters-month"
+ * (ordem invertida), não "month-filter". A substring nunca batia com
+ * nada -- daí o "Expected: visible" sempre falhava.
+ */
 Then('devo ver filtros de mês e ano', async function (this: CustomWorld) {
-  await expect(this.page.locator('[id*="month-filter"], [id*="year-filter"]').first()).toBeVisible({ timeout: 5000 });
+  await expect(
+    this.page.locator('[id*="filters-month"], [id*="filters-year"]').first()
+  ).toBeVisible({ timeout: 5000 });
 });
 
 /** =================== TEMA =================== */
@@ -665,11 +683,19 @@ When('preencho os campos opcionais:', async function (this: CustomWorld, dataTab
       locator = this.page.locator('input[name="occupation"], input#tenant-occupation');
       await locator.fill(value);
     } else if (fieldName.includes('estado civil')) {
-      locator = this.page.locator('select[name="maritalStatus"], select#tenant-marital-status');
-      await locator.selectOption({ label: value }).catch(async () => {
-        await this.page.locator('#tenant-marital-status').click();
-        await this.page.getByRole('option', { name: new RegExp(escapeRegex(value), 'i') }).click();
-      });
+      // ⚠️ Corrigido em 13/set/2026 (issue #99): `select[name="maritalStatus"],
+      // select#tenant-marital-status` restringe a busca à TAG <select> --
+      // mas o campo real (TenantFormDialog.tsx) é um Select do
+      // shadcn/Radix, ou seja um <button id="tenant-marital-status">, não
+      // uma <select> nativa. Como a tag nunca bate, `.selectOption()`
+      // ficava esperando um elemento que nunca ia aparecer até o PRÓPRIO
+      // timeout do Playwright (30s) -- maior que o timeout do Cucumber
+      // (20s), então o passo estourava antes até de chegar no `.catch()`
+      // que já existia aqui (por isso o erro era só "function timed out",
+      // sem nenhum "Element is not a <select>" por baixo). Vai direto pro
+      // caminho que de fato funciona.
+      await this.page.locator('#tenant-marital-status').click();
+      await this.page.getByRole('option', { name: new RegExp(escapeRegex(value), 'i') }).click();
     } else if (fieldName.includes('renda mensal')) {
       locator = this.page.locator('input[name="monthlyIncome"], input#tenant-monthly-income');
       await locator.click();
@@ -779,8 +805,17 @@ Then('devo ver os dados salvos corretamente', async function (this: CustomWorld)
   await expect(monthlyIncome).not.toHaveValue('');
 });
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99): `[role="alert"]` sempre casa
+ * com um elemento que o PRÓPRIO Next.js injeta em toda página --
+ * `<p role="alert" id="__next-route-announcer__">` (usado só pra leitor
+ * de tela anunciar troca de rota, sempre vazio). Esse elemento conta como
+ * "visível" pro Playwright mesmo sem nenhum erro de verdade acontecendo
+ * -- ou seja, esse passo NUNCA poderia passar, em nenhuma tela, mesmo
+ * tudo certo. Exclui esse elemento específico da checagem.
+ */
 Then('o inquilino deve aparecer na lista sem erros', async function (this: CustomWorld) {
-  const errorMessage = this.page.locator('[role="alert"]');
+  const errorMessage = this.page.locator('[role="alert"]:not(#__next-route-announcer__)');
   await expect(errorMessage).not.toBeVisible();
   await this.page.waitForSelector('table, [role="grid"]', { timeout: 5000 });
 });

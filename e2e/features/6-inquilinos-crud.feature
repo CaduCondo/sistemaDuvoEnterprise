@@ -9,13 +9,16 @@ Funcionalidade: CRUD de Inquilinos
     Dado que fiz login como "admin"
     E estou na página "/tenants"
 
+  # ⚠️ Corrigido em 13/set/2026 (issue #99): a coluna se chama "Documento"
+  # na tela (tenants.tsx), não "CPF/CNPJ" -- ela mostra o CPF ou o CNPJ,
+  # mas o cabeçalho da coluna sempre foi só "Documento".
   @sistemaCompleto
   Cenário: Visualizar lista de inquilinos
     Então devo ver a lista de inquilinos
     E devo ver as colunas:
       | coluna    |
       | Nome      |
-      | CPF/CNPJ  |
+      | Documento |
       | Telefone  |
       | E-mail    |
 
