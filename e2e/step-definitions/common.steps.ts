@@ -452,8 +452,18 @@ Then('devo ver os cards de métricas', async function (this: CustomWorld) {
   await expect(this.page.locator('[class*="card" i]').first()).toBeVisible({ timeout: 5000 });
 });
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99): `locator('svg, canvas').first()`
+ * pega o PRIMEIRO svg/canvas na ordem do DOM -- e o primeiro de TODOS é
+ * sempre o ícone do botão de menu mobile (Layout.tsx:387, `<Menu>` dentro
+ * de um botão `md:hidden`), que fica escondido em qualquer tela desktop
+ * (inclusive no CI). O teste sempre batia nesse ícone escondido primeiro,
+ * nunca chegava nos gráficos de verdade. Corrigido pra pegar o primeiro
+ * svg/canvas que estiver REALMENTE visível (`:visible`, extensão do
+ * Playwright), não só o primeiro que existir no DOM.
+ */
 Then('devo ver os gráficos financeiros', async function (this: CustomWorld) {
-  await expect(this.page.locator('svg, canvas').first()).toBeVisible({ timeout: 5000 });
+  await expect(this.page.locator('svg:visible, canvas:visible').first()).toBeVisible({ timeout: 5000 });
 });
 
 Then('devo sempre ver o card de {string}', async function (this: CustomWorld, cardName: string) {
