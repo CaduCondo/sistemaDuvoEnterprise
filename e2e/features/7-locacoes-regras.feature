@@ -268,7 +268,22 @@ Funcionalidade: Regras de Negócio de Locações
     E salvo as alterações
     Então o pagamento de referência Junho/2026 deve ser atualizado para "166.67"
 
-  @sistemaCompleto
+  # ⚠️ MARCADO @quebrado em 13/set/2026 (issue #99, cluster "Locações"):
+  # o passo "que existe uma locação com:" cria a locação DIRETO NO BANCO
+  # (payments.steps.ts), sem passar pela tela. O Comprovante de Contrato
+  # (RentalContract.tsx) só aparece automaticamente logo depois que uma
+  # locação é criada PELO FORMULÁRIO (RentalFormDialog.tsx,
+  # setShowContract(true) no fluxo de criação) -- não existe hoje nenhum
+  # botão "Ver Contrato"/"Comprovante" para reabrir isso numa locação já
+  # existente (conferido em rentals.tsx: o único botão com ícone de
+  # documento na lista é "Histórico de Pagamentos", outra tela). Ou seja,
+  # o passo "visualizo o Comprovante de Contrato de Locação" procura um
+  # botão que nunca existiu -- mesma classe de defeito já documentada em
+  # "Criar locação - Gerar pagamentos automaticamente" (preparo direto no
+  # banco pula a tela que a asserção depende). Fica fora das rodadas até
+  # o cenário ser reescrito para criar a locação pela tela (ou até o
+  # produto ganhar um botão de reabrir o comprovante).
+  @quebrado
   Cenário: Comprovante de Contrato - Somar aluguel e garagem
     Dado que existe uma locação com:
       | campo          | valor   |
@@ -278,10 +293,16 @@ Funcionalidade: Regras de Negócio de Locações
     Então no campo "Valor Total" devo ver "1900.00"
     E não apenas o valor do aluguel
 
+  # ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "Locações"): não existe
+  # (e nunca existiu) botão "Encerrar Locação" na tela -- o botão real
+  # (rentals.tsx) chama-se "Rescisão de Contrato" (ícone X, abre
+  # RentalTerminationDialog.tsx, que é onde vive o campo de data
+  # #termination-date que o próximo passo já preenche). O passo ficava
+  # 20s esperando um botão que não existe até estourar timeout.
   @sistemaCompleto
   Cenário: Encerrar locação antecipadamente
     Dado que existe uma locação ativa com término em "31/12/2026"
-    Quando clico em "Encerrar Locação"
+    Quando clico em "Rescisão de Contrato"
     E preencho a data de encerramento com "30/06/2026"
     E confirmo o encerramento
     Então a data de término deve ser atualizada para "30/06/2026"
