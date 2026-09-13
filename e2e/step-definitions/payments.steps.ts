@@ -217,36 +217,42 @@ When('filtro pelo mês {string}', async function(month: string) {
 // Observação: "filtro por {string}" (genérico) vive em common.steps.ts —
 // não duplicar aqui.
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99): os 3 passos abaixo procuravam
+ * `[id*="month-filter"]` / `[id*="year-filter"]` -- os ids de verdade
+ * (PaymentFilters.tsx) são "payment-filters-month" / "payment-filters-year"
+ * ("filters-month", ordem invertida). A substring nunca batia com nada.
+ */
 When('filtro por {string} na página de Recebimentos', async function(month: string) {
   const [monthName, year] = month.split('/');
-  
-  const monthSelect = this.page.locator('[id*="month-filter"]');
+
+  const monthSelect = this.page.locator('[id*="filters-month"]');
   if (await monthSelect.isVisible()) {
     await monthSelect.click();
     await this.page.waitForTimeout(300);
     const monthOption = this.page.getByText(new RegExp(monthName, 'i'));
     await monthOption.click();
   }
-  
+
   await this.page.waitForTimeout(1000);
 });
 
 When('seleciono o mês {string}', async function(month: string) {
-  const monthSelect = this.page.locator('[id*="month-filter"]');
+  const monthSelect = this.page.locator('[id*="filters-month"]');
   await monthSelect.click();
   await this.page.waitForTimeout(300);
-  
-  const monthOption = this.page.getByText(new RegExp(month, 'i'));
+
+  const monthOption = this.page.getByRole('option', { name: new RegExp(month, 'i') });
   await monthOption.click();
   await this.page.waitForTimeout(500);
 });
 
 When('seleciono o ano {string}', async function(year: string) {
-  const yearSelect = this.page.locator('[id*="year-filter"]');
+  const yearSelect = this.page.locator('[id*="filters-year"]');
   await yearSelect.click();
   await this.page.waitForTimeout(300);
-  
-  const yearOption = this.page.getByText(year);
+
+  const yearOption = this.page.getByRole('option', { name: year });
   await yearOption.click();
   await this.page.waitForTimeout(500);
 });
@@ -389,17 +395,27 @@ Then('não devo ver o recebimento residual da locação excluída', async functi
   expect(bodyText?.includes(valorExibido)).toBe(false);
 });
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99): a tabela do Gherkin tem
+ * CABEÇALHO ("campo | valor"), mas o passo usava `dataTable.rowsHash()`
+ * -- que não pula cabeçalho nenhum, trata TODA linha (a do cabeçalho
+ * incluída) como um par chave/valor. Isso criava uma entrada fantasma
+ * `{ campo: "valor" }`, e o passo saía conferindo se cada linha da tela
+ * continha o texto literal "valor" -- por isso o erro era sempre
+ * "Expected substring: 'valor'". O certo é `dataTable.hashes()`, que
+ * respeita o cabeçalho.
+ */
 Then('todos os recebimentos exibidos devem ter:', async function(dataTable: any) {
-  const expected = dataTable.rowsHash();
-  
+  const expected = dataTable.hashes().map((row: any) => row.valor);
+
   const payments = this.page.locator('tbody tr');
   const count = await payments.count();
-  
+
   for (let i = 0; i < count; i++) {
     const payment = payments.nth(i);
     const text = await payment.textContent();
-    
-    for (const value of Object.values(expected)) {
+
+    for (const value of expected) {
       expect(text).toContain(value as string);
     }
   }
@@ -422,14 +438,21 @@ Then('nenhum recebimento deve ter vencimento em outro mês', async function() {
   }
 });
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99): `getByText(/Aluguel/i)` sem
+ * `.first()` varre a página INTEIRA -- e "Aluguel" também aparece no
+ * título da tela ("Registrar Recebimento de Aluguel"), então batia em 3
+ * elementos e estourava por "strict mode violation" (Playwright recusa
+ * agir num locator ambíguo). Mesmo risco pro valor.
+ */
 Then('devo ver:', async function(dataTable: any) {
   const rows = dataTable.hashes();
-  
+
   for (const row of rows) {
-    const fieldText = this.page.getByText(new RegExp(row.campo, 'i'));
+    const fieldText = this.page.getByText(new RegExp(row.campo, 'i')).first();
     await expect(fieldText).toBeVisible();
-    
-    const valueText = this.page.getByText(row.valor);
+
+    const valueText = this.page.getByText(row.valor).first();
     await expect(valueText).toBeVisible();
   }
 });
