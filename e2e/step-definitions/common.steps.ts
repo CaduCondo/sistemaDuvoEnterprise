@@ -599,8 +599,14 @@ Then('os filtros devem funcionar', async function (this: CustomWorld) {
   await expect(filter).toBeVisible({ timeout: 5000 });
 });
 
+// ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "Regressão Visual"): mesmo
+// bug de "devo ver filtros de mês e ano" (linha ~503) -- os ids reais
+// (PaymentFilters.tsx) são "payment-filters-month"/"payment-filters-year"
+// ("filters-month"/"filters-year"), nunca "month-filter"/"year-filter". Esse
+// passo específico da regressão visual tinha ficado pra trás na correção
+// anterior.
 Then('os filtros de mês\\/ano devem funcionar', async function (this: CustomWorld) {
-  await expect(this.page.locator('[id*="month-filter"], [id*="year-filter"]').first()).toBeVisible({ timeout: 5000 });
+  await expect(this.page.locator('[id*="filters-month"], [id*="filters-year"]').first()).toBeVisible({ timeout: 5000 });
 });
 
 Then('os pagamentos devem ser exibidos corretamente', async function (this: CustomWorld) {

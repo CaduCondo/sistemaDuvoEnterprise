@@ -108,13 +108,20 @@ Then('o inquilino deve aparecer na lista', async function (this: CustomWorld) {
 // "quando" acaba fazendo parte do texto do step (só a palavra-chave Gherkin
 // no início da linha é removida). Delega para a mesma lógica de
 // "filtro por {string}" definida em common.steps.ts.
+//
+// ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "Pagamentos"): mesmo bug
+// já corrigido em payments.steps.ts -- procurava `[id*="month-filter"]`
+// (nunca bate); o id real (PaymentFilters.tsx) é "payment-filters-month"
+// ("filters-month"). Também trocado `getByText` por `getByRole('option', ...)`,
+// que é o seletor certo para o Select real (mesmo padrão já usado em
+// payments.steps.ts's "seleciono o mês").
 When('quando filtro por {string}', async function (this: CustomWorld, filterValue: string) {
-  const monthSelect = this.page.locator('[id*="month-filter"]');
+  const monthSelect = this.page.locator('[id*="filters-month"]');
   if (await monthSelect.isVisible().catch(() => false)) {
     const [monthName] = filterValue.split('/');
     await monthSelect.click();
     await this.page.waitForTimeout(300);
-    await this.page.getByText(new RegExp(monthName, 'i')).click();
+    await this.page.getByRole('option', { name: new RegExp(monthName, 'i') }).click();
     await this.page.waitForTimeout(500);
   }
   this.testData.currentFilter = filterValue;
