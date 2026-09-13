@@ -256,7 +256,22 @@ Then('o imóvel deve permanecer na lista', async function (this: CustomWorld) {
  */
 async function acharCardDoImovel(world: CustomWorld, identifier: string) {
   await world.page.waitForLoadState('domcontentloaded');
-  const card = world.page.locator(`[data-property-identifier="${identifier}"]`);
+
+  // ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "item criado não
+  // aparece na tela"): o banco de DEV é compartilhado e acumulou muitos
+  // imóveis de execuções antigas (inclusive vários com este mesmo
+  // identificador fixo "IMO-001", usado por várias cenários). Sem
+  // filtrar, a tela tenta renderizar TODOS os imóveis do banco de uma vez
+  // -- o que também pode ser lento o bastante pra estourar o timeout.
+  // Filtra pelo identificador antes de procurar o card, do mesmo jeito
+  // que já é feito em rentals.steps.ts com #rentals-search-input.
+  const busca = world.page.locator('#property-filters-search');
+  if (await busca.isVisible().catch(() => false)) {
+    await busca.fill(identifier);
+    await world.page.waitForTimeout(500);
+  }
+
+  const card = world.page.locator(`[data-property-identifier="${identifier}"]`).first();
   await expect(
     card,
     `não achei o imóvel "${identifier}" na tela -- ele foi criado pelo cenário?`
