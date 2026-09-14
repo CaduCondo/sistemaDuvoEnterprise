@@ -32,8 +32,43 @@ const MESES_PT = [
  *   elemento inexistente até estourar timeout.
  * Todos trocados pelos ids reais.
  */
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Pagamentos" -- 3
+ * cenários de proporcional/filtro-de-mês nunca tinham sido revisados a
+ * fundo até agora). Duas causas raiz reais encontradas ao ler o passo com
+ * cuidado:
+ *
+ * 1) O clique final procurava um botão "Salvar" -- que NUNCA existiu neste
+ *    formulário (RentalFormDialog.tsx: o botão real diz "Criar Locação"/
+ *    "Atualizar Locação", mesmo defeito já documentado e corrigido em
+ *    vários outros lugares desta suíte). `getByRole('button', {name:
+ *    /salvar/i})` nunca achava nada e o passo morria no timeout do clique.
+ *
+ * 2) O valor do aluguel declarado na tabela do Gherkin ("Aluguel: 3000.00")
+ *    NUNCA era aplicado a nada: o passo selecionava o "primeiro imóvel
+ *    disponível" do dropdown (o valor pertence ao IMÓVEL, não à locação --
+ *    mesma regra já documentada em outros cenários desta suíte) sem nunca
+ *    forçar esse imóvel a valer R$3000. O aluguel real do recebimento
+ *    gerado dependia inteiramente de qual imóvel por acaso estivesse
+ *    primeiro na lista do banco de DEV -- por isso "o valor deve ser
+ *    proporcional a N dias" (calculado em cima dos 3000.00 do Gherkin)
+ *    quase nunca batia com o valor real exibido na tela.
+ *
+ * Agora o passo cria um imóvel de teste com o valor exato pedido (e um
+ * complemento único, pra selecionar ele sem ambiguidade) antes de abrir o
+ * formulário, em vez de confiar em "o que estiver primeiro na lista".
+ */
 Given('que crio uma locação com:', async function(dataTable: any) {
   const data = dataTable.rowsHash();
+  const aluguel = parseFloat((data['Aluguel'] || '3000.00').replace(/\./g, '').replace(',', '.'));
+  const complementoUnico = `[E2E] Proporcional ${Date.now()}`;
+
+  await DatabaseHelper.createProperty({
+    complement: complementoUnico,
+    value: aluguel,
+    status: 'available',
+  });
+  const tenant = await DatabaseHelper.createTenant({ name: `Proporcional E2E ${Date.now()}` });
 
   // Navegar para página de locações
   await this.page.goto('/rentals');
@@ -43,17 +78,15 @@ Given('que crio uma locação com:', async function(dataTable: any) {
   await this.page.getByRole('button', { name: /nova locação/i }).click();
   await this.page.waitForTimeout(500);
 
-  // Selecionar primeiro imóvel disponível
+  // Selecionar o imóvel de teste (valor conhecido) pelo complemento único.
   await this.page.locator('#rental-property').click();
   await this.page.waitForTimeout(300);
-  const firstProperty = this.page.locator('[role="option"]').first();
-  await firstProperty.click();
+  await this.page.getByRole('option', { name: new RegExp(complementoUnico.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).click();
 
-  // Selecionar primeiro inquilino disponível
+  // Selecionar o inquilino de teste.
   await this.page.locator('#rental-tenant').click();
   await this.page.waitForTimeout(300);
-  const firstTenant = this.page.locator('[role="option"]').first();
-  await firstTenant.click();
+  await this.page.getByRole('option', { name: new RegExp(tenant.name, 'i') }).click();
 
   // Preencher datas
   if (data['Data início']) {
@@ -83,7 +116,7 @@ Given('que crio uma locação com:', async function(dataTable: any) {
   // primeiro (botão "Fechar"), só depois aparece o aviso "Locação criada
   // com sucesso." (OK). Sem isso os passos seguintes esbarravam num diálogo
   // ainda aberto por cima da tela.
-  await this.page.getByRole('button', { name: /salvar/i }).click();
+  await this.page.locator('#rental-form-submit').click();
 
   const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
   if (await comprovante.isVisible({ timeout: 10000 }).catch(() => false)) {
@@ -367,8 +400,40 @@ Then('o card {string} deve mostrar a taxa administrativa sobre {string}', async 
   expect(diff, `esperado ~R$ ${esperado.toFixed(2)} (${valorBase} × ${percentual}%), mas o card "${tituloCard}" mostrou R$ ${valorExibido.toFixed(2)}`).toBeLessThan(0.05);
 });
 
-Given('que existem múltiplas locações com diferentes datas de início', async function() {
-  // Mock: assumir que existem locações criadas
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99): era um STUB -- só guardava uma
+ * flag em memória, sem criar nenhum dado de verdade. O cenário
+ * ("Filtro de mês deve corresponder à data de vencimento") rodava em cima
+ * do que já estivesse, por acaso, no banco de DEV pra Setembro/2026 --
+ * sem garantia nenhuma de que existiria ALGO nesse mês, nem de que
+ * existiria algo em OUTRO mês pra provar que o filtro realmente exclui.
+ * Agora cria de propósito 2 recebimentos em Setembro/2026 (o que o
+ * cenário espera ver) e 1 em Agosto/2026 (que precisa ficar de fora),
+ * em locações diferentes.
+ */
+Given('que existem múltiplas locações com diferentes datas de início', async function (this: import('../support/world').CustomWorld) {
+  const criarRecebimento = async (mes: string, ano: string, dia: string) => {
+    const tenant = await DatabaseHelper.createTenant({ name: `Filtro Mes E2E ${Date.now()}` });
+    const rental = await DatabaseHelper.createRental({
+      start_date: `${ano}-01-01`,
+      end_date: `${Number(ano) + 1}-12-31`,
+      rent_due_day: parseInt(dia, 10),
+      tenant_id: tenant.id,
+    });
+    return DatabaseHelper.upsertPayment({
+      rental_id: rental.id,
+      reference_month: mes,
+      reference_year: ano,
+      due_date: `${ano}-${mes}-${dia}`,
+      expected_amount: 1500,
+      status: 'pending',
+    });
+  };
+
+  await criarRecebimento('09', '2026', '10');
+  await criarRecebimento('09', '2026', '15');
+  await criarRecebimento('08', '2026', '10');
+
   this.testData = {
     ...this.testData,
     hasMultipleRentals: true
