@@ -112,7 +112,31 @@ Then('devo ver apenas imóveis desta localização', async function (this: Custo
  * "invisíveis" e o passo desistia na hora, com "Nenhum filtro de status
  * visível". Agora tenta de novo por até 10s antes de desistir de vez.
  */
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Pagamentos"): a página de
+ * Recebimentos NÃO tem dropdown de status -- conferido em
+ * PaymentFilters.tsx, que recebe `statusFilter`/`onStatusChange` como props
+ * mas nunca renderiza nenhum Select com eles. O filtro de status ali é feito
+ * pelas ABAS "Recebimentos Pendentes"/"Recebimentos Pagos"
+ * (#payments-tab-pending/#payments-tab-paid, em payments.tsx). Sem isso, o
+ * passo rodava os 10s inteiros de espera e estourava "Nenhum filtro de
+ * status visível".
+ */
 When('seleciono o status {string}', async function (this: CustomWorld, status: string) {
+  const abaPorStatus: Record<string, string> = {
+    'pendente': '#payments-tab-pending',
+    'pago': '#payments-tab-paid',
+  };
+  const abaSelector = abaPorStatus[status.trim().toLowerCase()];
+  if (abaSelector) {
+    const aba = this.page.locator(abaSelector);
+    if (await aba.isVisible().catch(() => false)) {
+      await aba.click();
+      await this.page.waitForTimeout(500);
+      return;
+    }
+  }
+
   // Reaproveitado nas páginas de Imóveis, Inquilinos e Pagamentos — tenta os
   // seletores conhecidos de cada uma.
   const candidates = [

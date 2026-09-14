@@ -182,32 +182,40 @@ When('visualizo um pagamento futuro', async function() {
 
 // ==================== FILTROS ====================
 
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Pagamentos"): mesmo bug de
+ * id já corrigido em outros arquivos (`[id*="month-filter"]`/`[id*="year-
+ * filter"]` não existem -- os ids reais, em PaymentFilters.tsx, são
+ * "payment-filters-month"/"payment-filters-year"). Este passo ("filtro pelo
+ * mês") tinha ficado pra trás na correção anterior (a0e3396e), que só
+ * atualizou o passo irmão "filtro por ... na página de Recebimentos".
+ */
 When('filtro pelo mês {string}', async function(month: string) {
   // Exemplo: "Agosto/2026"
   const [monthName, year] = month.split('/');
-  
+
   // Selecionar mês
-  const monthSelect = this.page.locator('[id*="month-filter"]');
+  const monthSelect = this.page.locator('[id*="filters-month"]');
   if (await monthSelect.isVisible()) {
     await monthSelect.click();
     await this.page.waitForTimeout(300);
-    
-    const monthOption = this.page.getByText(new RegExp(monthName, 'i'));
+
+    const monthOption = this.page.getByRole('option', { name: new RegExp(monthName, 'i') });
     await monthOption.click();
   }
-  
+
   // Selecionar ano
-  const yearSelect = this.page.locator('[id*="year-filter"]');
+  const yearSelect = this.page.locator('[id*="filters-year"]');
   if (await yearSelect.isVisible()) {
     await yearSelect.click();
     await this.page.waitForTimeout(300);
-    
-    const yearOption = this.page.getByText(year);
+
+    const yearOption = this.page.getByRole('option', { name: year, exact: true });
     await yearOption.click();
   }
-  
+
   await this.page.waitForTimeout(1000);
-  
+
   this.testData = {
     ...this.testData,
     filteredMonth: month
