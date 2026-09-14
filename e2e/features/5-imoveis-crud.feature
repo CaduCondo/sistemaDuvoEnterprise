@@ -62,17 +62,22 @@ Funcionalidade: CRUD de Imóveis
       | Banheiros  |
       | Área (m²)  |
 
+  # ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "Imóveis"): a mensagem
+  # de validação real (properties.tsx, handleSubmit) é "Por favor, preencha
+  # todos os campos obrigatórios." (plural) -- o cenário procurava "Campo
+  # obrigatório" (singular), que não é substring de "campos obrigatórios" e
+  # por isso nunca batia.
   @sistemaCompleto
   Cenário: Validar campo obrigatório - Local
     Quando clico no botão "Novo Imóvel"
     E tento salvar sem preencher o local
-    Então devo ver a mensagem "Campo obrigatório"
+    Então devo ver a mensagem "preencha todos os campos obrigatórios"
 
   @sistemaCompleto
   Cenário: Validar campo obrigatório - Quartos
     Quando clico no botão "Novo Imóvel"
     E tento salvar sem preencher os quartos
-    Então devo ver a mensagem "Campo obrigatório"
+    Então devo ver a mensagem "preencha todos os campos obrigatórios"
 
   @smoke
   Cenário: Criar imóvel com sucesso

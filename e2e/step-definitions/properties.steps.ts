@@ -318,11 +318,24 @@ async function acharCardDoImovel(world: CustomWorld, identifier: string) {
   return card;
 }
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "Imóveis"): clicar no card
+ * não abre o formulário já editável -- abre em modo SÓ LEITURA
+ * (properties.tsx's handleCardClick sempre põe isViewMode=true primeiro).
+ * Os campos só ficam editáveis (e o botão "Salvar" só aparece) depois de
+ * clicar no botão "Editar Imóvel" (#property-form-edit) dentro do dialog
+ * (PropertyFormDialog.tsx, showEditButton/handleEditClick). Sem esse
+ * clique, o passo seguinte ("altero o valor...") tentava preencher um
+ * campo desabilitado.
+ */
 When('clico no botão de editar do imóvel {string}', async function (this: CustomWorld, identifier: string) {
   const card = await acharCardDoImovel(this, identifier);
-  // Não há botão "editar": clicar no card abre o formulário em edição.
+  // Não há botão "editar" na lista: clicar no card abre o imóvel em modo
+  // visualização primeiro.
   await card.click();
   await this.page.waitForTimeout(800);
+  await this.page.locator('#property-form-edit').click();
+  await this.page.waitForTimeout(300);
 });
 
 When('clico no botão de deletar do imóvel {string}', async function (this: CustomWorld, identifier: string) {
