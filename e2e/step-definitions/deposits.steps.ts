@@ -435,8 +435,19 @@ Then("o sistema cria {int} parcelas de caução", async function (this: CustomWo
   expect(this.testData.depositInstallments.length).toBe(count);
 });
 
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99): este passo é reusado tanto logo
+ * após CRIAR a locação (onde `this.testData.depositInstallments` já está
+ * fresco) quanto no cenário "Editar valor da parcela inline" -- que EDITA
+ * o valor pela tela DEPOIS que essa lista já tinha sido guardada. Como
+ * nada recarregava a lista após "salvo a alteração", o passo comparava
+ * contra o valor ANTIGO (o de antes da edição), nunca contra o que foi
+ * de fato salvo -- o cenário não tinha como passar. Agora busca sempre o
+ * valor atual do banco.
+ */
 Then("a parcela {int} tem valor {float}", async function (this: CustomWorld, number: number, value: number) {
-  expect(Number(this.testData.depositInstallments[number - 1].amount)).toBeCloseTo(value, 2);
+  const installments = await this.getDepositInstallments(this.rentalId!);
+  expect(Number(installments[number - 1].amount)).toBeCloseTo(value, 2);
 });
 
 Then("a parcela {int} tem vencimento {string}", async function (this: CustomWorld, number: number, date: string) {
@@ -548,9 +559,22 @@ Then("o valor devolvido é {float}", async function (this: CustomWorld, amount: 
   expect(Number(rental.returned_deposit_amount)).toBe(amount);
 });
 
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99): `[data-testid="returned-deposit-
+ * amount"]` nunca existiu na tela -- o único gancho real dessa célula é
+ * `edit-returned-deposit` (DepositInstallmentsTable.tsx), e a cor vermelha
+ * é aplicada no <td> pai (`text-red-600`), não num elemento próprio. O
+ * passo procurava um elemento fantasma e o Playwright ficava girando até
+ * estourar o timeout. Agora escopa pela linha da locação do cenário e
+ * confere a classe no <td> ancestral do gancho real.
+ */
 Then("o valor aparece em vermelho", async function (this: CustomWorld) {
-  const cell = this.page.locator('[data-testid="returned-deposit-amount"]');
-  await expect(cell).toHaveClass(/text-red-600/);
+  const gancho = linhaDaLocacaoDoCenario(this).locator('[data-testid="edit-returned-deposit"]').first();
+  const celula = gancho.locator("xpath=ancestor::td[1]");
+  await expect(
+    celula,
+    'a célula "Valor Devolvido" da locação do cenário não está com a cor vermelha esperada'
+  ).toHaveClass(/text-red-600/);
 });
 
 Then("vejo apenas parcelas de locações ativas", async function (this: CustomWorld) {
@@ -652,22 +676,38 @@ Then("o valor total de comissões é {float}", async function (this: CustomWorld
  * Agora escopa pela locação do cenário e confere a célula "Parcela", que é
  * a que carrega a cor.
  */
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99): `row.locator("td").first()`
+ * pegava a célula ERRADA sempre que a parcela era a 1ª linha do grupo da
+ * locação (rowSpan) -- nesse caso a 1ª <td> de verdade renderizada é
+ * "Local" (mesclada, sem cor nenhuma), porque as colunas mescladas
+ * (Local/Complemento/Inquilino/Valor Aluguel/.../Valor Corretor) só
+ * aparecem no `<tr>` da 1ª parcela do grupo, ANTES das colunas coloridas
+ * (Parcela/Status/Data Vencimento/Data Pagamento/Valor/PIX). Para a
+ * parcela 1 (sempre a 1ª linha do grupo) o `.first()` nunca podia bater
+ * com `bg-green-50`/`bg-red-50` -- só funcionava, por coincidência, nas
+ * parcelas 2/3 (onde as colunas mescladas não se repetem e a 1ª <td> real
+ * já é "Parcela", que É colorida). Corrigido para procurar qualquer
+ * célula colorida dentro da linha, em vez de confiar na posição.
+ */
 Then("a linha da parcela {int} tem fundo verde", async function (this: CustomWorld, number: number) {
   const row = this.page.locator(
     `tr[data-rental="${this.rentalId}"][data-installment="${number}"]`
   );
+  const celulasVerdes = row.locator("td.bg-green-50");
   await expect(
-    row.locator("td").first(),
+    celulasVerdes.first(),
     `a parcela ${number} da locação do cenário não está com fundo verde -- deveria ter pix_code preenchido`
-  ).toHaveClass(/bg-green-50/);
+  ).toBeVisible();
+  expect(await celulasVerdes.count(), `esperava várias colunas coloridas de verde na parcela ${number}, achei só ${await celulasVerdes.count()}`).toBeGreaterThan(0);
 });
 
 Then("as linhas das parcelas {int} e {int} têm fundo vermelho", async function (this: CustomWorld, n1: number, n2: number) {
   const row1 = this.page.locator(`tr[data-rental="${this.rentalId}"][data-installment="${n1}"]`);
   const row2 = this.page.locator(`tr[data-rental="${this.rentalId}"][data-installment="${n2}"]`);
 
-  await expect(row1.locator("td").first(), `a parcela ${n1} deveria estar com fundo vermelho (pendente)`).toHaveClass(/bg-red-50/);
-  await expect(row2.locator("td").first(), `a parcela ${n2} deveria estar com fundo vermelho (pendente)`).toHaveClass(/bg-red-50/);
+  await expect(row1.locator("td.bg-red-50").first(), `a parcela ${n1} deveria estar com fundo vermelho (pendente)`).toBeVisible();
+  await expect(row2.locator("td.bg-red-50").first(), `a parcela ${n2} deveria estar com fundo vermelho (pendente)`).toBeVisible();
 });
 
 /**
