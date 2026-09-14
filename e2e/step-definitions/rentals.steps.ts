@@ -784,6 +784,25 @@ When('visualizo o {string}', async function(documentName: string) {
   await this.page.waitForTimeout(1000);
 });
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "Locações"): a locação do
+ * cenário "Encerrar locação antecipadamente" é criada DIRETO NO BANCO
+ * (criarLocacaoAtivaDeTeste), depois da página "/rentals" já ter carregado
+ * no Contexto -- a lista em tela nunca foi atualizada, então o botão
+ * "Rescisão de Contrato" clicado a seguir não existia (ou era de outra
+ * linha). Mesma classe de bug já corrigida em outros cenários (recarregar
+ * e filtrar pelo inquilino do teste antes de agir na linha).
+ */
+When('volto para a lista de locações', async function (this: import('../support/world').CustomWorld) {
+  await this.page.goto('/rentals');
+  await this.page.waitForLoadState('domcontentloaded');
+  const nomeInquilino = this.testData?.rental?.tenantName;
+  if (nomeInquilino) {
+    await this.page.locator('#rentals-search-input').fill(nomeInquilino);
+    await this.page.waitForTimeout(800);
+  }
+});
+
 When('preencho a data de encerramento com {string}', async function(date: string) {
   const dateInput = this.page.locator('[id*="termination-date"]');
   

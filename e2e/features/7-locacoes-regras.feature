@@ -293,16 +293,21 @@ Funcionalidade: Regras de Negócio de Locações
     Então no campo "Valor Total" devo ver "1900.00"
     E não apenas o valor do aluguel
 
-  # ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "Locações"): não existe
-  # (e nunca existiu) botão "Encerrar Locação" na tela -- o botão real
-  # (rentals.tsx) chama-se "Rescisão de Contrato" (ícone X, abre
-  # RentalTerminationDialog.tsx, que é onde vive o campo de data
-  # #termination-date que o próximo passo já preenche). O passo ficava
-  # 20s esperando um botão que não existe até estourar timeout.
+  # ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "Locações") -- 2 causas:
+  # 1) não existe (e nunca existiu) botão "Encerrar Locação" na tela -- o
+  #    botão real (rentals.tsx) chama-se "Rescisão de Contrato" (ícone X,
+  #    abre RentalTerminationDialog.tsx, onde vive o campo de data
+  #    #termination-date que o próximo passo já preenche).
+  # 2) mesmo corrigindo o nome, a locação do cenário é criada DIRETO NO
+  #    BANCO depois que "/rentals" já tinha carregado (Contexto) -- a lista
+  #    em tela nunca via a locação nova, então o clique caía fora (ou pegava
+  #    outra linha). Precisa recarregar a lista antes de agir nela, mesmo
+  #    padrão já usado em outros cenários que criam dado direto no banco.
   @sistemaCompleto
   Cenário: Encerrar locação antecipadamente
     Dado que existe uma locação ativa com término em "31/12/2026"
-    Quando clico em "Rescisão de Contrato"
+    Quando volto para a lista de locações
+    E clico em "Rescisão de Contrato"
     E preencho a data de encerramento com "30/06/2026"
     E confirmo o encerramento
     Então a data de término deve ser atualizada para "30/06/2026"
