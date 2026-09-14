@@ -174,7 +174,13 @@ When('seleciono o status {string}', async function (this: CustomWorld, status: s
       const el = this.page.locator(selector).first();
       if (await el.isVisible().catch(() => false)) {
         await el.click();
-        await this.page.getByRole('option', { name: new RegExp(status, 'i') }).click();
+        // ⚠️ Corrigido em 14/set/2026 (issue #99): em Imóveis existem DOIS
+        // Selects de status no DOM (desktop e mobile) -- Radix mantém o
+        // conteúdo do outro Select montado mesmo fechado, então
+        // getByRole('option', ...) sem escopo batia 2x no mesmo rótulo
+        // ("strict mode violation"). `.first()` resolve, já que os dois
+        // Selects têm as mesmas opções.
+        await this.page.getByRole('option', { name: new RegExp(status, 'i') }).first().click();
         await this.page.waitForTimeout(500);
         return;
       }
