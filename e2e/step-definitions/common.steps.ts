@@ -725,14 +725,14 @@ Then('devo ver todos os imóveis', async function (this: CustomWorld) {
 /**
  * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Locações"): era um stub
  * vazio (só um waitForTimeout, não preenchia nada). Usado por cenários de
- * "Nova Locação" -- o formulário (RentalFormDialog.tsx, handleSubmit) só
- * considera 4 campos realmente obrigatórios: Imóvel, Inquilino, Data Início
- * e Dia Vencimento (sem eles mostra "Preencha todos os campos
- * obrigatórios."). Seleciona o primeiro imóvel/inquilino disponível na
- * lista (mesmo padrão já usado em payments.steps.ts) -- não cria dado novo,
- * porque o dropdown cacheia a lista carregada quando o diálogo abriu
- * (loadAdditionalData) e um imóvel/inquilino criado depois disso não
- * apareceria.
+ * "Nova Locação" -- o formulário (RentalFormDialog.tsx, handleSubmit)
+ * considera 5 campos obrigatórios: Imóvel, Inquilino, Data Início, Data
+ * Fim e Dia Vencimento (regra confirmada pelo Cadu -- sem eles mostra
+ * "Preencha todos os campos obrigatórios."). Seleciona o primeiro
+ * imóvel/inquilino disponível na lista (mesmo padrão já usado em
+ * payments.steps.ts) -- não cria dado novo, porque o dropdown cacheia a
+ * lista carregada quando o diálogo abriu (loadAdditionalData) e um
+ * imóvel/inquilino criado depois disso não apareceria.
  */
 When('preencho todos os campos obrigatórios', async function (this: CustomWorld) {
   await this.page.locator('#rental-property').click();
