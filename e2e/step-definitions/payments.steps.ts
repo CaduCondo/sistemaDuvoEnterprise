@@ -13,56 +13,90 @@ const MESES_PT = [
 
 // ==================== CRIAR LOCAÇÃO PARA TESTES ====================
 
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Pagamentos"): os
+ * seletores usados aqui eram substring (`[id*="..."]`) genéricos demais
+ * contra os ids REAIS do formulário (RentalFormDialog.tsx) -- e todos os
+ * ids de campo do formulário começam com "rental-", então:
+ * - `[id*="rent"]` já casava com "rental-property"/"rental-tenant"/etc.
+ *   (a palavra "rent" está dentro de "renTAL") -- ambíguo, e além disso
+ *   NÃO EXISTE campo de aluguel neste formulário (o valor vem do imóvel
+ *   selecionado, só é exibido). Removido.
+ * - `[id*="payment-day"]` (id real: "rental-payment-day") é um Select
+ *   (dropdown), não um <input> -- `.fill()` nele sempre falhava com
+ *   "Element is not an <input>...".
+ * - `[id*="deposit"]` casava com 3 campos de caução ao mesmo tempo
+ *   (valor, data, "parcelar?") -- ambíguo.
+ * - `[id*="deposit-payment-date"]` não batia com nada (id real é
+ *   "rental-deposit-date", sem "payment" no meio) -- ficava esperando um
+ *   elemento inexistente até estourar timeout.
+ * Todos trocados pelos ids reais.
+ */
 Given('que crio uma locação com:', async function(dataTable: any) {
   const data = dataTable.rowsHash();
-  
+
   // Navegar para página de locações
   await this.page.goto('/rentals');
   await this.page.waitForLoadState('domcontentloaded');
-  
+
   // Clicar em "Nova Locação"
   await this.page.getByRole('button', { name: /nova locação/i }).click();
   await this.page.waitForTimeout(500);
-  
+
   // Selecionar primeiro imóvel disponível
-  await this.page.click('[id*="property"]');
+  await this.page.locator('#rental-property').click();
   await this.page.waitForTimeout(300);
   const firstProperty = this.page.locator('[role="option"]').first();
   await firstProperty.click();
-  
+
   // Selecionar primeiro inquilino disponível
-  await this.page.click('[id*="tenant"]');
+  await this.page.locator('#rental-tenant').click();
   await this.page.waitForTimeout(300);
   const firstTenant = this.page.locator('[role="option"]').first();
   await firstTenant.click();
-  
+
   // Preencher datas
   if (data['Data início']) {
     const [day, month, year] = data['Data início'].split('/');
-    await this.page.fill('[id*="start-date"]', `${year}-${month}-${day}`);
+    await this.page.locator('#rental-start-date').fill(`${year}-${month}-${day}`);
   }
-  
+
   if (data['Data fim']) {
     const [day, month, year] = data['Data fim'].split('/');
-    await this.page.fill('[id*="end-date"]', `${year}-${month}-${day}`);
+    await this.page.locator('#rental-end-date').fill(`${year}-${month}-${day}`);
   }
-  
+
   if (data['Dia vencimento']) {
-    await this.page.fill('[id*="payment-day"]', data['Dia vencimento']);
+    await this.page.locator('#rental-payment-day').click();
+    await this.page.waitForTimeout(300);
+    await this.page.getByRole('option', { name: data['Dia vencimento'], exact: true }).click();
   }
-  
-  if (data['Aluguel']) {
-    await this.page.fill('[id*="rent"]', data['Aluguel']);
-  }
-  
-  // Preencher caução (obrigatório)
-  await this.page.fill('[id*="deposit"]', data['Aluguel'] || '3000.00');
-  await this.page.fill('[id*="deposit-payment-date"]', '2026-08-01');
-  
-  // Salvar
+
+  // Caução (obrigatório encher a data de pagamento; valor pode ficar 0, o
+  // formulário não valida isso -- ver comentário na cenário "Caução
+  // obrigatória" em 7-locacoes-regras.feature).
+  await this.page.locator('#rental-deposit-amount').fill(data['Aluguel'] || '3000.00');
+  await this.page.locator('#rental-deposit-date').fill('2026-08-01');
+
+  // Salvar. Ao criar (não editar), o Comprovante de Contrato abre sozinho
+  // por cima do formulário (RentalFormDialog.tsx) -- precisa fechar ele
+  // primeiro (botão "Fechar"), só depois aparece o aviso "Locação criada
+  // com sucesso." (OK). Sem isso os passos seguintes esbarravam num diálogo
+  // ainda aberto por cima da tela.
   await this.page.getByRole('button', { name: /salvar/i }).click();
-  await this.page.waitForTimeout(2000);
-  
+
+  const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
+  if (await comprovante.isVisible({ timeout: 10000 }).catch(() => false)) {
+    await comprovante.getByRole('button', { name: /fechar/i }).click();
+  }
+
+  const alerta = this.page.getByRole('alertdialog');
+  if (await alerta.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await alerta.getByRole('button', { name: /^OK$/i }).click();
+  }
+
+  await this.page.waitForTimeout(1000);
+
   // Armazenar dados para validação posterior
   this.testData = {
     ...this.testData,
