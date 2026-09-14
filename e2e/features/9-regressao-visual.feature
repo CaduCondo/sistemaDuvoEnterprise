@@ -41,7 +41,12 @@ Funcionalidade: Testes de Regressão Visual
     E o menu lateral deve estar sempre funcional
     E o botão de logout deve estar sempre acessível
 
-  @sistemaCompleto
+  # ⚠️ Destagueado em 13/set/2026 (issue #99, cluster "Regressão Visual"):
+  # não é bug de teste -- o sistema não tem breadcrumbs. Existe um
+  # componente de UI pronto (src/components/ui/breadcrumb.tsx, do
+  # shadcn/ui) mas ele nunca foi usado em nenhuma página (grep confirma:
+  # zero imports fora do próprio arquivo). Sem tag até a funcionalidade
+  # ser implementada de verdade -- ver "Esquema de tags" no CLAUDE.md.
   Cenário: Breadcrumbs corretos em todas as páginas
     Dado que fiz login como "admin"
     Quando acesso "/properties"

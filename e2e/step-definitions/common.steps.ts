@@ -523,14 +523,26 @@ Then('devo ver filtros de mês e ano', async function (this: CustomWorld) {
 
 /** =================== TEMA =================== */
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "Regressão Visual"):
+ * `#layout-menu-toggle-theme` fica DENTRO do dropdown do usuário
+ * (Layout.tsx), que só existe no DOM depois de abrir
+ * `#layout-user-menu-trigger` -- clicar direto no item nunca funcionava
+ * (elemento não existe ainda), estourando os 20s do passo. Falta abrir o
+ * menu primeiro.
+ */
 When('alterno para tema escuro', async function (this: CustomWorld) {
-  await this.page.locator('#layout-menu-toggle-theme, #layout-mobile-toggle-theme').first().click();
+  await this.page.locator('#layout-user-menu-trigger').click();
+  await this.page.waitForTimeout(200);
+  await this.page.locator('#layout-menu-toggle-theme').click();
   await this.page.waitForTimeout(300);
   this.testData.theme = 'dark';
 });
 
 When('alterno para tema claro', async function (this: CustomWorld) {
-  await this.page.locator('#layout-menu-toggle-theme, #layout-mobile-toggle-theme').first().click();
+  await this.page.locator('#layout-user-menu-trigger').click();
+  await this.page.waitForTimeout(200);
+  await this.page.locator('#layout-menu-toggle-theme').click();
   await this.page.waitForTimeout(300);
   this.testData.theme = 'light';
 });
@@ -575,10 +587,16 @@ Then('as tabelas devem ser scrolláveis horizontalmente', async function (this: 
 
 /** =================== REGRESSÃO VISUAL / HEADER =================== */
 
+/**
+ * ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "Regressão Visual"): a
+ * barra superior do sistema (Layout.tsx) é uma tag `<nav>` (`<motion.nav>`),
+ * nunca teve `<header>` nem `role="banner"` -- o seletor nunca encontrava
+ * nada em nenhuma página, sempre estourava os 5s do timeout.
+ */
 Then('o header deve estar sempre visível', async function (this: CustomWorld) {
   for (const path of this.testData.visitedPages || []) {
     await this.page.goto(path);
-    await expect(this.page.locator('header, [role="banner"]').first()).toBeVisible({ timeout: 5000 });
+    await expect(this.page.locator('nav, header, [role="banner"]').first()).toBeVisible({ timeout: 5000 });
   }
 });
 
