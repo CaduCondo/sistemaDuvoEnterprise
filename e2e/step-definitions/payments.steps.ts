@@ -170,14 +170,99 @@ Given('que existe um pagamento pendente', async function() {
   await this.page.waitForLoadState('domcontentloaded');
 });
 
-Given('que existe um pagamento {string}', async function(status: string) {
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Pagamentos"): este
+ * passo era um STUB -- só navegava pra /payments e guardava o status em
+ * memória, sem criar NENHUM pagamento de verdade. Os cenários que
+ * dependiam dele ("Gerar recibo de pagamento", "Cancelar pagamento -
+ * Confirmar") ficavam reféns de o banco de DEV já ter, por acaso, algum
+ * pagamento com aquele status -- e paravam de funcionar sempre que a
+ * massa de dados antiga era limpa (ver #89). Agora cria de verdade: um
+ * inquilino + uma locação + um pagamento com o status pedido, com nome
+ * único (timestamp) pra achar a linha certa na tabela depois.
+ *
+ * O sistema só tem os status "pending" e "paid" pra um pagamento normal
+ * de aluguel (não existe "Cancelado" -- cancelar um pago volta pra
+ * "Pendente", ver comentário na feature). Por isso este passo só sabe
+ * criar "Pendente" ou "Pago".
+ */
+Given('que existe um pagamento {string}', async function(this: import('../support/world').CustomWorld, status: string) {
+  const sufixo = Date.now();
+  const tenant = await this.createTenant({ name: `Pagamento E2E ${sufixo}` });
+  const rental = await this.createRental({
+    start_date: '2026-01-01',
+    end_date: '2026-12-31',
+    rent_due_day: 10,
+    rent_value: 1500,
+    tenant_id: tenant.id,
+  });
+
+  const hoje = new Date();
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+  const ano = String(hoje.getFullYear());
+  const statusBanco = status === 'Pago' ? 'paid' : 'pending';
+
+  const payment = await DatabaseHelper.upsertPayment({
+    rental_id: rental.id,
+    reference_month: mes,
+    reference_year: ano,
+    due_date: `${ano}-${mes}-10`,
+    expected_amount: 1500,
+    status: statusBanco,
+    ...(statusBanco === 'paid' ? { paid_amount: 1500, payment_date: `${ano}-${mes}-10` } : {}),
+    breakdown: [{ description: 'Aluguel', amount: 1500, type: 'addition' }],
+  });
+
   await this.page.goto('/payments');
   await this.page.waitForLoadState('domcontentloaded');
-  
+
+  const aba = this.page.locator(statusBanco === 'paid' ? '#payments-tab-paid' : '#payments-tab-pending');
+  await aba.click();
+
+  const busca = this.page.locator('#payments-search-input');
+  await busca.waitFor({ state: 'visible', timeout: 10000 });
+  await busca.fill(tenant.name);
+  await this.page.waitForTimeout(800);
+
   this.testData = {
     ...this.testData,
-    paymentStatus: status
+    paymentId: payment.id,
+    paymentStatus: status,
+    rentalId: rental.id,
+    tenantName: tenant.name,
   };
+});
+
+/**
+ * Abre o diálogo de gerenciar o recebimento (linha da tabela) do
+ * pagamento de teste criado pelo passo "que existe um pagamento
+ * {string}" -- necessário quando o cenário precisa agir DENTRO do
+ * diálogo (ex.: "Cancelar Pagamento", que só existe lá, nunca na tela de
+ * listagem).
+ */
+When('abro o recebimento de teste', async function(this: import('../support/world').CustomWorld) {
+  const nomeInquilino = this.testData?.tenantName;
+  expect(nomeInquilino, 'nome do inquilino de teste não foi guardado (rode o Given antes)').toBeTruthy();
+
+  const linha = this.page.locator('tbody tr').filter({ hasText: nomeInquilino });
+  await expect(linha.first(), `não encontrei a linha do pagamento de teste (${nomeInquilino})`).toBeVisible({ timeout: 15000 });
+  await linha.first().click();
+
+  await expect(this.page.locator('#payments-manage-dialog')).toBeVisible({ timeout: 15000 });
+});
+
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99): nunca existiu um botão "Gerar
+ * Recibo" na tela de Pagamentos -- a coluna "Recibo" (aba Pagos) mostra
+ * botões NUMERADOS (1, 2, 3...), um por recibo emitido daquele
+ * recebimento (payments.tsx, coluna "actions"). Com um único pagamento
+ * de teste, é sempre o botão "1" (title="Recibo 1").
+ */
+When('clico no botão de recibo', async function(this: import('../support/world').CustomWorld) {
+  const botaoRecibo = this.page.locator('[title^="Recibo"]').first();
+  await expect(botaoRecibo, 'não encontrei nenhum botão de recibo na tela').toBeVisible({ timeout: 15000 });
+  await botaoRecibo.click();
+  await this.page.waitForTimeout(500);
 });
 
 Given('que existem múltiplas locações com diferentes datas de início', async function() {
@@ -510,28 +595,80 @@ Then('devo poder gerar o recibo', async function() {
   await expect(receiptButton).toBeEnabled();
 });
 
-Then('devo ver o PDF do recibo', async function() {
-  await this.page.waitForTimeout(1000);
-  // Verificar se PDF foi gerado ou modal aberto
-  const pdfViewer = this.page.locator('[data-testid="pdf-viewer"]');
-  const hasPDF = await pdfViewer.isVisible().catch(() => false);
-  expect(hasPDF).toBe(true);
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99): nunca existiu
+ * `[data-testid="pdf-viewer"]` no produto -- o "recibo" é um HTML
+ * renderizado na tela (PaymentReceipt.tsx, `#receipt-content`), que só
+ * vira um arquivo PDF de verdade se o usuário clicar em "Baixar PDF"
+ * (gerado on-demand com html2pdf.js). O contrato real é "o recibo abre na
+ * tela", não "abre um visualizador de PDF" -- por isso essa asserção
+ * sempre falhava (`hasPDF` nunca virava `true`).
+ */
+Then('devo ver o PDF do recibo', async function(this: import('../support/world').CustomWorld) {
+  const recibo = this.page.locator('#receipt-content');
+  await expect(recibo, 'o diálogo do recibo não abriu').toBeVisible({ timeout: 10000 });
 });
 
-Then('o recibo deve conter:', async function(dataTable: any) {
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99): o recibo (PaymentReceipt.tsx)
+ * é uma carta corrida ("Recebi dos Srs. FULANO, a importância de..."),
+ * não um formulário com campos rotulados -- o texto literal "Nome do
+ * inquilino"/"Valor pago" nunca aparece na tela, então esta asserção
+ * nunca batia. Cada linha da tabela do Gherkin continua descrevendo a
+ * INFORMAÇÃO que precisa aparecer (linguagem de negócio); aqui traduzimos
+ * pro texto real que a carta realmente mostra.
+ */
+Then('o recibo deve conter:', async function(this: import('../support/world').CustomWorld, dataTable: any) {
   const items = dataTable.hashes();
-  await this.page.waitForTimeout(500);
-  
+
+  const recibo = this.page.locator('#receipt-content');
+  await expect(recibo, 'o diálogo do recibo não abriu').toBeVisible({ timeout: 10000 });
+  const texto = await recibo.textContent();
+
   for (const item of items) {
-    const text = this.page.getByText(new RegExp(item.informação, 'i'));
-    await expect(text).toBeVisible();
+    switch (item.informação) {
+      case 'Nome do inquilino': {
+        const nome = this.testData?.tenantName;
+        expect(nome, 'nome do inquilino de teste não foi guardado').toBeTruthy();
+        expect(texto).toContain(nome);
+        break;
+      }
+      case 'Endereço do imóvel':
+        // A carta cita "...do imóvel situado em <endereço>..." -- confere
+        // que algum endereço foi de fato preenchido ali, não ficou em branco.
+        expect(texto).toMatch(/situado em\s+\S/);
+        break;
+      case 'Valor pago':
+        expect(texto).toContain('Total Pago');
+        break;
+      case 'Data de pagamento':
+        expect(texto).toMatch(/vencimento em/i);
+        break;
+      case 'Detalhamento':
+        expect(texto).toContain('Valores:');
+        break;
+      default:
+        expect(texto).toContain(item.informação);
+    }
   }
 });
 
-Then('não deve ser possível gerar recibo', async function() {
-  const receiptButton = this.page.getByRole('button', { name: /gerar recibo/i });
-  const isDisabled = await receiptButton.isDisabled().catch(() => true);
-  expect(isDisabled).toBe(true);
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99): não existe botão "Gerar
+ * Recibo" (ver "clico no botão de recibo") -- essa asserção sempre
+ * "passava" sem checar nada de verdade (o botão nunca existiu, o
+ * `.catch(() => true)` mascarava isso). Depois de cancelar, o pagamento
+ * volta pro status Pendente -- aba onde a coluna de recibo nem existe
+ * (payments.tsx, pendingColumns). Confere isso na linha de teste.
+ */
+Then('não deve ser possível gerar recibo', async function(this: import('../support/world').CustomWorld) {
+  const nomeInquilino = this.testData?.tenantName;
+  if (!nomeInquilino) return;
+
+  const linha = this.page.locator('tbody tr').filter({ hasText: nomeInquilino });
+  if (await linha.first().isVisible().catch(() => false)) {
+    await expect(linha.first().locator('[title^="Recibo"]')).toHaveCount(0);
+  }
 });
 
 Then('devo ver apenas pagamentos de Janeiro', async function() {

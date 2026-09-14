@@ -60,7 +60,19 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Mês de vencimento    | 09 (Setembro)   |
     E nenhum recebimento deve ter vencimento em outro mês
 
-  @sistemaCompleto
+  # ⚠️ Investigado em 14/set/2026 (issue #99): este cenário testa uma tela
+  # que não existe. Conferido em PaymentBreakdownCard.tsx (o "detalhamento
+  # do pagamento" real, aberto ao clicar num recebimento) -- ele nunca
+  # mostra "Taxa Administração" nem "Valor Líquido (Repasse)" por
+  # recebimento individual. A taxa de administração hoje só aparece
+  # AGREGADA no Dashboard Financeiro (financial.tsx, kpiCalculations),
+  # nunca quebrada por pagamento. Além disso, o passo "que existe uma
+  # locação com aluguel de {string}" nunca criou nada no banco (era um
+  # stub). Precisa de decisão do Cadu: criar essa tela de detalhamento por
+  # recebimento é uma feature nova, ou o cenário deveria checar o KPI
+  # agregado do Dashboard em vez de um recebimento individual? Até decidir,
+  # tirando da rodada (sem tag = contrato de funcionalidade ainda
+  # inexistente, conforme e2e/SMOKE.md).
   Cenário: Calcular pagamento com taxa de administração 10%
     Dado que existe uma locação com aluguel de "2500.00"
     E a taxa de administração é "10%"
@@ -92,7 +104,10 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Taxa Administração     | 280.00   |
       | Valor Líquido          | 2520.00  |
 
-  @sistemaCompleto
+  # ⚠️ Mesmo problema do cenário "taxa de administração 10%" acima: não
+  # existe tela de detalhamento por recebimento com "Taxa Administração"/
+  # "Taxa Corretor (5%)"/"Valor Líquido". Fora da rodada até decisão do
+  # Cadu (ver comentário acima).
   Cenário: Calcular pagamento com corretor parceiro 5%
     Dado que existe uma locação com:
       | campo           | valor   |
@@ -120,10 +135,18 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     Então o status deve mudar para "Pago"
     E devo poder gerar o recibo
 
+  # ⚠️ Corrigido em 14/set/2026 (issue #99): "Dado que existe um pagamento
+  # {string}" era um stub que não criava nada -- agora cria de verdade
+  # (inquilino + locação + pagamento). Também nunca existiu um botão
+  # "Gerar Recibo": a coluna "Recibo" (aba Pagos) mostra botões numerados
+  # (payments.tsx). E o recibo em si (PaymentReceipt.tsx) é uma carta
+  # corrida, não um formulário com campos rotulados -- "o recibo deve
+  # conter" passou a checar o texto real (nome do inquilino, "situado em
+  # ...", "Total Pago", "vencimento em ...", "Valores:").
   @sistemaCompleto
   Cenário: Gerar recibo de pagamento
     Dado que existe um pagamento "Pago"
-    Quando clico em "Gerar Recibo"
+    Quando clico no botão de recibo
     Então devo ver o PDF do recibo
     E o recibo deve conter:
       | informação          |
@@ -133,12 +156,19 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Data de pagamento   |
       | Detalhamento        |
 
+  # ⚠️ Corrigido em 14/set/2026 (issue #99): o botão "Cancelar Pagamento"
+  # só existe no diálogo de um recebimento JÁ PAGO (ManagePaymentForm.tsx,
+  # só aparece se status for "paid"/"partial") -- e cancelar reverte o
+  # status pra "Pendente" (o sistema não tem status "Cancelado", ver
+  # payments.tsx/confirmCancelPayment). O cenário testava cancelar um
+  # pagamento que ainda nem tinha sido pago, fluxo que não existe.
   @sistemaCompleto
   Cenário: Cancelar pagamento - Confirmar
-    Dado que existe um pagamento "Pendente"
-    Quando clico em "Cancelar Pagamento"
+    Dado que existe um pagamento "Pago"
+    Quando abro o recebimento de teste
+    E clico em "Cancelar Pagamento"
     E confirmo o cancelamento
-    Então o status deve mudar para "Cancelado"
+    Então o status deve mudar para "Pendente"
     E não deve ser possível gerar recibo
 
   @sistemaCompleto
