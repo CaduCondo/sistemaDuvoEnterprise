@@ -334,6 +334,23 @@ async function acharCardDoImovel(world: CustomWorld, identifier: string) {
   await busca.fill(identifier);
   await world.page.waitForTimeout(500);
 
+  // ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Imóveis"): o atributo
+  // `data-property-identifier` (e os ids `property-card-`/`property-delete-`
+  // usados mais abaixo) só existem em PropertyCard.tsx -- a visão em GRADE.
+  // useProperties.ts hoje abre por padrão na visão em TABELA
+  // (`viewMode = useState(..."table")`), onde a linha (`<tr>`, em
+  // SortableTable) não carrega nenhum desses ganchos -- só um
+  // `data-row-id` com o UUID interno, que o teste não conhece de antemão.
+  // Resultado: em qualquer carregamento novo da página (o caso comum),
+  // este locator nunca encontrava nada. Força a visão em grade antes de
+  // procurar, restaurando os ganchos que este helper (e os passos de
+  // editar/deletar) sempre dependeram.
+  const toggleGrade = world.page.locator('#properties-view-grid');
+  if (await toggleGrade.isVisible().catch(() => false)) {
+    await toggleGrade.click();
+    await world.page.waitForTimeout(300);
+  }
+
   const card = world.page.locator(`[data-property-identifier="${identifier}"]`).first();
   await expect(
     card,

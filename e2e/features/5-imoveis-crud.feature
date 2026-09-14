@@ -116,11 +116,14 @@ Funcionalidade: CRUD de Imóveis
     Quando clico em "Cancelar"
     Então o imóvel deve permanecer na lista
 
+  # ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Imóveis"): o botão real
+  # do alerta de confirmação (PropertyDeleteAlert.tsx) chama-se "Sim,
+  # Excluir" -- nunca existiu um botão "Confirmar" nessa tela.
   @sistemaCompleto
   Cenário: Deletar imóvel - Confirmar
     Dado que existe um imóvel "IMO-001"
     Quando clico no botão de deletar do imóvel "IMO-001"
     Então devo ver o alerta de confirmação
-    Quando clico em "Confirmar"
+    Quando clico em "Sim, Excluir"
     Então devo ver a mensagem de sucesso
     E o imóvel NÃO deve aparecer na lista
