@@ -99,34 +99,17 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Taxa Administração     | 280.00   |
       | Valor Líquido          | 2520.00  |
 
-  # ⚠️ Investigado em 14/set/2026 (issue #99, decisão #1 do Cadu). Diferente
-  # da "taxa de administração 10%" acima, este cenário NÃO pôde ser
-  # redirecionado pro Dashboard Financeiro: comissão de "corretor parceiro"
-  # sobre um recebimento de ALUGUEL não existe em nenhum lugar do sistema
-  # hoje -- nem tela de detalhamento, nem KPI agregado. Conferido por busca
-  # no código: o campo `broker_fee_percentage` existe na configuração, mas
-  # nenhuma parte da lógica de negócio (rentalCalculations.ts, financial.tsx)
-  # chega a ler ou aplicar esse valor. Comissão de corretor só existe hoje
-  # para CAUÇÃO (partner_commission/internal_commission em
-  # deposit_installments), nunca para o aluguel mensal.
-  # Como não há nenhum comportamento real pra validar, mantido sem tag
-  # (contrato de funcionalidade ainda inexistente, conforme e2e/SMOKE.md) --
-  # segue como pendência em aberto pro Cadu decidir: construir essa
-  # funcionalidade (comissão de corretor sobre aluguel) ou remover o
-  # cenário em definitivo.
-  Cenário: Calcular pagamento com corretor parceiro 5%
-    Dado que existe uma locação com:
-      | campo           | valor   |
-      | Aluguel         | 2500.00 |
-      | Corretor (5%)   | sim     |
-    E a taxa de administração é "10%"
-    Quando visualizo o detalhamento do pagamento
-    Então devo ver:
-      | campo                  | valor    |
-      | Aluguel                | 2500.00  |
-      | Taxa Administração     | 250.00   |
-      | Taxa Corretor (5%)     | 125.00   |
-      | Valor Líquido          | 2125.00  |
+  # ❌ REMOVIDO em 14/set/2026 (issue #99). Este cenário testava uma
+  # comissão de "corretor parceiro" incidindo sobre um recebimento de
+  # ALUGUEL, com "Taxa Corretor (5%)" e "Valor Líquido" por pagamento --
+  # confirmado com o Cadu que isso nunca existiu e não é pra existir: o
+  # corretor parceiro é só sobre CAUÇÃO, e o valor é preenchido direto na
+  # tabela da aba Cauções (página Financeiro), coluna "Valor Parceiro" --
+  # célula que só abre pra edição quando o checkbox "Corretor Parceiro?" é
+  # marcado na locação. Essa regra real já está coberta em
+  # 10-caucoes.feature ("Editar comissão de corretor parceiro inline").
+  # Não existe (e não vai existir) equivalente por pagamento de aluguel --
+  # por isso o cenário foi removido em vez de deixado sem tag.
 
   # FORA DO SMOKE (30/ago/2026): o último passo espera um botão "Gerar Recibo"
   # que não existe na tela (o recibo sai pela coluna Recibo da aba Pagos).

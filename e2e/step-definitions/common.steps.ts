@@ -753,6 +753,31 @@ When('preencho todos os campos obrigatórios', async function (this: CustomWorld
   await this.page.waitForTimeout(300);
 });
 
+/**
+ * ✅ Criado em 14/set/2026 (regra confirmada pelo Cadu: "os campos
+ * obrigatórios da tela de criar uma locação são: imóvel, inquilino, data
+ * início e fim de contrato e dia de vencimento"). Igual ao passo acima,
+ * mas deixando a Data Fim em branco de propósito -- usado no cenário que
+ * confere que a tela realmente bloqueia salvar sem ela.
+ */
+When('preencho todos os campos obrigatórios, exceto a data fim', async function (this: CustomWorld) {
+  await this.page.locator('#rental-property').click();
+  await this.page.waitForTimeout(300);
+  await this.page.locator('[role="option"]').first().click();
+
+  await this.page.locator('#rental-tenant').click();
+  await this.page.waitForTimeout(300);
+  await this.page.locator('[role="option"]').first().click();
+
+  await this.page.locator('#rental-start-date').fill('2026-01-01');
+
+  await this.page.locator('#rental-payment-day').click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: '10', exact: true }).click();
+
+  await this.page.waitForTimeout(300);
+});
+
 When('preencho os campos obrigatórios:', async function (this: CustomWorld, dataTable: any) {
   const fields = dataTable.hashes();
 

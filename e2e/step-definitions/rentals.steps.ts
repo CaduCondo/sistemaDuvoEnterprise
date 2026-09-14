@@ -861,10 +861,25 @@ When('confirmo o encerramento', async function(this: import('../support/world').
 
 // ==================== VALIDAÇÕES ====================
 
-Then('não devo poder continuar', async function() {
-  const saveButton = this.page.getByRole('button', { name: /salvar/i });
-  const isDisabled = await saveButton.isDisabled().catch(() => true);
-  expect(isDisabled).toBe(true);
+/**
+ * ⚠️ Corrigido em 14/set/2026: o botão de submit do formulário de Locação
+ * (#rental-form-submit) só fica desabilitado enquanto uma requisição está
+ * em andamento (`disabled={loading}` em RentalFormDialog.tsx) -- nunca por
+ * causa de campo obrigatório faltando (a validação acontece DENTRO do
+ * clique: mostra um alerta e não segue adiante, sem nunca desabilitar o
+ * botão antes). Além disso, o botão real nunca se chama "Salvar" (é "Criar
+ * Locação"/"Atualizar Locação"), então `getByRole('button', {name:
+ * /salvar/i})` nunca encontrava nada -- e o `.catch(() => true)` escondia
+ * isso, fazendo este passo sempre "passar" mesmo sem checar nada de
+ * verdade. O jeito certo de conferir "não deixou continuar" é: o
+ * formulário continua aberto (não fechou/navegou) -- ou seja, a locação
+ * não foi criada.
+ */
+Then('não devo poder continuar', async function (this: import('../support/world').CustomWorld) {
+  await expect(
+    this.page.locator('#rental-form-submit'),
+    'o formulário fechou -- a locação foi criada mesmo com campo obrigatório faltando'
+  ).toBeVisible();
 });
 
 Then('na aba {string} da página Financeiro devo ver:', async function(tabName: string, dataTable: any) {

@@ -985,18 +985,23 @@ Gerenciar contratos de locação entre imóveis e inquilinos.
 #### 1. Criação de Locação
 
 **1.1 Campos Obrigatórios**
+
+> ⚠️ Atualizado em 14/set/2026 (confirmado com o Cadu): a tela de criar
+> locação (RentalFormDialog.tsx) só bloqueia salvar sem estes 5 campos --
+> "Forma de Pagamento" listado numa versão antiga desta seção nem existe
+> como campo na tela hoje (só aparece ao editar uma locação já importada
+> com esse dado). "Data de Término" tinha o "*" no rótulo mas não era
+> checado de verdade até essa data -- corrigido nessa mesma revisão (uma
+> locação sem Data Fim ficava sem nenhum recebimento de aluguel gerado).
+
 - Imóvel (property_id) - FK para `properties`
 - Inquilino (tenant_id) - FK para `tenants`
 - Data de Início (start_date)
 - Data de Término (end_date)
-- Valor de Aluguel (monthly_rent)
 - Dia de Vencimento (due_day) - 1 a 31
-- Forma de Pagamento (payment_method):
-  - `pix` (PIX)
-  - `bank_transfer` (Transferência Bancária)
-  - `credit_card` (Cartão de Crédito)
-  - `debit_card` (Cartão de Débito)
-  - `cash` (Dinheiro)
+
+O Valor de Aluguel (monthly_rent) não é digitado nesta tela -- vem
+automaticamente do imóvel selecionado (cadastro do Imóvel).
 
 **1.2 Campos Opcionais - Garagem**
 - Tem Garagem (has_garage) - Boolean

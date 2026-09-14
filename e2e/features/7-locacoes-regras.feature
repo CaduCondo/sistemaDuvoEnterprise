@@ -33,6 +33,27 @@ Funcionalidade: Regras de Negócio de Locações
     Então devo ver uma mensagem de erro
     E não devo poder continuar
 
+  # ✅ Criado em 14/set/2026: o Cadu confirmou a regra ("os campos
+  # obrigatórios da tela de criar uma locação são: imóvel, inquilino, data
+  # início e fim de contrato e dia de vencimento") e isso revelou um bug
+  # real -- a tela deixava salvar sem Data Fim (o rótulo tinha "*", mas a
+  # checagem do código nunca incluía esse campo). O efeito não era só falta
+  # de aviso: rentalService.create() só gera os recebimentos de aluguel se
+  # Data Início, Data Fim E Dia de Vencimento estiverem todos preenchidos --
+  # uma locação sem Data Fim ficava com ZERO recebimentos gerados, em
+  # silêncio, sem erro nenhum pro usuário perceber. Corrigido em
+  # RentalFormDialog.tsx (handleSubmit). Aproveitado também pra consertar
+  # "não devo poder continuar", que checava um botão "Salvar" que nunca
+  # existiu nesta tela (o botão real é "Criar Locação"/"Atualizar Locação")
+  # -- o passo sempre "passava" mesmo sem checar nada de verdade.
+  @sistemaCompleto
+  Cenário: Criar locação - Data Fim obrigatória
+    Quando clico no botão "Nova Locação"
+    E preencho todos os campos obrigatórios, exceto a data fim
+    E tento salvar
+    Então devo ver uma mensagem de erro
+    E não devo poder continuar
+
   # ✅ Decisão do Cadu (14/set/2026, issue #99, decisão #2): "na locação o
   # caução deve ser opcional porque essa informação pode ser colocada
   # depois da locação já ter sido criada". Confirma a investigação de

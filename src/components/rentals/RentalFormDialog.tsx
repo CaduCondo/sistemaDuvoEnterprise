@@ -266,7 +266,17 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       attachments,
     });
 
-    if (!selectedPropertyId || !selectedTenantId || !startDate || !paymentDay) {
+    // ⚠️ Corrigido em 14/set/2026 (issue a criar -- Cadu confirmou a regra:
+    // "os campos obrigatórios da tela de criar uma locação são: imóvel,
+    // inquilino, data início e fim de contrato e dia de vencimento"). Data
+    // Fim já tinha "*" no rótulo da tela (linha "Data Fim*" abaixo), mas essa
+    // checagem nunca incluía `endDate` -- dava pra salvar a locação com Data
+    // Fim em branco. Isso não é só um aviso que falta: rentalService.create()
+    // só gera os recebimentos de aluguel se `startDate && endDate &&
+    // paymentDay` forem todos preenchidos (ver comentário lá) -- ou seja, uma
+    // locação criada sem Data Fim ficava sem NENHUM recebimento gerado,
+    // silenciosamente, sem erro nenhum pro usuário.
+    if (!selectedPropertyId || !selectedTenantId || !startDate || !endDate || !paymentDay) {
       showAlert({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios.",
