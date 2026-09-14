@@ -60,11 +60,16 @@ Funcionalidade: Permissões do Perfil Financeiro
     E devo ver os cards de métricas
     E devo ver os gráficos financeiros
 
+  # ⚠️ Corrigido em 13/set/2026 (issue #104): o Cadu confirmou que o sistema
+  # está certo -- Financeiro NÃO deve ver a aba "Cauções" em /financial (ela
+  # nem deve aparecer). O cenário estava desatualizado em relação à regra
+  # real (financial.tsx só mostra Cauções pra Admin/Corretor, de propósito).
   @sistemaCompleto
   Cenário: Financeiro PODE acessar página Financeiro
     Quando clico no menu "Financeiro"
     Então devo ser redirecionado para "/financial"
-    E devo ver as abas de "Locações" e "Cauções"
+    E devo ver a aba "Locações"
+    E NÃO devo ver a aba "Cauções"
     E devo poder visualizar relatórios
 
   @sistemaCompleto

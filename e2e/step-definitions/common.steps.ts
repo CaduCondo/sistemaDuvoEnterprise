@@ -443,6 +443,21 @@ Then('devo ver as abas de {string} e {string}', async function (this: CustomWorl
   await expect(this.page.getByRole('tab', { name: new RegExp(escapeRegex(tab2), 'i') })).toBeVisible({ timeout: 5000 });
 });
 
+/**
+ * ⚠️ Adicionado em 13/set/2026 (issue #104): faltava um jeito de conferir
+ * UMA aba isolada (não sempre em par). Criado pra "Financeiro PODE acessar
+ * página Financeiro", que o Cadu confirmou: o perfil Financeiro só deve ver
+ * a aba "Locações" -- a aba "Cauções" é por design (financial.tsx) e nem
+ * deve ser renderizada (por isso `toHaveCount(0)`, não só "invisível").
+ */
+Then('devo ver a aba {string}', async function (this: CustomWorld, tabName: string) {
+  await expect(this.page.getByRole('tab', { name: new RegExp(escapeRegex(tabName), 'i') })).toBeVisible({ timeout: 5000 });
+});
+
+Then('NÃO devo ver a aba {string}', async function (this: CustomWorld, tabName: string) {
+  await expect(this.page.getByRole('tab', { name: new RegExp(escapeRegex(tabName), 'i') })).toHaveCount(0);
+});
+
 Then('devo ver as abas:', async function (this: CustomWorld, dataTable: any) {
   const rows = dataTable.hashes();
   for (const row of rows) {
