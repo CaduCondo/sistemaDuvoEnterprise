@@ -91,8 +91,31 @@ Then('devo ver apenas imóveis que contenham {string} no endereço ou localizaç
  * aberto, e fechar com Escape depois (o Popover não fecha sozinho ao
  * marcar o checkbox, porque é seleção múltipla).
  */
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Imóveis"): `.first()`
+ * num seletor combinado (`#...-desktop, #...-mobile`) pega o PRIMEIRO do
+ * DOM, não o primeiro VISÍVEL -- e o bloco mobile (`lg:hidden`, em
+ * PropertyFilters.tsx) vem antes do desktop no código. No viewport padrão
+ * do CI (desktop), isso sempre resolvia pro botão mobile escondido, e
+ * `.click()` ficava esperando ele virar visível até estourar o timeout.
+ * Mesmo tipo de causa já corrigido no passo genérico "seleciono o status"
+ * (que já tentava cada candidato até achar um visível) -- só que este
+ * passo específico de localização tinha ficado de fora daquele fix.
+ */
 When('seleciono a localização {string}', async function (this: CustomWorld, locationName: string) {
-  const select = this.page.locator('#property-filters-location-desktop, #property-filters-location-mobile').first();
+  const candidatos = [
+    this.page.locator('#property-filters-location-desktop'),
+    this.page.locator('#property-filters-location-mobile'),
+  ];
+  let select;
+  for (const candidato of candidatos) {
+    if (await candidato.isVisible().catch(() => false)) {
+      select = candidato;
+      break;
+    }
+  }
+  if (!select) throw new Error('Nenhum filtro de localização visível na tela atual');
+
   await select.click();
   await this.page.getByText(new RegExp(`^${locationName}$`, 'i')).click();
   await this.page.keyboard.press('Escape');
