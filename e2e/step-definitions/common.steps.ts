@@ -531,19 +531,28 @@ Then('devo ver filtros de mês e ano', async function (this: CustomWorld) {
  * (elemento não existe ainda), estourando os 20s do passo. Falta abrir o
  * menu primeiro.
  */
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Regressão Visual"): o
+ * cenário chama "alterno para tema escuro" e depois "alterno para tema
+ * claro" em sequência -- o segundo sempre estourava os 20s no clique do
+ * item do menu. Causa provável: o Dropdown do Radix fecha sozinho ao
+ * selecionar um `DropdownMenuItem` comum (não é checkbox) e devolve o foco
+ * pro botão que abriu -- clicar de novo rápido demais em cima dessa
+ * transição de fechamento podia reabrir e fechar no mesmo instante. Agora
+ * espera o menu terminar de fechar (item anterior sumir do DOM) antes de
+ * tentar abrir de novo.
+ */
 When('alterno para tema escuro', async function (this: CustomWorld) {
   await this.page.locator('#layout-user-menu-trigger').click();
-  await this.page.waitForTimeout(200);
   await this.page.locator('#layout-menu-toggle-theme').click();
-  await this.page.waitForTimeout(300);
+  await this.page.locator('#layout-menu-toggle-theme').waitFor({ state: 'hidden', timeout: 5000 });
   this.testData.theme = 'dark';
 });
 
 When('alterno para tema claro', async function (this: CustomWorld) {
   await this.page.locator('#layout-user-menu-trigger').click();
-  await this.page.waitForTimeout(200);
   await this.page.locator('#layout-menu-toggle-theme').click();
-  await this.page.waitForTimeout(300);
+  await this.page.locator('#layout-menu-toggle-theme').waitFor({ state: 'hidden', timeout: 5000 });
   this.testData.theme = 'light';
 });
 
@@ -600,8 +609,23 @@ Then('o header deve estar sempre visível', async function (this: CustomWorld) {
   }
 });
 
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Regressão Visual"): mesma
+ * causa raiz já vista em "seleciono a localização" -- `.first()` num
+ * seletor combinado pega o primeiro do DOM, não o primeiro visível. Em
+ * Layout.tsx, o botão do menu MOBILE (`#layout-mobile-menu-button`,
+ * `md:hidden`) vem no JSX antes do menu DESKTOP
+ * (`#layout-user-menu-trigger`, dentro de `hidden md:flex`) -- no viewport
+ * padrão do CI (desktop), `.first()` sempre resolvia pro botão mobile
+ * escondido. A intenção do cenário é só confirmar que ALGUM dos dois está
+ * visível (o que for certo pro tamanho de tela atual).
+ */
 Then('o menu lateral deve estar sempre funcional', async function (this: CustomWorld) {
-  await expect(this.page.locator('#layout-user-menu-trigger, #layout-mobile-menu-button').first()).toBeVisible({ timeout: 5000 });
+  const desktop = this.page.locator('#layout-user-menu-trigger');
+  const mobile = this.page.locator('#layout-mobile-menu-button');
+  const desktopVisivel = await desktop.isVisible().catch(() => false);
+  const mobileVisivel = await mobile.isVisible().catch(() => false);
+  expect(desktopVisivel || mobileVisivel, 'nem o menu desktop nem o mobile estão visíveis').toBe(true);
 });
 
 Then('o botão de logout deve estar sempre acessível', async function (this: CustomWorld) {

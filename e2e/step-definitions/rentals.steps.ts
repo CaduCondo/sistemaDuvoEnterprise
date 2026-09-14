@@ -1223,15 +1223,24 @@ Then('não apenas o valor do aluguel', async function() {
   ).toBe(0);
 });
 
-Then('a data de término deve ser atualizada para {string}', async function(date: string) {
-  // Verificar que a data foi atualizada
-  const endDateField = this.page.locator('[id*="end-date"]');
-  const value = await endDateField.inputValue();
-  
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Locações"): depois de
+ * confirmar a rescisão, o diálogo fecha e a tela volta pra LISTA de
+ * locações -- não existe nenhum `[id*="end-date"]` visível ali (esse campo
+ * só existe dentro do formulário de Locação, que já foi fechado). O
+ * locator nunca resolvia, e `.inputValue()` ficava esperando os 20s
+ * inteiros do passo até estourar. Corrigido pra checar direto no banco,
+ * mesmo padrão já usado no passo vizinho ("os pagamentos após... devem ser
+ * cancelados").
+ */
+Then('a data de término deve ser atualizada para {string}', async function(this: CustomWorld, date: string) {
+  const DatabaseHelper = (await import('../helpers/database.helper')).default;
+  const rental = await DatabaseHelper.getRental(this.rentalId!);
+
   const [day, month, year] = date.split('/');
   const expectedValue = `${year}-${month}-${day}`;
-  
-  expect(value).toBe(expectedValue);
+
+  expect(rental.end_date).toBe(expectedValue);
 });
 
 /**
