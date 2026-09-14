@@ -332,8 +332,29 @@ export function DepositInstallmentsTable({
           });
           return;
         }
+      } else if (editingCell.field === "partner_commission" || editingCell.field === "internal_commission") {
+        // Comissão é um valor único por locação (exibido mesclado/rowSpan
+        // em todas as parcelas) — precisa atualizar TODAS as parcelas da
+        // locação, não só a parcela cujo id foi usado para abrir a edição.
+        // Ver issue #71/#99: antes só a 1ª parcela recebia o valor novo,
+        // as demais continuavam com o valor antigo (ou 0).
+        const { error: updateInstallmentError } = await supabase
+          .from("deposit_installments")
+          .update({ [editingCell.field]: newValue })
+          .eq("rental_id", editingCell.rentalId);
+
+        if (updateInstallmentError) {
+          console.error("Erro ao atualizar comissão:", updateInstallmentError);
+          toast({
+            title: "Erro ao salvar",
+            description: "Não foi possível atualizar a comissão.",
+            variant: "destructive",
+          });
+          return;
+        }
       } else {
-        // Salvar outros campos numéricos na tabela deposit_installments
+        // Salvar outros campos numéricos (ex.: valor da parcela) —
+        // esses são por parcela mesmo, então atualiza só a parcela editada.
         const { error: updateInstallmentError } = await supabase
           .from("deposit_installments")
           .update({ [editingCell.field]: newValue })
