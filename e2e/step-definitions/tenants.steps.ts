@@ -109,14 +109,13 @@ Then('o inquilino deve aparecer na lista', async function (this: CustomWorld) {
 // no início da linha é removida). Delega para a mesma lógica de
 // "filtro por {string}" definida em common.steps.ts.
 //
-// ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "Pagamentos"): mesmo bug
-// já corrigido em payments.steps.ts -- procurava `[id*="month-filter"]`
-// (nunca bate); o id real (PaymentFilters.tsx) é "payment-filters-month"
-// ("filters-month"). Também trocado `getByText` por `getByRole('option', ...)`,
-// que é o seletor certo para o Select real (mesmo padrão já usado em
-// payments.steps.ts's "seleciono o mês").
+// ⚠️ Corrigido em 14/set/2026 (issue #99, 2ª rodada): os ids
+// "payment-filters-month"/"payment-filters-year" são de `PaymentFilters.tsx`,
+// componente que não é mais usado em lugar nenhum -- o filtro real
+// (PeriodSelector.tsx) não tinha id até este ciclo. Ver comentário
+// completo em payments.steps.ts, "filtro pelo mês {string}".
 When('quando filtro por {string}', async function (this: CustomWorld, filterValue: string) {
-  const monthSelect = this.page.locator('[id*="filters-month"]');
+  const monthSelect = this.page.locator('#period-selector-month');
   if (await monthSelect.isVisible().catch(() => false)) {
     const [monthName] = filterValue.split('/');
     await monthSelect.click();

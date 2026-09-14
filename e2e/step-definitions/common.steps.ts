@@ -494,8 +494,18 @@ Then('devo sempre ver o card de {string}', async function (this: CustomWorld, ca
   await expect(this.page.getByText(new RegExp(escapeRegex(cardName), 'i')).first()).toBeVisible({ timeout: 5000 });
 });
 
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, 2ª rodada): `.count()` não
+ * espera nada -- roda uma vez, na hora. Se a página ainda estivesse
+ * carregando os dados no instante exato do check (mesma causa já
+ * corrigida em vários outros passos deste arquivo), o resultado vinha 0
+ * mesmo que os cards fossem aparecer 1 segundo depois. Espera pelo menos
+ * o primeiro aparecer antes de contar.
+ */
 Then('devo ver pelo menos um card de métrica', async function (this: CustomWorld) {
-  const count = await this.page.locator('[class*="card" i]').count();
+  const cards = this.page.locator('[class*="card" i]');
+  await expect(cards.first()).toBeVisible({ timeout: 10000 });
+  const count = await cards.count();
   expect(count).toBeGreaterThan(0);
 });
 
@@ -509,15 +519,15 @@ Then('os cards devem ter a mesma altura', async function (this: CustomWorld) {
 });
 
 /**
- * ⚠️ Corrigido em 13/set/2026 (issue #99): procurava `[id*="month-filter"]`
- * / `[id*="year-filter"]` -- os ids de verdade (PaymentFilters.tsx) são
- * "payment-filters-month" e "payment-filters-year", ou seja "filters-month"
- * (ordem invertida), não "month-filter". A substring nunca batia com
- * nada -- daí o "Expected: visible" sempre falhava.
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, 2ª rodada): os ids
+ * "payment-filters-month"/"payment-filters-year" são de `PaymentFilters.tsx`,
+ * um componente que não é mais usado em lugar nenhum -- o filtro real da
+ * tela (PeriodSelector.tsx) não tinha id nenhum até este ciclo. Ver
+ * comentário completo em payments.steps.ts, "filtro pelo mês {string}".
  */
 Then('devo ver filtros de mês e ano', async function (this: CustomWorld) {
   await expect(
-    this.page.locator('[id*="filters-month"], [id*="filters-year"]').first()
+    this.page.locator('#period-selector-month, #period-selector-year').first()
   ).toBeVisible({ timeout: 5000 });
 });
 
@@ -532,27 +542,27 @@ Then('devo ver filtros de mês e ano', async function (this: CustomWorld) {
  * menu primeiro.
  */
 /**
- * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Regressão Visual"): o
- * cenário chama "alterno para tema escuro" e depois "alterno para tema
- * claro" em sequência -- o segundo sempre estourava os 20s no clique do
- * item do menu. Causa provável: o Dropdown do Radix fecha sozinho ao
- * selecionar um `DropdownMenuItem` comum (não é checkbox) e devolve o foco
- * pro botão que abriu -- clicar de novo rápido demais em cima dessa
- * transição de fechamento podia reabrir e fechar no mesmo instante. Agora
- * espera o menu terminar de fechar (item anterior sumir do DOM) antes de
- * tentar abrir de novo.
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, 2ª rodada -- a correção anterior
+ * abaixo não bastou, conferido no CI: nem a 1ª troca de tema funcionava).
+ * Causa raiz real, lida em Layout.tsx: `handleToggleTheme` é ASSÍNCRONO --
+ * primeiro GRAVA o tema no banco (`supabase.from('system_users').update`)
+ * e só DEPOIS chama `setTheme(...)`, que é o que realmente muda a classe
+ * `dark`/`light` do `<html>`. O item do menu fecha o Dropdown na hora do
+ * clique, ANTES dessa gravação terminar -- esperar o item sumir do DOM
+ * (a correção anterior) só confirma que o menu fechou, não que o tema já
+ * mudou. Agora espera o sinal de verdade: a classe do `<html>` mudar.
  */
 When('alterno para tema escuro', async function (this: CustomWorld) {
   await this.page.locator('#layout-user-menu-trigger').click();
   await this.page.locator('#layout-menu-toggle-theme').click();
-  await this.page.locator('#layout-menu-toggle-theme').waitFor({ state: 'hidden', timeout: 5000 });
+  await expect(this.page.locator('html')).toHaveClass(/dark/, { timeout: 10000 });
   this.testData.theme = 'dark';
 });
 
 When('alterno para tema claro', async function (this: CustomWorld) {
   await this.page.locator('#layout-user-menu-trigger').click();
   await this.page.locator('#layout-menu-toggle-theme').click();
-  await this.page.locator('#layout-menu-toggle-theme').waitFor({ state: 'hidden', timeout: 5000 });
+  await expect(this.page.locator('html')).not.toHaveClass(/dark/, { timeout: 10000 });
   this.testData.theme = 'light';
 });
 

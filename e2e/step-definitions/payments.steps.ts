@@ -302,36 +302,31 @@ When('visualizo um pagamento futuro', async function() {
 // ==================== FILTROS ====================
 
 /**
- * ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Pagamentos"): mesmo bug de
- * id já corrigido em outros arquivos (`[id*="month-filter"]`/`[id*="year-
- * filter"]` não existem -- os ids reais, em PaymentFilters.tsx, são
- * "payment-filters-month"/"payment-filters-year"). Este passo ("filtro pelo
- * mês") tinha ficado pra trás na correção anterior (a0e3396e), que só
- * atualizou o passo irmão "filtro por ... na página de Recebimentos".
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, 2ª rodada -- causa raiz real, as
+ * 3 tentativas anteriores abaixo miraram o componente errado): os ids
+ * "payment-filters-month"/"payment-filters-year" são de `PaymentFilters.tsx`
+ * -- um componente que NÃO é mais usado em lugar nenhum (grep confirma:
+ * `payments.tsx` não o importa). O filtro de mês/ano real da tela de
+ * Pagamentos (e também Financeiro/Dashboard) é `PeriodSelector.tsx`, que
+ * não tinha `id` nenhum -- por isso o passo sempre rodava os 20s inteiros
+ * de timeout sem nunca achar o campo. Adicionados os ids reais
+ * ("period-selector-month"/"period-selector-year") no componente, e todos
+ * os passos abaixo atualizados para usá-los.
  */
 When('filtro pelo mês {string}', async function(month: string) {
   // Exemplo: "Agosto/2026"
   const [monthName, year] = month.split('/');
 
-  // Selecionar mês
-  const monthSelect = this.page.locator('[id*="filters-month"]');
-  if (await monthSelect.isVisible()) {
-    await monthSelect.click();
-    await this.page.waitForTimeout(300);
+  const monthSelect = this.page.locator('#period-selector-month');
+  await monthSelect.click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: new RegExp(monthName, 'i') }).click();
+  await this.page.waitForTimeout(300);
 
-    const monthOption = this.page.getByRole('option', { name: new RegExp(monthName, 'i') });
-    await monthOption.click();
-  }
-
-  // Selecionar ano
-  const yearSelect = this.page.locator('[id*="filters-year"]');
-  if (await yearSelect.isVisible()) {
-    await yearSelect.click();
-    await this.page.waitForTimeout(300);
-
-    const yearOption = this.page.getByRole('option', { name: year, exact: true });
-    await yearOption.click();
-  }
+  const yearSelect = this.page.locator('#period-selector-year');
+  await yearSelect.click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: year, exact: true }).click();
 
   await this.page.waitForTimeout(1000);
 
@@ -344,28 +339,19 @@ When('filtro pelo mês {string}', async function(month: string) {
 // Observação: "filtro por {string}" (genérico) vive em common.steps.ts —
 // não duplicar aqui.
 
-/**
- * ⚠️ Corrigido em 13/set/2026 (issue #99): os 3 passos abaixo procuravam
- * `[id*="month-filter"]` / `[id*="year-filter"]` -- os ids de verdade
- * (PaymentFilters.tsx) são "payment-filters-month" / "payment-filters-year"
- * ("filters-month", ordem invertida). A substring nunca batia com nada.
- */
 When('filtro por {string} na página de Recebimentos', async function(month: string) {
-  const [monthName, year] = month.split('/');
+  const [monthName] = month.split('/');
 
-  const monthSelect = this.page.locator('[id*="filters-month"]');
-  if (await monthSelect.isVisible()) {
-    await monthSelect.click();
-    await this.page.waitForTimeout(300);
-    const monthOption = this.page.getByText(new RegExp(monthName, 'i'));
-    await monthOption.click();
-  }
+  const monthSelect = this.page.locator('#period-selector-month');
+  await monthSelect.click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: new RegExp(monthName, 'i') }).click();
 
   await this.page.waitForTimeout(1000);
 });
 
 When('seleciono o mês {string}', async function(month: string) {
-  const monthSelect = this.page.locator('[id*="filters-month"]');
+  const monthSelect = this.page.locator('#period-selector-month');
   await monthSelect.click();
   await this.page.waitForTimeout(300);
 
@@ -375,11 +361,11 @@ When('seleciono o mês {string}', async function(month: string) {
 });
 
 When('seleciono o ano {string}', async function(year: string) {
-  const yearSelect = this.page.locator('[id*="filters-year"]');
+  const yearSelect = this.page.locator('#period-selector-year');
   await yearSelect.click();
   await this.page.waitForTimeout(300);
 
-  const yearOption = this.page.getByRole('option', { name: year });
+  const yearOption = this.page.getByRole('option', { name: year, exact: true });
   await yearOption.click();
   await this.page.waitForTimeout(500);
 });
@@ -584,8 +570,21 @@ Then('devo ver:', async function(dataTable: any) {
   }
 });
 
-Then('o status deve mudar para {string}', async function(status: string) {
-  const statusBadge = this.page.getByText(new RegExp(status, 'i'));
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, 2ª rodada): `getByText(/Pendente/i)`
+ * sem escopo bate na tela inteira -- e "Pendente" também aparece nas abas
+ * "Recebimentos Pendentes" (2x, variante mobile/desktop) além do selo da
+ * linha, então batia em 3 elementos e o Playwright recusava agir ("strict
+ * mode violation"). Escopado pela linha do pagamento de teste quando
+ * conhecida (guardada por "que existe um pagamento {string}"); senão cai
+ * pro `.first()` pra não quebrar cenários mais antigos que não guardam isso.
+ */
+Then('o status deve mudar para {string}', async function(this: import('../support/world').CustomWorld, status: string) {
+  const nomeInquilino = this.testData?.tenantName;
+  const escopo = nomeInquilino
+    ? this.page.locator('tbody tr').filter({ hasText: nomeInquilino })
+    : this.page;
+  const statusBadge = escopo.getByText(new RegExp(status, 'i')).first();
   await expect(statusBadge).toBeVisible({ timeout: 5000 });
 });
 

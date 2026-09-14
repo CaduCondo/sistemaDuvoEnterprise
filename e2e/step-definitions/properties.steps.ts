@@ -102,19 +102,31 @@ Then('devo ver apenas imóveis que contenham {string} no endereço ou localizaç
  * (que já tentava cada candidato até achar um visível) -- só que este
  * passo específico de localização tinha ficado de fora daquele fix.
  */
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, 2ª rodada): o loop de candidatos
+ * (desktop/mobile) checava a visibilidade UMA ÚNICA VEZ, na hora -- mesmo
+ * defeito já identificado e corrigido no passo irmão "seleciono o status"
+ * (comentário logo abaixo, 13/set): enquanto a tela ainda busca os imóveis
+ * no banco, os filtros nem existem no DOM ainda, então o check falhava e o
+ * passo desistia na hora com "Nenhum filtro de localização visível" --
+ * mesmo que o filtro fosse aparecer 1 segundo depois. Agora tenta de novo
+ * por até 10s, igual ao "seleciono o status".
+ */
 When('seleciono a localização {string}', async function (this: CustomWorld, locationName: string) {
-  const candidatos = [
-    this.page.locator('#property-filters-location-desktop'),
-    this.page.locator('#property-filters-location-mobile'),
-  ];
+  const candidatos = ['#property-filters-location-desktop', '#property-filters-location-mobile'];
+  const deadline = Date.now() + 10000;
   let select;
-  for (const candidato of candidatos) {
-    if (await candidato.isVisible().catch(() => false)) {
-      select = candidato;
-      break;
+  while (Date.now() < deadline && !select) {
+    for (const seletor of candidatos) {
+      const candidato = this.page.locator(seletor);
+      if (await candidato.isVisible().catch(() => false)) {
+        select = candidato;
+        break;
+      }
     }
+    if (!select) await this.page.waitForTimeout(300);
   }
-  if (!select) throw new Error('Nenhum filtro de localização visível na tela atual');
+  if (!select) throw new Error('Nenhum filtro de localização visível na página atual (esperei 10s)');
 
   await select.click();
   await this.page.getByText(new RegExp(`^${locationName}$`, 'i')).click();
@@ -152,11 +164,24 @@ When('seleciono o status {string}', async function (this: CustomWorld, status: s
   };
   const abaSelector = abaPorStatus[status.trim().toLowerCase()];
   if (abaSelector) {
+    // ⚠️ Corrigido em 14/set/2026 (issue #99, 2ª rodada): o check de
+    // visibilidade da aba rodava uma ÚNICA vez, na hora -- mesmo defeito já
+    // corrigido logo abaixo pro loop de candidatos do Select (13/set): se a
+    // tela de Pagamentos ainda estivesse com "Carregando recebimentos..."
+    // (payments.tsx) no instante exato do check, a aba "invisível" fazia o
+    // passo cair no loop de candidatos de baixo -- que não tem nada de
+    // Pagamentos -- e estourar "Nenhum filtro de status visível" depois de
+    // 10s de espera inútil. Agora tenta de novo por até 10s antes de cair
+    // pro loop genérico.
     const aba = this.page.locator(abaSelector);
-    if (await aba.isVisible().catch(() => false)) {
-      await aba.click();
-      await this.page.waitForTimeout(500);
-      return;
+    const deadlineAba = Date.now() + 10000;
+    while (Date.now() < deadlineAba) {
+      if (await aba.isVisible().catch(() => false)) {
+        await aba.click();
+        await this.page.waitForTimeout(500);
+        return;
+      }
+      await this.page.waitForTimeout(300);
     }
   }
 
@@ -332,6 +357,17 @@ Then('o imóvel deve permanecer na lista', async function (this: CustomWorld) {
  * layout nem de rótulo.
  */
 async function acharCardDoImovel(world: CustomWorld, identifier: string) {
+  // ⚠️ Corrigido em 14/set/2026 (issue #99, 2ª rodada -- causa raiz real,
+  // as 3 tentativas anteriores abaixo não bastaram): o Contexto do arquivo
+  // faz "E estou na página '/properties'" ANTES de qualquer cenário rodar
+  // o "Dado que existe um imóvel {string}" -- ou seja, a tela já buscou os
+  // imóveis do banco QUANDO o imóvel de teste ainda nem existia (ele é
+  // criado depois, direto no banco). Nenhum filtro ou troca de visão
+  // resolve isso -- o imóvel simplesmente nunca chegou na lista que já
+  // estava em memória. Mesma causa raiz já corrigida em "Encerrar locação
+  // antecipadamente" (rentals.steps.ts, "volto para a lista de locações").
+  // Precisa recarregar a página DEPOIS que o imóvel foi criado.
+  await world.page.goto('/properties');
   await world.page.waitForLoadState('domcontentloaded');
 
   // ⚠️ Corrigido em 13/set/2026 (issue #99, cluster "item criado não
@@ -345,19 +381,12 @@ async function acharCardDoImovel(world: CustomWorld, identifier: string) {
   //
   // ⚠️ 2º ajuste em 13/set/2026: o primeiro fix acima não funcionava --
   // conferido no CI (run 34768905762), erro idêntico ao de antes. Causa
-  // raiz real, achada lendo src/pages/properties.tsx: enquanto a tela
+  // raiz achada na época, lendo src/pages/properties.tsx: enquanto a tela
   // ainda está buscando os imóveis no banco (`if (loading) return <p>
   // Carregando...</p>`), a página INTEIRA -- inclusive a caixa de busca --
-  // não existe ainda no DOM. `waitForLoadState('domcontentloaded')` só
-  // espera a navegação, não essa busca. Como o banco de DEV tinha muito
-  // dado antigo acumulado, esse "Carregando..." podia demorar mais que o
-  // instante em que o passo checava `isVisible()` -- que, não achando o
-  // elemento, silenciosamente decidia "não filtrar" e seguia sem avisar
-  // ninguém (por isso o problema não aparecia nos logs). Trocado o
-  // "isVisible().catch(() => false)" por um espera de verdade
-  // (`waitFor({state:'visible'})`): agora, se a busca não aparecer, o
-  // teste falha alto e claro dizendo que a caixa de busca não apareceu,
-  // em vez de mascarar o problema seguindo sem filtrar.
+  // não existe ainda no DOM. Trocado o "isVisible().catch(() => false)"
+  // por um espera de verdade (`waitFor({state:'visible'})`) -- essa parte
+  // continua válida e necessária mesmo com o fix do reload acima.
   const busca = world.page.locator('#property-filters-search');
   await busca.waitFor({ state: 'visible', timeout: 15000 });
   await busca.fill(identifier);
@@ -374,17 +403,23 @@ async function acharCardDoImovel(world: CustomWorld, identifier: string) {
   // este locator nunca encontrava nada. Força a visão em grade antes de
   // procurar, restaurando os ganchos que este helper (e os passos de
   // editar/deletar) sempre dependeram.
+  //
+  // ⚠️ 2ª correção em 14/set/2026: o `if (isVisible().catch(() => false))`
+  // aqui tinha o MESMO defeito que acabei de corrigir na caixa de busca
+  // acima -- se o botão não estivesse pronto no instante exato do check,
+  // o clique era pulado em silêncio e a visão continuava em tabela (por
+  // isso o erro batia sempre igual, mesmo depois do fix de "força grade").
+  // Trocado por uma espera de verdade + clique sem condição.
   const toggleGrade = world.page.locator('#properties-view-grid');
-  if (await toggleGrade.isVisible().catch(() => false)) {
-    await toggleGrade.click();
-    await world.page.waitForTimeout(300);
-  }
+  await toggleGrade.waitFor({ state: 'visible', timeout: 15000 });
+  await toggleGrade.click();
+  await world.page.waitForTimeout(300);
 
   const card = world.page.locator(`[data-property-identifier="${identifier}"]`).first();
   await expect(
     card,
     `não achei o imóvel "${identifier}" na tela -- ele foi criado pelo cenário?`
-  ).toBeVisible({ timeout: 10000 });
+  ).toBeVisible({ timeout: 15000 });
   return card;
 }
 

@@ -72,7 +72,13 @@ export const PeriodSelector = memo(function PeriodSelector({
         value={displayMonth.toString()}
         onValueChange={handleMonthChange}
       >
-        <SelectTrigger className="w-[140px] h-9 text-xs bg-white shadow-sm border-gray-200">
+        {/* ⚠️ Adicionado em 14/set/2026 (issue #99): este é o seletor de
+            período REAL usado em Pagamentos/Financeiro/Dashboard -- os
+            testes automatizados vinham mirando `PaymentFilters.tsx`
+            ("payment-filters-month"), um componente antigo que não é mais
+            usado em lugar nenhum. Sem nenhum id aqui, o teste nunca achava
+            o campo e ficava girando até estourar o timeout. */}
+        <SelectTrigger id="period-selector-month" className="w-[140px] h-9 text-xs bg-white shadow-sm border-gray-200">
           <div className="flex items-center gap-2">
             <Calendar className="h-3.5 w-3.5 text-slate-500" />
             <SelectValue placeholder="Mês" />
@@ -96,7 +102,7 @@ export const PeriodSelector = memo(function PeriodSelector({
         value={displayYear.toString()}
         onValueChange={handleYearChange}
       >
-        <SelectTrigger className="w-[120px] h-9 text-xs bg-white shadow-sm border-gray-200">
+        <SelectTrigger id="period-selector-year" className="w-[120px] h-9 text-xs bg-white shadow-sm border-gray-200">
           <SelectValue placeholder="Ano" />
         </SelectTrigger>
         <SelectContent>

@@ -814,9 +814,28 @@ When('preencho a data de encerramento com {string}', async function(date: string
   }
 });
 
-When('confirmo o encerramento', async function() {
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99, 2ª rodada): o clique em
+ * "Confirmar Rescisão" nunca falhava, mas a data de término no banco
+ * continuava a antiga -- a rescisão simplesmente não executava. Causa
+ * raiz, lida em RentalTerminationDialog.tsx: TODA locação criada pelos
+ * testes (DatabaseHelper.createRental) já nasce com uma parcela de
+ * caução "pending" -- e quando existe caução pendente/parcial,
+ * handleConfirm() não executa a rescisão na hora, abre um SEGUNDO
+ * diálogo perguntando "quer mesmo continuar?" (id
+ * "termination-deposit-warning-dialog", botão "Sim"). Sem responder esse
+ * segundo diálogo, a rescisão nunca acontecia de verdade -- só o diálogo
+ * original fechava, dando a falsa impressão de que tinha ido tudo bem.
+ */
+When('confirmo o encerramento', async function(this: import('../support/world').CustomWorld) {
   const confirmButton = this.page.getByRole('button', { name: /confirmar/i });
   await confirmButton.click();
+  await this.page.waitForTimeout(500);
+
+  const avisoCaucao = this.page.locator('#termination-deposit-warning-yes');
+  if (await avisoCaucao.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await avisoCaucao.click();
+  }
   await this.page.waitForTimeout(2000);
 });
 
