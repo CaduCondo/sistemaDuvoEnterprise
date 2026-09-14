@@ -265,6 +265,108 @@ When('clico no botão de recibo', async function(this: import('../support/world'
   await this.page.waitForTimeout(500);
 });
 
+/**
+ * ✅ Criado em 14/set/2026 (issue #99, decisão #1 do Cadu -- "ajuste os
+ * testes para conferir o total do dashboard"): cria um recebimento com
+ * valor conhecido num mês/ano "isolado" (dezembro/2030 -- nenhum outro
+ * cenário ou dado de produção usa essa referência). Isso importa porque o
+ * card "Taxa Adm" do Dashboard Financeiro soma TODOS os recebimentos do
+ * período filtrado -- se o teste usasse o mês corrente, o valor do card
+ * ficaria poluído por qualquer outro recebimento real que já exista
+ * naquele mês, e a conta batida aqui (valor pago × percentual) deixaria
+ * de corresponder ao que a tela mostra.
+ */
+Given('que existe um pagamento {string} de {string} isolado no período de teste', async function (this: import('../support/world').CustomWorld, status: string, valorTexto: string) {
+  const valor = parseFloat(valorTexto);
+  const sufixo = Date.now();
+  const tenant = await this.createTenant({ name: `Taxa Adm E2E ${sufixo}` });
+  const rental = await this.createRental({
+    start_date: '2020-01-01',
+    end_date: '2031-12-31',
+    rent_due_day: 10,
+    rent_value: valor,
+    tenant_id: tenant.id,
+  });
+
+  // Período isolado: dez/2030. Ver comentário acima sobre por quê.
+  const mes = '12';
+  const ano = '2030';
+  const statusBanco = status === 'Pago' ? 'paid' : 'pending';
+
+  const payment = await DatabaseHelper.upsertPayment({
+    rental_id: rental.id,
+    reference_month: mes,
+    reference_year: ano,
+    due_date: `${ano}-${mes}-10`,
+    expected_amount: valor,
+    status: statusBanco,
+    ...(statusBanco === 'paid' ? { paid_amount: valor, payment_date: `${ano}-${mes}-10` } : {}),
+  });
+
+  const config = await DatabaseHelper.getCompanyConfig();
+  const percentual = config?.admin_fee_percentage ?? 5;
+
+  this.testData = {
+    ...this.testData,
+    isolatedPaymentId: payment.id,
+    isolatedPaymentValue: valor,
+    isolatedPeriodMonth: mes,
+    isolatedPeriodYear: ano,
+    adminFeePercentage: Number(percentual),
+  };
+});
+
+/**
+ * Seleciona, na tela atual (ex.: /financial), o mesmo mês/ano em que o
+ * passo acima criou o recebimento isolado -- usa os ids reais do
+ * PeriodSelector.tsx (ver comentário em "filtro pelo mês {string}" acima).
+ */
+When('seleciono o período de teste no filtro de mês e ano', async function (this: import('../support/world').CustomWorld) {
+  const mes = this.testData?.isolatedPeriodMonth;
+  const ano = this.testData?.isolatedPeriodYear;
+  expect(mes && ano, 'período de teste não foi guardado (rode o Given "isolado no período de teste" antes)').toBeTruthy();
+
+  const monthNames = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const monthName = monthNames[parseInt(mes, 10) - 1];
+
+  const monthSelect = this.page.locator('#period-selector-month');
+  await monthSelect.waitFor({ state: 'visible', timeout: 15000 });
+  await monthSelect.click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: new RegExp(monthName, 'i') }).click();
+  await this.page.waitForTimeout(300);
+
+  const yearSelect = this.page.locator('#period-selector-year');
+  await yearSelect.click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: ano, exact: true }).click();
+  await this.page.waitForTimeout(1000);
+});
+
+/**
+ * Confere o card de KPI do Dashboard Financeiro (financial.tsx) -- os
+ * cards não têm id próprio, só a classe "card" + título em ".card-title"
+ * + valor em ".card-value" (ver leitura de financial.tsx linhas
+ * 1855-1910). O percentual usado na conta é o REAL, lido do banco pelo
+ * Given anterior -- não fixo, porque é configurável em Configurações.
+ */
+Then('o card {string} deve mostrar a taxa administrativa sobre {string}', async function (this: import('../support/world').CustomWorld, tituloCard: string, valorBaseTexto: string) {
+  const percentual = this.testData?.adminFeePercentage ?? 5;
+  const valorBase = parseFloat(valorBaseTexto);
+  const esperado = Math.round(valorBase * (percentual / 100) * 100) / 100;
+
+  const card = this.page.locator('.card').filter({ hasText: new RegExp(tituloCard, 'i') }).first();
+  await expect(card, `não encontrei o card "${tituloCard}" no Dashboard Financeiro`).toBeVisible({ timeout: 15000 });
+
+  const valorTexto = await card.locator('.card-value').first().textContent();
+  const match = valorTexto?.match(/([\d.,]+)/);
+  expect(match, `não consegui ler o valor do card "${tituloCard}" (texto: "${valorTexto}")`).toBeTruthy();
+
+  const valorExibido = parseFloat(match![1].replace(/\./g, '').replace(',', '.'));
+  const diff = Math.abs(valorExibido - esperado);
+  expect(diff, `esperado ~R$ ${esperado.toFixed(2)} (${valorBase} × ${percentual}%), mas o card "${tituloCard}" mostrou R$ ${valorExibido.toFixed(2)}`).toBeLessThan(0.05);
+});
+
 Given('que existem múltiplas locações com diferentes datas de início', async function() {
   // Mock: assumir que existem locações criadas
   this.testData = {

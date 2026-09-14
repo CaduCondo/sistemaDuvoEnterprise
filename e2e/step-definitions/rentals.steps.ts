@@ -607,6 +607,26 @@ When('salvo a locação', async function() {
   await this.page.waitForTimeout(2000);
 });
 
+/**
+ * ✅ Criado em 14/set/2026 (issue #99, decisão #2 do Cadu: caução é
+ * opcional na criação). Ao criar (não editar) uma locação PELA TELA, o
+ * Comprovante de Contrato (RentalContract.tsx) abre sozinho por cima do
+ * formulário assim que salva com sucesso -- é esse diálogo que confirma
+ * que a criação funcionou (mesmo padrão já usado em "que crio uma locação
+ * com:", payments.steps.ts). Depois de fechar, confere que não sobrou
+ * nenhum aviso de erro sobre caução -- a mensagem "Caução é obrigatória"
+ * nunca existiu no código (RentalFormDialog.tsx só valida Imóvel,
+ * Inquilino, Data início e Dia de vencimento), mas a asserção fica aqui
+ * como rede de segurança caso alguém adicione essa checagem no futuro.
+ */
+Then('a locação deve ser criada com sucesso', async function (this: import('../support/world').CustomWorld) {
+  const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
+  await expect(comprovante, 'a locação não foi criada -- o Comprovante de Contrato não abriu').toBeVisible({ timeout: 15000 });
+  await comprovante.getByRole('button', { name: /fechar/i }).click();
+
+  await expect(this.page.getByText(/caução é obrigatória/i)).toHaveCount(0);
+});
+
 // Observação: o step "crio uma locação com:" (usado pela feature 10-caucoes)
 // vive em deposits.steps.ts, que cria a locação de verdade via
 // DatabaseHelper — não duplicar aqui (causa "ambiguous step" no Cucumber).

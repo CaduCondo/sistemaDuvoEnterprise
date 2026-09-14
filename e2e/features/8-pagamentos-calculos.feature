@@ -60,28 +60,23 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Mês de vencimento    | 09 (Setembro)   |
     E nenhum recebimento deve ter vencimento em outro mês
 
-  # ⚠️ Investigado em 14/set/2026 (issue #99): este cenário testa uma tela
-  # que não existe. Conferido em PaymentBreakdownCard.tsx (o "detalhamento
-  # do pagamento" real, aberto ao clicar num recebimento) -- ele nunca
-  # mostra "Taxa Administração" nem "Valor Líquido (Repasse)" por
-  # recebimento individual. A taxa de administração hoje só aparece
-  # AGREGADA no Dashboard Financeiro (financial.tsx, kpiCalculations),
-  # nunca quebrada por pagamento. Além disso, o passo "que existe uma
-  # locação com aluguel de {string}" nunca criou nada no banco (era um
-  # stub). Precisa de decisão do Cadu: criar essa tela de detalhamento por
-  # recebimento é uma feature nova, ou o cenário deveria checar o KPI
-  # agregado do Dashboard em vez de um recebimento individual? Até decidir,
-  # tirando da rodada (sem tag = contrato de funcionalidade ainda
-  # inexistente, conforme e2e/SMOKE.md).
-  Cenário: Calcular pagamento com taxa de administração 10%
-    Dado que existe uma locação com aluguel de "2500.00"
-    E a taxa de administração é "10%"
-    Quando visualizo o detalhamento do pagamento
-    Então devo ver:
-      | campo                  | valor    |
-      | Aluguel                | 2500.00  |
-      | Taxa Administração     | 250.00   |
-      | Valor Líquido (Repasse)| 2250.00  |
+  # ✅ Reescrito em 14/set/2026 (issue #99, decisão #1 do Cadu: "ajuste os
+  # testes para conferir o total do dashboard"). Motivo original: não existe
+  # (e não vai ser criada) uma tela de detalhamento por recebimento com
+  # "Taxa Administração" -- conferido em PaymentBreakdownCard.tsx, o
+  # detalhamento real nunca mostra isso por pagamento individual. A taxa só
+  # existe AGREGADA no card "Taxa Adm" do Dashboard Financeiro
+  # (financial.tsx, kpiCalculations) -- é isso que o cenário passa a
+  # validar: cria um recebimento pago isolado (mês sem nenhum outro dado,
+  # pra não poluir o total do card) e confere que o card mostra valor pago
+  # × percentual REAL configurado no sistema (hoje 5%, não os "10%" fixos
+  # que o cenário antigo assumia -- é configurável em Configurações).
+  @sistemaCompleto
+  Cenário: Taxa de administração aparece corretamente no Dashboard Financeiro
+    Dado que existe um pagamento "Pago" de "2500.00" isolado no período de teste
+    Quando estou na página "/financial"
+    E seleciono o período de teste no filtro de mês e ano
+    Então o card "Taxa Adm" deve mostrar a taxa administrativa sobre "2500.00"
 
   # FORA DO SMOKE (30/ago/2026): o passo "Dado que existe uma locação com:" não
   # cria nada -- só guarda a tabela. O cenário acaba abrindo um recebimento
@@ -104,10 +99,21 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Taxa Administração     | 280.00   |
       | Valor Líquido          | 2520.00  |
 
-  # ⚠️ Mesmo problema do cenário "taxa de administração 10%" acima: não
-  # existe tela de detalhamento por recebimento com "Taxa Administração"/
-  # "Taxa Corretor (5%)"/"Valor Líquido". Fora da rodada até decisão do
-  # Cadu (ver comentário acima).
+  # ⚠️ Investigado em 14/set/2026 (issue #99, decisão #1 do Cadu). Diferente
+  # da "taxa de administração 10%" acima, este cenário NÃO pôde ser
+  # redirecionado pro Dashboard Financeiro: comissão de "corretor parceiro"
+  # sobre um recebimento de ALUGUEL não existe em nenhum lugar do sistema
+  # hoje -- nem tela de detalhamento, nem KPI agregado. Conferido por busca
+  # no código: o campo `broker_fee_percentage` existe na configuração, mas
+  # nenhuma parte da lógica de negócio (rentalCalculations.ts, financial.tsx)
+  # chega a ler ou aplicar esse valor. Comissão de corretor só existe hoje
+  # para CAUÇÃO (partner_commission/internal_commission em
+  # deposit_installments), nunca para o aluguel mensal.
+  # Como não há nenhum comportamento real pra validar, mantido sem tag
+  # (contrato de funcionalidade ainda inexistente, conforme e2e/SMOKE.md) --
+  # segue como pendência em aberto pro Cadu decidir: construir essa
+  # funcionalidade (comissão de corretor sobre aluguel) ou remover o
+  # cenário em definitivo.
   Cenário: Calcular pagamento com corretor parceiro 5%
     Dado que existe uma locação com:
       | campo           | valor   |

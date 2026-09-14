@@ -747,6 +747,21 @@ export class DatabaseHelper {
     return data;
   }
 
+  /**
+   * Lê a configuração da empresa (tabela `configs`, sempre 1 linha só —
+   * ver src/services/configService.ts/getConfig()). Criado em 14/set/2026
+   * (issue #99, decisão #1 do Cadu) para o cenário "Taxa de administração
+   * aparece corretamente no Dashboard Financeiro" poder conferir o
+   * percentual REAL configurado (`admin_fee_percentage`), em vez de supor
+   * um valor fixo — o percentual é configurável em Configurações e hoje
+   * está em 5%, não nos "10%" que o cenário antigo assumia.
+   */
+  static async getCompanyConfig() {
+    const { data, error } = await supabaseAdmin.from('configs').select('*').limit(1).maybeSingle();
+    if (error) throw new Error(`Falha ao buscar configuração da empresa: ${error.message}`);
+    return data;
+  }
+
   // ==================== ESTATÍSTICAS ====================
 
   static getTestDataStats() {

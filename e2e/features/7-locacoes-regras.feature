@@ -33,23 +33,23 @@ Funcionalidade: Regras de Negócio de Locações
     Então devo ver uma mensagem de erro
     E não devo poder continuar
 
-  # ⚠️ Investigado em 14/set/2026 (issue #99): não é bug de teste. Lido
-  # RentalFormDialog.tsx (handleSubmit) por completo -- os únicos campos
-  # com validação obrigatória de verdade são Imóvel, Inquilino, Data
-  # início e Dia de vencimento. Não existe nenhuma checagem que bloqueie
-  # salvar uma locação com o valor da caução em branco/zero, e a mensagem
-  # "Caução é obrigatória" não existe em lugar nenhum do código. Ou seja,
-  # este cenário descreve uma regra de negócio que nunca foi implementada.
-  # Precisa de decisão do Cadu: a caução DEVE ser obrigatória (aí é
-  # feature nova a construir), ou a regra real é "caução é opcional" (aí o
-  # cenário é que está errado e deve ser removido/ajustado)? Até decidir,
-  # sem tag = contrato de funcionalidade ainda inexistente (e2e/SMOKE.md).
-  Cenário: Criar locação - Caução obrigatória
+  # ✅ Decisão do Cadu (14/set/2026, issue #99, decisão #2): "na locação o
+  # caução deve ser opcional porque essa informação pode ser colocada
+  # depois da locação já ter sido criada". Confirma a investigação de
+  # 14/set/2026 (RentalFormDialog.tsx/handleSubmit): os únicos campos com
+  # validação obrigatória de verdade são Imóvel, Inquilino, Data início e
+  # Dia de vencimento -- nem o valor nem a data de pagamento da caução
+  # entram nessa checagem, mesmo os dois tendo "*" no rótulo da tela (que
+  # é só visual, não é aplicado). Reescrito para validar a regra real (em
+  # vez de só apagar a cobertura): criar uma locação sem preencher NADA de
+  # caução precisa funcionar normalmente.
+  @sistemaCompleto
+  Cenário: Criar locação sem preencher a caução
     Quando clico no botão "Nova Locação"
     E preencho todos os campos obrigatórios
     E NÃO preencho o valor da caução
-    E tento salvar
-    Então devo ver a mensagem "Caução é obrigatória"
+    E salvo a locação
+    Então a locação deve ser criada com sucesso
 
   # ✅ ATUALIZADO: Reflete nova estrutura de parcelas de caução
   @sistemaCompleto
