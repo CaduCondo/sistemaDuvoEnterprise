@@ -453,9 +453,33 @@ Given('que existe uma locação com caução parcelado em 3x:', async function(d
 
 // ==================== AÇÕES ====================
 
-When('seleciono um imóvel que está {string}', async function(status: string) {
-  // Tentar selecionar um imóvel ocupado (deve falhar)
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99): este passo era um STUB -- só
+ * um `waitForTimeout`, nunca selecionava (nem tentava selecionar) nenhum
+ * imóvel. O cenário original ("seleciono um imóvel que está 'Ocupado'" +
+ * "devo ver uma mensagem de erro") nunca teve como passar de verdade,
+ * porque a interação que ele descreve não existe na tela: lendo
+ * RentalFormDialog.tsx, `propertiesToDisplay` já usa `availableProperties`
+ * (não `properties`) pra uma locação NOVA -- ou seja, um imóvel "Ocupado"
+ * nem aparece como opção no dropdown pra começo de conversa. Não existe
+ * "selecionar e ver erro"; a regra real é "nunca aparece pra selecionar".
+ * Ver o cenário reescrito em 7-locacoes-regras.feature.
+ */
+Given('que existe um imóvel ocupado do cenário', async function (this: CustomWorld) {
+  const identificador = `[E2E] Ocupado ${Date.now()}`;
+  await this.createProperty({ complement: identificador, status: 'occupied' });
+  this.testData = { ...this.testData, imovelOcupadoComplemento: identificador };
+});
+
+Then('o imóvel ocupado do cenário NÃO deve aparecer para seleção', async function (this: CustomWorld) {
+  const complemento = this.testData?.imovelOcupadoComplemento;
+  expect(complemento, 'nenhum imóvel ocupado foi criado pelo cenário (rode o Given antes)').toBeTruthy();
+
+  const complementoEscapado = complemento.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await this.page.locator('#rental-property').click();
   await this.page.waitForTimeout(300);
+  await expect(this.page.getByRole('option', { name: new RegExp(complementoEscapado, 'i') })).toHaveCount(0);
+  await this.page.keyboard.press('Escape');
 });
 
 When('NÃO preencho o valor da caução', async function() {

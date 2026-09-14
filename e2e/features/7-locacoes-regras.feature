@@ -26,12 +26,21 @@ Funcionalidade: Regras de Negócio de Locações
     Então vejo a locação encerrada do cenário na lista
     E NÃO vejo a locação ativa do cenário na lista
 
+  # ✅ Reescrito em 14/set/2026 (issue #99): o passo "seleciono um imóvel que
+  # está 'Ocupado'" era um STUB (só um `waitForTimeout`, nunca selecionava
+  # nada de verdade) -- e nem tinha como ser diferente: lendo
+  # RentalFormDialog.tsx, o dropdown de imóvel numa locação NOVA já usa
+  # `availableProperties` (não `properties`), ou seja, um imóvel "Ocupado"
+  # nunca aparece como opção pra começo de conversa. Não existe "selecionar
+  # um imóvel ocupado e ver erro" -- a regra real, mais forte, é "imóvel
+  # ocupado nunca aparece pra selecionar". Reescrito pra validar isso de
+  # verdade: cria um imóvel ocupado e confere que ele não está entre as
+  # opções do dropdown.
   @sistemaCompleto
-  Cenário: Criar locação - Validar imóvel disponível
+  Cenário: Criar locação - Imóvel ocupado não aparece para seleção
+    Dado que existe um imóvel ocupado do cenário
     Quando clico no botão "Nova Locação"
-    E seleciono um imóvel que está "Ocupado"
-    Então devo ver uma mensagem de erro
-    E não devo poder continuar
+    Então o imóvel ocupado do cenário NÃO deve aparecer para seleção
 
   # ✅ Criado em 14/set/2026: o Cadu confirmou a regra ("os campos
   # obrigatórios da tela de criar uma locação são: imóvel, inquilino, data
