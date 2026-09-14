@@ -15,10 +15,27 @@ Given('existe uma localização {string}', async function (this: CustomWorld, na
   this.locationId = location.id;
 });
 
+/**
+ * ⚠️ Corrigido em 14/set/2026 (issue #99): "IMO-001" é um identificador
+ * FIXO, reaproveitado por várias rodadas de CI ao longo do tempo -- o
+ * banco de DEV (compartilhado) acumulou vários imóveis com esse mesmo
+ * "IMO-001" de execuções antigas (mesmo problema já documentado em
+ * `acharCardDoImovel`, mais abaixo). Isso é especialmente grave pro
+ * cenário "Deletar imóvel - Confirmar": a asserção final ("o imóvel NÃO
+ * deve aparecer na lista") usa `getByText(identifier)` -- com mais de um
+ * "IMO-001" ainda na tela (porque só o `.first()` foi apagado), o
+ * Playwright recusa a checagem por ambiguidade ("strict mode violation"),
+ * e o cenário falha mesmo com o sistema se comportando certinho. Agora o
+ * identificador salvo no banco (e usado em todos os passos seguintes,
+ * via `testData.propertyIdentifier`) é único por execução -- a palavra
+ * "IMO-001" na feature continua só como um nome legível pro Cadu, não
+ * como o valor real gravado.
+ */
 Given('que existe um imóvel {string}', async function (this: CustomWorld, identifier: string) {
-  const property = await this.createProperty({ property_identifier: identifier });
+  const identificadorUnico = `${identifier}-${Date.now()}`;
+  const property = await this.createProperty({ property_identifier: identificadorUnico });
   this.propertyId = property.id;
-  this.testData.propertyIdentifier = identifier;
+  this.testData.propertyIdentifier = identificadorUnico;
   await this.page.reload();
   await this.page.waitForLoadState('domcontentloaded');
 });
@@ -129,7 +146,14 @@ When('seleciono a localização {string}', async function (this: CustomWorld, lo
   if (!select) throw new Error('Nenhum filtro de localização visível na página atual (esperei 10s)');
 
   await select.click();
-  await this.page.getByText(new RegExp(`^${locationName}$`, 'i')).click();
+  // ⚠️ Corrigido em 14/set/2026 (issue #99): rodadas antigas deixaram
+  // localizações REPETIDAS (mesmo nome) no banco de DEV -- mesmo motivo já
+  // documentado no fallback de "preencho todos os campos obrigatórios"
+  // (properties.steps.ts, campo "local"). Sem `.first()`, quando existe
+  // mais de uma localização com esse nome na lista do Popover, o Playwright
+  // recusa agir por ambiguidade ("strict mode violation") em vez de
+  // escolher uma -- travando este passo em qualquer tela que dependa dele.
+  await this.page.getByText(new RegExp(`^${locationName}$`, 'i')).first().click();
   await this.page.keyboard.press('Escape');
   await this.page.waitForTimeout(500);
 });
@@ -433,8 +457,11 @@ async function acharCardDoImovel(world: CustomWorld, identifier: string) {
  * clique, o passo seguinte ("altero o valor...") tentava preencher um
  * campo desabilitado.
  */
+// ⚠️ Corrigido em 14/set/2026 (issue #99): usa o identificador ÚNICO
+// guardado por "que existe um imóvel {string}" (testData.propertyIdentifier)
+// em vez do literal recebido do Gherkin -- ver comentário completo lá.
 When('clico no botão de editar do imóvel {string}', async function (this: CustomWorld, identifier: string) {
-  const card = await acharCardDoImovel(this, identifier);
+  const card = await acharCardDoImovel(this, this.testData.propertyIdentifier || identifier);
   // Não há botão "editar" na lista: clicar no card abre o imóvel em modo
   // visualização primeiro.
   await card.click();
@@ -444,7 +471,7 @@ When('clico no botão de editar do imóvel {string}', async function (this: Cust
 });
 
 When('clico no botão de deletar do imóvel {string}', async function (this: CustomWorld, identifier: string) {
-  const card = await acharCardDoImovel(this, identifier);
+  const card = await acharCardDoImovel(this, this.testData.propertyIdentifier || identifier);
   await card.locator('[id^="property-delete-"]').click();
   await this.page.waitForTimeout(500);
 });

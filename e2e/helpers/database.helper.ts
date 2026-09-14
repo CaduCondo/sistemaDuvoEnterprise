@@ -303,11 +303,30 @@ export class DatabaseHelper {
     return data;
   }
 
-  /** Garante que os 3 usuários padrão de teste (admin/financeiro/corretor) existem */
+  /**
+   * Garante que os 3 usuários padrão de teste (admin/financeiro/corretor)
+   * existem.
+   *
+   * ⚠️ Corrigido em 14/set/2026 (issue #99, causa raiz real de "Tema
+   * escuro/claro consistente" que 2 tentativas anteriores não pegaram):
+   * `ensureTestUser` já aceita um `theme`, mas ninguém passava esse campo
+   * aqui -- então `system_users.theme` do admin nunca era resetado entre
+   * execuções do CI. Layout.tsx sincroniza o tema da tela com esse valor
+   * do banco logo no login (`if (authUser?.theme) setTheme(authUser.theme)`).
+   * O cenário assume que a tela começa no modo CLARO e clica em "alternar
+   * pra escuro" -- mas se uma execução anterior tivesse falhado bem no
+   * meio (depois de alternar pra escuro, antes de voltar pro claro), o
+   * banco ficava com theme='dark' de vez, e a execução seguinte começava
+   * do escuro: o clique em "alternar pra escuro" na verdade voltava pro
+   * claro, o oposto do esperado -- por isso a asserção sempre falhava,
+   * mesmo com a checagem de classe do `<html>` já corrigida antes. Forçar
+   * 'light' aqui, a cada execução, garante um ponto de partida sempre
+   * conhecido.
+   */
   static async ensureDefaultTestUsers() {
-    await this.ensureTestUser({ ...TEST_CONFIG.users.admin, role: 'admin' });
-    await this.ensureTestUser({ ...TEST_CONFIG.users.financial, role: 'financial' });
-    await this.ensureTestUser({ ...TEST_CONFIG.users.broker, role: 'broker' });
+    await this.ensureTestUser({ ...TEST_CONFIG.users.admin, role: 'admin', theme: 'light' });
+    await this.ensureTestUser({ ...TEST_CONFIG.users.financial, role: 'financial', theme: 'light' });
+    await this.ensureTestUser({ ...TEST_CONFIG.users.broker, role: 'broker', theme: 'light' });
   }
 
   // ==================== LOCALIZAÇÕES ====================
