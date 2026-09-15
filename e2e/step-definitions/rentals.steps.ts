@@ -44,9 +44,22 @@ async function criarLocacaoAtivaDeTeste(
   const sufixo = Date.now();
   const tenant = await world.createTenant({ name: `Locacao Ativa E2E ${sufixo}` });
 
+  // ⚠️ Corrigido em 15/set/2026 (issue #99, cluster "Encerrar locação
+  // antecipadamente"): antes não passava property_id nenhum, então
+  // createRental criava um imóvel "Casa Teste" genérico sem jeito de
+  // reencontrar DEPOIS -- o passo "o imóvel deve ficar {string}" tinha que
+  // procurar o texto "Disponível" solto na página /properties inteira, que
+  // hoje tem 73+ elementos com esse texto (outros imóveis do banco de DEV).
+  // Isso é "strict mode violation" no Playwright -- nunca dava pra passar.
+  // Agora cria o imóvel com um complemento único e guarda pra achar
+  // exatamente ELE depois.
+  const complementoUnico = `Rescisao E2E ${sufixo}`;
+  const property = await world.createProperty({ complement: complementoUnico, status: 'available' });
+
   const garagem = opcoes.garagem ?? 0;
 
   const rental = await world.createRental({
+    property_id: property.id,
     start_date: '2026-01-01',
     end_date: opcoes.fim ?? '2026-12-31',
     rent_due_day: 10,
@@ -57,6 +70,7 @@ async function criarLocacaoAtivaDeTeste(
   });
 
   world.rentalId = rental.id;
+  world.propertyId = property.id;
   world.testData = {
     ...world.testData,
     rentalId: rental.id,
@@ -65,6 +79,7 @@ async function criarLocacaoAtivaDeTeste(
     // (ex.: "não apenas o valor do aluguel", que confere aluguel + garagem).
     rentValue: aluguel,
     garageValue: garagem,
+    propertyComplement: complementoUnico,
     rental: {
       id: rental.id,
       rent: String(aluguel),
@@ -624,11 +639,26 @@ When('preencho a {string} com {string}', async function(fieldName: string, value
   }
 });
 
-When('salvo a locação', async function() {
+/**
+ * ⚠️ Corrigido em 15/set/2026 (issue #99, confirmado pelo CI run
+ * 34928289217, erro real: "invalid input syntax for type uuid:
+ * 'undefined'"): este passo cria a locação PELA TELA, mas nunca guardava
+ * o id em `this.rentalId` -- passos seguintes que conferem dados no banco
+ * (ex.: "no banco de dados a parcela 1 deve ter:") ficavam sem saber QUAL
+ * locação olhar. Como o Cucumber roda um cenário de cada vez (nunca em
+ * paralelo nesta suíte), a locação mais recente do banco, logo após
+ * salvar, é sempre a que acabou de ser criada aqui.
+ */
+When('salvo a locação', async function (this: import('../support/world').CustomWorld) {
   // O botão do formulário de Locação diz "Criar" (nova) ou "Atualizar"
   // (edição), nunca "Salvar" -- por isso pelo id.
   await this.page.locator('#rental-form-submit').click();
   await this.page.waitForTimeout(2000);
+
+  const rental = await this.getMostRecentRental();
+  if (rental) {
+    this.rentalId = rental.id;
+  }
 });
 
 /**
@@ -1356,11 +1386,33 @@ Then('os pagamentos após {string} devem ser cancelados', async function(date: s
   ).toBeGreaterThan(0);
 });
 
+/**
+ * ⚠️ Corrigido em 15/set/2026 (issue #99, CI run 34928289217): confirmado
+ * pelo log real -- "strict mode violation: getByText(/Disponível/i)
+ * resolved to 73 elements". O passo procurava o texto do status solto na
+ * página /properties inteira, que hoje acumula dezenas de imóveis de
+ * outras rodadas de teste -- nunca dava pra saber QUAL "Disponível"
+ * pertencia ao imóvel deste cenário. Agora escopa pela linha do imóvel
+ * específico criado em criarLocacaoAtivaDeTeste (pelo complemento único).
+ */
 Then('o imóvel deve ficar {string}', async function(status: string) {
-  // Verificar status do imóvel
+  const complemento = this.testData?.propertyComplement;
+  expect(
+    complemento,
+    'nenhum imóvel único foi criado pelo cenário (this.testData.propertyComplement vazio) -- ' +
+      'o passo "que existe uma locação ativa..." precisa rodar antes deste.'
+  ).toBeTruthy();
+
   await this.page.goto('/properties');
   await this.page.waitForLoadState('domcontentloaded');
-  
-  const statusBadge = this.page.getByText(new RegExp(status, 'i'));
-  await expect(statusBadge).toBeVisible({ timeout: 5000 });
+
+  const complementoEscapado = complemento.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const linhaDoImovel = this.page
+    .locator('tr, [role="row"]')
+    .filter({ hasText: new RegExp(complementoEscapado) });
+
+  await expect(
+    linhaDoImovel.getByText(new RegExp(status, 'i')),
+    `o imóvel "${complemento}" não está mostrando o status "${status}" na tela`
+  ).toBeVisible({ timeout: 10000 });
 });

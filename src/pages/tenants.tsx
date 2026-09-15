@@ -244,7 +244,7 @@ export default function TenantsPage() {
     { key: "name", label: "Nome", headerClassName: "text-center", render: (t: Tenant) => <span className="font-medium text-blue-600">{t.name}</span> },
     { key: "document", label: "Documento", headerClassName: "text-center", render: (t: Tenant) => t.cpf || t.cnpj || t.document || "-" },
     { key: "phone", label: "Telefone", headerClassName: "text-center", render: (t: Tenant) => t.phone || "-" },
-    { key: "email", label: "Email", headerClassName: "text-center", render: (t: Tenant) => t.email || "-" },
+    { key: "email", label: "E-mail", headerClassName: "text-center", render: (t: Tenant) => t.email || "-" },
     { key: "status", label: "Status", headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[110px]", render: (t: Tenant) => getStatusBadge(t.status) },
     { key: "actions", label: "Deletar", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[80px]", render: (t: Tenant) => (
       <Button

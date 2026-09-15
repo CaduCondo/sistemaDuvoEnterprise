@@ -51,13 +51,18 @@ Funcionalidade: Cálculos e Regras de Pagamentos
 
   # ✅ NOVO: Validar sincronia entre filtro e vencimento
   @sistemaCompleto
+  # ⚠️ Corrigido em 15/set/2026 (issue #99, confirmado pelo CI run
+  # 34928289217): a linha "Mês de vencimento | 09 (Setembro)" nunca bateu
+  # com a tela de verdade -- a tabela de Recebimentos mostra a data de
+  # vencimento como "03/09/2026" (dia/mês/ano), nunca como o texto solto
+  # "09 (Setembro)". Removida a linha; o mês de vencimento continua
+  # validado (de outro jeito) pelo passo seguinte.
   Cenário: Filtro de mês deve corresponder à data de vencimento
     Dado que existem múltiplas locações com diferentes datas de início
     Quando filtro por "Setembro/2026" na página de Recebimentos
     Então todos os recebimentos exibidos devem ter:
       | campo                | valor           |
       | Período (referência) | Setembro/2026   |
-      | Mês de vencimento    | 09 (Setembro)   |
     E nenhum recebimento deve ter vencimento em outro mês
 
   # ✅ Reescrito em 14/set/2026 (issue #99, decisão #1 do Cadu: "ajuste os

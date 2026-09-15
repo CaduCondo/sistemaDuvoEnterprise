@@ -397,6 +397,27 @@ export class DatabaseHelper {
     return data;
   }
 
+  /**
+   * ⚠️ Criado em 15/set/2026 (issue #99, confirmado pelo CI run
+   * 34928289217): cenários que criam a locação PELA TELA (não via
+   * `createRental`) nunca tinham como preencher `this.rentalId` -- e
+   * passos como "no banco de dados a parcela 1 deve ter:" dependem dele,
+   * explodindo com "invalid input syntax for type uuid: undefined". Como
+   * o Cucumber roda os cenários um de cada vez (nunca em paralelo nesta
+   * suíte), a locação criada por último no banco É a que acabou de ser
+   * salva pela tela.
+   */
+  static async getMostRecentRental() {
+    const { data, error } = await supabaseAdmin
+      .from('rentals')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(`Falha ao buscar a locação mais recente: ${error.message}`);
+    return data;
+  }
+
   static async findPropertyByComplement(complement: string) {
     const { data } = await supabaseAdmin.from('properties').select('*').ilike('complement', `%${complement}%`).limit(1).maybeSingle();
     return data;

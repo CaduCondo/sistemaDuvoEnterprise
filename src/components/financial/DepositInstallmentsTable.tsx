@@ -517,13 +517,23 @@ export function DepositInstallmentsTable({
 
       // Por parcela.
       totalRecebido += Number(inst.paid_amount || 0);
+      // ⚠️ Corrigido em 15/set/2026 (issue #99, confirmado pelo CI run
+      // 34928289217): estava somando `inst.rental?.security_deposit` --
+      // o valor gravado na LOCAÇÃO no momento da criação, que nunca é
+      // atualizado quando alguém edita o valor de uma parcela individual
+      // pela tela. Resultado: editar "Valor" de uma parcela mudava a
+      // célula "Valor Total Caução" da própria linha (essa soma as
+      // parcelas de verdade, ver `totalDepositValue` mais acima no
+      // arquivo) mas o TOTAL do rodapé ficava travado no valor antigo --
+      // os dois nunca podiam bater. Corrigido para somar o valor de cada
+      // parcela, igual a célula da linha já fazia.
+      totalCaucao += Number(inst.amount || 0);
 
       const rentalId = inst.rental_id;
       if (!rentalId || locacoesJaSomadas.has(rentalId)) continue;
       locacoesJaSomadas.add(rentalId);
 
       // Uma vez por locacao (colunas mescladas).
-      totalCaucao += Number(inst.rental?.security_deposit || 0);
       totalParceiro += Number(inst.partner_commission || 0);
       totalCorretor += Number(inst.internal_commission || 0);
 

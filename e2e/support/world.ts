@@ -66,6 +66,10 @@ export class CustomWorld extends World {
     return DatabaseHelper.getRental(id);
   }
 
+  async getMostRecentRental() {
+    return DatabaseHelper.getMostRecentRental();
+  }
+
   async updateRental(id: string, updates: Record<string, any>) {
     return DatabaseHelper.updateRental(id, updates);
   }
