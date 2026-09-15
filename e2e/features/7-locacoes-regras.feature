@@ -193,13 +193,25 @@ Funcionalidade: Regras de Negócio de Locações
     E devo poder preencher o valor
 
   @sistemaCompleto
+  # ⚠️ Reescrito em 15/set/2026 (issue #99, confirmado pelo CI run
+  # 34928289217 + regra real explicada pelo Cadu): o cenário original
+  # esperava que marcar "Corretor Parceiro?" abrisse campos "Nome do
+  # corretor" e "Taxa (%)" no PRÓPRIO formulário de Locação -- isso nunca
+  # existiu (RentalFormDialog.tsx só tem o checkbox, sem esses campos).
+  # A regra real (confirmada pelo Cadu, 14/set/2026): o checkbox só marca
+  # a locação como tendo corretor parceiro; o VALOR da comissão é
+  # lançado depois, direto na tabela de Financeiro > Cauções, coluna
+  # "Valor Parceiro" -- já coberto em 10-caucoes.feature ("Editar
+  # comissão de corretor parceiro inline"). Aqui o cenário passa a
+  # validar só o que o formulário de Locação realmente faz: marcar o
+  # sinalizador no banco.
   Cenário: Criar locação - Corretor parceiro
     Quando clico no botão "Nova Locação"
+    E preencho todos os campos obrigatórios
     E marco a opção "Corretor parceiro"
-    Então devo ver os campos:
-      | campo           |
-      | Nome do corretor|
-      | Taxa (%)        |
+    E salvo a locação
+    Então a locação deve ser criada com sucesso
+    E a locação criada tem corretor parceiro marcado
 
   # FORA DO SMOKE (30/ago/2026): o passo de preparo cria a locação direto no
   # banco, e quem gera os 12 recebimentos é a tela. Sem passar pela tela, não

@@ -681,6 +681,18 @@ Then('a locação deve ser criada com sucesso', async function (this: import('..
   await expect(this.page.getByText(/caução é obrigatória/i)).toHaveCount(0);
 });
 
+/**
+ * ✅ Criado em 15/set/2026 (issue #99, cenário "Criar locação - Corretor
+ * parceiro" reescrito). Confere no banco -- não na tela -- porque o
+ * formulário de Locação não mostra mais nenhum campo extra quando o
+ * checkbox "Corretor Parceiro?" é marcado (ver comentário no .feature).
+ */
+Then('a locação criada tem corretor parceiro marcado', async function (this: import('../support/world').CustomWorld) {
+  expect(this.rentalId, 'nenhuma locação foi criada neste cenário ainda (this.rentalId vazio)').toBeTruthy();
+  const rental = await this.getRental(this.rentalId!);
+  expect(rental.has_partner_broker, 'a locação foi criada com "Corretor Parceiro?" marcado na tela, mas o banco gravou has_partner_broker=false').toBe(true);
+});
+
 // Observação: o step "crio uma locação com:" (usado pela feature 10-caucoes)
 // vive em deposits.steps.ts, que cria a locação de verdade via
 // DatabaseHelper — não duplicar aqui (causa "ambiguous step" no Cucumber).
