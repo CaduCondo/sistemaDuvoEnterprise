@@ -53,8 +53,28 @@ async function criarLocacaoAtivaDeTeste(
   // Isso é "strict mode violation" no Playwright -- nunca dava pra passar.
   // Agora cria o imóvel com um complemento único e guarda pra achar
   // exatamente ELE depois.
+  //
+  // ⚠️ Corrigido em 16/set/2026: o imóvel nascia SEM `value` (usando
+  // qualquer valor padrão de createProperty), enquanto a locação nascia com
+  // `rent_value: aluguel` (ex.: 2500). Isso não dava problema em cenários
+  // que nunca editam a locação -- mas o valor do aluguel só é EXIBIDO/
+  // EDITADO no formulário via `selectedProperty.value` (o valor pertence ao
+  // cadastro do IMÓVEL, não ao da locação -- ver comentários em
+  // rentalService.ts e nos cenários "Atualizar valor do aluguel"). Assim,
+  // em QUALQUER cenário que edite e salve a locação sem primeiro igualar o
+  // valor do imóvel, o sistema silenciosamente recalculava tudo em cima do
+  // valor padrão do imóvel (não o `aluguel` pedido pelo cenário) --
+  // confirmado como causa raiz de "Corrigir data de início recalcula
+  // parcela já criada" (esperava R$ 166,67 de proporcional sobre R$ 2500,
+  // recebia R$ 66,67 -- exatamente a conta batendo com o valor padrão do
+  // imóvel, não com os R$ 2500 do cenário). Agora o imóvel já nasce com o
+  // mesmo valor da locação.
   const complementoUnico = `Rescisao E2E ${sufixo}`;
-  const property = await world.createProperty({ complement: complementoUnico, status: 'available' });
+  const property = await world.createProperty({
+    complement: complementoUnico,
+    status: 'available',
+    value: aluguel,
+  });
 
   const garagem = opcoes.garagem ?? 0;
 
@@ -248,6 +268,65 @@ Given('o pagamento de Março\\/2026 está {string} com valor de {string}', async
 
 Given('o pagamento de referência Junho\\/2026 está {string} com valor de {string}', async function (status: string, value: string) {
   await upsertMonthlyPayment(this, 'june', '06', '2026', status, value);
+});
+
+/**
+ * ⚠️ Adicionado em 16/set/2026 -- os cenários de "Editar locação" que
+ * testam a regra "mês presente e futuros são atualizados, meses passados
+ * não" usavam meses fixos no calendário (Novembro/2025, Dezembro/2025,
+ * Março/2026) mais um "edito a locação em 15/02/2026" que só existia para
+ * as ASSERÇÕES do teste saberem o que é "passado" -- o sistema de verdade
+ * nunca soube dessa data falsa, sempre usa a data real do relógio
+ * (`new Date()`). Isso funcionava só enquanto "hoje" (no relógio real)
+ * ainda fosse antes de fevereiro/2026; a partir daí os três meses viravam
+ * todos passado de verdade, e o cenário ficava sempre errado -- exatamente
+ * o defeito que apareceu no CI de 16/set/2026 (Março/2026 recebeu o valor
+ * antigo, não o novo, porque em setembro/2026 março já é passado há
+ * meses). Trocado por meses RELATIVOS ao dia em que o teste realmente
+ * roda, para nunca "vencer".
+ */
+function mesRelativo(offsetMeses: number): { mesNumero: string; ano: string } {
+  const hoje = new Date();
+  const alvo = new Date(hoje.getFullYear(), hoje.getMonth() + offsetMeses, 1);
+  return {
+    mesNumero: String(alvo.getMonth() + 1).padStart(2, '0'),
+    ano: String(alvo.getFullYear()),
+  };
+}
+
+Given('existe um recebimento pendente de {int} meses atrás com valor de {string}', async function (this: any, meses: number, value: string) {
+  const { mesNumero, ano } = mesRelativo(-meses);
+  await upsertMonthlyPayment(this, `passado${meses}`, mesNumero, ano, 'Pendente', value);
+});
+
+Given('existe um recebimento pendente do mês atual com valor de {string}', async function (this: any, value: string) {
+  const { mesNumero, ano } = mesRelativo(0);
+  await upsertMonthlyPayment(this, 'atual', mesNumero, ano, 'Pendente', value);
+});
+
+Given('existe um recebimento pendente daqui a {int} meses com valor de {string}', async function (this: any, meses: number, value: string) {
+  const { mesNumero, ano } = mesRelativo(meses);
+  await upsertMonthlyPayment(this, `futuro${meses}`, mesNumero, ano, 'Pendente', value);
+});
+
+Then('o recebimento de {int} meses atrás deve manter {string}', async function (this: any, meses: number, value: string) {
+  const { mesNumero, ano } = mesRelativo(-meses);
+  await expectPaymentAmount(this, mesNumero, ano, value);
+});
+
+Then('o recebimento do mês atual deve ser atualizado para {string}', async function (this: any, value: string) {
+  const { mesNumero, ano } = mesRelativo(0);
+  await expectPaymentAmount(this, mesNumero, ano, value);
+});
+
+Then('o recebimento de {int} meses no futuro deve ser atualizado para {string}', async function (this: any, meses: number, value: string) {
+  const { mesNumero, ano } = mesRelativo(meses);
+  await expectPaymentAmount(this, mesNumero, ano, value);
+});
+
+Given('existe um recebimento pendente para o mês que vem com valor de {string}', async function (this: any, value: string) {
+  const { mesNumero, ano } = mesRelativo(1);
+  await upsertMonthlyPayment(this, 'proximoMes', mesNumero, ano, 'Pendente', value);
 });
 
 // ⚠️ Regressão do bug real em produção (locação LEMOS APTO 06, 31/ago/2026,
@@ -520,9 +599,19 @@ When('NÃO preencho o valor da caução', async function() {
   await this.page.waitForTimeout(100);
 });
 
-When('tento salvar', async function() {
-  const saveButton = this.page.getByRole('button', { name: /salvar/i });
-  await saveButton.click();
+/**
+ * ⚠️ Corrigido em 16/set/2026: mesmo defeito já documentado em "não devo
+ * poder continuar" (14/set/2026) -- o botão de submit do formulário de
+ * Locação nunca se chama "Salvar" (é "Criar Locação"/"Atualizar Locação"),
+ * então `getByRole('button', {name: /salvar/i})` nunca encontrava nada.
+ * Sem `.catch()` em volta, o `.click()` ficava esperando o elemento
+ * aparecer até estourar o timeout do PRÓPRIO Cucumber (20s) -- por isso o
+ * erro real era só "function timed out", nunca um "elemento não encontrado"
+ * mais claro. Só a irmã ("não devo poder continuar") tinha sido corrigida;
+ * esta, que roda ANTES dela no mesmo cenário, tinha ficado pra trás.
+ */
+When('tento salvar', async function(this: import('../support/world').CustomWorld) {
+  await this.page.locator('#rental-form-submit').click();
   await this.page.waitForTimeout(500);
 });
 
@@ -1021,6 +1110,25 @@ Then('na aba {string} da página Financeiro devo ver:', async function(this: imp
       // seletor acima; "(vazio)" na tabela do Gherkin vira "-" na tela (não
       // vale a pena comparar um traço solto, ambíguo demais).
       if (campo === 'Parcela' || valor === '(vazio)') continue;
+
+      // ⚠️ Corrigido em 16/set/2026: a coluna "Valor" no Gherkin vem em
+      // formato de máquina ("2000.00"), mas a tela mostra moeda brasileira
+      // ("R$ 2.000,00") -- "2000.00" nunca é substring de "2.000,00", então
+      // todo cenário com Valor de 4+ dígitos falhava aqui mesmo estando
+      // certo. Campos de dinheiro comparam por número; o resto, por texto.
+      if (/valor/i.test(campo)) {
+        const esperadoNumero = parseFloat(valor.replace(/\./g, '').replace(',', '.'));
+        const textoDaLinha = (await linha.textContent()) || '';
+        const numerosNaLinha = [...textoDaLinha.matchAll(/-?[\d.]+,\d{2}/g)].map((m) =>
+          parseFloat(m[0].replace(/\./g, '').replace(',', '.'))
+        );
+        expect(
+          numerosNaLinha.some((n) => Math.abs(n - esperadoNumero) < 0.01),
+          `linha da parcela ${row.Parcela}: nenhum valor monetário da linha bate com R$ ${esperadoNumero.toFixed(2)} (linha tem: ${textoDaLinha})`
+        ).toBe(true);
+        continue;
+      }
+
       await expect(
         linha,
         `linha da parcela ${row.Parcela}: campo "${campo}" não bate com "${valor}"`
@@ -1105,12 +1213,29 @@ async function conferirParcelaDeCaucao(
   }
 }
 
+/**
+ * ⚠️ Corrigido em 16/set/2026 -- mesmo defeito já corrigido em
+ * payments.steps.ts em 13/set/2026 (issue #99), só que aqui ninguém tinha
+ * aplicado ainda: a tabela do Gherkin tem CABEÇALHO ("campo | valor"), mas
+ * `dataTable.rowsHash()` não pula cabeçalho nenhum -- trata a própria linha
+ * do cabeçalho como um par chave/valor, criando uma entrada fantasma
+ * `{ campo: "valor" }`. Isso fazia este passo falhar SEMPRE (não às vezes)
+ * com "campo está 'undefined', esperava 'valor'" -- nem chegava a comparar
+ * due_date/payment_date de verdade. `dataTable.hashes()` + reduzir por
+ * `campo`/`valor` respeita o cabeçalho corretamente.
+ */
+function paresCampoValor(dataTable: any): Record<string, string> {
+  return Object.fromEntries(
+    dataTable.hashes().map((row: any) => [row.campo, row.valor])
+  );
+}
+
 Then('no banco de dados a parcela {int} deve ter:', async function (this: any, installmentNumber: number, dataTable: any) {
-  await conferirParcelaDeCaucao(this, installmentNumber, dataTable.rowsHash());
+  await conferirParcelaDeCaucao(this, installmentNumber, paresCampoValor(dataTable));
 });
 
 Then('a parcela {int} deve ter:', async function (this: any, installmentNumber: number, dataTable: any) {
-  await conferirParcelaDeCaucao(this, installmentNumber, dataTable.rowsHash());
+  await conferirParcelaDeCaucao(this, installmentNumber, paresCampoValor(dataTable));
 });
 
 Then('no bloco {string} devo ver:', async function(blockName: string, dataTable: any) {

@@ -104,17 +104,26 @@ Funcionalidade: Regras de Negócio de Locações
       | 2/3     | 2000.00 | 01/09/2026      | (vazio)        | Pendente |
       | 3/3     | 2000.00 | 01/10/2026      | (vazio)        | Pendente |
 
-  # ✅ NOVO: Testa que 1ª parcela salva em due_date E payment_date
+  # ⚠️ Corrigido em 16/set/2026 (regra confirmada pelo Cadu):
   #
-  # ⚠️ Corrigido em 16/set/2026: faltavam "preencho o valor da caução" e o
-  # valor/vencimento da 2ª parcela. Sem eles, RentalFormDialog.tsx nem deixa
-  # salvar -- recusa com "Preencha o valor da 2ª parcela" (o botão Salvar
-  # nunca desabilita, só mostra o alerta e mantém o formulário aberto) -- e
-  # sem valor de caução preenchido (depositAmount = 0), o sistema nem tenta
-  # criar nenhuma parcela mesmo que o salvamento fosse adiante. Resultado
-  # real observado: 0 parcelas de caução para conferir.
+  # 1) Faltavam "preencho o valor da caução" e o valor/vencimento da 2ª
+  #    parcela. Sem eles, RentalFormDialog.tsx nem deixa salvar -- recusa com
+  #    "Preencha o valor da 2ª parcela" (o botão Salvar nunca desabilita, só
+  #    mostra o alerta e mantém o formulário aberto) -- e sem valor de
+  #    caução preenchido (depositAmount = 0), o sistema nem tenta criar
+  #    nenhuma parcela mesmo que o salvamento fosse adiante. Resultado real
+  #    observado: 0 parcelas de caução para conferir.
+  #
+  # 2) O cenário (e o código por trás dele) supunha que preencher a "Data
+  #    Pagamento *" da 1ª parcela já marcava ela como PAGA (payment_date
+  #    preenchido). O Cadu confirmou que está errado: nenhuma parcela nasce
+  #    paga -- a Data Pagamento normalmente é igual à Data Início do
+  #    contrato, mas é só o VENCIMENTO; a parcela fica pendente, como
+  #    qualquer outro recebimento, até alguém registrar o pagamento de
+  #    verdade na tela de Recebimento de Caução. Renomeado e corrigido para
+  #    refletir a regra real.
   @sistemaCompleto
-  Cenário: Criar locação - 1ª parcela de caução preenche ambas as datas
+  Cenário: Criar locação - Data Pagamento da 1ª parcela vira o vencimento, mas ela nasce pendente
     Quando clico no botão "Nova Locação"
     E preencho todos os campos obrigatórios
     E preencho o valor da caução com "3000.00"
@@ -129,7 +138,8 @@ Funcionalidade: Regras de Negócio de Locações
     Então no banco de dados a parcela 1 deve ter:
       | campo        | valor      |
       | due_date     | 15/08/2026 |
-      | payment_date | 15/08/2026 |
+      | payment_date | NULL       |
+      | status       | pending    |
     E a parcela 2 deve ter:
       | campo        | valor      |
       | due_date     | (preenchido)|
@@ -259,9 +269,17 @@ Funcionalidade: Regras de Negócio de Locações
   # mesmo sem mexer em mais nada -- os recebimentos são ressincronizados
   # com o valor novo. É a regra que o Cadu lembrava "mais ou menos"; agora
   # está confirmada no código e protegida por estes cenários.
+  # ⚠️ Corrigido em 16/set/2026: faltava a própria precondição -- o cenário
+  # nunca criava nenhum recebimento antes de editar a locação, e
+  # `DatabaseHelper.createRental` (usado por "existe uma locação ativa") não
+  # gera a tabela `payments` sozinho. Resultado real observado no CI:
+  # "a locação não tem nenhum recebimento pendente para conferir -- o
+  # cenário não provou nada". Adicionado um recebimento pendente futuro de
+  # verdade para o cenário ter o que conferir.
   @sistemaCompleto
   Cenário: Editar locação - Atualizar valor do aluguel
     Dado que existe uma locação ativa
+    E existe um recebimento pendente para o mês que vem com valor de "2500.00"
     Quando o valor do imóvel dessa locação muda para "2800.00"
     E edito a locação
     E salvo as alterações
@@ -305,19 +323,32 @@ Funcionalidade: Regras de Negócio de Locações
   # "Element is not an <input>...". Ajustado para o mesmo padrão correto
   # dos dois cenários irmãos: muda o valor no imóvel primeiro, depois abre
   # e salva a locação.
+  #
+  # ⚠️ REESCRITO em 16/set/2026 (regra confirmada pelo Cadu): usava meses
+  # fixos no calendário (Novembro/2025, Dezembro/2025, Março/2026) e um
+  # "edito a locação em 15/02/2026" que só servia pra dizer ao TESTE qual
+  # data considerar "hoje" -- o sistema de verdade nunca soube dessa data
+  # falsa (sempre usa a data real do relógio). Isso deu errado no CI de
+  # 16/set/2026: rodando em setembro/2026, março/2026 já é passado há
+  # meses, então o sistema (corretamente) NÃO atualizou aquele mês -- mas o
+  # cenário, escrito meses atrás, ainda esperava que fosse atualizado.
+  # Trocado por meses relativos ao dia em que o teste roda, pra nunca mais
+  # "vencer": 2 meses atrás (deve ficar como estava), mês atual e 2 meses no
+  # futuro (devem ganhar o valor novo) -- exatamente a regra do Cadu:
+  # "os recebimentos do mês presente e os futuros devem receber o valor
+  # atualizado", nunca os de meses passados.
   @sistemaCompleto
   Cenário: Editar locação - Não atualizar pagamentos passados pendentes
     Dado que existe uma locação ativa com aluguel de "2500.00"
-    E o pagamento de Novembro/2025 está "Pendente" com valor de "2500.00"
-    E o pagamento de Dezembro/2025 está "Pendente" com valor de "2500.00"
-    E o pagamento de Março/2026 está "Pendente" com valor de "2500.00"
+    E existe um recebimento pendente de 2 meses atrás com valor de "2500.00"
+    E existe um recebimento pendente do mês atual com valor de "2500.00"
+    E existe um recebimento pendente daqui a 2 meses com valor de "2500.00"
     Quando o valor do imóvel dessa locação muda para "2800.00"
-    E edito a locação em "15/02/2026"
+    E edito a locação
     E salvo as alterações
-    Então o pagamento de Novembro/2025 deve manter "2500.00"
-    E o pagamento de Dezembro/2025 deve manter "2500.00"
-    E o pagamento de Março/2026 deve ser atualizado para "2800.00"
-    E pagamentos futuros devem ter "2800.00"
+    Então o recebimento de 2 meses atrás deve manter "2500.00"
+    E o recebimento do mês atual deve ser atualizado para "2800.00"
+    E o recebimento de 2 meses no futuro deve ser atualizado para "2800.00"
 
   # ✅ NOVO (bug corrigido 21/ago/2026): quando a data de início é
   # corrigida DEPOIS que a parcela do mês já tinha sido criada, o valor

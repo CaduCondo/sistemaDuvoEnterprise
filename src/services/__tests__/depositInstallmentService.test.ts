@@ -164,7 +164,14 @@ describe("buildInitialDepositInstallments", () => {
     expect(installments[0]).toMatchObject({ installment_number: 1, total_installments: 1, amount: 1000 });
   });
 
-  test("1ª parcela com código PIX preenchido é criada já como paga", () => {
+  // ⚠️ Corrigido em 16/set/2026 (regra confirmada pelo Cadu): nenhuma
+  // parcela de caução nasce paga, nem quando um código PIX já vem
+  // preenchido na criação -- ela nasce pending igual a qualquer outro
+  // recebimento, e só vira "paid" quando alguém registra o recebimento de
+  // verdade depois, na tela de Recebimento de Caução. Antes esta função
+  // fazia o oposto (código PIX preenchido = já nasce "paid"); o teste
+  // antigo validava exatamente essa regra errada.
+  test("1ª parcela nasce pending mesmo com código PIX preenchido na criação", () => {
     const installments = buildInitialDepositInstallments({
       depositAmount: 1000,
       depositPaymentDate: "2026-09-01",
@@ -173,10 +180,11 @@ describe("buildInitialDepositInstallments", () => {
     });
 
     expect(installments[0]).toMatchObject({
-      status: "paid",
-      paid_amount: 1000,
-      payment_method: "pix",
-      payment_date: "2026-09-01",
+      status: "pending",
+      paid_amount: 0,
+      payment_method: null,
+      payment_date: null,
+      pix_code: "00020126...",
     });
   });
 

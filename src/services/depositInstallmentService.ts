@@ -195,21 +195,33 @@ export function buildInitialDepositInstallments(input: InitialDepositInstallment
   const installment1DueDate =
     input.depositInstallment1DueDate || input.depositPaymentDate || input.startDate;
   const installment1PixCode = input.depositInstallment1PixCode || input.depositPixCode || null;
-  const installment1PaymentDate =
-    input.depositInstallment1PaymentDate || input.depositPaymentDate || null;
-  const installment1Paid = !!installment1PixCode;
 
+  // ⚠️ REGRA CONFIRMADA PELO CADU EM 16/set/2026: nenhuma parcela de caução
+  // nasce paga -- nem a 1ª/à vista, mesmo que a "Data Pagamento *" (que é
+  // normalmente igual à Data Início do contrato, mas não uma regra fixa)
+  // já venha preenchida na criação da locação. Toda parcela nasce
+  // "pending", igual a qualquer outro recebimento; registrar que foi paga é
+  // uma ação separada, feita depois na tela de Recebimento de Caução --
+  // igual a qualquer outro recebimento do sistema.
+  //
+  // Antes, esta função marcava a 1ª parcela como já "paid" sempre que um
+  // código PIX vinha preenchido (`installment1Paid = !!installment1PixCode`).
+  // Na prática o formulário de criação de locação nem tem campo de código
+  // PIX -- então isso não disparava pela tela --, mas a lógica em si
+  // contrariava a regra: mesmo com um código PIX, a parcela deveria nascer
+  // pendente e só virar "paid" quando alguém de fato registrar o
+  // recebimento.
   const installments = [
     {
       installment_number: 1,
       total_installments: totalInstallments,
       amount: installment1Amount,
       due_date: installment1DueDate,
-      payment_date: installment1Paid ? installment1PaymentDate : null,
+      payment_date: null,
       pix_code: installment1PixCode,
-      status: installment1Paid ? ("paid" as const) : ("pending" as const),
-      paid_amount: installment1Paid ? installment1Amount : 0,
-      payment_method: installment1Paid ? "pix" : null,
+      status: "pending" as const,
+      paid_amount: 0,
+      payment_method: null,
     },
   ];
 

@@ -428,15 +428,23 @@ export async function syncPaymentsOnDateChange(
 
 /**
  * Ajusta o valor do aluguel de uma locação ativa e recalcula os recebimentos
- * ainda não pagos (pending ou overdue).
+ * ainda não pagos (pending ou overdue) do mês atual em diante.
  *
- * ✅ CORREÇÃO (pedido do Cadu): antes só atualizava recebimentos com
- * due_date >= hoje ("futuros"), deixando de fora o mês já vencido mas ainda
- * não pago. Na prática, quando o corretor demora pra registrar o reajuste,
- * o mês atual já está atrasado e ficava sem o aumento. Agora atualiza
- * QUALQUER recebimento pending/overdue da locação, seja o vencimento no
- * passado ou no futuro — só não mexe em pagamentos 'paid' ou 'partial'
- * (esses são histórico e nunca são alterados).
+ * ⚠️ REGRA CONFIRMADA PELO CADU EM 16/set/2026 (substitui a correção
+ * anterior de 27/ago/2026, que estava incompleta): reajustar o valor do
+ * aluguel deve atualizar os recebimentos do MÊS PRESENTE e os futuros --
+ * nunca meses passados, mesmo que ainda estejam pendentes/atrasados. Um
+ * recebimento de 2 meses atrás que nunca foi pago não deve ganhar o valor
+ * novo retroativamente; só o que vence a partir do 1º dia do mês corrente.
+ *
+ * A versão anterior (27/ago/2026) atualizava QUALQUER pending/overdue,
+ * inclusive de meses antigos -- resolvia o caso "reajuste atrasado, mês
+ * atual sem o aumento" mas ia longe demais, reescrevendo histórico de meses
+ * que já deviam ter ficado como estavam.
+ *
+ * O parâmetro `effectiveDate` nunca foi usado aqui (sempre chega com a data
+ * de hoje, de qualquer forma) -- o corte usado é sempre o 1º dia do mês
+ * corrente, não uma data efetiva escolhida por quem chama.
  */
 export async function adjustRentalValue(
   rentalId: string,
@@ -454,20 +462,26 @@ export async function adjustRentalValue(
 
   if (rentalError || !rental) throw new Error("Locação não encontrada");
 
+  const hoje = new Date();
+  const inicioDoMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+    .toISOString()
+    .split("T")[0];
+
   const { data: unpaidPayments, error: paymentsError } = await supabase
     .from("payments")
     .select("*")
     .eq("rental_id", rentalId)
     .in("status", ["pending", "overdue"])
+    .gte("due_date", inicioDoMesAtual)
     .order("due_date", { ascending: true });
 
   if (paymentsError) throw paymentsError;
   if (!unpaidPayments || unpaidPayments.length === 0) {
-    console.log("ℹ️ Nenhum pagamento pendente/atrasado para atualizar");
+    console.log("ℹ️ Nenhum pagamento pendente/atrasado do mês atual em diante para atualizar");
     return;
   }
 
-  console.log(`📊 ${unpaidPayments.length} pagamentos pendentes/atrasados serão atualizados`);
+  console.log(`📊 ${unpaidPayments.length} pagamento(s) do mês atual em diante serão atualizados`);
 
   const garageAmount = (rental.has_garage && rental.garage_value) ? rental.garage_value : 0;
   const totalNewValue = newValue + garageAmount;
@@ -498,9 +512,74 @@ export async function adjustRentalValue(
   console.log(`✅ ${unpaidPayments.length} pagamentos atualizados`);
 }
 
+/**
+ * Atualiza só o DIA de vencimento (o "dia de cobrança") dos recebimentos
+ * pending/overdue de uma locação, mantendo o mesmo mês/ano de referência de
+ * cada um -- usada quando o dia de vencimento muda SOZINHO, sem mexer em
+ * data início/fim do contrato.
+ *
+ * ⚠️ REGRA CONFIRMADA PELO CADU EM 16/set/2026: ao contrário do reajuste de
+ * valor (que só pega mês atual em diante), a troca do dia de vencimento
+ * vale para TODOS os recebimentos pendentes -- inclusive os de meses
+ * passados que ainda não foram pagos -- porque é a mesma cobrança, só muda
+ * o dia do mês em que ela vence. Nunca mexe em 'paid'/'partial' (histórico).
+ *
+ * Bug encontrado ao ler o código (16/set/2026): antes desta função existir,
+ * mudar SÓ o dia de vencimento (sem mexer em data início/fim nem em valor)
+ * não disparava nada -- nem `syncPaymentsOnDateChange` (só roda quando
+ * início/fim mudam) nem `adjustRentalValue` (só roda quando o valor muda).
+ * Resultado: a tela deixava editar o dia de vencimento, a edição "salvava",
+ * mas nenhum recebimento existente refletia o novo dia -- só os recebimentos
+ * criados depois disso é que nasciam certos.
+ */
+export async function syncPaymentDueDay(
+  rentalId: string,
+  newPaymentDay: number
+): Promise<void> {
+  console.log(`📅 [syncPaymentDueDay] Atualizando dia de vencimento para ${newPaymentDay}...`);
+
+  const { data: payments, error: fetchError } = await supabase
+    .from("payments")
+    .select("id, due_date, status")
+    .eq("rental_id", rentalId)
+    .in("status", ["pending", "overdue"]);
+
+  if (fetchError) throw fetchError;
+  if (!payments || payments.length === 0) {
+    console.log("ℹ️ Nenhum pagamento pendente/atrasado para atualizar o dia de vencimento");
+    return;
+  }
+
+  let atualizados = 0;
+  for (const payment of payments) {
+    const dataAtual = new Date(payment.due_date + "T00:00:00");
+    const diasNoMes = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
+    // Se o novo dia não existe naquele mês (ex.: dia 31 num mês de 30 dias),
+    // usa o último dia do mês -- mesma regra já usada no resto do sistema
+    // pra gerar vencimentos.
+    const novoDia = Math.min(newPaymentDay, diasNoMes);
+    const novaDataVencimento = new Date(dataAtual.getFullYear(), dataAtual.getMonth(), novoDia)
+      .toISOString()
+      .split("T")[0];
+
+    if (novaDataVencimento === payment.due_date) continue;
+
+    const { error: updateError } = await supabase
+      .from("payments")
+      .update({ due_date: novaDataVencimento })
+      .eq("id", payment.id);
+
+    if (updateError) throw updateError;
+    atualizados++;
+  }
+
+  console.log(`✅ [syncPaymentDueDay] ${atualizados} recebimento(s) com o dia de vencimento atualizado`);
+}
+
 export const rentalUpdateService = {
   syncPaymentsOnDateChange,
   adjustRentalValue,
+  syncPaymentDueDay,
 
   async updatePaymentsOnRentalEdit(
     rentalId: string, 
@@ -539,6 +618,20 @@ export const rentalUpdateService = {
       if (valueChanged && !startDateChanged && !endDateChanged) {
         const newRent = newChanges.monthlyRent ?? oldRental.monthlyRent;
         await adjustRentalValue(rentalId, oldRental.monthlyRent, newRent, new Date().toISOString().split('T')[0]);
+      }
+
+      // ⚠️ Bug corrigido em 16/set/2026 (regra confirmada pelo Cadu): quando
+      // SÓ o dia de vencimento muda (sem mexer em data início/fim), nada
+      // disparava antes -- syncPaymentsOnDateChange só roda com mudança de
+      // início/fim (e já cuida do dia de vencimento nesse caso, porque
+      // recalcula tudo do zero com o paymentDay novo), e adjustRentalValue só
+      // roda com mudança de valor. O dia de vencimento sozinho ficava sem
+      // nenhum efeito nos recebimentos já existentes.
+      const paymentDayChanged =
+        newChanges.paymentDay !== undefined && newChanges.paymentDay !== oldRental.paymentDay;
+
+      if (paymentDayChanged && !startDateChanged && !endDateChanged) {
+        await syncPaymentDueDay(rentalId, newChanges.paymentDay!);
       }
 
       console.log("✅ [rentalUpdateService] Concluído");

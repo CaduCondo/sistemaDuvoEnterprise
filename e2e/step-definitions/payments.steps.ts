@@ -624,14 +624,25 @@ Then('devo ver {int} recebimentos', async function(count: number) {
   await expect(payments).toHaveCount(count, { timeout: 5000 });
 });
 
+/**
+ * ⚠️ Corrigido em 16/set/2026 -- mesmo defeito de `rowsHash()` já corrigido
+ * em "todos os recebimentos exibidos devem ter:" (13/set/2026, issue #99) e
+ * em rentals.steps.ts (16/set/2026): a tabela do Gherkin tem cabeçalho
+ * ("campo | valor"), e `rowsHash()` trata essa própria linha como dado,
+ * criando a entrada fantasma `{ campo: "valor" }`. Como o loop aqui embaixo
+ * confere TODOS os valores do objeto (`Object.entries`), a palavra solta
+ * "valor" também entrava na lista de textos exigidos na linha -- e como
+ * nenhuma linha de recebimento tem literalmente a palavra "valor" escrita,
+ * esse passo falharia sempre que a tabela usasse cabeçalho.
+ */
 Then('o recebimento deve ter:', async function(dataTable: any) {
-  const expected = dataTable.rowsHash();
-  
+  const expected = dataTable.hashes().map((row: any) => row.valor);
+
   const firstPayment = this.page.locator('tbody tr').first();
   await expect(firstPayment).toBeVisible();
-  
-  for (const [field, value] of Object.entries(expected)) {
-    const text = await firstPayment.textContent();
+
+  const text = await firstPayment.textContent();
+  for (const value of expected) {
     expect(text).toContain(value);
   }
 });
