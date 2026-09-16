@@ -584,30 +584,47 @@ When('seleciono {string}', async function (this: import('../support/world').Cust
   await this.page.getByText(option).first().click();
 });
 
+/**
+ * ⚠️ Corrigido em 16/set/2026: os 6 ids usados aqui (`deposit-installment-1-amount`,
+ * `deposit-payment-date`, `deposit-installment-2-amount`, etc.) NUNCA
+ * existiram na tela -- conferido em RentalFormDialog.tsx, os campos reais são
+ * `#rental-deposit-amount`, `#rental-deposit-date`, `#depositInstallment2`,
+ * `#depositInstallment2PaymentDate`, `#depositInstallment3` e
+ * `#depositInstallment3PaymentDate`. Como o passo só preenche quando
+ * `input.isVisible()` dá certo (sem lançar erro quando não acha nada), esse
+ * passo era um no-op silencioso toda vez que era chamado -- nenhum dos
+ * cenários que usam "E preencho:" pra caução parcelada realmente preenchia a
+ * 2ª/3ª parcela. Isso não só deixava valores errados no banco como também
+ * bloqueava o próprio salvamento: RentalFormDialog.tsx recusa salvar com
+ * "Preencha o valor da 2ª/3ª parcela" quando esses campos ficam vazios --
+ * ou seja, "salvo a locação" nem chegava a criar a locação de verdade, e os
+ * passos seguintes acabavam checando uma locação antiga qualquer (a mais
+ * recente do banco), não a deste cenário.
+ */
 When('preencho:', async function(dataTable: any) {
   const rows = dataTable.hashes();
-  
+
   for (const row of rows) {
     const field = row.campo;
     const value = row.valor;
-    
+
     // Identificar o campo pelo label
     let inputId = '';
-    
+
     if (field.includes('1ª parcela - Valor')) {
-      inputId = 'deposit-installment-1-amount';
+      inputId = 'rental-deposit-amount';
     } else if (field.includes('1ª parcela - Data Pagamento')) {
-      inputId = 'deposit-payment-date';
+      inputId = 'rental-deposit-date';
     } else if (field.includes('2ª parcela - Valor')) {
-      inputId = 'deposit-installment-2-amount';
+      inputId = 'depositInstallment2';
     } else if (field.includes('2ª parcela - Data Vencimento')) {
-      inputId = 'deposit-installment-2-date';
+      inputId = 'depositInstallment2PaymentDate';
     } else if (field.includes('3ª parcela - Valor')) {
-      inputId = 'deposit-installment-3-amount';
+      inputId = 'depositInstallment3';
     } else if (field.includes('3ª parcela - Data Vencimento')) {
-      inputId = 'deposit-installment-3-date';
+      inputId = 'depositInstallment3PaymentDate';
     }
-    
+
     const input = this.page.locator(`#${inputId}`);
     if (await input.isVisible()) {
       if (value.includes('/')) {
@@ -966,25 +983,49 @@ Then('não devo poder continuar', async function (this: import('../support/world
   ).toBeVisible();
 });
 
-Then('na aba {string} da página Financeiro devo ver:', async function(tabName: string, dataTable: any) {
+/**
+ * ⚠️ Corrigido em 16/set/2026: buscava o texto da parcela (ex.: "1/3") solto
+ * na página inteira com `getByText` -- como o banco de DEV acumula meses de
+ * parcelas de caução de outras locações, "1/3" (e "2000.00", etc.) aparece em
+ * dezenas de linhas da tabela, e o Playwright recusa com "strict mode
+ * violation" (achou 38 elementos num teste real). Cada linha da tabela em
+ * DepositInstallmentsTable.tsx já tem os atributos `data-rental` e
+ * `data-installment` (colocados lá justamente pra servir de gancho de teste)
+ * -- agora usamos os dois pra escopar a checagem só na parcela desta locação
+ * específica, criada por este cenário (`this.rentalId`).
+ */
+Then('na aba {string} da página Financeiro devo ver:', async function(this: import('../support/world').CustomWorld, tabName: string, dataTable: any) {
   const rows = dataTable.hashes();
-  
+
   // Navegar para Financial
   await this.page.goto('/financial');
   await this.page.waitForLoadState('domcontentloaded');
-  
+
   // Clicar na aba
   const tab = this.page.getByRole('tab', { name: new RegExp(tabName, 'i') });
   await tab.click();
   await this.page.waitForTimeout(1000);
-  
-  // Verificar dados da tabela
+
   for (const row of rows) {
-    const parcelaText = this.page.getByText(row.Parcela);
-    await expect(parcelaText).toBeVisible();
-    
-    const valorText = this.page.getByText(row.Valor);
-    await expect(valorText).toBeVisible();
+    const numeroParcela = parseInt(String(row.Parcela).split('/')[0], 10);
+    const linha = this.page.locator(
+      `tr[data-rental="${this.rentalId}"][data-installment="${numeroParcela}"]`
+    );
+    await expect(
+      linha,
+      `não achei a linha da parcela ${row.Parcela} desta locação na aba "${tabName}"`
+    ).toBeVisible({ timeout: 10000 });
+
+    for (const [campo, valor] of Object.entries(row) as [string, string][]) {
+      // Parcela já foi conferida pelo próprio data-installment usado no
+      // seletor acima; "(vazio)" na tabela do Gherkin vira "-" na tela (não
+      // vale a pena comparar um traço solto, ambíguo demais).
+      if (campo === 'Parcela' || valor === '(vazio)') continue;
+      await expect(
+        linha,
+        `linha da parcela ${row.Parcela}: campo "${campo}" não bate com "${valor}"`
+      ).toContainText(valor);
+    }
   }
 });
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,6 +76,7 @@ import {
 
 // Types
 import { Location, CompanyConfig } from "@/types";
+import { hasPermission } from "@/lib/permissions";
 
 // New modular components
 import { UsersTab } from "@/components/settings/UsersTab";
@@ -97,6 +99,22 @@ export default function Settings() {
 
   const { user } = useAuth();
   const { showAlert } = useAlert();
+  const router = useRouter();
+
+  // Bug real encontrado em 16/set/2026 (achado pelo teste automático "Corretor
+  // NÃO pode acessar Configurações"): a permissão canViewSettings só era usada
+  // para esconder o item "Configurações" do menu lateral (Layout.tsx). Quem
+  // digitasse /settings direto na barra de endereço (ex.: um corretor) abria a
+  // tela inteira normalmente -- dados da empresa, taxas, multas, usuários --
+  // sem nenhum bloqueio de verdade. Esta checagem fecha essa brecha: assim que
+  // sabemos o perfil do usuário logado, se ele não tem canViewSettings, ele é
+  // mandado de volta pro dashboard antes de a tela carregar qualquer dado.
+  useEffect(() => {
+    if (!user) return;
+    if (!hasPermission(user.role, "canViewSettings")) {
+      router.replace("/dashboard");
+    }
+  }, [user, router]);
   const [activeTab, setActiveTab] = useState("company");
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -497,6 +515,12 @@ export default function Settings() {
 
     loadData();
   }, [user?.id]);
+
+  // Enquanto não sabemos o perfil (user ainda null) ou se ele não pode ver
+  // Configurações, não renderiza nada da tela -- só o redirecionamento acima.
+  if (!user || !hasPermission(user.role, "canViewSettings")) {
+    return null;
+  }
 
   return (
     <Layout>

@@ -105,13 +105,26 @@ Funcionalidade: Regras de Negócio de Locações
       | 3/3     | 2000.00 | 01/10/2026      | (vazio)        | Pendente |
 
   # ✅ NOVO: Testa que 1ª parcela salva em due_date E payment_date
+  #
+  # ⚠️ Corrigido em 16/set/2026: faltavam "preencho o valor da caução" e o
+  # valor/vencimento da 2ª parcela. Sem eles, RentalFormDialog.tsx nem deixa
+  # salvar -- recusa com "Preencha o valor da 2ª parcela" (o botão Salvar
+  # nunca desabilita, só mostra o alerta e mantém o formulário aberto) -- e
+  # sem valor de caução preenchido (depositAmount = 0), o sistema nem tenta
+  # criar nenhuma parcela mesmo que o salvamento fosse adiante. Resultado
+  # real observado: 0 parcelas de caução para conferir.
   @sistemaCompleto
   Cenário: Criar locação - 1ª parcela de caução preenche ambas as datas
     Quando clico no botão "Nova Locação"
     E preencho todos os campos obrigatórios
+    E preencho o valor da caução com "3000.00"
     E marco a opção "Parcelar caução"
     E seleciono "2 parcelas"
     E preencho a "Data Pagamento" da 1ª parcela com "15/08/2026"
+    E preencho:
+      | campo                        | valor      |
+      | 2ª parcela - Valor           | 1500.00    |
+      | 2ª parcela - Data Vencimento | 15/09/2026 |
     E salvo a locação
     Então no banco de dados a parcela 1 deve ter:
       | campo        | valor      |
