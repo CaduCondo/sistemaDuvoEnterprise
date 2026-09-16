@@ -454,16 +454,55 @@ When('visualizo o detalhamento do pagamento', async function() {
   await this.page.waitForTimeout(500);
 });
 
-When('visualizo o recibo do pagamento de Janeiro\\/2026', async function() {
-  // Procurar e clicar no pagamento de Janeiro
-  const janPayment = this.page.getByText(/janeiro.*2026/i);
-  await janPayment.click();
+/**
+ * ⚠️ Corrigido em 16/set/2026 (issue #99, confirmado pelo CI run
+ * 34928289217: "function timed out" -- estourava os 20s sem nunca achar
+ * o elemento). O passo procurava o texto "janeiro...2026" solto na tela
+ * ATUAL -- mas depois de "salvo as alterações" (edição de locação) quem
+ * fica aberta é a lista de /rentals, onde esse texto nunca aparece; o
+ * recibo em si vive na aba "Recebimentos Pagos" de /payments. Corrigido
+ * pra navegar até lá, abrir a aba certa, achar a linha do pagamento de
+ * Janeiro/2026 especificamente, e clicar no botão de recibo DELA (não o
+ * primeiro da tela, que poderia ser de outra locação).
+ */
+When('visualizo o recibo do pagamento de Janeiro\\/2026', async function (this: import('../support/world').CustomWorld) {
+  await this.page.goto('/payments');
+  await this.page.waitForLoadState('domcontentloaded');
+  await this.page.locator('#payments-tab-paid').click();
+  await this.page.waitForTimeout(500);
+
+  const linha = this.page.locator('tbody tr').filter({ hasText: /janeiro/i }).filter({ hasText: '2026' }).first();
+  await expect(linha, 'não achei a linha do pagamento de Janeiro/2026 na aba "Recebimentos Pagos"').toBeVisible({ timeout: 10000 });
+
+  await linha.locator('[title^="Recibo"]').first().click();
   await this.page.waitForTimeout(500);
 });
 
-When('visualizo um pagamento futuro', async function() {
-  // Clicar em um pagamento com data futura
-  await this.page.waitForTimeout(300);
+/**
+ * ⚠️ Corrigido em 16/set/2026 (issue #99, cluster "Editar locação"): era
+ * um STUB puro (só um waitForTimeout, não abria pagamento nenhum) --
+ * o cenário "Preservar snapshot em pagamentos pagos" comparava o recibo
+ * de Janeiro (já aberto pelo passo anterior) contra... o MESMO recibo
+ * ainda na tela, nunca contra um pagamento futuro de verdade. Agora
+ * fecha o recibo de Janeiro e abre o primeiro pagamento pendente/futuro
+ * da locação (clicar na linha, não só no botão de recibo, também abre o
+ * preview -- ver handlePaymentClick em payments.tsx).
+ */
+When('visualizo um pagamento futuro', async function (this: import('../support/world').CustomWorld) {
+  await this.page.getByRole('dialog').getByRole('button', { name: /fechar/i }).click();
+  await this.page.waitForTimeout(500);
+
+  await this.page.locator('#payments-tab-pending').click();
+  await this.page.waitForTimeout(500);
+
+  const linhaFutura = this.page.locator('tbody tr').first();
+  await expect(linhaFutura, 'não há nenhum pagamento pendente/futuro para visualizar').toBeVisible({ timeout: 10000 });
+  await linhaFutura.click();
+
+  await expect(
+    this.page.locator('#receipt-content'),
+    'o recibo/preview do pagamento futuro não abriu'
+  ).toBeVisible({ timeout: 10000 });
 });
 
 // ==================== FILTROS ====================
