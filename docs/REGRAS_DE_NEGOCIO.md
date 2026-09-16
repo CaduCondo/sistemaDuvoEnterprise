@@ -674,14 +674,24 @@ Gerenciar cadastro completo de imóveis disponíveis para locação.
 #### 2. Upload de Imagens
 
 **2.1 Formatos Aceitos**
-- JPG, JPEG, PNG, WEBP
-- Tamanho máximo: 5MB por imagem
-- Máximo de 10 imagens por imóvel
+- JPG, JPEG, PNG, WEBP, GIF (na prática, qualquer tipo de arquivo é aceito,
+  exceto extensões que podem executar código — ver validação de anexos)
+- Tamanho máximo: 8MB por foto
 
-**2.2 Armazenamento**
-- Pasta: `public/uploads/`
-- Nome do arquivo: `image_[uuid].[extensão]`
-- Primeira imagem = imagem principal (thumbnail)
+**2.2 Armazenamento (corrigido em 16/set/2026 — bug grave de produção)**
+- As fotos sobem para o Supabase Storage (bucket `uploads`, pasta
+  `property-images/`) — nunca mais para o disco do servidor nem para o
+  banco de dados.
+- **Histórico do bug:** até 16/set/2026, a tela lia cada foto no
+  navegador e gravava o arquivo inteiro (texto base64) direto na coluna
+  `images` do imóvel no banco. Um imóvel com várias fotos de celular
+  passava fácil de dezenas de MB nessa única coluna — e ao salvar
+  QUALQUER edição desse imóvel (mesmo só a descrição), o banco tentava
+  regravar a coluna inteira e travava por demorar demais ("canceling
+  statement due to statement timeout"), com erro 500 na tela. Corrigido
+  usando o mesmo mecanismo de upload já usado em anexos de Locação e
+  Recebimentos.
+- Primeira imagem = imagem principal (thumbnail/capa do anúncio).
 
 **2.3 Visualização**
 - Lightbox para visualizar imagens em tela cheia
