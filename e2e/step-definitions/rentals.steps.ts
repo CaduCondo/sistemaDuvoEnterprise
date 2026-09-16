@@ -110,7 +110,25 @@ Given('que existe uma locação ativa com aluguel de {string}', async function (
   await criarLocacaoAtivaDeTeste(this, aluguel);
 });
 
-Given('o dia de vencimento é {string}', async function(paymentDay: string) {
+/**
+ * ⚠️ Corrigido em 16/set/2026 (issue #99, confirmado pelo CI run
+ * 34928289217, cenário "Editar locação - Corrigir data de início
+ * recalcula parcela já criada"): este passo só guardava o valor em
+ * `this.testData` -- nunca escrevia no banco. A locação continuava com
+ * o dia de vencimento padrão (10, fixado em `criarLocacaoAtivaDeTeste`),
+ * nunca o "20" que o cenário declarava. Resultado: ao mudar a data de
+ * início pra 18/06 esperando uma parcela proporcional em JUNHO (porque
+ * 18 < 20), o sistema calculava certinho com base no dia de vencimento
+ * REAL (10) -- e como 18 > 10, a conta dava uma parcela em JULHO, não
+ * em junho. A parcela de junho criada no preparo ficava "sobrando" e
+ * era apagada pela sincronização -- por isso o passo seguinte não
+ * achava nenhum recebimento de referência 06/2026 (erro real:
+ * "Received: undefined"). Corrigido para gravar de verdade no banco.
+ */
+Given('o dia de vencimento é {string}', async function (this: import('../support/world').CustomWorld, paymentDay: string) {
+  expect(this.rentalId, 'nenhuma locação foi criada ainda (this.rentalId vazio)').toBeTruthy();
+  await this.updateRental(this.rentalId!, { rent_due_day: parseInt(paymentDay, 10) });
+
   this.testData = {
     ...this.testData,
     rental: { ...this.testData?.rental, paymentDay }
