@@ -1,3 +1,4 @@
+import path from 'path';
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import { CustomWorld } from '../support/world';
@@ -344,6 +345,46 @@ When('preencho todos os campos obrigatórios:', async function (this: CustomWorl
     }
   }
 });
+
+/**
+ * Cobertura nova do bug de produção de 16/set/2026 (foto de imóvel gravada
+ * em base64 direto no banco, em vez de subir pro Supabase Storage --
+ * ver src/pages/properties.tsx, handleImageUpload). Usa o fixture
+ * e2e/fixtures/foto-teste.png (PNG mínimo, 1x1 pixel, válido).
+ *
+ * O upload agora é assíncrono (sobe pro Storage antes de liberar o
+ * formulário) -- por isso espera o botão de salvar voltar a ficar
+ * habilitado (ele fica em "Salvando..." desabilitado enquanto a foto sobe)
+ * antes de seguir para o próximo passo.
+ */
+When('envio a foto {string} do imóvel', async function (this: CustomWorld, fileName: string) {
+  const caminho = path.join(__dirname, '..', 'fixtures', fileName);
+  await this.page.locator('#photo-upload').setInputFiles(caminho);
+  await expect(this.page.locator('#property-form-submit')).toBeEnabled({ timeout: 15000 });
+});
+
+Then(
+  'no banco de dados a foto do imóvel deve estar salva no Storage, não em base64',
+  async function (this: CustomWorld) {
+    const identifier = this.testData.propertyIdentifier;
+    const property = await this.findPropertyByIdentifier(identifier);
+    expect(property, `Imóvel "${identifier}" não encontrado no banco.`).toBeTruthy();
+
+    const imagens: string[] = property.images || [];
+    expect(imagens.length, 'O imóvel deveria ter pelo menos uma foto salva.').toBeGreaterThan(0);
+
+    for (const imagem of imagens) {
+      expect(
+        imagem.startsWith('data:image'),
+        `Encontrada foto em base64 direto no banco (regressão do bug de 16/set/2026): ${imagem.slice(0, 40)}...`
+      ).toBe(false);
+    }
+    expect(
+      imagens.some((img) => img.includes('/storage/v1/object/public/')),
+      'Nenhuma foto do imóvel aponta para o Supabase Storage.'
+    ).toBe(true);
+  }
+);
 
 Then('o imóvel deve aparecer na lista', async function (this: CustomWorld) {
   await this.page.waitForTimeout(500);

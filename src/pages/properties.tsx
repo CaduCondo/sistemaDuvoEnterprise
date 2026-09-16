@@ -17,6 +17,7 @@ import { PropertyDeleteAlert } from "@/components/properties/PropertyDeleteAlert
 import { Badge } from "@/components/ui/badge";
 import { useAlert } from "@/contexts/AlertContext";
 import { propertyService } from "@/services";
+import { uploadAttachment } from "@/lib/uploadAttachment";
 import { HelpDialog } from "@/components/HelpDialog";
 import {
   AlertDialog,
@@ -88,6 +89,7 @@ export default function PropertiesPage() {
 
   const { showAlert } = useAlert();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -145,29 +147,54 @@ export default function PropertiesPage() {
     setFormData(prev => ({ ...prev, [field]: numbersOnly }));
   }, []);
 
-  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * ⚠️ Corrigido em 16/set/2026 -- BUG GRAVE em produção (relatado pelo
+   * Cadu: erro "canceling statement due to statement timeout" + HTTP 500
+   * ao salvar a edição de um imóvel com várias fotos).
+   *
+   * Antes, cada foto era lida com `FileReader.readAsDataURL` e o texto
+   * base64 (o arquivo inteiro, ~33% maior codificado em texto) ia direto
+   * pro array `images`, que por sua vez é gravado LITERALMENTE na coluna
+   * `images` da tabela `properties` (ver propertyService.update -- é um
+   * `.update({images: propertyData.images})` simples, sem nenhum upload de
+   * verdade envolvido). Um imóvel com muitas fotos de celular passava fácil
+   * de dezenas de MB nessa coluna -- e ao salvar QUALQUER edição desse
+   * imóvel (mesmo mudando só a descrição), o banco tentava regravar a
+   * coluna inteira de novo e estourava o tempo limite do Postgres.
+   *
+   * Agora cada foto sobe pro Supabase Storage (mesmo caminho já usado pelos
+   * anexos de Locação/Recebimento -- issue #74, `uploadAttachment`), e só a
+   * URL pública (uma linha de texto curta) entra no array `images`.
+   */
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
-    const newImages: string[] = [];
     const fileArray = Array.from(files);
-    
-    fileArray.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result) {
-          newImages.push(reader.result as string);
-          if (newImages.length === fileArray.length) {
-            setFormData(prev => ({
-              ...prev,
-              images: [...prev.images, ...newImages],
-            }));
-          }
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  }, []);
+    // Limpa o input já aqui para poder escolher os mesmos arquivos de novo
+    // depois, caso o upload falhe e a pessoa tente outra vez.
+    e.target.value = "";
+
+    setIsUploadingImages(true);
+    try {
+      const urls = await Promise.all(
+        fileArray.map((file) => uploadAttachment(file, "property-images"))
+      );
+
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, ...urls],
+      }));
+    } catch (erro) {
+      showAlert({
+        title: "Erro ao enviar foto",
+        description: erro instanceof Error ? erro.message : "Não foi possível enviar uma ou mais fotos. Tente novamente.",
+        type: "error",
+      });
+    } finally {
+      setIsUploadingImages(false);
+    }
+  }, [showAlert]);
 
   const removeImage = useCallback((index: number) => {
     setFormData(prev => ({
@@ -507,7 +534,7 @@ export default function PropertiesPage() {
           handleNumberChange={handleNumberChange}
           handleImageUpload={handleImageUpload}
           removeImage={removeImage}
-          isSubmitting={isSubmitting}
+          isSubmitting={isSubmitting || isUploadingImages}
           viewOnly={isViewMode}
           onEdit={handleEnableEdit}
         />

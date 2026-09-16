@@ -108,6 +108,22 @@ Funcionalidade: CRUD de Imóveis
     Então devo ver a mensagem de sucesso
     E o valor deve estar atualizado na lista
 
+  # Cobertura nova para o bug GRAVE de produção de 16/set/2026: até então,
+  # nenhum cenário automatizado simulava o envio de uma foto de verdade
+  # (Playwright `setInputFiles`) -- por isso a tela conseguiu, por meses,
+  # gravar a foto inteira em base64 direto na coluna `images` (em vez de
+  # subir pro Supabase Storage) sem que nenhum teste acusasse nada. Isso
+  # travava o salvamento de imóveis com muitas fotos ("canceling statement
+  # due to statement timeout"). Ver issue do bug para o relato completo.
+  @sistemaCompleto
+  Cenário: Editar imóvel - Foto enviada vai para o Storage, não para o banco como base64
+    Dado que existe um imóvel "IMO-001"
+    Quando clico no botão de editar do imóvel "IMO-001"
+    E envio a foto "foto-teste.png" do imóvel
+    E clico em "Salvar"
+    Então devo ver a mensagem de sucesso
+    E no banco de dados a foto do imóvel deve estar salva no Storage, não em base64
+
   @sistemaCompleto
   Cenário: Deletar imóvel - Cancelar
     Dado que existe um imóvel "IMO-001"

@@ -17,7 +17,8 @@ import { validateAttachmentFile } from "@/lib/attachmentValidation";
 export type AttachmentFolder =
   | "rental-attachments"
   | "payment-attachments"
-  | "deposit-attachments";
+  | "deposit-attachments"
+  | "property-images";
 
 export async function uploadAttachment(
   file: File,

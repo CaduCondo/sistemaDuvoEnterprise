@@ -5,7 +5,18 @@ import { validateAttachmentMeta } from "@/lib/attachmentValidation";
 
 /**
  * Autoriza o upload de um anexo (Locação, Recebimento de Aluguel,
- * Recebimento de Caução) -- issue #74.
+ * Recebimento de Caução, Fotos de Imóvel) -- issue #74.
+ *
+ * ⚠️ "property-images" adicionado em 16/set/2026 (bug GRAVE em produção):
+ * até então, as fotos de imóvel NUNCA passavam por aqui nem pelo Storage --
+ * a tela de Imóveis lia cada foto com `FileReader.readAsDataURL` e
+ * gravava o texto base64 (o arquivo inteiro, ~33% maior codificado) DIRETO
+ * na coluna `images` da tabela `properties`. Um imóvel com várias fotos de
+ * celular passava fácil de dezenas de MB nessa única coluna -- e ao SALVAR
+ * qualquer edição desse imóvel (mesmo mudando só a descrição), o UPDATE
+ * reenviava a coluna inteira de novo, estourando o tempo limite do
+ * Postgres ("canceling statement due to statement timeout") e travando o
+ * salvamento com erro 500. Ver issue do bug para o relato completo.
  *
  * POR QUE ISTO EXISTE
  *
@@ -43,13 +54,14 @@ const BUCKET = "uploads";
 /**
  * Uma pasta por tela que sobe anexo hoje -- mesma organização que já
  * existia quando o upload era feito direto do navegador. Limitar a essas
- * três evita que a rota vire um jeito de escrever em qualquer caminho do
+ * quatro evita que a rota vire um jeito de escrever em qualquer caminho do
  * bucket.
  */
 const PASTAS_PERMITIDAS = [
   "rental-attachments",
   "payment-attachments",
   "deposit-attachments",
+  "property-images",
 ] as const;
 type PastaPermitida = (typeof PASTAS_PERMITIDAS)[number];
 
