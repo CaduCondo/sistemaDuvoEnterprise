@@ -364,7 +364,26 @@ export default function Settings() {
 
   const handleLocationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // ⚠️ Corrigido em 16/set/2026: nem a tela nem o banco impediam cadastrar
+    // dois Locais com o MESMO nome -- o Cadu encontrou vários duplicados
+    // (ex.: "ACÁCIAS" 4x) que atrapalham na hora de escolher o Local certo
+    // em Permissões e Isenção de Taxa Admin. Bloqueia aqui (nome repetido,
+    // ignorando maiúsculas/espaços nas pontas), sem impedir editar o próprio
+    // local mantendo o nome que já tinha.
+    const nomeNormalizado = locationForm.name.trim().toLowerCase();
+    const jaExiste = locations.some(
+      (loc) => loc.name.trim().toLowerCase() === nomeNormalizado && loc.id !== editingLocation?.id
+    );
+    if (jaExiste) {
+      showAlert({
+        title: "Local já existe",
+        description: `Já existe um Local chamado "${locationForm.name.trim()}". Use um nome diferente ou edite o local existente.`,
+        type: "error",
+      });
+      return;
+    }
+
     try {
       if (editingLocation) {
         await locationService.updateLocation(editingLocation.id, locationForm);

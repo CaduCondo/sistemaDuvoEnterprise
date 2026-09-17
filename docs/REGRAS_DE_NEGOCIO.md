@@ -592,6 +592,17 @@ Gerenciar cadastro de locais/endereços onde os imóveis estão localizados.
 - Endereço completo é obrigatório
 - CEP com máscara automática (00000-000)
 
+> ⚠️ **Corrigido em 16/set/2026**: até essa data, a exigência de nome único
+> nunca foi implementada de verdade (nem na tela, nem no banco) -- o Cadu
+> encontrou vários Locais duplicados em produção/DEV (ex.: "ACÁCIAS"
+> cadastrado 4 vezes) enquanto configurava permissões por Local, e isso
+> confunde na hora de escolher o Local certo em Permissões e Isenção de
+> Taxa Admin. A tela agora bloqueia cadastrar/editar um Local com o mesmo
+> nome de outro já existente (comparação ignora maiúsculas e espaços nas
+> pontas). Os duplicados que já existiam no banco continuam lá -- a
+> limpeza deles é manual, feita direto no Supabase, revisando cada caso
+> antes de apagar (nunca automática).
+
 **Edição**:
 - Todos os campos são editáveis
 - Nome deve permanecer único
