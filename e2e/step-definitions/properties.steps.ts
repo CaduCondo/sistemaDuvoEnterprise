@@ -130,19 +130,19 @@ Then('devo ver apenas imóveis que contenham {string} no endereço ou localizaç
  * mesmo que o filtro fosse aparecer 1 segundo depois. Agora tenta de novo
  * por até 10s, igual ao "seleciono o status".
  */
-When('seleciono a localização {string}', async function (this: CustomWorld, locationName: string) {
+async function selecionarLocalizacao(world: CustomWorld, locationName: string) {
   const candidatos = ['#property-filters-location-desktop', '#property-filters-location-mobile'];
   const deadline = Date.now() + 10000;
   let select;
   while (Date.now() < deadline && !select) {
     for (const seletor of candidatos) {
-      const candidato = this.page.locator(seletor);
+      const candidato = world.page.locator(seletor);
       if (await candidato.isVisible().catch(() => false)) {
         select = candidato;
         break;
       }
     }
-    if (!select) await this.page.waitForTimeout(300);
+    if (!select) await world.page.waitForTimeout(300);
   }
   if (!select) throw new Error('Nenhum filtro de localização visível na página atual (esperei 10s)');
 
@@ -154,13 +154,70 @@ When('seleciono a localização {string}', async function (this: CustomWorld, lo
   // mais de uma localização com esse nome na lista do Popover, o Playwright
   // recusa agir por ambiguidade ("strict mode violation") em vez de
   // escolher uma -- travando este passo em qualquer tela que dependa dele.
-  await this.page.getByText(new RegExp(`^${locationName}$`, 'i')).first().click();
-  await this.page.keyboard.press('Escape');
-  await this.page.waitForTimeout(500);
+  await world.page.getByText(new RegExp(`^${locationName}$`, 'i')).first().click();
+  await world.page.keyboard.press('Escape');
+  await world.page.waitForTimeout(500);
+}
+
+When('seleciono a localização {string}', async function (this: CustomWorld, locationName: string) {
+  await selecionarLocalizacao(this, locationName);
+});
+
+/**
+ * ⚠️ Criado em 17/set/2026 (issue #99, CI run #76): o cenário "Filtrar
+ * imóveis por localização" filtrava por "São Paulo - Centro" -- um Local
+ * que o teste NÃO cria, sobra de massa antiga. Depois da faxina do banco de
+ * DEV, ou o Local não existe mais, ou não tem nenhum imóvel dentro dele, e
+ * o filtro devolvia a tabela vazia ("locator(table tbody tr).first() not
+ * visible"). Contraria a regra do Cadu registrada na issue #96: a
+ * automação cria a própria massa, nunca depende de dado real. Agora o
+ * cenário cria o Local e o imóvel dele.
+ */
+Given('que existe um imóvel nesse local', async function (this: CustomWorld) {
+  const locationId = this.testData.idLocalCriado;
+  if (!locationId) {
+    throw new Error('Nenhum local foi criado antes deste passo (testData.idLocalCriado vazio).');
+  }
+  const identificador = `FILTRO-${Date.now()}`;
+  const property = await this.createProperty({
+    location_id: locationId,
+    property_identifier: identificador,
+    status: 'available',
+  });
+  this.propertyId = property.id;
+  this.testData.propertyIdentifier = identificador;
+});
+
+When('seleciono a localização criada pelo cenário', async function (this: CustomWorld) {
+  const nome = this.testData.nomeLocalCriado;
+  if (!nome) {
+    throw new Error('Nenhum local foi criado antes deste passo (testData.nomeLocalCriado vazio).');
+  }
+  // O Contexto já abriu /properties ANTES de o Local e o imóvel existirem --
+  // precisa recarregar para a tela enxergar o que foi criado no banco.
+  await this.page.goto('/properties');
+  await this.page.waitForLoadState('domcontentloaded');
+  await selecionarLocalizacao(this, nome);
 });
 
 Then('devo ver apenas imóveis desta localização', async function (this: CustomWorld) {
-  await expect(this.page.locator('table tbody tr').first()).toBeVisible({ timeout: 5000 });
+  const nome = this.testData.nomeLocalCriado;
+  const linhas = this.page.locator('table tbody tr');
+  await expect(
+    linhas.first(),
+    `a lista ficou vazia depois de filtrar pela localização "${nome}"`
+  ).toBeVisible({ timeout: 10000 });
+
+  // ⚠️ A checagem antiga só conferia que existia ALGUMA linha -- passava até
+  // se o filtro não tivesse filtrado nada. Agora confere que toda linha
+  // visível é mesmo da localização escolhida (a 1ª coluna da tabela é "Local").
+  const total = await linhas.count();
+  for (let i = 0; i < total; i++) {
+    await expect(
+      linhas.nth(i),
+      `a linha ${i + 1} não é da localização filtrada`
+    ).toContainText(nome!);
+  }
 });
 
 /**

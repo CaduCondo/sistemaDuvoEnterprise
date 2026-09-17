@@ -39,9 +39,16 @@ Funcionalidade: CRUD de Imóveis
     Quando preencho o campo de busca com "Centro"
     Então devo ver apenas imóveis que contenham "Centro" no endereço ou localização
 
+  # ⚠️ Reescrito em 17/set/2026 (issue #99, CI run #76): filtrava por
+  # "São Paulo - Centro", um Local que o teste não cria -- sobra de massa
+  # antiga. Depois da faxina do banco de DEV a tabela vinha vazia e o
+  # cenário quebrava. Agora cria o próprio Local e o próprio imóvel, como
+  # manda a regra da issue #96.
   @sistemaCompleto
   Cenário: Filtrar imóveis por localização
-    Quando seleciono a localização "São Paulo - Centro"
+    Dado que existe um local "Local do Filtro"
+    E que existe um imóvel nesse local
+    Quando seleciono a localização criada pelo cenário
     Então devo ver apenas imóveis desta localização
 
   @sistemaCompleto
