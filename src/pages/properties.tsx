@@ -522,7 +522,10 @@ export default function PropertiesPage() {
                     // automatizados não tinham como achar um imóvel específico
                     // sem forçar a troca pra grade primeiro.
                     getRowAttributes={(property) => ({
-                      'data-property-identifier': property.property_identifier,
+                      // Campo correto é `propertyIdentifier` (camelCase) -- ver
+                      // o comentário em PropertyCard.tsx: `property_identifier`
+                      // nunca é preenchido pelo mapeamento.
+                      'data-property-identifier': property.propertyIdentifier,
                     })}
                     emptyMessage="Nenhum imóvel encontrado com os filtros aplicados."
                   />

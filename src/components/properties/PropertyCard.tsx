@@ -61,7 +61,16 @@ export const PropertyCard = memo(function PropertyCard({
       // específico -- ele tentava achar uma linha de tabela que só existe na
       // outra visão.
       id={`property-card-${property.id}`}
-      data-property-identifier={property.property_identifier}
+      // ⚠️ Corrigido em 17/set/2026 (issue #99, causa raiz do cluster
+      // "Imóveis"): aqui estava `property.property_identifier`, que NUNCA é
+      // preenchido -- o mapeamento do propertyService só gera
+      // `propertyIdentifier` (camelCase); `property_identifier` existe no
+      // tipo apenas como campo opcional de compatibilidade, e por isso o
+      // TypeScript não acusou nada. Resultado: o atributo saía vazio desde
+      // que foi criado (08/set), e os testes nunca achavam o imóvel -- foi
+      // o que fez as três tentativas anteriores de "forçar a visão em
+      // grade" não resolverem nada, porque o problema nunca esteve na visão.
+      data-property-identifier={property.propertyIdentifier}
       className="card-hover-effect touch-target-card border shadow-sm hover:shadow-md transition-shadow w-full"
       onClick={() => onCardClick(property)}
     >
