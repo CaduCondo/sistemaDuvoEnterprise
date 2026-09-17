@@ -58,6 +58,18 @@
  * também) -- o script imprime, antes de mexer em qualquer coisa, qual
  * ambiente detectou (comparando com supabase-environments.json) para
  * evitar o erro de 21/ago/2026 (apontar para o banco errado sem perceber).
+ *
+ * ⚠️ Corrigido em 16/set/2026 (relato do Cadu: rodando em produção, deu
+ * "canceling statement due to statement timeout" -- o MESMO erro do bug
+ * original, só que agora ao BUSCAR os imóveis, não ao salvar). Causa: a
+ * 1ª versão deste script buscava `images` de TODOS os imóveis numa única
+ * consulta -- e o total encontrado em produção passava de 130MB. Puxar
+ * isso tudo de uma vez também pode estourar o tempo limite do banco,
+ * exatamente como acontecia ao salvar. Corrigido para buscar primeiro só
+ * a lista de ids (consulta pequena, sem risco) e depois buscar o `images`
+ * de CADA imóvel separadamente, um de cada vez -- se algum imóvel em
+ * particular ainda assim der timeout, o script avisa e pula ele, sem
+ * travar a migração dos outros.
  */
 
 const { createClient } = require("@supabase/supabase-js");
@@ -88,6 +100,37 @@ function tamanhoEmKB(str) {
 function nomeUnico(extensao) {
   const aleatorio = Math.random().toString(36).slice(2, 9);
   return `${Date.now()}_${aleatorio}.${extensao}`;
+}
+
+function esperar(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Busca o `images` de UM imóvel por vez (nunca de todos juntos -- é
+ * exatamente essa consulta em lote que estourava o statement_timeout,
+ * ver comentário no topo do arquivo). Tenta de novo em caso de timeout
+ * pontual (o Supabase às vezes engasga sem motivo aparente) antes de
+ * desistir e pular esse imóvel.
+ */
+async function buscarImagensComRetry(supabase, propertyId, tentativas = 3) {
+  for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+    const { data, error } = await supabase
+      .from("properties")
+      .select("images")
+      .eq("id", propertyId)
+      .single();
+
+    if (!error) return { data, error: null };
+
+    const éTimeout = /timeout/i.test(error.message || "");
+    if (éTimeout && tentativa < tentativas) {
+      console.warn(`   ⏳ timeout buscando esse imóvel (tentativa ${tentativa}/${tentativas}), tentando de novo...`);
+      await esperar(1500);
+      continue;
+    }
+    return { data: null, error };
+  }
 }
 
 /** "data:image/jpeg;base64,/9j/4AAQ..." -> { mime: "image/jpeg", extensao: "jpg", buffer } */
@@ -122,32 +165,47 @@ async function main() {
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+  // Consulta LEVE -- só os ids e o nome pra exibir, sem a coluna `images`.
+  // Isso nunca deve dar timeout, mesmo com o banco cheio de fotos grandes.
   const { data: properties, error } = await supabase
     .from("properties")
-    .select("id, property_identifier, complement, images");
+    .select("id, property_identifier, complement");
 
   if (error) {
-    console.error("[migrar-fotos] Erro ao buscar imóveis:", error.message);
+    console.error("[migrar-fotos] Erro ao buscar a lista de imóveis:", error.message);
     process.exit(1);
   }
 
-  const comBase64 = (properties || []).filter(
-    (p) => Array.isArray(p.images) && p.images.some((img) => typeof img === "string" && img.startsWith("data:image"))
-  );
-
-  console.log(`[migrar-fotos] ${properties.length} imóveis no total, ${comBase64.length} com foto(s) em base64.\n`);
-
-  if (comBase64.length === 0) {
-    console.log("[migrar-fotos] Nada para migrar. ✅");
-    return;
-  }
+  console.log(`[migrar-fotos] ${properties.length} imóveis no total. Verificando as fotos de cada um...\n`);
 
   let totalAntesKB = 0;
   let totalDepoisKB = 0;
   let falhas = 0;
+  let comBase64Count = 0;
+  let puladosPorErro = 0;
 
-  for (const property of comBase64) {
-    const identificador = `${property.property_identifier || property.id} (${property.complement || "sem complemento"})`;
+  for (const propertyBasico of properties) {
+    const identificador = `${propertyBasico.property_identifier || propertyBasico.id} (${propertyBasico.complement || "sem complemento"})`;
+
+    // Busca o `images` DESSE imóvel, sozinho -- nunca junto com os outros
+    // (ver buscarImagensComRetry acima).
+    const { data: imagensRow, error: erroImagens } = await buscarImagensComRetry(supabase, propertyBasico.id);
+
+    if (erroImagens) {
+      console.error(`   ❌ ${identificador}: não consegui buscar as fotos (${erroImagens.message}) -- pulando esse imóvel.`);
+      puladosPorErro++;
+      falhas++;
+      continue;
+    }
+
+    const property = { ...propertyBasico, images: imagensRow?.images };
+
+    const temBase64 =
+      Array.isArray(property.images) && property.images.some((img) => typeof img === "string" && img.startsWith("data:image"));
+
+    if (!temBase64) continue;
+
+    comBase64Count++;
     const tamanhoAntes = tamanhoEmKB(JSON.stringify(property.images));
     totalAntesKB += Number(tamanhoAntes);
 
@@ -210,12 +268,25 @@ async function main() {
   }
 
   console.log("─".repeat(60));
-  console.log(
-    `[migrar-fotos] Total: ${totalAntesKB.toFixed(1)}KB -> ${totalDepoisKB.toFixed(1)}KB nas colunas images` +
-      (CONFIRMAR ? "" : " (estimado -- nada foi gravado, rode com --confirmar)")
-  );
+
+  if (comBase64Count === 0) {
+    console.log("[migrar-fotos] Nenhum imóvel com foto em base64 encontrado nos que consegui ler.");
+  } else {
+    console.log(
+      `[migrar-fotos] ${comBase64Count} imóvel(is) com foto em base64. Total: ${totalAntesKB.toFixed(1)}KB -> ${totalDepoisKB.toFixed(1)}KB nas colunas images` +
+        (CONFIRMAR ? "" : " (estimado -- nada foi gravado, rode com --confirmar)")
+    );
+  }
+
+  if (puladosPorErro > 0) {
+    console.warn(
+      `[migrar-fotos] ⚠️ ${puladosPorErro} imóvel(is) foram PULADOS porque nem consegui ler as fotos deles (erro/timeout) -- ` +
+        "rode o script de novo depois; ele é seguro de repetir e vai tentar de novo só o que faltou."
+    );
+  }
+
   if (falhas > 0) {
-    console.warn(`[migrar-fotos] ${falhas} falha(s) durante a migração -- ver mensagens acima.`);
+    console.warn(`[migrar-fotos] ${falhas} falha(s) no total durante a migração -- ver mensagens acima.`);
     process.exitCode = 1;
   } else {
     console.log("[migrar-fotos] Concluído sem falhas. ✅");
