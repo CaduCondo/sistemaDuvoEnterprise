@@ -212,7 +212,17 @@ export const PropertyFormDialog = memo(function PropertyFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+        {/* ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #76): "Quartos" e
+            "Banheiros" são <input required> nativos e o formulário não tinha
+            `noValidate` -- o navegador interrompia o envio ANTES de
+            handleSubmit rodar e mostrava a bolha dele ("Preencha este
+            campo"), então a mensagem da própria tela ("Por favor, preencha
+            todos os campos obrigatórios.", em properties.tsx) nunca
+            aparecia. Mesmíssimo defeito já corrigido no formulário de
+            Locação (RentalFormDialog.tsx, 17/set) -- a validação da tela
+            passa a ser a única fonte da verdade, com mensagem igual em
+            todos os campos que faltarem, em vez de uma bolha por campo. */}
+        <form onSubmit={handleSubmit} noValidate className="space-y-4 sm:space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="property-location" className="text-sm font-medium">

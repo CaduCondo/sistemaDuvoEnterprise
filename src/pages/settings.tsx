@@ -416,6 +416,30 @@ export default function Settings() {
       return;
     }
 
+    // ⚠️ Adicionado em 17/set/2026 junto com o `noValidate` do formulário
+    // (ver comentário lá): sem o navegador barrando, quem valida os campos
+    // obrigatórios é a própria tela -- e ela avisa TODOS os que faltam de uma
+    // vez, em vez de uma bolha por campo. Fica depois da checagem de nome
+    // repetido de propósito: se o nome já existe, é isso que a pessoa precisa
+    // resolver primeiro, independente do resto do formulário.
+    const obrigatorios: Array<[string, string]> = [
+      ["Nome do Local", locationForm.name],
+      ["CEP", locationForm.zip_code],
+      ["Rua", locationForm.street],
+      ["Número", locationForm.number],
+      ["Bairro", locationForm.neighborhood],
+      ["Cidade", locationForm.city],
+    ];
+    const faltando = obrigatorios.filter(([, valor]) => !valor?.trim()).map(([rotulo]) => rotulo);
+    if (faltando.length > 0) {
+      showAlert({
+        title: "Erro",
+        description: `Por favor, preencha todos os campos obrigatórios: ${faltando.join(", ")}.`,
+        type: "error",
+      });
+      return;
+    }
+
     try {
       if (editingLocation) {
         await locationService.updateLocation(editingLocation.id, locationForm);
@@ -1217,7 +1241,17 @@ export default function Settings() {
                 {editingLocation ? "Editar Local" : "Novo Local"}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleLocationSubmit} className="space-y-4">
+            {/* ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #76): este
+                formulário tem SEIS campos `required` nativos (Nome, CEP, Rua,
+                Número, Bairro, Cidade) e não tinha `noValidate` -- o navegador
+                barrava o envio ANTES de handleLocationSubmit rodar, mostrando
+                a bolha dele num campo por vez. Efeito colateral sério: o aviso
+                de "Local já existe" (a correção da #106) só aparece dentro
+                desse handler, ou seja, nunca chegava a aparecer. Mesmo defeito
+                já corrigido em RentalFormDialog e PropertyFormDialog. A
+                validação de campos obrigatórios passou para dentro do handler,
+                depois da checagem de nome repetido. */}
+            <form onSubmit={handleLocationSubmit} noValidate className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="locationName">Nome do Local <span className="text-red-500">*</span></Label>
                 <Input
@@ -1387,7 +1421,20 @@ export default function Settings() {
               console.log("🔍 [settings] Iniciando salvamento de forma de pagamento...");
               console.log("📋 [settings] Form data:", paymentMethodForm);
               console.log("✏️ [settings] Editando?", !!editingPaymentMethod);
-              
+
+              // ⚠️ Adicionado em 17/set/2026 junto com o `noValidate` deste
+              // formulário: quem valida passa a ser a tela. Sem isto, faltando
+              // o nome, a pessoa via "o código é obrigatório" -- confuso, já
+              // que o código é gerado a partir do nome.
+              if (!paymentMethodForm.name.trim()) {
+                showAlert({
+                  title: "Erro",
+                  description: "Por favor, preencha o nome da forma de pagamento.",
+                  type: "error",
+                });
+                return;
+              }
+
               // ✅ Gerar code automaticamente se estiver vazio
               let code = paymentMethodForm.code.trim();
               if (!code && paymentMethodForm.name) {
@@ -1479,7 +1526,7 @@ export default function Settings() {
                   type: "error" 
                 });
               }
-            }} className="space-y-4">
+            }} noValidate className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="paymentMethodName">Nome *</Label>
                 <Input
