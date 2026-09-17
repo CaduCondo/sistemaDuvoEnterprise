@@ -125,8 +125,17 @@ Given('que existe uma locação ativa', async function () {
   await criarLocacaoAtivaDeTeste(this, 2500);
 });
 
+// ⚠️ Corrigido em 17/set/2026 (issue #99): mesma causa raiz documentada
+// em `expectPaymentAmount` mais abaixo -- "rentValue" já vem em formato de
+// MÁQUINA do Gherkin ("2500.00"). O parser brasileiro
+// (`.replace(/\./g,'').replace(',','.')`) apagava o ponto decimal de
+// verdade e criava a locação com aluguel de R$ 250.000,00 em vez de
+// R$ 2.500,00 -- 100x maior. Isso não dava erro na hora (a locação era
+// criada do mesmo jeito), mas qualquer cálculo proporcional feito em cima
+// desse aluguel (ex.: recalcular parcela ao corrigir a data de início)
+// saía 100x maior que o esperado.
 Given('que existe uma locação ativa com aluguel de {string}', async function (rentValue: string) {
-  const aluguel = parseFloat(rentValue.replace(/\./g, '').replace(',', '.'));
+  const aluguel = parseFloat(rentValue);
   await criarLocacaoAtivaDeTeste(this, aluguel);
 });
 
@@ -234,7 +243,11 @@ async function upsertMonthlyPayment(
   value: string
 ) {
   const rentalId = world.rentalId || world.testData?.rentalId;
-  const amount = parseFloat(value.replace(/\./g, '').replace(',', '.'));
+  // ⚠️ Corrigido em 17/set/2026 (issue #99): "value" vem do Gherkin em
+  // formato de máquina ("2500.00") -- ver comentário completo em
+  // `expectPaymentAmount` mais abaixo. O parser brasileiro multiplicava
+  // por 100 (virava R$ 250.000,00).
+  const amount = parseFloat(value);
 
   const payment = await world.upsertPayment({
     rental_id: rentalId,
@@ -571,12 +584,50 @@ Then('o imóvel dela deve continuar {string}', async function (this: import('../
   ).toBe(statusEsperado);
 });
 
-Given('que existe uma locação com caução parcelado em 3x:', async function(dataTable: any) {
+// ⚠️ Corrigido em 17/set/2026 (issue #99, cluster Locação/Pagamento): este
+// passo era um STUB -- só guardava a tabela do Gherkin em `testData` e
+// nunca criava locação nem parcela nenhuma no banco. O passo seguinte
+// ("abro a locação em modo Visualizar") clicava num seletor
+// `[data-testid="rental-card"]` que também NUNCA existiu em nenhum
+// componente da tela (conferido: zero ocorrências em src/) -- ou seja, o
+// clique ficava esperando um elemento que jamais apareceria até o próprio
+// timeout do Playwright (30s), maior que o timeout padrão do Cucumber
+// (20s), sobrando só o genérico "function timed out". Agora o passo cria
+// de verdade uma locação com um inquilino identificável e substitui as
+// parcelas padrão (criadas por createRental com valores genéricos) pelas
+// parcelas exatas da tabela do cenário.
+Given('que existe uma locação com caução parcelado em 3x:', async function (this: CustomWorld, dataTable: any) {
   const installments = dataTable.hashes();
-  
+  const DatabaseHelper = (await import('../helpers/database.helper')).default;
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+
+  const tenant = await this.createTenant({ name: `Caução 3x ${Date.now()}` });
+  const rental = await this.createRental({
+    tenant_id: tenant.id,
+    deposit_installments: installments.length,
+  });
+  this.rentalId = rental.id;
+  this.tenantName = tenant.name;
+
+  // Apaga as parcelas-padrão (valores/datas genéricos) e recria com os
+  // valores exatos da tabela do Gherkin (Valor, Data Vencimento, Código PIX).
+  await supabaseAdmin.from('deposit_installments').delete().eq('rental_id', rental.id);
+  for (const row of installments) {
+    const [numero, total] = row.Parcela.split('/').map(Number);
+    const [dia, mes, ano] = row['Data Vencimento'].split('/');
+    await DatabaseHelper.createDepositInstallment({
+      rental_id: rental.id,
+      installment_number: numero,
+      installment_total: total,
+      amount: parseFloat(row.Valor),
+      due_date: `${ano}-${mes}-${dia}`,
+      pix_code: row['Código PIX'] || undefined,
+    });
+  }
+
   this.testData = {
     ...this.testData,
-    depositInstallments: installments
+    depositInstallments: installments,
   };
 });
 
@@ -838,10 +889,28 @@ Then('a locação criada tem corretor parceiro marcado', async function (this: i
 // vive em deposits.steps.ts, que cria a locação de verdade via
 // DatabaseHelper — não duplicar aqui (causa "ambiguous step" no Cucumber).
 
-When('abro a locação em modo {string}', async function(mode: string) {
-  // Clicar no primeiro card de locação
-  const firstRental = this.page.locator('[data-testid="rental-card"]').first();
-  await firstRental.click();
+// ⚠️ Corrigido em 17/set/2026 (issue #99): ver comentário no Given "que
+// existe uma locação com caução parcelado em 3x:" -- o seletor
+// `[data-testid="rental-card"]` nunca existiu na tela (rentals.tsx usa
+// `onRowClick`/`onClick` em `SortableTable`/cards comuns, sem esse
+// testid), e clicar no "primeiro" também arriscava abrir uma locação
+// qualquer em vez da criada por este cenário (o banco de DEV acumula
+// locações de outros testes). Agora navega pra /rentals e clica na linha
+// do INQUILINO desta locação (this.tenantName, guardado pelo Given) --
+// mesmo padrão de escopo já usado em outros passos (ex.: "abro o
+// inquilino {string} para edição"). Clicar na linha chama sempre
+// handleViewRental -- ou seja, sempre abre em modo Visualização; o
+// parâmetro "modo" existe só pra deixar o Gherkin legível.
+When('abro a locação em modo {string}', async function (this: CustomWorld, _mode: string) {
+  await this.page.goto('/rentals');
+  await this.page.waitForLoadState('domcontentloaded');
+  const nome = this.tenantName;
+  if (!nome) {
+    throw new Error('Nenhuma locação foi criada neste cenário ainda (this.tenantName vazio) -- não dá pra saber qual linha abrir.');
+  }
+  const linha = this.page.getByText(nome).first();
+  await expect(linha, `não encontrei na lista de Locações nenhuma linha do inquilino "${nome}"`).toBeVisible({ timeout: 10000 });
+  await linha.click();
   await this.page.waitForTimeout(500);
 });
 
@@ -888,7 +957,13 @@ async function abrirLocacaoDoCenarioParaEdicao(world: any) {
  * recebimentos se ressincronizarem) continua sendo feita pela tela.
  */
 When('o valor do imóvel dessa locação muda para {string}', async function (this: any, novoValor: string) {
-  const valor = parseFloat(novoValor.replace(/\./g, '').replace(',', '.'));
+  // ⚠️ Corrigido em 17/set/2026 (issue #99): "novoValor" vem do Gherkin em
+  // formato de máquina ("2800.00") -- ver comentário completo em
+  // `expectPaymentAmount` mais abaixo. O parser brasileiro gravava
+  // R$ 280.000,00 de verdade na tabela `properties`, e a locação (de
+  // verdade, pela tela) recalculava os recebimentos futuros nesse valor
+  // inflado.
+  const valor = parseFloat(novoValor);
   const { supabaseAdmin } = await import('../helpers/database.helper');
 
   const { data: locacao, error: erroBusca } = await supabaseAdmin
@@ -1133,8 +1208,19 @@ Then('na aba {string} da página Financeiro devo ver:', async function(this: imp
       // ("R$ 2.000,00") -- "2000.00" nunca é substring de "2.000,00", então
       // todo cenário com Valor de 4+ dígitos falhava aqui mesmo estando
       // certo. Campos de dinheiro comparam por número; o resto, por texto.
+      //
+      // ⚠️ Corrigido de novo em 17/set/2026: o fix acima aplicou o parser de
+      // formato BRASILEIRO (ponto = milhar, vírgula = decimal) em cima do
+      // "valor" do Gherkin, que já vem em formato de MÁQUINA (ponto =
+      // decimal, sem separador de milhar). `"2000.00".replace(/\./g,
+      // '').replace(',', '.')` apagava o ponto decimal de verdade e virava
+      // "200000" -- 100x maior que o esperado. Toda linha com valor de 4
+      // dígitos (ex.: R$ 2.000,00) passava a "não bater com nada" mesmo
+      // estando certa. O "valor" do Gherkin é só `parseFloat` direto; o
+      // parser brasileiro continua servindo só pros números lidos da TELA
+      // (textoDaLinha, que aí sim vem em "2.000,00").
       if (/valor/i.test(campo)) {
-        const esperadoNumero = parseFloat(valor.replace(/\./g, '').replace(',', '.'));
+        const esperadoNumero = parseFloat(valor);
         const textoDaLinha = (await linha.textContent()) || '';
         const numerosNaLinha = [...textoDaLinha.matchAll(/-?[\d.]+,\d{2}/g)].map((m) =>
           parseFloat(m[0].replace(/\./g, '').replace(',', '.'))
@@ -1364,7 +1450,10 @@ Then('todos os pagamentos devem vencer no dia {int}', async function(day: number
  * intocados, guardando o valor da época.
  */
 Then('os pagamentos futuros devem ser atualizados para {string}', async function (this: any, value: string) {
-  const esperado = parseFloat(value.replace(/\./g, '').replace(',', '.'));
+  // ⚠️ Corrigido em 17/set/2026 (issue #99) -- mesma causa raiz de
+  // `expectPaymentAmount` mais abaixo: "value" já vem em formato de
+  // máquina do Gherkin.
+  const esperado = parseFloat(value);
   const DatabaseHelper = (await import('../helpers/database.helper')).default;
   const recebimentos = await DatabaseHelper.getPaymentsByRental(this.rentalId);
 
@@ -1391,8 +1480,10 @@ Then('os pagamentos já pagos devem manter o valor original', async function (th
   const recebimentos = await DatabaseHelper.getPaymentsByRental(this.rentalId);
 
   const pagos = recebimentos.filter((p: any) => p.status === 'paid');
+  // ⚠️ Corrigido em 17/set/2026 (issue #99): mesma causa raiz de
+  // `expectPaymentAmount` mais abaixo (valor em formato de máquina).
   const valorNovo = this.testData?.expectedFutureValue
-    ? parseFloat(String(this.testData.expectedFutureValue).replace(/\./g, '').replace(',', '.'))
+    ? parseFloat(String(this.testData.expectedFutureValue))
     : null;
 
   for (const pago of pagos) {
@@ -1415,14 +1506,24 @@ Then('os pagamentos já pagos devem manter o valor original', async function (th
   }
 });
 
+// ⚠️ Corrigido em 17/set/2026 (issue #99, mesma causa raiz do fix em
+// "na aba {string} da página Financeiro devo ver:" logo acima): o "valor"
+// que vem do Gherkin aqui já é formato de MÁQUINA ("166.67", ponto =
+// decimal), não formato brasileiro de tela ("166,67"). Rodar o parser
+// brasileiro (`.replace(/\./g, '').replace(',', '.')`, que serve pra ler
+// texto tipo "2.000,00" DA TELA) em cima de "166.67" apagava o ponto
+// decimal de verdade e virava 16667 -- 100x maior que o esperado. Todo
+// cenário que comparava um valor com casas decimais (proporcional,
+// parcela recalculada) falhava aqui mesmo quando o valor gravado no banco
+// estava certo. O valor esperado, vindo do Gherkin, é só `parseFloat`
+// direto.
 async function expectPaymentAmount(world: any, monthNumber: string, year: string, expectedValue: string) {
   const rentalId = world.rentalId || world.testData?.rentalId;
-  const payments = await world.getRental ? null : null; // placeholder, buscamos direto abaixo
   const DatabaseHelper = (await import('../helpers/database.helper')).default;
   const rows = await DatabaseHelper.getPaymentsByRental(rentalId);
   const payment = rows.find((p: any) => p.reference_month === monthNumber && p.reference_year === year);
   expect(payment).toBeTruthy();
-  const expected = parseFloat(expectedValue.replace(/\./g, '').replace(',', '.'));
+  const expected = parseFloat(expectedValue);
   expect(Number(payment.expected_amount)).toBeCloseTo(expected, 2);
 }
 

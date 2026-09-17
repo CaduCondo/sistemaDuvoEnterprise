@@ -567,17 +567,26 @@ Then('devo ver filtros de mês e ano', async function (this: CustomWorld) {
  * (a correção anterior) só confirma que o menu fechou, não que o tema já
  * mudou. Agora espera o sinal de verdade: a classe do `<html>` mudar.
  */
-When('alterno para tema escuro', async function (this: CustomWorld) {
+// ⚠️ Corrigido em 17/set/2026 (issue #99): "alterno para tema claro" (a
+// SEGUNDA troca do cenário, feita logo depois de "alterno para tema
+// escuro") estourava com o genérico "function timed out" do Cucumber
+// (20s, hooks.ts) -- mesma assinatura de vários outros passos já
+// corrigidos nesta suíte (timeout padrão pequeno demais pro que o passo
+// realmente faz: abrir o menu, trocar o tema, que grava no banco ANTES de
+// mudar a classe do <html>, ver comentário de 14/set acima). Timeout
+// próprio, maior, nos dois passos (não só no que falhou -- os dois fazem
+// exatamente a mesma sequência).
+When('alterno para tema escuro', { timeout: 40 * 1000 }, async function (this: CustomWorld) {
   await this.page.locator('#layout-user-menu-trigger').click();
   await this.page.locator('#layout-menu-toggle-theme').click();
-  await expect(this.page.locator('html')).toHaveClass(/dark/, { timeout: 10000 });
+  await expect(this.page.locator('html')).toHaveClass(/dark/, { timeout: 15000 });
   this.testData.theme = 'dark';
 });
 
-When('alterno para tema claro', async function (this: CustomWorld) {
+When('alterno para tema claro', { timeout: 40 * 1000 }, async function (this: CustomWorld) {
   await this.page.locator('#layout-user-menu-trigger').click();
   await this.page.locator('#layout-menu-toggle-theme').click();
-  await expect(this.page.locator('html')).not.toHaveClass(/dark/, { timeout: 10000 });
+  await expect(this.page.locator('html')).not.toHaveClass(/dark/, { timeout: 15000 });
   this.testData.theme = 'light';
 });
 
@@ -687,8 +696,18 @@ Then('os filtros devem funcionar', async function (this: CustomWorld) {
 // ("filters-month"/"filters-year"), nunca "month-filter"/"year-filter". Esse
 // passo específico da regressão visual tinha ficado pra trás na correção
 // anterior.
+// ⚠️ Corrigido em 17/set/2026 (issue #99, "Mudança em Locações não afeta
+// Pagamentos"): o seletor já estava certo (`payment-filters-month`/
+// `payment-filters-year` batem em "filters-month"/"filters-year"), mas o
+// passo anterior só espera `waitForLoadState('domcontentloaded')`, que
+// dispara antes da página React terminar de buscar e renderizar os
+// pagamentos (PaymentFilters só aparece depois disso). Com 5s de timeout,
+// sob CI/banco DEV mais lento (mesma causa raiz já documentada nos
+// timeouts de login), a checagem podia rodar antes do filtro montar.
+// Timeout maior, consistente com o resto da suíte pra conteúdo carregado
+// via fetch.
 Then('os filtros de mês\\/ano devem funcionar', async function (this: CustomWorld) {
-  await expect(this.page.locator('[id*="filters-month"], [id*="filters-year"]').first()).toBeVisible({ timeout: 5000 });
+  await expect(this.page.locator('[id*="filters-month"], [id*="filters-year"]').first()).toBeVisible({ timeout: 15000 });
 });
 
 Then('os pagamentos devem ser exibidos corretamente', async function (this: CustomWorld) {
@@ -913,12 +932,28 @@ Given('que existe um inquilino {string} sem dados opcionais', async function (th
   this.tenantName = name;
 });
 
+// ⚠️ Corrigido em 17/set/2026 (issue #99, cluster "CRUD de Inquilinos"): este
+// passo só clicava na linha do inquilino, o que abre o dialog em modo
+// VISUALIZAÇÃO (TenantFormDialog isViewMode=true -> isEditing=false ->
+// tenants.tsx define `disabled={!isEditing}` em TODOS os campos). O passo
+// seguinte ("preencho os campos opcionais") tentava preencher campos
+// desabilitados -- o Playwright fica tentando (esperando o campo habilitar)
+// até o SEU PRÓPRIO timeout (30s), mas o timeout padrão do Cucumber (20s,
+// hooks.ts) mata o passo antes disso, sobrando só um genérico "function
+// timed out" sem nenhuma pista do motivo real. Faltava clicar no botão
+// "Editar" (#tenant-form-edit) que o dialog mostra em modo visualização
+// para destravar os campos -- agora o passo clica nele antes de retornar.
 When('abro o inquilino {string} para edição', async function (this: CustomWorld, name: string) {
   await this.page.reload();
   await this.page.waitForLoadState('domcontentloaded');
   const row = this.page.getByText(name).first();
   await row.click();
-  await this.page.waitForTimeout(1000);
+  await this.page.waitForTimeout(500);
+  const editButton = this.page.locator('#tenant-form-edit');
+  if (await editButton.isVisible().catch(() => false)) {
+    await editButton.click();
+  }
+  await this.page.waitForTimeout(500);
 });
 
 When('abro o inquilino novamente', async function (this: CustomWorld) {

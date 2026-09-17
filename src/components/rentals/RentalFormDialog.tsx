@@ -595,7 +595,21 @@ export const RentalFormDialog = memo(function RentalFormDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* ⚠️ Corrigido em 17/set/2026 (issue #99): "Data Início" e "Data
+            Fim" são <input type="date" required> nativos, mas o formulário
+            não tinha `noValidate` -- o navegador intercepta o submit ANTES
+            do handleSubmit rodar e mostra sua PRÓPRIA bolha de aviso
+            ("Preencha este campo"), nunca a mensagem da tela ("Preencha
+            todos os campos obrigatórios."). Pro usuário isso já era
+            inconsistente (bolha nativa pra Data Início/Fim, alerta bonito
+            pra Imóvel/Inquilino/Dia de Vencimento, que são Select) -- e pro
+            teste automatizado ("Criar locação - Data Fim obrigatória")
+            fazia o cenário falhar sempre, porque a bolha nativa não é texto
+            de verdade na página (Playwright não a enxerga). Com
+            `noValidate`, o handleSubmit sempre roda e quem valida (e
+            avisa) é só o código da tela -- que já cobria esses campos
+            (linha ~279 mais abaixo). */}
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="rental-property">{rental ? "Imóvel Selecionado" : "Imóveis Disponíveis"} *</Label>

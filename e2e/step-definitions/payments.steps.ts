@@ -58,9 +58,27 @@ const MESES_PT = [
  * complemento único, pra selecionar ele sem ambiguidade) antes de abrir o
  * formulário, em vez de confiar em "o que estiver primeiro na lista".
  */
-Given('que crio uma locação com:', async function(dataTable: any) {
+// ⚠️ Corrigido em 17/set/2026 (issue #99, cenários "Pagamento proporcional"):
+// dois problemas reais encontrados aqui:
+// 1) "aluguel" vem do Gherkin em formato de máquina ("3000.00") -- o parser
+//    brasileiro (`.replace(/\./g,'').replace(',','.')`) apagava o ponto
+//    decimal de verdade e criava o imóvel de teste com valor de
+//    R$ 300.000,00 em vez de R$ 3.000,00 (mesma causa raiz documentada em
+//    `expectPaymentAmount`, rentals.steps.ts). Isso não travava nada, mas
+//    fazia o valor proporcional calculado depois sair 100x maior que o
+//    esperado.
+// 2) Este passo sozinho já soma bem mais que 20s de espera EXPLÍCITA
+//    (300ms x4 + até 10s esperando o "Comprovante de Contrato" + até 5s
+//    esperando o alerta de sucesso + 1s final) fora o tempo real de rede/
+//    render de cada clique -- ou seja, mesmo em condições normais ele
+//    pode facilmente estourar o timeout PADRÃO do Cucumber (20s,
+//    hooks.ts), que nunca foi pensado pra um passo que already conditionally
+//    espera dois diálogos diferentes. Mesma causa raiz já corrigida nos
+//    passos de login (common.steps.ts): timeout padrão pequeno demais pro
+//    que o passo realmente faz. Timeout próprio de 60s.
+Given('que crio uma locação com:', { timeout: 60 * 1000 }, async function(dataTable: any) {
   const data = dataTable.rowsHash();
-  const aluguel = parseFloat((data['Aluguel'] || '3000.00').replace(/\./g, '').replace(',', '.'));
+  const aluguel = parseFloat(data['Aluguel'] || '3000.00');
   const complementoUnico = `[E2E] Proporcional ${Date.now()}`;
 
   await DatabaseHelper.createProperty({
@@ -465,10 +483,26 @@ When('visualizo o detalhamento do pagamento', async function() {
  * Janeiro/2026 especificamente, e clicar no botão de recibo DELA (não o
  * primeiro da tela, que poderia ser de outra locação).
  */
+// ⚠️ Corrigido de novo em 17/set/2026 (issue #99): mesmo depois do fix de
+// 16/set (navegar pra /payments, aba certa, linha específica), o cenário
+// ainda falhava com "não achei a linha do pagamento de Janeiro/2026" --
+// causa raiz diferente desta vez. payments.tsx nasce com o filtro de
+// Mês/Ano JÁ TRAVADO no mês/ano ATUAIS (`useState(now.getMonth()+1)`) e,
+// quando os dois filtros não estão em "all", só mostra pagamentos daquele
+// mês/ano exatos (linha ~580). Rodando o CI em setembro/2026, o filtro
+// escondia o pagamento de Janeiro/2026 criado pelo cenário -- ele existia
+// no banco, só não aparecia NA TELA até alguém trocar o filtro. Faltava
+// abrir o seletor "#payment-filters-month" e escolher "Todos os meses"
+// antes de procurar a linha.
 When('visualizo o recibo do pagamento de Janeiro\\/2026', async function (this: import('../support/world').CustomWorld) {
   await this.page.goto('/payments');
   await this.page.waitForLoadState('domcontentloaded');
   await this.page.locator('#payments-tab-paid').click();
+  await this.page.waitForTimeout(500);
+
+  await this.page.locator('#payment-filters-month').click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: 'Todos os meses' }).click();
   await this.page.waitForTimeout(500);
 
   const linha = this.page.locator('tbody tr').filter({ hasText: /janeiro/i }).filter({ hasText: '2026' }).first();
