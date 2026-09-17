@@ -23,6 +23,13 @@ interface SortableTableProps<T> {
   onSort: (key: string) => void;
   onRowClick?: (item: T) => void;
   getRowClassName?: (item: T) => string;
+  // ⚠️ Adicionado em 17/set/2026 (issue #99, pedido do Cadu): a visão em
+  // grade (ex.: PropertyCard.tsx) já tinha um atributo `data-*` estável por
+  // item para os testes automatizados acharem um card específico na tela --
+  // a visão em tabela (esta aqui, compartilhada por várias telas) não tinha
+  // equivalente nenhum. Prop genérica para não acoplar este componente
+  // reutilizável a um atributo de uma tela só (ex.: "property-identifier").
+  getRowAttributes?: (item: T) => Record<string, string | undefined>;
   emptyMessage?: string;
 }
 
@@ -34,6 +41,7 @@ export function SortableTable<T extends Record<string, any>>({
   onSort,
   onRowClick,
   getRowClassName,
+  getRowAttributes,
   emptyMessage = "Nenhum item encontrado.",
 }: SortableTableProps<T>) {
   const getSortIcon = (key: string) => {
@@ -99,6 +107,7 @@ export function SortableTable<T extends Record<string, any>>({
                   <TableRow
                     key={row.id}
                     data-row-id={row.id}
+                    {...getRowAttributes?.(row)}
                     onClick={() => onRowClick?.(row)}
                     className={cn(getRowClassName?.(row), onRowClick && "cursor-pointer")}
                   >

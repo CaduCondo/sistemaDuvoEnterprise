@@ -173,25 +173,35 @@ Funcionalidade: Regras de Negócio de Locações
     E o imóvel dela deve continuar "occupied"
 
   # ✅ NOVO: Testa carregamento de parcelas ao visualizar locação
+  #
+  # ⚠️ Corrigido em 17/set/2026 (issue #99, esclarecido pelo Cadu): este
+  # cenário esperava um campo "Código PIX" na tela e um formato de rótulo
+  # ("1ª parcela - Valor") que nunca existiram em RentalFormDialog.tsx --
+  # conferido com o Cadu: o campo PIX foi removido de propósito da tela há
+  # algum tempo (continua existindo só como COLUNA no relatório de
+  # Financeiro > Cauções, não no formulário da locação). O bloco real
+  # "Informações do Caução" tem inputs simples (valor + data) por parcela,
+  # sem rótulo "1ª parcela - X" e sem PIX nenhum -- ver
+  # RentalFormDialog.tsx, ids rental-deposit-amount/rental-deposit-date/
+  # depositInstallment2/depositInstallment2PaymentDate/depositInstallment3/
+  # depositInstallment3PaymentDate. Reescrito para conferir os VALORES dos
+  # campos de verdade (não texto solto na tela).
   @sistemaCompleto
   Cenário: Visualizar locação - Carregar dados de caução da tabela
     Dado que existe uma locação com caução parcelado em 3x:
-      | Parcela | Valor   | Data Vencimento | Código PIX |
-      | 1/3     | 2000.00 | 01/08/2026      | PIX123     |
-      | 2/3     | 2000.00 | 01/09/2026      | PIX456     |
-      | 3/3     | 2000.00 | 01/10/2026      |            |
+      | Parcela | Valor   | Data Vencimento |
+      | 1/3     | 2000.00 | 01/08/2026      |
+      | 2/3     | 2000.00 | 01/09/2026      |
+      | 3/3     | 2000.00 | 01/10/2026      |
     Quando abro a locação em modo "Visualizar"
-    Então no bloco "Informações do Caução" devo ver:
-      | campo                        | valor      |
-      | 1ª parcela - Valor           | 2000.00    |
-      | 1ª parcela - Data Pagamento  | 01/08/2026 |
-      | 1ª parcela - Código PIX      | PIX123     |
-      | 2ª parcela - Valor           | 2000.00    |
-      | 2ª parcela - Data Vencimento | 01/09/2026 |
-      | 2ª parcela - Código PIX      | PIX456     |
-      | 3ª parcela - Valor           | 2000.00    |
-      | 3ª parcela - Data Vencimento | 01/10/2026 |
-      | 3ª parcela - Código PIX      | (vazio)    |
+    Então no formulário da locação devo ver os campos de caução:
+      | campo                      | valor         |
+      | rental-deposit-amount      | R$ 2.000,00   |
+      | rental-deposit-date        | 2026-08-01    |
+      | depositInstallment2        | R$ 2.000,00   |
+      | depositInstallment2PaymentDate | 2026-09-01 |
+      | depositInstallment3        | R$ 2.000,00   |
+      | depositInstallment3PaymentDate | 2026-10-01 |
 
   # FORA DO SMOKE (30/ago/2026): o cenário abre "Nova Locação" e preenche só os
   # campos do caução -- nunca escolhe imóvel, inquilino nem as datas, que são

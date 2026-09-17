@@ -515,6 +515,15 @@ export default function PropertiesPage() {
                     sortDirection={sortDirection}
                     onSort={handleSort}
                     onRowClick={handleCardClick}
+                    // ⚠️ Adicionado em 17/set/2026 (issue #99, pedido do Cadu):
+                    // mesmo atributo que já existia só na visão em grade
+                    // (PropertyCard.tsx), agora também na linha da tabela --
+                    // como o padrão do sistema é abrir em lista, os testes
+                    // automatizados não tinham como achar um imóvel específico
+                    // sem forçar a troca pra grade primeiro.
+                    getRowAttributes={(property) => ({
+                      'data-property-identifier': property.property_identifier,
+                    })}
                     emptyMessage="Nenhum imóvel encontrado com os filtros aplicados."
                   />
                 </div>

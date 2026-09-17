@@ -1341,6 +1341,24 @@ Then('a parcela {int} deve ter:', async function (this: any, installmentNumber: 
   await conferirParcelaDeCaucao(this, installmentNumber, paresCampoValor(dataTable));
 });
 
+// ⚠️ Adicionado em 17/set/2026 (issue #99): passo dedicado pro bloco
+// "Informações do Caução" de RentalFormDialog.tsx -- diferente de "no
+// bloco {string} devo ver:" (mais abaixo, usado por "Informações do
+// Contrato"/"Formação de Valores"), aqui os valores estão dentro de
+// campos de FORMULÁRIO (<input>), não em texto solto na tela -- por isso
+// confere `.inputValue()` de cada id, em vez de `getByText`.
+Then('no formulário da locação devo ver os campos de caução:', async function (this: CustomWorld, dataTable: any) {
+  const rows = dataTable.hashes();
+  for (const row of rows) {
+    const campo = this.page.locator(`#${row.campo}`);
+    await expect(campo, `campo #${row.campo} não está na tela`).toBeVisible({ timeout: 5000 });
+    // toHaveValue tenta de novo por conta própria -- os campos são
+    // preenchidos por um useEffect assíncrono (busca em deposit_installments,
+    // ver useRentalForm.ts) que pode não ter terminado no instante do clique.
+    await expect(campo, `campo #${row.campo} não tem o valor esperado`).toHaveValue(row.valor, { timeout: 10000 });
+  }
+});
+
 Then('no bloco {string} devo ver:', async function(blockName: string, dataTable: any) {
   const rows = dataTable.hashes();
   

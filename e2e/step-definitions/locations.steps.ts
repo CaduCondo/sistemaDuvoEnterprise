@@ -1,4 +1,5 @@
 import { Given, When } from '@cucumber/cucumber';
+import { expect } from '@playwright/test';
 import { CustomWorld } from '../support/world';
 
 /**
@@ -16,6 +17,17 @@ Given('que existe um local {string}', async function (this: CustomWorld, nome: s
   this.testData.nomeLocalCriado = location.name;
 });
 
+// ⚠️ Corrigido em 17/set/2026 (CI run #74, issue #99): lido settings.tsx --
+// `handleLocationSubmit` compara o nome novo contra o array `locations` (já
+// carregado em memória) para bloquear duplicado. Esse array só é preenchido
+// depois que a página busca os locais no banco -- um `waitForTimeout(300)`
+// fixo não garante que essa busca já terminou. Se o cenário tenta cadastrar
+// o nome duplicado ANTES da lista carregar, `locations` ainda está vazio,
+// `jaExiste` dá falso, e o sistema cria o local (mensagem de sucesso) em vez
+// de bloquear -- exatamente o sintoma visto no CI ("Já existe um Local
+// chamado" nunca aparece). Se um local foi criado por um passo anterior
+// (`que existe um local`), espera ele aparecer na lista de verdade antes de
+// seguir.
 When('abro a aba {string} das Configurações', async function (this: CustomWorld, aba: string) {
   await this.page.goto('/settings');
   await this.page.waitForLoadState('domcontentloaded');
@@ -23,6 +35,13 @@ When('abro a aba {string} das Configurações', async function (this: CustomWorl
   await tab.waitFor({ state: 'visible', timeout: 10000 });
   await tab.click();
   await this.page.waitForTimeout(300);
+
+  if (/locais/i.test(aba) && this.testData.nomeLocalCriado) {
+    await expect(
+      this.page.getByText(this.testData.nomeLocalCriado, { exact: false }).first(),
+      `a lista de Locais não terminou de carregar -- não achei "${this.testData.nomeLocalCriado}" na tela`
+    ).toBeVisible({ timeout: 10000 });
+  }
 });
 
 When('preencho o nome do local com o mesmo nome que já existe', async function (this: CustomWorld) {

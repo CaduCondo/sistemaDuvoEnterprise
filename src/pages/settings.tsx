@@ -149,6 +149,16 @@ export default function Settings() {
   // Locations State
   const [locations, setLocations] = useState<Location[]>([]);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  // ⚠️ Adicionado em 17/set/2026 (issue #99, pedido do Cadu): antes, a
+  // validação de nome duplicado em handleLocationSubmit comparava contra
+  // `locations`, mas esse array começa vazio e só é preenchido depois que
+  // fetchLocations() termina de buscar no banco -- se o usuário conseguisse
+  // enviar o formulário ANTES disso (tela lenta, conexão ruim), a checagem
+  // de duplicado ficava cega (lista vazia = "não existe") e o sistema criava
+  // o Local mesmo com nome repetido. `locationsLoaded` trava esse caminho:
+  // fica falso até a primeira busca terminar (ver fetchLocations), e o botão
+  // de salvar (mais abaixo) some/desabilita enquanto isso.
+  const [locationsLoaded, setLocationsLoaded] = useState(false);
   const [searchLocation, setSearchLocation] = useState("");
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
@@ -261,9 +271,10 @@ export default function Settings() {
     try {
       const data = await locationService.getLocations();
       setLocations(data);
+      setLocationsLoaded(true);
     } catch (error) {
       console.error("Failed to fetch locations:", error);
-      showAlert({ 
+      showAlert({
         title: "Erro ao carregar locais",
         description: "Não foi possível carregar a lista de locais.",
         type: "error",
@@ -364,6 +375,21 @@ export default function Settings() {
 
   const handleLocationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // ⚠️ Adicionado em 17/set/2026 (issue #99, pedido do Cadu): a checagem de
+    // duplicado logo abaixo só funciona se `locations` já tiver sido
+    // carregado do banco -- do contrário ela compara contra uma lista vazia
+    // e deixa passar um nome repetido. Trava aqui em vez de confiar só no
+    // botão desabilitado (defesa em profundidade: existem outros jeitos de
+    // disparar um submit de formulário além de clicar no botão, ex. Enter).
+    if (!locationsLoaded) {
+      showAlert({
+        title: "Aguarde um instante",
+        description: "A lista de locais ainda está carregando. Aguarde a tela terminar de carregar e tente salvar de novo.",
+        type: "info",
+      });
+      return;
+    }
 
     // ⚠️ Corrigido em 16/set/2026: nem a tela nem o banco impediam cadastrar
     // dois Locais com o MESMO nome -- o Cadu encontrou vários duplicados
@@ -1297,8 +1323,8 @@ export default function Settings() {
                 >
                   Cancelar
                 </Button>
-                <Button id="settings-location-submit" type="submit">
-                  {editingLocation ? "Atualizar" : "Cadastrar"}
+                <Button id="settings-location-submit" type="submit" disabled={!locationsLoaded}>
+                  {!locationsLoaded ? "Carregando..." : editingLocation ? "Atualizar" : "Cadastrar"}
                 </Button>
               </DialogFooter>
             </form>

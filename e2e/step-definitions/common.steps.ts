@@ -263,6 +263,24 @@ Then('devo ver a mensagem de sucesso', async function (this: CustomWorld) {
     this.page.getByText(/sucesso|salvo|criado|atualizado/i)
   );
   await expect(success.first()).toBeVisible({ timeout: 5000 });
+
+  // ⚠️ Corrigido em 17/set/2026 (issue #99, runs #74/#75): quando a mensagem
+  // vem do AlertDialog global (showAlert, ver AlertContext.tsx), o overlay
+  // dele ("fixed inset-0 z-50 bg-black/80 ...") fica bloqueando a tela até
+  // alguém clicar "OK" -- e este passo genérico só conferia a visibilidade,
+  // nunca fechava. Resultado: todo cenário que fizesse qualquer clique depois
+  // de "devo ver a mensagem de sucesso" travava esperando um fechamento que
+  // nunca vinha (ex.: "Editar inquilino e adicionar dados opcionais", "Tema
+  // escuro/claro consistente"). Mesmo padrão do passo "fecho a mensagem de
+  // sucesso no botão OK", aplicado aqui também -- só fecha quando a origem da
+  // mensagem É o alertdialog, para não mudar comportamento de cenários que
+  // usam sucesso inline (sem modal).
+  const alerta = this.page.getByRole('alertdialog');
+  if (await alerta.isVisible().catch(() => false)) {
+    await alerta.getByRole('button', { name: /^OK$/i }).click();
+    await expect(alerta).toBeHidden({ timeout: 10000 });
+    await this.page.waitForTimeout(1000);
+  }
 });
 
 Then('devo ver o botão {string}', async function (this: CustomWorld, buttonText: string) {
@@ -576,10 +594,27 @@ Then('devo ver filtros de mês e ano', async function (this: CustomWorld) {
 // mudar a classe do <html>, ver comentário de 14/set acima). Timeout
 // próprio, maior, nos dois passos (não só no que falhou -- os dois fazem
 // exatamente a mesma sequência).
+// ⚠️ Causa raiz encontrada em 17/set/2026 (issue #99, CI run #74): o overlay
+// que bloqueava o clique era o AlertDialog global (showAlert, ver
+// AlertContext.tsx) -- `handleToggleTheme` (src/components/Layout.tsx) chama
+// showAlert({title:"Tema alterado"...}) toda vez que o tema muda com sucesso.
+// Como "alterno para tema escuro" nunca clicava OK, o alertdialog ficava
+// aberto e o SEGUNDO toggle ("alterno para tema claro", que roda logo
+// depois) tinha o clique em #layout-user-menu-trigger interceptado pelo
+// overlay dele. Fecha o alertdialog (se aparecer) nos dois passos.
+async function fecharAlertaDeTemaSeAparecer(world: CustomWorld) {
+  const alerta = world.page.getByRole('alertdialog');
+  if (await alerta.isVisible().catch(() => false)) {
+    await alerta.getByRole('button', { name: /^OK$/i }).click();
+    await expect(alerta).toBeHidden({ timeout: 10000 });
+  }
+}
+
 When('alterno para tema escuro', { timeout: 40 * 1000 }, async function (this: CustomWorld) {
   await this.page.locator('#layout-user-menu-trigger').click();
   await this.page.locator('#layout-menu-toggle-theme').click();
   await expect(this.page.locator('html')).toHaveClass(/dark/, { timeout: 15000 });
+  await fecharAlertaDeTemaSeAparecer(this);
   this.testData.theme = 'dark';
 });
 
@@ -587,6 +622,7 @@ When('alterno para tema claro', { timeout: 40 * 1000 }, async function (this: Cu
   await this.page.locator('#layout-user-menu-trigger').click();
   await this.page.locator('#layout-menu-toggle-theme').click();
   await expect(this.page.locator('html')).not.toHaveClass(/dark/, { timeout: 15000 });
+  await fecharAlertaDeTemaSeAparecer(this);
   this.testData.theme = 'light';
 });
 
@@ -963,16 +999,17 @@ When('abro o inquilino novamente', async function (this: CustomWorld) {
   await this.page.waitForTimeout(1000);
 });
 
-// ⚠️ Investigado em 17/set/2026 (CI run #74, issue #99): este passo estourou
-// com "function timed out" genérico (20s, hooks.ts) -- sem nenhuma pista do
-// motivo real. No MESMO run, outro passo parecido ("alterno para tema
-// claro") só revelou a causa de verdade porque tinha um timeout próprio
-// maior que deixou o Playwright terminar de tentar: um <div> de overlay de
-// Dialog/Sheet (classe do shadcn, "fixed inset-0 z-50 bg-black/80...")
-// ficando aberto (data-state="open") e bloqueando cliques -- ainda não se
-// sabe qual Dialog é esse aqui. Timeout próprio, maior, só para deixar o
-// próximo CI mostrar o erro real em vez do genérico (NÃO é uma correção do
-// bug em si -- ver issue #99 para o acompanhamento).
+// ⚠️ Causa raiz confirmada em 17/set/2026 (CI run #75, issue #99): o timeout
+// maior (abaixo) revelou o erro real -- `locator.click` travava em
+// `getByText('Maria Santos')` bloqueado por um overlay
+// `<div data-state="open" class="fixed inset-0 z-50 bg-black/80...">`. É o
+// AlertDialog global (showAlert, AlertContext.tsx) aberto pela mensagem
+// "Inquilino atualizado com sucesso" (useTenants.ts, updateTenantHandler) --
+// o cenário nunca clicava OK antes de tentar reabrir o inquilino. Corrigido
+// na origem: "devo ver a mensagem de sucesso" (acima nesta mesma suíte) agora
+// fecha esse alertdialog sozinho antes deste passo rodar. Timeout próprio
+// mantido por segurança (abrir o inquilino de novo ainda busca dados no
+// banco).
 Then('quando abro o inquilino novamente', { timeout: 40 * 1000 }, async function (this: CustomWorld) {
   const name = this.tenantName;
   const row = this.page.getByText(name!).first();

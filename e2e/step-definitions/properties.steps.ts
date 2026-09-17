@@ -457,29 +457,17 @@ async function acharCardDoImovel(world: CustomWorld, identifier: string) {
   await busca.fill(identifier);
   await world.page.waitForTimeout(500);
 
-  // ⚠️ Corrigido em 14/set/2026 (issue #99, cluster "Imóveis"): o atributo
-  // `data-property-identifier` (e os ids `property-card-`/`property-delete-`
-  // usados mais abaixo) só existem em PropertyCard.tsx -- a visão em GRADE.
-  // useProperties.ts hoje abre por padrão na visão em TABELA
-  // (`viewMode = useState(..."table")`), onde a linha (`<tr>`, em
-  // SortableTable) não carrega nenhum desses ganchos -- só um
-  // `data-row-id` com o UUID interno, que o teste não conhece de antemão.
-  // Resultado: em qualquer carregamento novo da página (o caso comum),
-  // este locator nunca encontrava nada. Força a visão em grade antes de
-  // procurar, restaurando os ganchos que este helper (e os passos de
-  // editar/deletar) sempre dependeram.
-  //
-  // ⚠️ 2ª correção em 14/set/2026: o `if (isVisible().catch(() => false))`
-  // aqui tinha o MESMO defeito que acabei de corrigir na caixa de busca
-  // acima -- se o botão não estivesse pronto no instante exato do check,
-  // o clique era pulado em silêncio e a visão continuava em tabela (por
-  // isso o erro batia sempre igual, mesmo depois do fix de "força grade").
-  // Trocado por uma espera de verdade + clique sem condição.
-  const toggleGrade = world.page.locator('#properties-view-grid');
-  await toggleGrade.waitFor({ state: 'visible', timeout: 15000 });
-  await toggleGrade.click();
-  await world.page.waitForTimeout(300);
-
+  // ⚠️ Corrigido em 17/set/2026 (issue #99, causa raiz real): as duas
+  // tentativas anteriores (força visão em grade, com e sem espera) nunca
+  // resolveram de vez porque o problema não era o CLIQUE no toggle -- era
+  // que o atributo `data-property-identifier` só existia em
+  // PropertyCard.tsx (visão em grade). A visão em TABELA (SortableTable),
+  // que é o padrão do sistema, não tinha nenhum gancho equivalente na
+  // linha. Corrigido na origem: `SortableTable` agora aceita
+  // `getRowAttributes`, e `properties.tsx` passa
+  // `data-property-identifier` também na linha da tabela (ver
+  // sortable-table.tsx e properties.tsx). Não precisa mais forçar visão
+  // nenhuma para simplesmente ACHAR o imóvel -- o atributo existe nas duas.
   const card = world.page.locator(`[data-property-identifier="${identifier}"]`).first();
   await expect(
     card,
@@ -511,7 +499,17 @@ When('clico no botão de editar do imóvel {string}', async function (this: Cust
   await this.page.waitForTimeout(300);
 });
 
+// ⚠️ O botão de deletar (`property-delete-{id}`) só existe dentro do card da
+// visão em GRADE (PropertyCard.tsx) -- a linha da tabela não tem um botão
+// equivalente (deletar por lá exige abrir o imóvel primeiro). Diferente do
+// helper genérico `acharCardDoImovel` (que já acha em qualquer visão), este
+// passo precisa mesmo da grade.
 When('clico no botão de deletar do imóvel {string}', async function (this: CustomWorld, identifier: string) {
+  const toggleGrade = this.page.locator('#properties-view-grid');
+  await toggleGrade.waitFor({ state: 'visible', timeout: 15000 });
+  await toggleGrade.click();
+  await this.page.waitForTimeout(300);
+
   const card = await acharCardDoImovel(this, this.testData.propertyIdentifier || identifier);
   await card.locator('[id^="property-delete-"]').click();
   await this.page.waitForTimeout(500);
