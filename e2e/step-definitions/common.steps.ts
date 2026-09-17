@@ -92,7 +92,22 @@ When('navego entre as páginas:', async function (this: CustomWorld, dataTable: 
 
 /** =================== AUTENTICAÇÃO =================== */
 
-Given('que fiz login como {string}', async function (this: CustomWorld, role: string) {
+// ⚠️ Corrigido em 16/set/2026: os dois passos de login abaixo rodavam com o
+// timeout PADRÃO do Cucumber (20s, setDefaultTimeout em hooks.ts) -- mas o
+// login em si (AuthHelper.login, auth.helper.ts) já tem seu PRÓPRIO limite
+// interno de 30s (TEST_CONFIG.timeouts.navigation) esperando o
+// `waitForURL('**/dashboard')`. Ou seja: sempre que o banco de DEV demorava
+// entre 20s e 30s pra responder (comum sob carga, com ~150 cenários rodando
+// em sequência), o Cucumber matava o passo por timeout ANTES do Playwright
+// ter chance de terminar -- um erro genérico "function timed out", sem
+// nenhuma pista de qual usuário ou tela. Isso explica por que o cenário que
+// falhava mudava de rodada pra rodada (viu financeiro travar numa vez,
+// corretor travar na outra): não é um problema de UM usuário específico, é
+// a janela de tempo insuficiente pra QUALQUER login sob banco lento.
+// Agora o passo tem seu próprio timeout (40s), sempre maior que o limite
+// interno do login -- se ainda assim estourar, o erro real do Playwright
+// aparece no log, em vez de mascarado pelo timeout genérico do Cucumber.
+Given('que fiz login como {string}', { timeout: 40 * 1000 }, async function (this: CustomWorld, role: string) {
   const authHelper = createAuthHelper(this.page);
 
   switch (role.toLowerCase()) {
@@ -115,7 +130,7 @@ Given('que fiz login como {string}', async function (this: CustomWorld, role: st
   await this.page.waitForURL('**/dashboard', { timeout: 10000 });
 });
 
-Given('que estou logado como {string}', async function (this: CustomWorld, role: string) {
+Given('que estou logado como {string}', { timeout: 40 * 1000 }, async function (this: CustomWorld, role: string) {
   const authHelper = createAuthHelper(this.page);
   switch (role.toLowerCase()) {
     case 'admin':
