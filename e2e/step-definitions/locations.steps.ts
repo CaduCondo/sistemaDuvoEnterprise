@@ -1,4 +1,9 @@
-import { Given, When } from '@cucumber/cucumber';
+// ⚠️ 17/set/2026: o `Then` faltava neste import e derrubou a rodada #77
+// inteira ("ReferenceError: Then is not defined") -- o Cucumber nem chegou a
+// carregar os cenários, os dois jobs morreram em menos de 2 minutos e nenhum
+// teste rodou. Toda vez que este arquivo ganhar um passo "Então", o `Then`
+// precisa estar aqui.
+import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import { CustomWorld } from '../support/world';
 
@@ -15,6 +20,9 @@ Given('que existe um local {string}', async function (this: CustomWorld, nome: s
   // valor exato que já existe (ver "preencho o nome do local com o mesmo
   // nome que já existe", abaixo).
   this.testData.nomeLocalCriado = location.name;
+  // O id é usado por cenários que precisam criar algo DENTRO deste local
+  // (ex.: "que existe um imóvel nesse local", em properties.steps.ts).
+  this.testData.idLocalCriado = location.id;
 });
 
 // ⚠️ Corrigido em 17/set/2026 (CI run #74, issue #99): lido settings.tsx --
