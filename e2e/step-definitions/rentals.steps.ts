@@ -427,6 +427,18 @@ Then(
   }
 );
 
+// ⚠️ Corrigido em 16/set/2026: a asserção antiga ("o valor tem que ser
+// MENOR que o aluguel cheio") parte de uma premissa falsa. O cenário usa
+// "hoje + 3 dias" como data fim antiga (ver step "uma locação ativa cujo
+// contrato está para vencer..."), e a nova data fim (+1 ano) herda o MESMO
+// dia do mês. Quando esse dia cai no dia 30 (ou além, em mês de 31 dias),
+// o valor proporcional (aluguel/30 * dias) BATE ou PASSA o valor cheio --
+// matematicamente correto (cobra o mês quase inteiro/inteiro), mas fazia
+// este cenário falhar sozinho dependendo só de QUANDO o CI rodava (bug no
+// teste, não no produto -- ver #99). Agora a asserção calcula o valor
+// esperado de verdade (mesma fórmula usada em generateExpectedPayments,
+// paymentService.ts) a partir do dia real da nova data fim, em vez de
+// assumir que ele nunca chega em 30.
 Then(
   'o último recebimento deve ser proporcional aos dias até a nova data fim',
   async function (this: import('../support/world').CustomWorld) {
@@ -435,11 +447,16 @@ Then(
     const ordenados = [...payments].sort((a: any, b: any) => String(a.due_date).localeCompare(String(b.due_date)));
     const ultimo = ordenados[ordenados.length - 1];
 
+    const novaData = new Date(this.testData.renovacao.newEndDate + 'T00:00:00');
+    const diaFim = novaData.getDate();
+    const rentValue = this.testData.renovacao.rentValue;
+    const valorEsperado = parseFloat(((rentValue / 30) * diaFim).toFixed(2));
+
     expect(Number(ultimo.expected_amount)).toBeGreaterThan(0);
     expect(
       Number(ultimo.expected_amount),
-      `último recebimento deveria ser proporcional (menor que o aluguel cheio de ${this.testData.renovacao.rentValue}), veio R$ ${ultimo.expected_amount}`
-    ).toBeLessThan(this.testData.renovacao.rentValue);
+      `último recebimento deveria ser proporcional a ${diaFim} dia(s) (R$ ${valorEsperado.toFixed(2)}), veio R$ ${ultimo.expected_amount}`
+    ).toBeCloseTo(valorEsperado, 2);
   }
 );
 
