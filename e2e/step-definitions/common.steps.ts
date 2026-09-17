@@ -602,12 +602,29 @@ Then('devo ver filtros de mês e ano', async function (this: CustomWorld) {
 // aberto e o SEGUNDO toggle ("alterno para tema claro", que roda logo
 // depois) tinha o clique em #layout-user-menu-trigger interceptado pelo
 // overlay dele. Fecha o alertdialog (se aparecer) nos dois passos.
+// ⚠️ 2ª correção em 17/set/2026 (CI run #76): a 1ª versão deste helper
+// conferia a visibilidade do aviso UMA ÚNICA VEZ, no instante em que a
+// classe do <html> mudava -- e nesse instante o aviso ainda NÃO existia. A
+// ordem real é: o tema é aplicado na tela, depois a gravação no banco
+// termina, e só então `handleToggleTheme` chama showAlert -- que ainda
+// espera 250ms de propósito (ver AlertContext.tsx) antes de abrir. Ou seja,
+// a checagem passava sempre "não tem aviso nenhum", o aviso abria logo
+// depois e travava o passo seguinte do mesmo jeito. Agora espera o aviso
+// aparecer por alguns segundos antes de desistir.
 async function fecharAlertaDeTemaSeAparecer(world: CustomWorld) {
   const alerta = world.page.getByRole('alertdialog');
-  if (await alerta.isVisible().catch(() => false)) {
-    await alerta.getByRole('button', { name: /^OK$/i }).click();
-    await expect(alerta).toBeHidden({ timeout: 10000 });
-  }
+  const apareceu = await alerta
+    .waitFor({ state: 'visible', timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (!apareceu) return;
+
+  await alerta.getByRole('button', { name: /^OK$/i }).click();
+  await expect(alerta).toBeHidden({ timeout: 10000 });
+  // A limpeza do travamento roda num temporizador curto depois do fechamento
+  // (forceDialogCleanup, em AlertContext.tsx).
+  await world.page.waitForTimeout(500);
 }
 
 When('alterno para tema escuro', { timeout: 40 * 1000 }, async function (this: CustomWorld) {
@@ -1022,9 +1039,19 @@ Then('devo ver os dados salvos corretamente', async function (this: CustomWorld)
   const maritalStatus = this.page.locator('#tenant-marital-status');
   const monthlyIncome = this.page.locator('input#tenant-monthly-income');
 
-  await expect(occupation).not.toHaveValue('');
-  await expect(maritalStatus).not.toHaveValue('');
-  await expect(monthlyIncome).not.toHaveValue('');
+  await expect(occupation, 'a Profissão não foi salva').not.toHaveValue('');
+
+  // ⚠️ Corrigido em 17/set/2026 (CI run #76): "Estado Civil" NÃO é campo de
+  // digitação -- é uma lista do shadcn/Radix, ou seja um <button> que mostra
+  // o texto da opção escolhida (TenantFormDialog.tsx, SelectTrigger). Num
+  // botão, `toHaveValue` não lê nada e sempre devolve vazio, então esta
+  // checagem acusava "não salvou" mesmo quando o dado estava salvo certinho.
+  // O sinal correto é o texto do botão deixar de ser o "Selecione..." (o
+  // placeholder) e passar a mostrar a opção.
+  await expect(maritalStatus, 'o Estado Civil não foi salvo').not.toHaveText(/Selecione/i);
+  await expect(maritalStatus, 'o Estado Civil ficou em branco').not.toHaveText('');
+
+  await expect(monthlyIncome, 'a Renda Mensal não foi salva').not.toHaveValue('');
 });
 
 /**
