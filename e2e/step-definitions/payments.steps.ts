@@ -494,7 +494,13 @@ When('visualizo o detalhamento do pagamento', async function() {
 // no banco, só não aparecia NA TELA até alguém trocar o filtro. Faltava
 // abrir o seletor "#payment-filters-month" e escolher "Todos os meses"
 // antes de procurar a linha.
-When('visualizo o recibo do pagamento de Janeiro\\/2026', async function (this: import('../support/world').CustomWorld) {
+// ⚠️ Corrigido em 17/set/2026 (confirmado no CI run #74, issue #99): a
+// correção acima funcionou (achou a linha), mas os passos extras (abrir
+// o filtro, trocar pra "Todos os meses", esperar o dropdown) empurraram
+// o passo pra perto/acima do timeout padrão do Cucumber (20s, hooks.ts)
+// -- estourava com "function timed out" genérico. Timeout próprio, maior,
+// igual ao padrão já usado em outros passos desta suíte.
+When('visualizo o recibo do pagamento de Janeiro\\/2026', { timeout: 40 * 1000 }, async function (this: import('../support/world').CustomWorld) {
   await this.page.goto('/payments');
   await this.page.waitForLoadState('domcontentloaded');
   await this.page.locator('#payments-tab-paid').click();

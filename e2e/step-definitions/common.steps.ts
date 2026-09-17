@@ -963,7 +963,17 @@ When('abro o inquilino novamente', async function (this: CustomWorld) {
   await this.page.waitForTimeout(1000);
 });
 
-Then('quando abro o inquilino novamente', async function (this: CustomWorld) {
+// ⚠️ Investigado em 17/set/2026 (CI run #74, issue #99): este passo estourou
+// com "function timed out" genérico (20s, hooks.ts) -- sem nenhuma pista do
+// motivo real. No MESMO run, outro passo parecido ("alterno para tema
+// claro") só revelou a causa de verdade porque tinha um timeout próprio
+// maior que deixou o Playwright terminar de tentar: um <div> de overlay de
+// Dialog/Sheet (classe do shadcn, "fixed inset-0 z-50 bg-black/80...")
+// ficando aberto (data-state="open") e bloqueando cliques -- ainda não se
+// sabe qual Dialog é esse aqui. Timeout próprio, maior, só para deixar o
+// próximo CI mostrar o erro real em vez do genérico (NÃO é uma correção do
+// bug em si -- ver issue #99 para o acompanhamento).
+Then('quando abro o inquilino novamente', { timeout: 40 * 1000 }, async function (this: CustomWorld) {
   const name = this.tenantName;
   const row = this.page.getByText(name!).first();
   await row.click();
