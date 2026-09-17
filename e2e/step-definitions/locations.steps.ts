@@ -42,6 +42,15 @@ When('abro a aba {string} das Configurações', async function (this: CustomWorl
       `a lista de Locais não terminou de carregar -- não achei "${this.testData.nomeLocalCriado}" na tela`
     ).toBeVisible({ timeout: 10000 });
   }
+
+  // Mesma espera para Formas de Pagamento (17/set/2026) -- a checagem de
+  // repetido também compara contra a lista já carregada.
+  if (/pagamento/i.test(aba) && this.testData.nomeFormaPagamentoCriada) {
+    await expect(
+      this.page.getByText(this.testData.nomeFormaPagamentoCriada, { exact: false }).first(),
+      `a lista de Formas de Pagamento não terminou de carregar -- não achei "${this.testData.nomeFormaPagamentoCriada}" na tela`
+    ).toBeVisible({ timeout: 10000 });
+  }
 });
 
 When('preencho o nome do local com o mesmo nome que já existe', async function (this: CustomWorld) {
@@ -50,4 +59,38 @@ When('preencho o nome do local com o mesmo nome que já existe', async function 
     throw new Error('Nenhum local foi criado antes deste passo (testData.nomeLocalCriado vazio).');
   }
   await this.page.locator('#locationName').fill(nome);
+});
+
+/**
+ * ⚠️ Criado em 17/set/2026 (issue #99): regra geral pedida pelo Cadu a partir
+ * da #106 -- nenhum cadastro do sistema pode aceitar item repetido, e nenhum
+ * pode aceitar a inclusão antes de conseguir CONFERIR se é repetido. A tela de
+ * Formas de Pagamento não tinha checagem nenhuma (dava pra ter duas "PIX").
+ */
+Given('que existe uma forma de pagamento {string}', async function (this: CustomWorld, nome: string) {
+  const DatabaseHelper = (await import('../helpers/database.helper')).default;
+  const forma = await DatabaseHelper.createPaymentMethod({ name: nome });
+  // Guarda o nome REAL gravado (com o selo " [E2E]") -- mesmo motivo
+  // explicado no "que existe um local {string}", lá em cima.
+  this.testData.nomeFormaPagamentoCriada = forma.name;
+});
+
+When('preencho o nome da forma de pagamento com o mesmo nome que já existe', async function (this: CustomWorld) {
+  const nome = this.testData.nomeFormaPagamentoCriada;
+  if (!nome) {
+    throw new Error('Nenhuma forma de pagamento foi criada antes deste passo (testData.nomeFormaPagamentoCriada vazio).');
+  }
+  await this.page.locator('#paymentMethodName').fill(nome);
+});
+
+/**
+ * O botão de salvar nasce bloqueado ("Carregando...") e só libera quando a
+ * lista chega do banco -- é isso que impede a checagem de repetido de rodar
+ * contra uma lista vazia. Conferir que ele LIBERA é o que prova que a trava
+ * não ficou presa (um botão eternamente bloqueado também seria defeito).
+ */
+Then('o botão de salvar do cadastro deve estar liberado', async function (this: CustomWorld) {
+  const botao = this.page.locator('#settings-location-submit');
+  await expect(botao, 'o botão de salvar do cadastro de Locais não apareceu').toBeVisible({ timeout: 10000 });
+  await expect(botao, 'o botão de salvar continuou bloqueado mesmo depois da lista carregar').toBeEnabled({ timeout: 15000 });
 });

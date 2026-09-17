@@ -603,6 +603,31 @@ Gerenciar cadastro de locais/endereços onde os imóveis estão localizados.
 > limpeza deles é manual, feita direto no Supabase, revisando cada caso
 > antes de apagar (nunca automática).
 
+> ⚠️ **Complementado em 17/set/2026 (issue #107)**: a correção acima ainda
+> tinha um buraco. A conferência de "já existe" compara o nome digitado com
+> a lista de Locais que a tela já tem na mão -- e essa lista começa vazia,
+> só ficando completa depois que a tela termina de buscar os dados no banco.
+> Quem conseguisse salvar antes disso passava batido, porque a conferência
+> era feita contra uma lista vazia ("não achei nenhum igual, pode gravar").
+>
+> **Regra geral, válida para TODOS os cadastros do sistema**: enquanto a tela
+> não conseguir conferir se o item já existe, ela não aceita a inclusão. Na
+> prática, o botão de salvar nasce bloqueado, escrito "Carregando...", e só
+> libera quando a lista chega do banco. Se mesmo assim alguém tentar enviar
+> o formulário (apertando Enter, por exemplo), o sistema responde "Aguarde um
+> instante" em vez de gravar.
+
+### Passo a passo: cadastrar um Local sem correr risco de duplicar
+
+1. Vá em **Configurações → Locais** e clique em **Novo Local**.
+2. Repare no botão de salvar: se ele estiver cinza escrito "Carregando...",
+   a tela ainda está buscando a lista de Locais que já existem. Isso dura
+   um instante.
+3. Quando o botão virar **Cadastrar**, pode preencher e salvar normalmente.
+4. Se o nome já existir, o sistema mostra o aviso **"Já existe um Local
+   chamado ..."** e não grava nada. Nesse caso, ou use outro nome, ou edite
+   o Local que já existe.
+
 **Edição**:
 - Todos os campos são editáveis
 - Nome deve permanecer único
@@ -866,6 +891,16 @@ Gerenciar cadastro de inquilinos (pessoas físicas ou jurídicas) que podem alug
 - **CNPJ**: 14 dígitos com validação de dígitos verificadores
 - **Documento**: Deve ser único no sistema
 - **Renda Mensal**: Aceita valores decimais, máscara aplicada automaticamente
+
+> ⚠️ **Corrigido em 17/set/2026 (issue #107)**: a conferência de e-mail
+> repetido acontece meio segundo depois que você para de digitar, e ainda
+> precisa consultar o banco. Antes, quem digitava o e-mail e clicava em
+> salvar rápido conseguia enviar o cadastro antes dessa resposta chegar --
+> a tela não tinha como saber que o e-mail já existia. Agora, enquanto a
+> conferência está rodando, o botão mostra **"Verificando..."** e não aceita
+> salvar; ele libera assim que a resposta chega. É a mesma regra geral dos
+> outros cadastros: nada é incluído antes de o sistema conseguir conferir se
+> já existe.
 
 **Máscaras Aplicadas**:
 - CPF: 000.000.000-00
@@ -2491,6 +2526,30 @@ Centralizar configurações globais do sistema, gerenciar usuários, permissões
 **1.3 Validações**
 - Valores devem ser >= 0 e <= 100
 - Formato: Número decimal com 2 casas
+
+#### 1.4 Aba "Formas Pagamento"
+
+Cadastro das formas de pagamento que aparecem nos recebimentos (PIX,
+Dinheiro, Transferência, etc.). Guardado na tabela `payment_methods`.
+
+**Campos**: Nome (obrigatório), Código (gerado sozinho a partir do nome se
+ficar em branco), Ordem de exibição e Ativo (sim/não).
+
+> ⚠️ **Corrigido em 17/set/2026 (issue #107)**: esta tela não tinha
+> conferência nenhuma de repetido -- dava para cadastrar duas formas de
+> pagamento "PIX", exatamente o mesmo problema dos Locais duplicados
+> (#106). Agora o sistema recusa nome OU código já usados por outra forma
+> de pagamento, e segue a mesma regra geral de todos os cadastros: o botão
+> de salvar fica bloqueado ("Carregando...") até a lista chegar do banco,
+> para a conferência nunca ser feita contra uma lista vazia.
+
+**Passo a passo**:
+
+1. Vá em **Configurações → Formas Pagamento** e clique em **Nova Forma**.
+2. Espere o botão de salvar sair de "Carregando..." e virar **Criar**.
+3. Preencha o nome. O código é preenchido sozinho, mas pode ser trocado.
+4. Se o nome ou o código já existirem, aparece **"Já existe uma forma de
+   pagamento com este nome ou código"** e nada é gravado.
 
 #### 2. Aba "Usuários"
 

@@ -600,6 +600,19 @@ export const TenantFormDialog = memo(function TenantFormDialog({
       return;
     }
 
+    // ⚠️ Adicionado em 17/set/2026 (issue #99, regra geral pedida pelo Cadu):
+    // a checagem de e-mail duplicado roda com 500ms de atraso (debounce) e
+    // ainda faz uma consulta no banco. Antes, o envio só era barrado quando a
+    // checagem JÁ TINHA TERMINADO e achado duplicado (`emailError`) -- quem
+    // digitasse o e-mail e clicasse em Salvar rápido passava direto, porque
+    // nesse instante `emailError` ainda estava vazio (a resposta não tinha
+    // chegado). Mesma regra do cadastro de Locais: não deixar incluir
+    // enquanto não der pra confirmar que o item não é repetido.
+    if (checkingEmail) {
+      console.warn("⚠️ [TenantFormDialog] Bloqueando envio - checagem de e-mail em andamento");
+      return;
+    }
+
     console.log("\n🔥 ===== TenantFormDialog.handleSubmit =====");
     console.log("🔍 Modo:", tenant ? "EDITAR" : "CRIAR");
 
@@ -640,7 +653,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         setEmailError("E-mail existente, informe outro e-mail");
       }
     }
-  }, [formData, documentType, onSave, onOpenChange, emailError]);
+  }, [formData, documentType, onSave, onOpenChange, emailError, checkingEmail]);
 
   const handleEdit = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -725,12 +738,13 @@ export const TenantFormDialog = memo(function TenantFormDialog({
                 >
                   Cancelar
                 </Button>
-                <Button 
+                <Button
                   id="tenant-form-submit"
                   type="submit"
+                  disabled={checkingEmail}
                   className="h-11 sm:h-10 touch-target"
                 >
-                  {tenant ? "Atualizar" : "Criar"}
+                  {checkingEmail ? "Verificando..." : tenant ? "Atualizar" : "Criar"}
                 </Button>
               </>
             )}

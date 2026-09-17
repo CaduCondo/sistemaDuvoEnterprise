@@ -181,6 +181,11 @@ export default function Settings() {
   
   // Estados para Formas de Pagamento
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  // ⚠️ Adicionado em 17/set/2026 (issue #99, regra geral pedida pelo Cadu):
+  // mesma proteção do cadastro de Locais -- a checagem de nome/código repetido
+  // (mais abaixo, no formulário) só é confiável depois que a lista veio do
+  // banco. Enquanto isso, o botão de salvar fica bloqueado.
+  const [paymentMethodsLoaded, setPaymentMethodsLoaded] = useState(false);
   const [isPaymentMethodDialogOpen, setIsPaymentMethodDialogOpen] = useState(false);
   const [editingPaymentMethod, setEditingPaymentMethod] = useState<PaymentMethod | null>(null);
   const [paymentMethodForm, setPaymentMethodForm] = useState({
@@ -237,6 +242,7 @@ export default function Settings() {
     try {
       const data = await getAllPaymentMethods();
       setPaymentMethods(data);
+      setPaymentMethodsLoaded(true);
     } catch (error) {
       console.error("Failed to fetch payment methods:", error);
       showAlert({ 
@@ -1397,14 +1403,45 @@ export default function Settings() {
               // ✅ Validar se code não está vazio
               if (!code) {
                 console.error("❌ [settings] Code está vazio!");
-                showAlert({ 
-                  title: "Erro de validação", 
+                showAlert({
+                  title: "Erro de validação",
                   description: "O código da forma de pagamento é obrigatório.",
                   type: "error",
                 });
                 return;
               }
-              
+
+              // ⚠️ Adicionado em 17/set/2026 (issue #99, regra geral pedida
+              // pelo Cadu: "não permitir a inclusão enquanto não conseguisse
+              // validar se o item já existe, e essa regra deve ser em todas as
+              // inclusões"). Esta tela não tinha checagem NENHUMA de repetido
+              // -- dava pra cadastrar duas formas de pagamento "PIX", do mesmo
+              // jeito que aconteceu com os Locais duplicados (issue #106).
+              if (!paymentMethodsLoaded) {
+                showAlert({
+                  title: "Aguarde um instante",
+                  description: "A lista de formas de pagamento ainda está carregando. Aguarde a tela terminar de carregar e tente salvar de novo.",
+                  type: "info",
+                });
+                return;
+              }
+
+              const nomeNormalizado = paymentMethodForm.name.trim().toLowerCase();
+              const repetido = paymentMethods.find(
+                (pm) =>
+                  pm.id !== editingPaymentMethod?.id &&
+                  (pm.name?.trim().toLowerCase() === nomeNormalizado ||
+                    pm.code?.trim().toLowerCase() === code.toLowerCase())
+              );
+              if (repetido) {
+                showAlert({
+                  title: "Forma de pagamento já existe",
+                  description: `Já existe uma forma de pagamento com este nome ou código ("${repetido.name}"). Use outro nome ou edite a que já existe.`,
+                  type: "error",
+                });
+                return;
+              }
+
               try {
                 const dataToSave = {
                   ...paymentMethodForm,
@@ -1518,8 +1555,8 @@ export default function Settings() {
                 <Button type="button" variant="outline" onClick={() => setIsPaymentMethodDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">
-                  {editingPaymentMethod ? "Atualizar" : "Criar"}
+                <Button type="submit" disabled={!paymentMethodsLoaded}>
+                  {!paymentMethodsLoaded ? "Carregando..." : editingPaymentMethod ? "Atualizar" : "Criar"}
                 </Button>
               </DialogFooter>
             </form>

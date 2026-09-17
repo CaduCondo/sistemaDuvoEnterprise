@@ -91,6 +91,7 @@ const createdIds = {
   properties: [] as string[],
   tenants: [] as string[],
   rentals: [] as string[], // deposit_installments e payments são removidos em cascata
+  paymentMethods: [] as string[],
 };
 
 function track(bucket: keyof typeof createdIds, id?: string | null) {
@@ -354,6 +355,37 @@ export class DatabaseHelper {
 
   static async findLocationByName(name: string) {
     const { data } = await supabaseAdmin.from('locations').select('*').ilike('name', `%${name}%`).limit(1).maybeSingle();
+    return data;
+  }
+
+  // ==================== FORMAS DE PAGAMENTO ====================
+
+  /**
+   * ⚠️ Criado em 17/set/2026 (issue #99, regra geral pedida pelo Cadu): a
+   * tela de Formas de Pagamento não tinha nenhuma checagem de nome repetido
+   * -- dava pra cadastrar duas "PIX", mesmo problema dos Locais duplicados
+   * (issue #106). Helper para o cenário conseguir criar a PRIMEIRA forma de
+   * pagamento direto no banco (com marca de teste e limpeza automática) e
+   * depois tentar repetir o nome pela tela.
+   */
+  static async createPaymentMethod(overrides: Partial<{
+    name: string; code: string; active: boolean; display_order: number;
+  }> = {}) {
+    const suffix = Date.now().toString().slice(-6);
+    const nome = comMarcaDeTeste(overrides.name || `Forma Teste ${suffix}`);
+    const { data, error } = await supabaseAdmin
+      .from('payment_methods')
+      .insert({
+        name: nome,
+        code: overrides.code || `teste_${suffix}`,
+        active: overrides.active ?? true,
+        display_order: overrides.display_order ?? 99,
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(`Falha ao criar forma de pagamento: ${error.message}`);
+    track('paymentMethods', data.id);
     return data;
   }
 
@@ -841,6 +873,9 @@ export class DatabaseHelper {
     for (const id of createdIds.locations) {
       await supabaseAdmin.from('locations').delete().eq('id', id);
     }
+    for (const id of createdIds.paymentMethods) {
+      await supabaseAdmin.from('payment_methods').delete().eq('id', id);
+    }
     // Usuários de teste (admin/financeiro/corretor) são fixos e reaproveitados
     // entre execuções — não são removidos aqui de propósito.
 
@@ -848,6 +883,7 @@ export class DatabaseHelper {
     createdIds.tenants = [];
     createdIds.properties = [];
     createdIds.locations = [];
+    createdIds.paymentMethods = [];
 
     // Segunda passada: varre o banco pelo selo, pegando o que a lista em
     // memória não alcança -- ver o comentário de MARCA_TESTE.
@@ -926,6 +962,10 @@ export class DatabaseHelper {
     const { data: locaisApagados } = await supabaseAdmin
       .from('locations').delete().like('name', selo).select('id');
     console.log(`   • localizações: ${contar(locaisApagados)}`);
+
+    const { data: formasApagadas } = await supabaseAdmin
+      .from('payment_methods').delete().like('name', selo).select('id');
+    console.log(`   • formas de pagamento: ${contar(formasApagadas)}`);
 
     if (total > 0) {
       console.log(`   ↳ ${total} registro(s) com o selo ${MARCA_TESTE} removidos.`);
