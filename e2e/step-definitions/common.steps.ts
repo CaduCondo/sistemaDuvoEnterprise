@@ -199,6 +199,30 @@ When('clico em {string}', { timeout: 40 * 1000 }, async function (this: CustomWo
     }
   }
 
+  // ⚠️ Adicionado em 17/set/2026 (issue #99, CI run #79): alguns botões têm id
+  // estável e ficam dentro de telas pesadas (o relatório do Financeiro, por
+  // exemplo). Procurar "pelo nome" ali é frágil: se a tela ainda não montou, o
+  // passo cai no clique por texto e estoura sem dizer o motivo. Quando o
+  // rótulo é um destes, vai direto pelo id -- mesma ideia já usada acima para
+  // o "Salvar" dos formulários.
+  const ATALHOS_POR_ROTULO: Record<string, string> = {
+    'exportar excel': '#financial-export-button',
+    imprimir: '#financial-print-button',
+  };
+  const atalho = ATALHOS_POR_ROTULO[text.trim().toLowerCase()];
+  if (atalho) {
+    const alvo = this.page.locator(atalho).first();
+    const visivel = await alvo
+      .waitFor({ state: 'visible', timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+    if (visivel) {
+      await alvo.click();
+      await this.page.waitForTimeout(300);
+      return;
+    }
+  }
+
   const byRole = this.page.getByRole('button', { name: new RegExp(escapeRegex(text), 'i') })
     .or(this.page.getByRole('link', { name: new RegExp(escapeRegex(text), 'i') }));
 
