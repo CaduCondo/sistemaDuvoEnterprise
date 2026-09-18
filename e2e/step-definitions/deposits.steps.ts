@@ -272,11 +272,21 @@ When("marco a parcela {int} como recebida:", async function (this: CustomWorld, 
   this.testData.depositInstallments = await this.getDepositInstallments(this.rentalId!);
 });
 
-When("acesso o relatório financeiro de cauções", async function (this: CustomWorld) {
+// ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #79): depois de clicar na
+// aba, o passo esperava 500ms fixos e seguia. O relatório do Financeiro
+// carrega os dados por busca no banco -- no CI, meio segundo não basta, e o
+// passo seguinte ("clico em Exportar Excel") não achava o botão, que ainda
+// não tinha sido desenhado. Mesma causa raiz já corrigida em vários passos
+// desta suíte: esperar o CONTEÚDO aparecer, não um tempo fixo.
+When("acesso o relatório financeiro de cauções", { timeout: 40 * 1000 }, async function (this: CustomWorld) {
   await this.page.goto("/financial");
   await this.page.waitForLoadState("domcontentloaded");
-  await this.page.getByRole("tab", { name: /parcelas de caução|cauções/i }).click();
-  await this.page.waitForTimeout(500);
+  await this.page.getByRole("tab", { name: /parcelas de caução|cauções/i }).first().click();
+
+  await expect(
+    this.page.locator('#financial-export-button'),
+    'o relatório de cauções não terminou de carregar (o botão Exportar Excel nunca apareceu)'
+  ).toBeVisible({ timeout: 20000 });
 });
 
 /**
