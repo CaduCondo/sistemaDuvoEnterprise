@@ -9,7 +9,17 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     Dado que fiz login como "admin"
     E estou na página "/payments"
 
-  # ✅ NOVO: Teste do bug corrigido - reference_month
+  # ⚠️ ATENÇÃO (18/set/2026): os dois cenários de pagamento proporcional abaixo
+  # estão VERMELHOS de propósito -- eles não são defeito de teste. Eles estão
+  # achando um comportamento do sistema que não bate com a regra que o Cadu
+  # definiu em 17/set/2026 (ver issue #108): o período cobrado vai de
+  # vencimento a vencimento, e é isso que decide a 1ª parcela, a última e a de
+  # rescisão. No CI run #80, a locação de 18/07 a 31/12 apareceu com DOIS
+  # recebimentos em Agosto/2026 em vez de um. Não mexer nestes cenários para
+  # "ficar verde": a correção é no cálculo do sistema, pela issue #108.
+  # (O passo "devo ver N recebimento" agora lista na mensagem de erro quais
+  # recebimentos a tela mostrou, para a #108 ser resolvida com fato e não com
+  # suposição.)
   @sistemaCompleto
   Cenário: Pagamento proporcional - Início após vencimento (Bug corrigido)
     Dado que crio uma locação com:
