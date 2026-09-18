@@ -1262,12 +1262,24 @@ Then('devo ver a linha {string} com a soma dos recebimentos que vencem em {strin
   const rotulo = dialogo.getByText(rotuloDaLinha, { exact: true });
   await expect(rotulo, `a linha "${rotuloDaLinha}" não está na tela`).toBeVisible({ timeout: 10000 });
 
-  const valorTexto = (await rotulo.locator('xpath=following-sibling::span[1]').textContent()) || '';
+  // ⚠️ Corrigido em 18/set/2026 (issue #99): a leitura do valor era feita UMA
+  // ÚNICA VEZ, no instante em que o rótulo aparecia. O diálogo de recebimento
+  // ainda está somando as linhas nesse momento, então às vezes o teste lia um
+  // número parcial e falhava -- e às vezes lia o número já pronto e passava.
+  // Era exatamente por isso que este cenário aparecia e sumia da lista de
+  // falhas entre uma rodada e outra (runs #76, #78/#79 e #80). Agora a
+  // leitura tenta de novo até o valor bater ou estourar o tempo.
+  const valorNaTela = rotulo.locator('xpath=following-sibling::span[1]');
 
-  expect(
-    extrairNumeroExibido(valorTexto),
-    `a tela mostra "${valorTexto.trim()}" e a soma dos recebimentos de ${dataBR} no banco é ${soma.toFixed(2)}`
-  ).toBeCloseTo(Math.round(soma * 100) / 100, 2);
+  await expect
+    .poll(
+      async () => extrairNumeroExibido((await valorNaTela.textContent()) || ''),
+      {
+        timeout: 10000,
+        message: `a tela não chegou na soma dos recebimentos que vencem em ${dataBR} (esperado ${soma.toFixed(2)} pelo banco)`,
+      }
+    )
+    .toBeCloseTo(Math.round(soma * 100) / 100, 2);
 });
 
 Then('a {string} deve mostrar, nesta ordem:', async function (this: CustomWorld, bloco: string, dataTable: any) {
