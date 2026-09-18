@@ -87,6 +87,12 @@ Given('que crio uma locação com:', { timeout: 60 * 1000 }, async function(data
     status: 'available',
   });
   const tenant = await DatabaseHelper.createTenant({ name: `Proporcional E2E ${Date.now()}` });
+  // ⚠️ Adicionado em 17/set/2026 (issue #99, CI run #79): guardar o nome do
+  // inquilino é o que permite os passos seguintes contarem SÓ os recebimentos
+  // desta locação. Sem isso, "devo ver 1 recebimento" contava as linhas da
+  // tela inteira -- que no banco de DEV compartilhado tinha 122.
+  this.tenantName = tenant.name;
+  this.testData = { ...this.testData, complementoDoImovel: complementoUnico };
 
   // Navegar para página de locações
   await this.page.goto('/rentals');
@@ -516,7 +522,13 @@ When('visualizo o recibo do pagamento de Janeiro\\/2026', { timeout: 40 * 1000 }
   await this.page.locator('#payments-tab-paid').click();
   await this.page.waitForTimeout(500);
 
-  await this.page.locator('#payment-filters-month').click();
+  // ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #79): este clique mirava
+  // "#payment-filters-month", que é de `PaymentFilters.tsx` -- um componente
+  // ANTIGO, que não é usado em tela nenhuma. O filtro de período real da tela
+  // de Recebimentos é o PeriodSelector ("#period-selector-month"), como o
+  // próprio código já registrava desde 14/set. O clique ficava 30s esperando
+  // um campo que nunca existiu e derrubava o cenário do snapshot.
+  await this.page.locator('#period-selector-month').click();
   await this.page.waitForTimeout(300);
   await this.page.getByRole('option', { name: 'Todos os meses' }).click();
   await this.page.waitForTimeout(500);
@@ -664,14 +676,35 @@ When('confirmo o cancelamento', async function() {
 
 // ==================== VALIDAÇÕES ====================
 
+/**
+ * ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #79): estes dois passos
+ * contavam TODAS as linhas da tabela na tela. A tela de Recebimentos mostra
+ * os recebimentos de todas as locações do banco -- no banco de DEV, 122
+ * linhas -- então "devo ver 1 recebimento" nunca poderia bater, e mesmo que
+ * batesse por acaso não estaria testando nada: o número dependeria do que
+ * outros cenários deixaram no banco, não do comportamento do sistema.
+ *
+ * O cenário quer dizer "1 recebimento DESTA locação". Agora conta só as
+ * linhas do inquilino criado pelo próprio cenário (this.tenantName). Se o
+ * cenário não criou inquilino nenhum, mantém o comportamento antigo.
+ */
+function linhasDoRecebimento(world: any) {
+  const linhas = world.page.locator('tbody tr');
+  return world.tenantName ? linhas.filter({ hasText: world.tenantName }) : linhas;
+}
+
 Then('devo ver {int} recebimento', async function(count: number) {
-  const payments = this.page.locator('tbody tr');
-  await expect(payments).toHaveCount(count, { timeout: 5000 });
+  await expect(
+    linhasDoRecebimento(this),
+    `esperava ${count} recebimento(s) da locação deste cenário na tela`
+  ).toHaveCount(count, { timeout: 10000 });
 });
 
 Then('devo ver {int} recebimentos', async function(count: number) {
-  const payments = this.page.locator('tbody tr');
-  await expect(payments).toHaveCount(count, { timeout: 5000 });
+  await expect(
+    linhasDoRecebimento(this),
+    `esperava ${count} recebimento(s) da locação deste cenário na tela`
+  ).toHaveCount(count, { timeout: 10000 });
 });
 
 /**
