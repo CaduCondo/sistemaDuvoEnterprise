@@ -102,9 +102,19 @@ Given('que crio uma locação com:', { timeout: 60 * 1000 }, async function(data
   await this.page.getByRole('option', { name: new RegExp(complementoUnico.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).click();
 
   // Selecionar o inquilino de teste.
+  //
+  // ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #78): o nome vem do banco
+  // com o selo de teste no fim -- "Proporcional E2E 1789... [E2E]". Jogado
+  // cru dentro de uma expressão de busca, os colchetes deixam de ser texto e
+  // viram "um caractere entre E, 2 e E", ou seja a busca passa a procurar um
+  // nome que termina numa letra só -- que não existe. O clique ficava 30s
+  // esperando uma opção que nunca ia aparecer e derrubava os dois cenários de
+  // pagamento proporcional. A linha do imóvel (acima) já escapava o texto; a
+  // do inquilino tinha ficado de fora.
   await this.page.locator('#rental-tenant').click();
   await this.page.waitForTimeout(300);
-  await this.page.getByRole('option', { name: new RegExp(tenant.name, 'i') }).click();
+  const nomeDoInquilinoEscapado = tenant.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await this.page.getByRole('option', { name: new RegExp(nomeDoInquilinoEscapado, 'i') }).click();
 
   // Preencher datas
   if (data['Data início']) {
