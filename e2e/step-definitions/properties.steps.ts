@@ -163,26 +163,18 @@ async function selecionarLocalizacao(world: CustomWorld, locationName: string) {
   // payments.steps.ts.
   const nomeEscapado = locationName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  // ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #79): o clique era feito
-  // por TEXTO. Num Select do shadcn/Radix, o texto do nome aparece em mais de
-  // um lugar (a opção da lista e o rótulo do próprio campo depois de
-  // escolhido), então o `.first()` podia acertar algo que não é a opção -- o
-  // clique "funcionava" sem selecionar nada, e a lista voltava sem filtro
-  // nenhum (o teste via os imóveis de sempre, tipo ACÁCIAS/APTO 63). Clicar
-  // pelo PAPEL de opção é o jeito correto, já usado nos outros filtros desta
-  // mesma tela.
-  const opcao = world.page.getByRole('option', { name: new RegExp(`^${nomeEscapado}$`, 'i') });
-  const achouOpcao = await opcao
+  // ⚠️ Corrigido em 18/set/2026 (issue #99, CI run #80): a tentativa anterior
+  // procurava o nome como `role="option"`, supondo um Select. Está errado:
+  // lendo PropertyFilters.tsx, este filtro é um PAINEL (Popover) com uma
+  // CAIXA DE SELEÇÃO por local (LocationList/Checkbox) -- não existe "option"
+  // nenhum ali, então aquela espera só gastava 10s e caía no clique por
+  // texto. O rótulo é um <label> ligado à caixa, então clicar no texto dele
+  // marca a caixa; usamos busca por texto contido (sem âncoras), porque o
+  // rótulo tem espaços em volta do nome.
+  await world.page
+    .getByText(new RegExp(nomeEscapado, 'i'))
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 })
-    .then(() => true)
-    .catch(() => false);
-
-  if (achouOpcao) {
-    await opcao.first().click();
-  } else {
-    await world.page.getByText(new RegExp(`^${nomeEscapado}$`, 'i')).first().click();
-  }
+    .click();
 
   await world.page.keyboard.press('Escape');
   await world.page.waitForTimeout(500);
@@ -228,16 +220,45 @@ Given('que existe um imóvel nesse local', async function (this: CustomWorld) {
 // ⚠️ Timeout próprio (17/set/2026, CI run #78): recarrega a página e ainda
 // espera o filtro de localização aparecer (até 10s) -- estourava os 20s
 // padrão do Cucumber e o erro virava o genérico "function timed out".
+// ⚠️ 2ª correção em 18/set/2026 (CI run #80): o filtro de localização NÃO é
+// uma lista de opções (Select) -- é um painel (Popover) com uma CAIXA DE
+// SELEÇÃO por local, ver PropertyFilters.tsx (LocationList/Checkbox). Por
+// isso não existe `role="option"` ali, e clicar no texto do rótulo não estava
+// marcando a caixa. Como este cenário cria o próprio Local, ele conhece o id
+// dele -- e a caixa tem id previsível (`location-<id>`), o que dá um clique
+// exato, sem depender de texto nenhum.
 When('seleciono a localização criada pelo cenário', { timeout: 40 * 1000 }, async function (this: CustomWorld) {
   const nome = this.testData.nomeLocalCriado;
-  if (!nome) {
-    throw new Error('Nenhum local foi criado antes deste passo (testData.nomeLocalCriado vazio).');
+  const idLocal = this.testData.idLocalCriado;
+  if (!nome || !idLocal) {
+    throw new Error('Nenhum local foi criado antes deste passo (testData.nomeLocalCriado/idLocalCriado vazio).');
   }
+
   // O Contexto já abriu /properties ANTES de o Local e o imóvel existirem --
   // precisa recarregar para a tela enxergar o que foi criado no banco.
   await this.page.goto('/properties');
   await this.page.waitForLoadState('domcontentloaded');
-  await selecionarLocalizacao(this, nome);
+
+  const botaoDoFiltro = this.page.locator('#property-filters-location-desktop');
+  await botaoDoFiltro.waitFor({ state: 'visible', timeout: 15000 });
+  await botaoDoFiltro.click();
+
+  const caixa = this.page.locator(`#location-${idLocal}`);
+  await expect(
+    caixa,
+    `o local "${nome}" não apareceu na lista do filtro -- ele foi criado antes da tela carregar?`
+  ).toBeVisible({ timeout: 10000 });
+  await caixa.click();
+
+  await this.page.keyboard.press('Escape');
+  await this.page.waitForTimeout(500);
+
+  // Confere que a escolha PEGOU: com um único local marcado, o botão do
+  // filtro passa a mostrar o nome dele (LocationFilterButton).
+  await expect(
+    botaoDoFiltro,
+    `o filtro não ficou com "${nome}" selecionado depois do clique na caixa`
+  ).toContainText(nome, { timeout: 10000 });
 });
 
 Then('devo ver apenas imóveis desta localização', async function (this: CustomWorld) {
