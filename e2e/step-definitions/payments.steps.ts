@@ -533,10 +533,29 @@ When('visualizo o recibo do pagamento de Janeiro\\/2026', { timeout: 40 * 1000 }
   await this.page.getByRole('option', { name: 'Todos os meses' }).click();
   await this.page.waitForTimeout(500);
 
-  const linha = this.page.locator('tbody tr').filter({ hasText: /janeiro/i }).filter({ hasText: '2026' }).first();
-  await expect(linha, 'não achei a linha do pagamento de Janeiro/2026 na aba "Recebimentos Pagos"').toBeVisible({ timeout: 10000 });
+  // ⚠️ Corrigido em 18/set/2026 (issue #99, CI run #80): a linha era escolhida
+  // só por "janeiro" + "2026", entre TODAS as locações do banco, e ficava com
+  // a primeira que aparecesse -- quase sempre de outra locação. Quando essa
+  // linha não tinha botão de recibo (acontece, por exemplo, em caução sem
+  // histórico de pagamento, que mostra "-"), o clique esperava 30s por um
+  // botão que não existe naquela linha. Agora a busca é escopada no inquilino
+  // criado pelo próprio cenário.
+  let linha = this.page.locator('tbody tr').filter({ hasText: /janeiro/i }).filter({ hasText: '2026' });
+  if (this.tenantName) {
+    linha = linha.filter({ hasText: this.tenantName });
+  }
+  const primeira = linha.first();
+  await expect(
+    primeira,
+    `não achei a linha do pagamento de Janeiro/2026 da locação deste cenário na aba "Recebimentos Pagos"`
+  ).toBeVisible({ timeout: 10000 });
 
-  await linha.locator('[title^="Recibo"]').first().click();
+  const botaoRecibo = primeira.locator('[title^="Recibo"]').first();
+  await expect(
+    botaoRecibo,
+    'a linha de Janeiro/2026 não tem botão de recibo (a coluna "Recibo" veio vazia)'
+  ).toBeVisible({ timeout: 10000 });
+  await botaoRecibo.click();
   await this.page.waitForTimeout(500);
 });
 
@@ -693,18 +712,32 @@ function linhasDoRecebimento(world: any) {
   return world.tenantName ? linhas.filter({ hasText: world.tenantName }) : linhas;
 }
 
+/**
+ * Quando a conta não bate, dizer só "esperava 1, veio 2" não ajuda ninguém a
+ * saber QUAIS recebimentos o sistema criou. Este helper descreve as linhas
+ * encontradas (Local, Período, Parcela, Status) na própria mensagem de erro.
+ */
+async function conferirQuantidadeDeRecebimentos(world: any, count: number) {
+  const linhas = linhasDoRecebimento(world);
+  try {
+    await expect(linhas).toHaveCount(count, { timeout: 10000 });
+  } catch (erro) {
+    const encontradas = await linhas.allInnerTexts().catch(() => []);
+    const descricao = encontradas
+      .map((t: string, i: number) => `  ${i + 1}) ${t.replace(/\s+/g, ' ').trim().slice(0, 120)}`)
+      .join('\n');
+    throw new Error(
+      `Esperava ${count} recebimento(s) da locação deste cenário, mas a tela mostrou ${encontradas.length}:\n${descricao}`
+    );
+  }
+}
+
 Then('devo ver {int} recebimento', async function(count: number) {
-  await expect(
-    linhasDoRecebimento(this),
-    `esperava ${count} recebimento(s) da locação deste cenário na tela`
-  ).toHaveCount(count, { timeout: 10000 });
+  await conferirQuantidadeDeRecebimentos(this, count);
 });
 
 Then('devo ver {int} recebimentos', async function(count: number) {
-  await expect(
-    linhasDoRecebimento(this),
-    `esperava ${count} recebimento(s) da locação deste cenário na tela`
-  ).toHaveCount(count, { timeout: 10000 });
+  await conferirQuantidadeDeRecebimentos(this, count);
 });
 
 /**
