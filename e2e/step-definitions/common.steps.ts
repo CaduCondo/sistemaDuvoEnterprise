@@ -183,7 +183,7 @@ When('clico no botão {string}', async function (this: CustomWorld, buttonText: 
  * minha senha"), botões sem role explícito e itens de menu. Tenta primeiro
  * um botão/link pelo nome acessível e cai para texto puro como fallback.
  */
-When('clico em {string}', async function (this: CustomWorld, text: string) {
+When('clico em {string}', { timeout: 40 * 1000 }, async function (this: CustomWorld, text: string) {
   // Os cenários dizem "Salvar", mas os formulários de Imóvel, Inquilino e
   // Locação rotulam o botão de gravar como "Criar" (novo) ou "Atualizar"
   // (edição). Quando um desses formulários está aberto, clicamos pelo id, que
@@ -202,10 +202,28 @@ When('clico em {string}', async function (this: CustomWorld, text: string) {
   const byRole = this.page.getByRole('button', { name: new RegExp(escapeRegex(text), 'i') })
     .or(this.page.getByRole('link', { name: new RegExp(escapeRegex(text), 'i') }));
 
-  if (await byRole.first().isVisible().catch(() => false)) {
+  // ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #78): este `if` conferia a
+  // visibilidade UMA ÚNICA VEZ, no instante exato -- mesmo defeito já
+  // corrigido em vários passos desta suíte. Se a tela ainda estivesse
+  // carregando (ex.: a aba Cauções do Financeiro buscando os dados), o botão
+  // "não existia" nesse milissegundo, o passo caía no `else` e ficava 30s no
+  // clique por texto -- mais que os 20s do Cucumber, então o erro virava o
+  // genérico "function timed out", sem dizer nada sobre a causa. Foi o que
+  // derrubou "Exportar relatório para Excel". Agora espera o botão aparecer
+  // de verdade, e o clique de reserva tem limite menor que o do passo.
+  const apareceu = await byRole
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (apareceu) {
     await byRole.first().click();
   } else {
-    await this.page.getByText(new RegExp(escapeRegex(text), 'i')).first().click();
+    await this.page
+      .getByText(new RegExp(escapeRegex(text), 'i'))
+      .first()
+      .click({ timeout: 10000 });
   }
   await this.page.waitForTimeout(300);
 });
@@ -759,8 +777,23 @@ Then('os filtros devem funcionar', async function (this: CustomWorld) {
 // timeouts de login), a checagem podia rodar antes do filtro montar.
 // Timeout maior, consistente com o resto da suíte pra conteúdo carregado
 // via fetch.
+// ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #78): o seletor
+// `[id*="filters-month"]` só casa com PaymentFilters.tsx -- um componente
+// ANTIGO, que não é usado em tela nenhuma (o próprio código diz isso, em
+// PeriodSelector.tsx, desde 14/set). O filtro de período de verdade em
+// Recebimentos/Financeiro/Painel é o PeriodSelector, com os ids
+// `period-selector-month` e `period-selector-year`. Ou seja, este passo
+// conferia um elemento que nunca poderia existir e ficava girando até
+// estourar. Agora aponta pro filtro real e confere que ele está utilizável,
+// não só presente.
 Then('os filtros de mês\\/ano devem funcionar', async function (this: CustomWorld) {
-  await expect(this.page.locator('[id*="filters-month"], [id*="filters-year"]').first()).toBeVisible({ timeout: 15000 });
+  const mes = this.page.locator('#period-selector-month');
+  const ano = this.page.locator('#period-selector-year');
+
+  await expect(mes, 'o filtro de mês não apareceu na tela').toBeVisible({ timeout: 15000 });
+  await expect(mes, 'o filtro de mês está bloqueado').toBeEnabled();
+  await expect(ano, 'o filtro de ano não apareceu na tela').toBeVisible({ timeout: 15000 });
+  await expect(ano, 'o filtro de ano está bloqueado').toBeEnabled();
 });
 
 Then('os pagamentos devem ser exibidos corretamente', async function (this: CustomWorld) {
