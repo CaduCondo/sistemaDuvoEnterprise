@@ -708,7 +708,15 @@ When('confirmo o cancelamento', async function() {
  * cenário não criou inquilino nenhum, mantém o comportamento antigo.
  */
 function linhasDoRecebimento(world: any) {
-  const linhas = world.page.locator('tbody tr');
+  // ⚠️ Corrigido em 18/set/2026 (issue #99, CI run #82): contava `tbody tr`
+  // sem exigir que a linha estivesse VISÍVEL. O diagnóstico que eu tinha
+  // acabado de adicionar entregou a pista: das 2 linhas encontradas, o texto
+  // veio VAZIO -- linha sem texto é linha escondida. A tela monta mais de uma
+  // versão da lista no mesmo HTML (uma para computador, outra para celular) e
+  // esconde a que não se aplica; o teste estava contando as duas e achando o
+  // dobro. `:visible` conta só o que está de fato na tela, que é o que o
+  // cenário quer dizer com "devo ver N recebimento".
+  const linhas = world.page.locator('tbody tr:visible');
   return world.tenantName ? linhas.filter({ hasText: world.tenantName }) : linhas;
 }
 
