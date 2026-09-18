@@ -154,7 +154,15 @@ async function selecionarLocalizacao(world: CustomWorld, locationName: string) {
   // mais de uma localização com esse nome na lista do Popover, o Playwright
   // recusa agir por ambiguidade ("strict mode violation") em vez de
   // escolher uma -- travando este passo em qualquer tela que dependa dele.
-  await world.page.getByText(new RegExp(`^${locationName}$`, 'i')).first().click();
+  // ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #78): o nome do Local
+  // criado pelo cenário vem do banco com o selo de teste no fim
+  // ("Local do Filtro [E2E]"). Sem escapar, os colchetes deixam de ser texto
+  // dentro da expressão de busca e viram "um caractere entre E, 2 e E" -- a
+  // busca passa a procurar um nome que nunca existiu e o clique fica
+  // esperando pra sempre. Mesmo defeito achado na seleção de inquilino em
+  // payments.steps.ts.
+  const nomeEscapado = locationName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await world.page.getByText(new RegExp(`^${nomeEscapado}$`, 'i')).first().click();
   await world.page.keyboard.press('Escape');
   await world.page.waitForTimeout(500);
 }
@@ -188,7 +196,10 @@ Given('que existe um imóvel nesse local', async function (this: CustomWorld) {
   this.testData.propertyIdentifier = identificador;
 });
 
-When('seleciono a localização criada pelo cenário', async function (this: CustomWorld) {
+// ⚠️ Timeout próprio (17/set/2026, CI run #78): recarrega a página e ainda
+// espera o filtro de localização aparecer (até 10s) -- estourava os 20s
+// padrão do Cucumber e o erro virava o genérico "function timed out".
+When('seleciono a localização criada pelo cenário', { timeout: 40 * 1000 }, async function (this: CustomWorld) {
   const nome = this.testData.nomeLocalCriado;
   if (!nome) {
     throw new Error('Nenhum local foi criado antes deste passo (testData.nomeLocalCriado vazio).');
@@ -478,7 +489,11 @@ Then('o imóvel deve permanecer na lista', async function (this: CustomWorld) {
  * identificador do imóvel -- funciona na visão padrão, sem depender de
  * layout nem de rótulo.
  */
-async function acharCardDoImovel(world: CustomWorld, identifier: string) {
+async function acharCardDoImovel(
+  world: CustomWorld,
+  identifier: string,
+  opcoes?: { forcarVisaoEmGrade?: boolean }
+) {
   // ⚠️ Corrigido em 14/set/2026 (issue #99, 2ª rodada -- causa raiz real,
   // as 3 tentativas anteriores abaixo não bastaram): o Contexto do arquivo
   // faz "E estou na página '/properties'" ANTES de qualquer cenário rodar
@@ -513,6 +528,20 @@ async function acharCardDoImovel(world: CustomWorld, identifier: string) {
   await busca.waitFor({ state: 'visible', timeout: 15000 });
   await busca.fill(identifier);
   await world.page.waitForTimeout(500);
+
+  // ⚠️ Corrigido em 17/set/2026 (CI run #78): quem precisa do BOTÃO de
+  // deletar (que só existe no card da visão em grade) tem que trocar de
+  // visão AQUI, depois do `goto` acima -- na primeira versão desta correção
+  // a troca era feita no passo, ANTES de chamar este helper, e o `goto`
+  // desfazia tudo, voltando pra visão em lista. O card nunca aparecia, o
+  // clique no botão ficava esperando pra sempre e o passo estourava com o
+  // genérico "function timed out".
+  if (opcoes?.forcarVisaoEmGrade) {
+    const toggleGrade = world.page.locator('#properties-view-grid');
+    await toggleGrade.waitFor({ state: 'visible', timeout: 15000 });
+    await toggleGrade.click();
+    await world.page.waitForTimeout(300);
+  }
 
   // ⚠️ Corrigido em 17/set/2026 (issue #99, causa raiz real): as duas
   // tentativas anteriores (força visão em grade, com e sem espera) nunca
@@ -561,13 +590,14 @@ When('clico no botão de editar do imóvel {string}', async function (this: Cust
 // equivalente (deletar por lá exige abrir o imóvel primeiro). Diferente do
 // helper genérico `acharCardDoImovel` (que já acha em qualquer visão), este
 // passo precisa mesmo da grade.
-When('clico no botão de deletar do imóvel {string}', async function (this: CustomWorld, identifier: string) {
-  const toggleGrade = this.page.locator('#properties-view-grid');
-  await toggleGrade.waitFor({ state: 'visible', timeout: 15000 });
-  await toggleGrade.click();
-  await this.page.waitForTimeout(300);
-
-  const card = await acharCardDoImovel(this, this.testData.propertyIdentifier || identifier);
+// ⚠️ Timeout próprio (17/set/2026, CI run #78): este passo recarrega a tela,
+// espera a busca aparecer, filtra, troca de visão e só então clica -- passa
+// folgado dos 20s padrão do Cucumber (hooks.ts), e o erro que sobrava era o
+// genérico "function timed out", sem dizer nada sobre a causa real.
+When('clico no botão de deletar do imóvel {string}', { timeout: 60 * 1000 }, async function (this: CustomWorld, identifier: string) {
+  const card = await acharCardDoImovel(this, this.testData.propertyIdentifier || identifier, {
+    forcarVisaoEmGrade: true,
+  });
   await card.locator('[id^="property-delete-"]').click();
   await this.page.waitForTimeout(500);
 });
