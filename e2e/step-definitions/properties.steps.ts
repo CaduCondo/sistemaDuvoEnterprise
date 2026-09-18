@@ -162,9 +162,38 @@ async function selecionarLocalizacao(world: CustomWorld, locationName: string) {
   // esperando pra sempre. Mesmo defeito achado na seleção de inquilino em
   // payments.steps.ts.
   const nomeEscapado = locationName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  await world.page.getByText(new RegExp(`^${nomeEscapado}$`, 'i')).first().click();
+
+  // ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #79): o clique era feito
+  // por TEXTO. Num Select do shadcn/Radix, o texto do nome aparece em mais de
+  // um lugar (a opção da lista e o rótulo do próprio campo depois de
+  // escolhido), então o `.first()` podia acertar algo que não é a opção -- o
+  // clique "funcionava" sem selecionar nada, e a lista voltava sem filtro
+  // nenhum (o teste via os imóveis de sempre, tipo ACÁCIAS/APTO 63). Clicar
+  // pelo PAPEL de opção é o jeito correto, já usado nos outros filtros desta
+  // mesma tela.
+  const opcao = world.page.getByRole('option', { name: new RegExp(`^${nomeEscapado}$`, 'i') });
+  const achouOpcao = await opcao
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (achouOpcao) {
+    await opcao.first().click();
+  } else {
+    await world.page.getByText(new RegExp(`^${nomeEscapado}$`, 'i')).first().click();
+  }
+
   await world.page.keyboard.press('Escape');
   await world.page.waitForTimeout(500);
+
+  // Confere que a escolha PEGOU antes de seguir. Sem isto, quando o clique
+  // não seleciona nada, quem acusa o problema é a checagem das linhas lá na
+  // frente -- que aponta pro lugar errado ("a linha 1 não é da localização").
+  await expect(
+    select,
+    `o filtro de localização não ficou com "${locationName}" selecionado depois do clique`
+  ).toContainText(locationName, { timeout: 10000 });
 }
 
 When('seleciono a localização {string}', async function (this: CustomWorld, locationName: string) {
@@ -459,18 +488,33 @@ Then('o imóvel deve aparecer na lista', async function (this: CustomWorld) {
   await expect(this.page.locator('table tbody tr').first()).toBeVisible({ timeout: 5000 });
 });
 
+/**
+ * ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #79): estes dois passos
+ * procuravam o identificador como TEXTO SOLTO na tela. Na visão em cards --
+ * que é onde o cenário de deletar termina, porque o botão de deletar só
+ * existe lá -- o card mostra Local, Complemento e Valor, mas não escreve o
+ * identificador em lugar nenhum: ele existe só como atributo. Resultado: o
+ * "Cancelar" (que NÃO apaga nada) acusava que o imóvel havia sumido.
+ *
+ * Os dois passam a usar o mesmo gancho estável que o resto da suíte
+ * (`data-property-identifier`), que agora existe nas duas visões.
+ */
 Then('o imóvel NÃO deve aparecer na lista', async function (this: CustomWorld) {
   const identifier = this.testData.propertyIdentifier;
-  if (identifier) {
-    await expect(this.page.getByText(identifier)).not.toBeVisible();
-  }
+  if (!identifier) return;
+  await expect(
+    this.page.locator(`[data-property-identifier="${identifier}"]`),
+    `o imóvel "${identifier}" continua na tela mesmo depois de excluído`
+  ).toHaveCount(0, { timeout: 10000 });
 });
 
 Then('o imóvel deve permanecer na lista', async function (this: CustomWorld) {
   const identifier = this.testData.propertyIdentifier;
-  if (identifier) {
-    await expect(this.page.getByText(identifier)).toBeVisible();
-  }
+  if (!identifier) return;
+  await expect(
+    this.page.locator(`[data-property-identifier="${identifier}"]`).first(),
+    `o imóvel "${identifier}" sumiu da tela, mas a exclusão foi cancelada`
+  ).toBeVisible({ timeout: 10000 });
 });
 
 /**
