@@ -686,10 +686,22 @@ Then("vejo KPI {string} = {float}", async function (this: CustomWorld, kpiName: 
   const chave = CHAVE_KPI_PARA_BASELINE[testId.replace("kpi-", "")];
   const alvo = baseline && chave ? baseline[chave] + value : value;
 
+  // ⚠️ Corrigido em 18/set/2026 (issue #99, CI run #82): a comparação usava
+  // `alvo.toFixed(2)` -- ou seja, procurava o texto "339150.01" dentro de uma
+  // tela que escreve "R$ 339.150,01". Formato brasileiro: ponto separa
+  // milhar e vírgula separa centavos. Com qualquer valor acima de mil, esse
+  // passo NUNCA poderia passar, mesmo com a conta certíssima. No run #82 o
+  // sistema mostrou exatamente o valor esperado e o teste reprovou só pelo
+  // formato. Agora compara no formato que a tela usa.
+  const alvoFormatado = alvo.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
   await expect(
     kpi,
-    `o KPI "${kpiName}" deveria mostrar R$ ${alvo.toFixed(2)} (base R$ ${(baseline?.[chave] ?? 0).toFixed(2)} + cenário R$ ${value.toFixed(2)})`
-  ).toContainText(alvo.toFixed(2), { timeout: 10000 });
+    `o KPI "${kpiName}" deveria mostrar R$ ${alvoFormatado} (base R$ ${(baseline?.[chave] ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} + cenário R$ ${value.toFixed(2)})`
+  ).toContainText(alvoFormatado, { timeout: 10000 });
 });
 
 /**
