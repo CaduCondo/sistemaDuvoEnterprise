@@ -91,6 +91,15 @@ async function criarLocacaoAtivaDeTeste(
 
   world.rentalId = rental.id;
   world.propertyId = property.id;
+  // ⚠️ Adicionado em 18/set/2026 (issue #99, CI run #81): o nome do inquilino
+  // só estava em `testData.rental.tenantName`, e os passos da tela de
+  // Recebimentos procuram em `world.tenantName` para escopar a busca na
+  // locação do cenário. Sem isso, o passo "visualizo o recibo do pagamento de
+  // Janeiro/2026" pegava a linha de janeiro/2026 de QUALQUER locação do banco
+  // -- e quando calhava de ser uma linha sem botão de recibo, falhava com "a
+  // linha não tem botão de recibo". Guardar aqui resolve para todos os
+  // cenários que nascem deste helper.
+  world.tenantName = tenant.name;
   world.testData = {
     ...world.testData,
     rentalId: rental.id,
