@@ -196,7 +196,20 @@ Funcionalidade: Gestão de Cauções
     Quando clico novamente
     Então a ordem é invertida
 
-  @sistemaCompleto
+  # ⚠️ SEM TAG DE RODADA (18/set/2026, issue #99 + #97): este cenário descreve
+  # uma funcionalidade que NÃO EXISTE na tela. Conferido no código: a função
+  # de exportar o relatório de Cauções existe (`exportToExcel`, em
+  # DepositInstallmentsTable.tsx, inclusive já "corrigida" em 10/set pela
+  # issue #97 para respeitar o filtro e trazer a linha de totais), mas ela não
+  # está ligada a botão nenhum -- ficou órfã. O único "Exportar Excel" do
+  # sistema é o #financial-export-button, que pertence a OUTRA aba do
+  # Financeiro. Ou seja: o relatório de Cauções não tem como ser exportado
+  # pela tela hoje.
+  #
+  # Pela convenção da suíte (ver e2e/SMOKE.md), cenário de funcionalidade que
+  # ainda não existe fica SEM tag de rodada até ser implementada -- não é
+  # defeito de teste, então não cabe @quebrado. Devolver a tag
+  # @sistemaCompleto no momento em que o botão for ligado.
   Cenário: Exportar relatório para Excel
     Dado que existem locações com caução
     Quando acesso o relatório financeiro de cauções
