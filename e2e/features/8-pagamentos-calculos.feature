@@ -9,17 +9,23 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     Dado que fiz login como "admin"
     E estou na página "/payments"
 
-  # ⚠️ ATENÇÃO (18/set/2026): os dois cenários de pagamento proporcional abaixo
-  # estão VERMELHOS de propósito -- eles não são defeito de teste. Eles estão
-  # achando um comportamento do sistema que não bate com a regra que o Cadu
-  # definiu em 17/set/2026 (ver issue #108): o período cobrado vai de
-  # vencimento a vencimento, e é isso que decide a 1ª parcela, a última e a de
-  # rescisão. No CI run #80, a locação de 18/07 a 31/12 apareceu com DOIS
-  # recebimentos em Agosto/2026 em vez de um. Não mexer nestes cenários para
-  # "ficar verde": a correção é no cálculo do sistema, pela issue #108.
-  # (O passo "devo ver N recebimento" agora lista na mensagem de erro quais
-  # recebimentos a tela mostrou, para a #108 ser resolvida com fato e não com
-  # suposição.)
+  # ⚠️ ATENÇÃO (18/set/2026): os dois cenários abaixo acusaram DOIS
+  # recebimentos em Agosto/2026 onde o cenário espera um só (CI runs #80 e
+  # #82).
+  #
+  # Eu cheguei a registrar isso como bug de cálculo do sistema (issue #108).
+  # CORRIJO: ainda não está provado. O diagnóstico que coloquei no passo
+  # "devo ver N recebimento" mostrou que as 2 linhas encontradas estavam com
+  # o texto VAZIO -- sinal de linha escondida. A tela monta mais de uma versão
+  # da lista no mesmo HTML (computador/celular) e esconde a que não se aplica,
+  # então a contagem provavelmente estava somando a mesma linha duas vezes.
+  # A contagem passou a exigir linha visível; a próxima rodada dirá se estes
+  # dois cenários eram defeito de teste ou se sobra mesmo um erro de cálculo.
+  #
+  # O que continua sendo bug real e comprovado da #108 é outro cenário:
+  # "Renovar contrato cria os recebimentos até a nova data fim", onde o último
+  # recebimento veio com o valor cheio (R$ 1.500,00) em vez de proporcional
+  # aos 21 dias (R$ 1.050,00) -- isso não tem nada a ver com linha escondida.
   @sistemaCompleto
   Cenário: Pagamento proporcional - Início após vencimento (Bug corrigido)
     Dado que crio uma locação com:
