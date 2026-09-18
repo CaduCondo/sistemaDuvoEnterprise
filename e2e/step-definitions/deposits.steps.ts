@@ -95,8 +95,9 @@ Given("que existem locações ativas e canceladas com caução", async function 
  * criadas aqui -- o que nunca é verdade em DEV (dezenas de locações de outros
  * cenários/rodadas convivem no mesmo banco). Por isso:
  *
- * 1) Tira uma "foto" dos totais ANTES de criar qualquer coisa
- *    (getActiveDepositKpiTotals) -- ver essa função para o porquê.
+ * 1) Tira uma "foto" dos totais ANTES de criar qualquer coisa. Desde
+ *    18/set/2026 essa foto é lida DA TELA (fotografarKpisDaTela, logo
+ *    abaixo), não do banco -- ver o comentário lá para o porquê.
  * 2) Guarda os rental_id criados AQUI, para os passos seguintes (que
  *    marcam parcela como paga / atribuem comissão) mexerem SÓ nelas --
  *    antes usavam getAllDepositInstallments(), que pegava parcela de
@@ -105,8 +106,44 @@ Given("que existem locações ativas e canceladas com caução", async function 
  *    contra FOTO + CONTRIBUIÇÃO ESPERADA, não contra o número fixo do
  *    Gherkin sozinho.
  */
-Given("que existem {int} locações com caução", async function (this: CustomWorld, count: number) {
-  this.testData.kpiBaseline = await this.getActiveDepositKpiTotals();
+/**
+ * Lê os 4 KPIs direto DA TELA do relatório de cauções e devolve os números.
+ *
+ * ⚠️ Criado em 18/set/2026 (issue #99, CI run #80): a foto anterior vinha do
+ * BANCO (`getActiveDepositKpiTotals`, que soma só locações ativas), mas a
+ * comparação era feita contra o número da TELA -- e a tela, sem filtro
+ * escolhido, mostra mais que só as ativas. Dava diferença de dezenas de
+ * milhares de reais (no run #78: foto R$ 244.750,01, tela R$ 330.150,01) e o
+ * cenário nunca poderia passar. Comparar tela com tela elimina o problema:
+ * o que importa é a VARIAÇÃO que o cenário provoca, medida do mesmo jeito.
+ */
+async function fotografarKpisDaTela(world: CustomWorld) {
+  await world.page.goto("/financial");
+  await world.page.waitForLoadState("domcontentloaded");
+  await world.page.getByRole("tab", { name: /parcelas de caução|cauções/i }).first().click();
+  await expect(
+    world.page.locator('[data-testid="kpi-caucoes-esperados"]').first(),
+    'o relatório de cauções não carregou para tirar a foto dos KPIs'
+  ).toBeVisible({ timeout: 20000 });
+
+  const ler = async (testId: string) => {
+    const texto = (await world.page.locator(`[data-testid="${testId}"]`).first().textContent()) ?? "";
+    // "R$ 330.150,01" -> 330150.01
+    const limpo = texto.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
+    const numero = parseFloat(limpo);
+    return Number.isFinite(numero) ? numero : 0;
+  };
+
+  return {
+    esperados: await ler("kpi-caucoes-esperados"),
+    recebidos: await ler("kpi-caucoes-recebidos"),
+    comissao: await ler("kpi-comissoes-pagas"),
+    liquida: await ler("kpi-receita-liquida"),
+  };
+}
+
+Given("que existem {int} locações com caução", { timeout: 90 * 1000 }, async function (this: CustomWorld, count: number) {
+  this.testData.kpiBaseline = await fotografarKpisDaTela(this);
 
   const rentaisDoCenario: string[] = [];
   for (let i = 0; i < count; i++) {
