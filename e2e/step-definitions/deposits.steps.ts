@@ -274,18 +274,23 @@ When("marco a parcela {int} como recebida:", async function (this: CustomWorld, 
 
 // ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #79): depois de clicar na
 // aba, o passo esperava 500ms fixos e seguia. O relatório do Financeiro
-// carrega os dados por busca no banco -- no CI, meio segundo não basta, e o
-// passo seguinte ("clico em Exportar Excel") não achava o botão, que ainda
-// não tinha sido desenhado. Mesma causa raiz já corrigida em vários passos
-// desta suíte: esperar o CONTEÚDO aparecer, não um tempo fixo.
+// carrega os dados por busca no banco -- no CI, meio segundo não basta.
+// Espera o CONTEÚDO aparecer, não um tempo fixo.
+//
+// ⚠️ 2ª correção em 18/set/2026 (CI run #80): a 1ª versão desta espera
+// aguardava "#financial-export-button" -- e esse botão NÃO existe na aba de
+// Cauções (ele pertence a outra aba do Financeiro). Resultado: derrubei de
+// uma vez os 10 cenários deste arquivo, que antes passavam. Erro meu, achado
+// no log real. Agora a espera é pelo KPI "Cauções Esperados", que o próprio
+// log do CI mostra existir nesta tela (data-testid="kpi-caucoes-esperados").
 When("acesso o relatório financeiro de cauções", { timeout: 40 * 1000 }, async function (this: CustomWorld) {
   await this.page.goto("/financial");
   await this.page.waitForLoadState("domcontentloaded");
   await this.page.getByRole("tab", { name: /parcelas de caução|cauções/i }).first().click();
 
   await expect(
-    this.page.locator('#financial-export-button'),
-    'o relatório de cauções não terminou de carregar (o botão Exportar Excel nunca apareceu)'
+    this.page.locator('[data-testid="kpi-caucoes-esperados"]').first(),
+    'o relatório de cauções não terminou de carregar (o KPI "Cauções Esperados" nunca apareceu)'
   ).toBeVisible({ timeout: 20000 });
 });
 
