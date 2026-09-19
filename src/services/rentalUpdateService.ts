@@ -134,12 +134,32 @@ export async function syncPaymentsOnDateChange(
     let days = 0;
 
     if (isLast) {
-      const endDay = newEnd.getDate();
-      // Se termina antes do dia de pagamento, é proporcional
-      if (endDay < paymentDay - 1) {
-        isProportional = true;
-        days = endDay;
-      }
+      // ⚠️ Corrigido em 18/set/2026 (issue #99 / #108, CI run #82): aqui a
+      // última parcela só virava proporcional quando a data fim caía ANTES do
+      // dia de vencimento (`endDay < paymentDay - 1`). Fora disso, cobrava o
+      // MÊS CHEIO. Só que a geração de recebimentos da CRIAÇÃO da locação
+      // (paymentService.ts, "ETAPA 4: Criar o último recebimento
+      // (proporcional)") diz o contrário, e em letras maiúsculas: "o último
+      // mês SEMPRE deve ser proporcional, nunca integral".
+      //
+      // Ou seja: a MESMA locação terminava com valores diferentes dependendo
+      // de ter sido criada ou renovada/editada. Foi o que o CI pegou -- ao
+      // renovar um contrato com aluguel de R$ 1.500,00 e fim no dia 21, a
+      // última parcela vinha R$ 1.500,00 (cheia) em vez de R$ 1.050,00
+      // (proporcional a 21 dias). O inquilino seria cobrado por um mês que
+      // não vai morar.
+      //
+      // As duas partes passam a usar a mesma regra, que é a documentada.
+      //
+      // ⚠️ ATENÇÃO: a regra definitiva do Cadu (issue #108, 17/set/2026) é
+      // mais ampla que esta -- o período deve ir de VENCIMENTO A VENCIMENTO,
+      // e a última parcela deve vencer na própria data fim, não no dia de
+      // vencimento habitual. Isso muda a contagem de dias e mexe também na
+      // 1ª parcela e no recebimento de rescisão. Esta correção aqui só acaba
+      // com a divergência entre as duas partes do sistema; a regra da #108
+      // continua pendente e será feita como item próprio.
+      isProportional = true;
+      days = newEnd.getDate();
     }
 
     expectedPayments.push({

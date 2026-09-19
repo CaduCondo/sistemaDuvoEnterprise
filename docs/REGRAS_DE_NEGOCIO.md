@@ -1151,6 +1151,28 @@ Para cada mês do contrato:
 > Os recebimentos **já pagos não mudam** — eles guardam o valor da época
 > (snapshot). Só os pendentes/futuros passam a valer o valor novo.
 >
+
+> **📌 A última parcela do contrato é sempre proporcional** (corrigido em
+> 18/set/2026, achado pelos testes automatizados)
+>
+> O último mês de um contrato quase nunca é um mês inteiro: o contrato acaba
+> no meio dele. Por isso a última parcela cobra só os dias até a data fim, e
+> não o aluguel cheio.
+>
+> Até 18/set/2026 isso só valia quando a locação era **criada**. Quando a
+> locação era **renovada ou editada**, outro trecho do sistema cobrava o mês
+> **cheio** sempre que a data fim caísse a partir do dia de vencimento. Na
+> prática: renovando um contrato de R$ 1.500,00 com fim no dia 21, a última
+> parcela saía R$ 1.500,00 em vez de R$ 1.050,00 — o inquilino seria cobrado
+> por um mês inteiro que não vai morar. Os dois caminhos agora seguem a
+> mesma regra.
+>
+> ⚠️ Esta regra ainda vai mudar: o Cadu definiu em 17/set/2026 que o período
+> cobrado deve ir **de vencimento a vencimento**, e que a última parcela deve
+> vencer **na própria data fim**, não no dia de vencimento habitual. Isso
+> muda a contagem dos dias e mexe também na primeira parcela e no recebimento
+> de rescisão. Está registrado na issue #108 e será feito como item próprio.
+>
 > Protegido pelos cenários "Editar locação - Atualizar valor do aluguel" e
 > "Editar locação - Preservar snapshot em pagamentos pagos"
 > (`e2e/features/7-locacoes-regras.feature`).
