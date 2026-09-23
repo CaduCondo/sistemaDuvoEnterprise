@@ -540,7 +540,13 @@ When('visualizo o recibo do pagamento de Janeiro\\/2026', { timeout: 40 * 1000 }
   // histórico de pagamento, que mostra "-"), o clique esperava 30s por um
   // botão que não existe naquela linha. Agora a busca é escopada no inquilino
   // criado pelo próprio cenário.
-  let linha = this.page.locator('tbody tr').filter({ hasText: /janeiro/i }).filter({ hasText: '2026' });
+  // ⚠️ 2ª correção em 19/set/2026 (CI run #83): mesmo já filtrando pelo
+  // inquilino do cenário, a linha encontrada vinha SEM botão de recibo. A
+  // tela mantém as duas abas montadas no HTML ("Pendentes" e "Pagos") e só
+  // esconde a que não está ativa -- e a aba de Pendentes não tem coluna
+  // "Recibo". O teste estava achando a linha de janeiro na aba escondida.
+  // `:visible` garante que é a linha da aba que está realmente aberta.
+  let linha = this.page.locator('tbody tr:visible').filter({ hasText: /janeiro/i }).filter({ hasText: '2026' });
   if (this.tenantName) {
     linha = linha.filter({ hasText: this.tenantName });
   }

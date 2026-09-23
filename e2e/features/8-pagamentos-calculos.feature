@@ -9,23 +9,25 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     Dado que fiz login como "admin"
     E estou na página "/payments"
 
-  # ⚠️ ATENÇÃO (18/set/2026): os dois cenários abaixo acusaram DOIS
-  # recebimentos em Agosto/2026 onde o cenário espera um só (CI runs #80 e
-  # #82).
+  # ⚠️ CAUSA CONFIRMADA (19/set/2026): os dois cenários abaixo estão
+  # vermelhos por um BUG REAL DO SISTEMA -- ver issue #109.
   #
-  # Eu cheguei a registrar isso como bug de cálculo do sistema (issue #108).
-  # CORRIJO: ainda não está provado. O diagnóstico que coloquei no passo
-  # "devo ver N recebimento" mostrou que as 2 linhas encontradas estavam com
-  # o texto VAZIO -- sinal de linha escondida. A tela monta mais de uma versão
-  # da lista no mesmo HTML (computador/celular) e esconde a que não se aplica,
-  # então a contagem provavelmente estava somando a mesma linha duas vezes.
-  # A contagem passou a exigir linha visível; a próxima rodada dirá se estes
-  # dois cenários eram defeito de teste ou se sobra mesmo um erro de cálculo.
+  # Foram precisas três tentativas para chegar nisso, e vale registrar para
+  # ninguém repetir o caminho:
+  #   1ª suposição: bug de cálculo da regra de proporcional (#108). Errada.
+  #   2ª suposição: a contagem somava linha escondida (computador/celular).
+  #      Também errada -- mesmo exigindo linha visível, continuou dando 2.
+  #   Fato, lido no log do CI run #83: são DUAS linhas reais e visíveis, do
+  #   mesmo imóvel e inquilino, ambas em Agosto/2026 -- uma como parcela
+  #   "1/1" e outra como "1/5". Ou seja, a locação nasce com recebimento
+  #   DUPLICADO no mesmo mês, com contagens de parcela incompatíveis.
   #
-  # O que continua sendo bug real e comprovado da #108 é outro cenário:
-  # "Renovar contrato cria os recebimentos até a nova data fim", onde o último
-  # recebimento veio com o valor cheio (R$ 1.500,00) em vez de proporcional
-  # aos 21 dias (R$ 1.050,00) -- isso não tem nada a ver com linha escondida.
+  # Quem resolveu isso foi o diagnóstico: o passo "devo ver N recebimento"
+  # lista os recebimentos encontrados quando a conta não bate. Sem ele, a
+  # mensagem era só "esperava 1, veio 2" e dava para chutar à vontade.
+  #
+  # NÃO mexer nestes cenários para ficar verde: eles fecham sozinhos quando
+  # a #109 for corrigida.
   @sistemaCompleto
   Cenário: Pagamento proporcional - Início após vencimento (Bug corrigido)
     Dado que crio uma locação com:
