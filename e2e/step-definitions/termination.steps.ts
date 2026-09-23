@@ -1256,7 +1256,34 @@ Then('devo ver a linha {string} com a soma dos recebimentos que vencem em {strin
     `a linha "${rotuloDaLinha}" só faz sentido com mais de um recebimento vencendo em ${dataBR}; encontrei ${doMesmoDia.length}`
   ).toBeGreaterThan(1);
 
-  const soma = doMesmoDia.reduce((total: number, p: any) => total + Number(p.expected_amount || 0), 0);
+  // ⚠️ Corrigido em 19/set/2026 (issue #99, CI run #83): a checagem comparava
+  // a linha da tela com a soma dos `expected_amount` CRUS do banco. A tela
+  // não faz essa conta -- lendo PaymentBreakdownCard.tsx, ela soma o VALOR
+  // TOTAL **já calculado** do recebimento aberto (que inclui multa, juros,
+  // desconto e despesas de reparo) com os outros recebimentos do mesmo dia:
+  //
+  //     totalDaRescisao = finalTotal + somaOutrosDoMesmoVencimento
+  //
+  // Por isso os números divergiam (no run #83: tela -1.123, banco -1.750) e o
+  // cenário passava ou falhava conforme o dia em que o CI rodava, porque a
+  // multa/juros dependem da data. Pior: do jeito antigo o teste estava
+  // refazendo as regras de dinheiro por conta própria, em vez de conferir o
+  // que esta linha existe para garantir -- que ela é a SOMA dos dois
+  // recebimentos, e não só o valor de um.
+  //
+  // Agora confere exatamente isso: a diferença entre "VALOR TOTAL DA
+  // RESCISÃO" e "VALOR TOTAL" tem que ser o valor do OUTRO recebimento que
+  // vence no mesmo dia (o de aluguel; o aberto é o de rescisão).
+  const outrosDoMesmoDia = doMesmoDia.filter((p: any) => p.payment_kind !== 'termination');
+  const somaDosOutros = outrosDoMesmoDia.reduce(
+    (total: number, p: any) => total + Number(p.expected_amount || 0),
+    0
+  );
+
+  expect(
+    outrosDoMesmoDia.length,
+    `esperava achar o recebimento de aluguel vencendo em ${dataBR} junto com o de rescisão`
+  ).toBeGreaterThan(0);
 
   const dialogo = this.page.locator('#payments-manage-dialog');
   const rotulo = dialogo.getByText(rotuloDaLinha, { exact: true });
@@ -1271,15 +1298,32 @@ Then('devo ver a linha {string} com a soma dos recebimentos que vencem em {strin
   // leitura tenta de novo até o valor bater ou estourar o tempo.
   const valorNaTela = rotulo.locator('xpath=following-sibling::span[1]');
 
+  // A linha "VALOR TOTAL" (deste recebimento sozinho) fica logo acima. A
+  // diferença entre as duas é o que a linha da rescisão acrescenta.
+  const rotuloValorTotal = dialogo.getByText('VALOR TOTAL', { exact: true });
+  await expect(
+    rotuloValorTotal,
+    'a linha "VALOR TOTAL" não está na tela (ela é a base da comparação)'
+  ).toBeVisible({ timeout: 10000 });
+  const valorTotalNaTela = rotuloValorTotal.locator('xpath=following-sibling::span[1]');
+
+  const esperado = Math.round(somaDosOutros * 100) / 100;
+
   await expect
     .poll(
-      async () => extrairNumeroExibido((await valorNaTela.textContent()) || ''),
+      async () => {
+        const total = extrairNumeroExibido((await valorTotalNaTela.textContent()) || '');
+        const totalRescisao = extrairNumeroExibido((await valorNaTela.textContent()) || '');
+        return Math.round((totalRescisao - total) * 100) / 100;
+      },
       {
         timeout: 10000,
-        message: `a tela não chegou na soma dos recebimentos que vencem em ${dataBR} (esperado ${soma.toFixed(2)} pelo banco)`,
+        message:
+          `a linha "${rotuloDaLinha}" deveria ser o VALOR TOTAL deste recebimento MAIS ` +
+          `R$ ${esperado.toFixed(2)} (o outro recebimento que vence em ${dataBR})`,
       }
     )
-    .toBeCloseTo(Math.round(soma * 100) / 100, 2);
+    .toBeCloseTo(esperado, 2);
 });
 
 Then('a {string} deve mostrar, nesta ordem:', async function (this: CustomWorld, bloco: string, dataTable: any) {
