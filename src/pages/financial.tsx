@@ -1857,7 +1857,16 @@ export default function Financial() {
                       <TrendingUp className="h-5 w-5 text-blue-500 card-icon" />
                       <p className="text-sm font-medium text-muted-foreground card-title">Receita Bruta</p>
                     </div>
-                    <h3 className="text-2xl font-bold text-blue-500 card-value">
+                    {/* ⚠️ data-testid adicionado em 25/set/2026: até aqui os
+                        cards do Financeiro (aba Locações) não tinham NENHUM
+                        gancho de teste -- nem id, nem data-testid. Por isso
+                        nenhum teste automatizado conseguia ler estes valores,
+                        e por isso nada avisou quando o Cadu estranhou os
+                        números em produção. A aba de Cauções já tinha os seus
+                        (kpi-caucoes-esperados e companhia); esta não. Só o
+                        gancho: nada muda na tela para quem usa o sistema.
+                        Ver issue #110. */}
+                    <h3 data-testid="kpi-receita-bruta" className="text-2xl font-bold text-blue-500 card-value">
                       {new Intl.NumberFormat("pt-BR", {
                         style: "currency",
                         currency: "BRL",
@@ -1898,7 +1907,7 @@ export default function Financial() {
                             Taxa Adm ({config?.admin_fee_percentage || 5}%)
                           </p>
                         </div>
-                        <h3 className="text-2xl font-bold text-orange-500 card-value">
+                        <h3 data-testid="kpi-taxa-adm" className="text-2xl font-bold text-orange-500 card-value">
                           {new Intl.NumberFormat("pt-BR", {
                             style: "currency",
                             currency: "BRL",
@@ -1918,7 +1927,7 @@ export default function Financial() {
                             Taxa Ger ({config?.management_fee_percentage || 3}%)
                           </p>
                         </div>
-                        <h3 className="text-2xl font-bold text-purple-500 card-value">
+                        <h3 data-testid="kpi-taxa-ger" className="text-2xl font-bold text-purple-500 card-value">
                           {new Intl.NumberFormat("pt-BR", {
                             style: "currency",
                             currency: "BRL",

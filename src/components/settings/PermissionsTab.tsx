@@ -265,9 +265,17 @@ export function PermissionsTab({
             </CardDescription>
           </CardHeader>
           <CardContent className="pb-3 flex flex-col justify-center items-center h-[120px]">
-            <Button 
-              id="permissions-admin-fee-exemption"
-              variant="outline" 
+            {/* ⚠️ Corrigido em 25/set/2026 (issue #110): este botão -- que abre a
+                isenção de GERENCIAMENTO -- se chamava
+                "permissions-admin-fee-exemption", e o da isenção de ADMIN se
+                chamava "permissions-management-fee-exemption". Os dois ids
+                estavam TROCADOS em relação ao que cada botão faz. Nenhum teste
+                usava (conferido), mas era uma armadilha pronta: um teste
+                escrito pelo nome certo abriria a tela errada e passaria
+                testando outra coisa. */}
+            <Button
+              id="permissions-management-fee-exemption"
+              variant="outline"
               className="w-full max-w-xs gap-2"
               onClick={openManagementFeeExemptionDialog}
             >
@@ -293,9 +301,11 @@ export function PermissionsTab({
             </CardDescription>
           </CardHeader>
           <CardContent className="pb-3 flex flex-col justify-center items-center h-[120px]">
-            <Button 
-              id="permissions-management-fee-exemption"
-              variant="outline" 
+            {/* Ver comentário no botão da isenção de Gerenciamento: os dois ids
+                estavam trocados e foram acertados em 25/set/2026. */}
+            <Button
+              id="permissions-admin-fee-exemption"
+              variant="outline"
               className="w-full max-w-xs gap-2"
               onClick={openAdminFeeExemptionDialog}
             >

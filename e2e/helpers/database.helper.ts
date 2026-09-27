@@ -358,6 +358,35 @@ export class DatabaseHelper {
     return data;
   }
 
+  /**
+   * ⚠️ Criado em 25/set/2026 (issue #110): fixa os percentuais de taxa antes
+   * do cenário rodar. Sem isto, um cenário que espera "3% de R$ 1.000 = R$ 30"
+   * depende do que estiver gravado em `config` no banco de DEV -- que qualquer
+   * um pode ter mudado pela tela de Configurações. O teste passaria ou
+   * falharia por motivo que não tem nada a ver com o que ele quer provar.
+   */
+  static async setFeePercentages(adminPercentage: number, managementPercentage: number) {
+    const { data: existing } = await supabaseAdmin
+      .from('config')
+      .select('id')
+      .limit(1)
+      .maybeSingle();
+
+    if (!existing) {
+      throw new Error('Não achei nenhuma linha em `config` para ajustar os percentuais de taxa.');
+    }
+
+    const { error } = await supabaseAdmin
+      .from('config')
+      .update({
+        admin_fee_percentage: adminPercentage,
+        management_fee_percentage: managementPercentage,
+      })
+      .eq('id', existing.id);
+
+    if (error) throw new Error(`Falha ao ajustar percentuais de taxa: ${error.message}`);
+  }
+
   // ==================== FORMAS DE PAGAMENTO ====================
 
   /**
@@ -958,6 +987,34 @@ export class DatabaseHelper {
     const { data: inquilinosApagados } = await supabaseAdmin
       .from('tenants').delete().like('name', selo).select('id');
     console.log(`   • inquilinos: ${contar(inquilinosApagados)}`);
+
+    // ⚠️ Adicionado em 25/set/2026 (issue #110): as ISENÇÕES de taxa por local
+    // são configuração GLOBAL do sistema. Um cenário que isenta um local de
+    // teste e não limpa deixa essa isenção valendo para as rodadas seguintes,
+    // distorcendo silenciosamente os valores de Taxa Adm/Ger de outros
+    // cenários -- e ainda travaria a exclusão do próprio local (chave
+    // estrangeira). Some ANTES de apagar os locais.
+    const { data: locaisSelados } = await supabaseAdmin
+      .from('locations')
+      .select('id')
+      .like('name', selo);
+
+    const idsSelados = (locaisSelados ?? []).map((l: any) => l.id);
+    if (idsSelados.length > 0) {
+      const { data: isencoesGer } = await supabaseAdmin
+        .from('management_fee_exempt_locations')
+        .delete()
+        .in('location_id', idsSelados)
+        .select('location_id');
+      console.log(`   • isenções de taxa de gerenciamento: ${contar(isencoesGer)}`);
+
+      const { data: isencoesAdm } = await supabaseAdmin
+        .from('admin_fee_exempt_locations')
+        .delete()
+        .in('location_id', idsSelados)
+        .select('location_id');
+      console.log(`   • isenções de taxa de administração: ${contar(isencoesAdm)}`);
+    }
 
     const { data: locaisApagados } = await supabaseAdmin
       .from('locations').delete().like('name', selo).select('id');

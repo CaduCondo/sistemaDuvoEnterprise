@@ -2237,6 +2237,35 @@ Apresentar relatórios financeiros consolidados com foco em receitas, despesas e
 
 #### 2. KPIs de Locações
 
+> ⚠️ **LEIA ANTES DE COMPARAR OS CARDS COM A TABELA** (escrito em 25/set/2026,
+> depois de um caso real em produção)
+>
+> Os cards de cima (Receita Bruta, Taxa Adm, Taxa Ger) mostram **só o dinheiro
+> que já entrou** — recebimentos com status Pago ou Parcial. A tabela de
+> baixo, "Detalhamento de Locações", mostra a coluna **Val.Esp**, que é o
+> valor **esperado**, tenha sido pago ou não.
+>
+> Ou seja: **quando há recebimento pendente, o card e a tabela não batem — e
+> isso está certo.** Eles respondem a perguntas diferentes: o card diz quanto
+> entrou, a tabela diz quanto era para entrar.
+>
+> Exemplo real (agosto/2026): filtrando o local "Outros", a tabela mostrava
+> R$ 25.086,67 esperados, mas os 7 recebimentos estavam todos **Pendentes**
+> (R$ 0,00 pagos). Os cards mostravam R$ 0,00 — corretamente.
+>
+> **Consequência importante para as isenções:** isentar um local da Taxa de
+> Gerenciamento **só muda o número do card se aquele local tiver dinheiro
+> recebido no mês**. Se está tudo pendente, ele já contribuía com zero para a
+> taxa, então a isenção não altera nada na tela. Isso não é defeito — foi
+> exatamente o que gerou a dúvida em produção. Para conferir que a isenção
+> funciona, use um local com recebimento **pago** (ex.: isentar ACÁCIAS, que
+> tinha R$ 9.760,00 recebidos, derruba a Taxa Ger em R$ 292,80).
+>
+> **Decisão do Cadu (25/set/2026):** a taxa continua sendo cobrada **somente
+> sobre o valor recebido**, nunca sobre o esperado. O que foi corrigido foi a
+> tela: o card agora se chama "Receita Bruta (recebido)", mostra o esperado do
+> mês logo abaixo, e os cards de taxa dizem "sobre o valor recebido".
+
 **2.1 Receita Bruta**
 - **Fórmula**: Soma de `paid_amount` dos pagamentos com status `paid` ou `partial`
 - **Período**: Filtrado por mês/ano selecionado
