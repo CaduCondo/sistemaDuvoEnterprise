@@ -99,9 +99,27 @@ Then('devo ver o seletor de tipo {string}', async function (this: CustomWorld, t
   await expect(this.page.locator('#tenant-doc-type-cnpj')).toBeVisible({ timeout: 5000 });
 });
 
+/**
+ * ⚠️ REESCRITO em 29/set/2026 (auditoria de falso positivo). Mesmo defeito do
+ * "o imóvel deve aparecer na lista": conferia só que a primeira linha da
+ * tabela estava visível -- o que é sempre verdade num banco compartilhado com
+ * centenas de inquilinos, mesmo que o inquilino do cenário nunca tenha sido
+ * salvo. Quatro cenários de cadastro de inquilino dependiam deste passo como
+ * única prova de que o cadastro funcionou.
+ */
 Then('o inquilino deve aparecer na lista', async function (this: CustomWorld) {
-  await this.page.waitForTimeout(500);
-  await expect(this.page.locator('table tbody tr').first()).toBeVisible({ timeout: 5000 });
+  const nome = this.testData.nomeDigitado || this.tenantName;
+  if (!nome) {
+    throw new Error(
+      'O cenário não guardou o nome digitado -- sem ele não há como saber QUAL inquilino ' +
+        'procurar na lista.'
+    );
+  }
+
+  await expect(
+    this.page.locator('tbody tr:visible').filter({ hasText: nome }).first(),
+    `o inquilino "${nome}" não apareceu na lista depois de salvo`
+  ).toBeVisible({ timeout: 10000 });
 });
 
 // A feature 8-pagamentos-calculos escreve "E quando filtro por ..." — o

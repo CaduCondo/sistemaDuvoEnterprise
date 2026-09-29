@@ -902,6 +902,27 @@ When('salvo a locação', async function (this: import('../support/world').Custo
  * Inquilino, Data início e Dia de vencimento), mas a asserção fica aqui
  * como rede de segurança caso alguém adicione essa checagem no futuro.
  */
+/**
+ * ⚠️ Criado em 29/set/2026 (auditoria de falso positivo). O cenário "Criar
+ * locação sem preencher a caução" tinha como única verificação "a locação
+ * deve ser criada com sucesso" -- ou seja, provava que a locação nasceu, mas
+ * NÃO provava aquilo que o cenário existe para provar: que não foi criada
+ * caução nenhuma. O sistema podia inventar uma parcela de caução de valor
+ * zero (ou qualquer outro) e o cenário continuaria verde.
+ */
+Then('a locação não deve ter nenhuma parcela de caução', async function (this: CustomWorld) {
+  expect(
+    this.rentalId,
+    'nenhuma locação foi criada neste cenário ainda -- não dá para conferir as parcelas'
+  ).toBeTruthy();
+
+  const parcelas = await this.getDepositInstallments(this.rentalId!);
+  expect(
+    parcelas.length,
+    `a locação foi criada SEM caução, mas o sistema gravou ${parcelas.length} parcela(s) de caução`
+  ).toBe(0);
+});
+
 Then('a locação deve ser criada com sucesso', async function (this: import('../support/world').CustomWorld) {
   const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
   await expect(comprovante, 'a locação não foi criada -- o Comprovante de Contrato não abriu').toBeVisible({ timeout: 15000 });

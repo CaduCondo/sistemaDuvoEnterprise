@@ -80,6 +80,9 @@ Funcionalidade: Regras de Negócio de Locações
     E NÃO preencho o valor da caução
     E salvo a locação
     Então a locação deve ser criada com sucesso
+    # Sem esta linha o cenário provava só que a locação nasceu -- não que
+    # ficou SEM caução, que é a regra que ele existe para guardar.
+    E a locação não deve ter nenhuma parcela de caução
 
   # ✅ ATUALIZADO: Reflete nova estrutura de parcelas de caução
   @sistemaCompleto

@@ -431,9 +431,18 @@ When('tento salvar sem preencher o endereço', async function (this: CustomWorld
 When('preencho todos os campos obrigatórios:', async function (this: CustomWorld, dataTable: any) {
   const rows = dataTable.hashes();
 
+  // ⚠️ 29/set/2026 (auditoria de falso positivo): guardar o que foi digitado
+  // é o que permite os passos seguintes conferirem se o sistema SALVOU o que
+  // o usuário escreveu. Antes, "criar imóvel/inquilino com sucesso" conferia
+  // só a mensagem de sucesso e "apareceu alguma linha na tabela" -- o sistema
+  // podia estar gravando outro valor e o teste ficava verde.
+  const digitados: Record<string, string> = {};
+  this.testData.camposDigitados = digitados;
+
   for (const row of rows) {
     const campo = row.campo.toLowerCase();
     const valor = row.valor;
+    digitados[campo] = valor;
 
     // ---- Campos do formulário de Imóvel ----
     if (campo === 'local') {
@@ -442,6 +451,7 @@ When('preencho todos os campos obrigatórios:', async function (this: CustomWorl
       // DEV, e sem isso o Playwright recusa por ambiguidade.
       await this.page.getByRole('option', { name: new RegExp(valor, 'i') }).first().click();
     } else if (campo === 'complemento') {
+      this.testData.complementoDigitado = comMarcaDeTeste(valor);
       // Sela o registro criado PELA TELA, para a limpeza conseguir achá-lo
       // depois (issue #89). Sem isso, todo imóvel criado por cenário ficava
       // no banco para sempre -- o "Criar imóvel com sucesso" é @smoke e
@@ -460,7 +470,10 @@ When('preencho todos os campos obrigatórios:', async function (this: CustomWorl
       // ---- Campos do formulário de Inquilino ----
     } else if (campo === 'nome' || campo === 'razão social') {
       // Mesmo motivo do complemento acima (#89): sela o inquilino criado pela tela.
-      await this.page.locator('#tenant-name').fill(comMarcaDeTeste(valor));
+      const nomeSelado = comMarcaDeTeste(valor);
+      this.testData.nomeDigitado = nomeSelado;
+      this.tenantName = nomeSelado;
+      await this.page.locator('#tenant-name').fill(nomeSelado);
     } else if (campo === 'cpf') {
       await this.page.locator('#tenant-document').fill(valor);
     } else if (campo === 'cnpj') {
@@ -474,6 +487,14 @@ When('preencho todos os campos obrigatórios:', async function (this: CustomWorl
       const [antes, dominio] = valor.split('@');
       const unico = dominio ? `${antes}+${Date.now()}@${dominio}` : valor;
       await this.page.locator('#tenant-email').fill(unico);
+    } else {
+      // Campo que este passo não sabe preencher não pode ser ignorado em
+      // silêncio: o cenário acharia que preencheu e seguiria conferindo um
+      // formulário incompleto.
+      throw new Error(
+        `O cenário mandou preencher o campo "${row.campo}", que este passo não sabe onde fica na tela. ` +
+          'Acrescente o campo aqui em vez de deixá-lo passar sem ser preenchido.'
+      );
     }
   }
 });
@@ -518,9 +539,59 @@ Then(
   }
 );
 
+/**
+ * ⚠️ REESCRITO em 29/set/2026 (auditoria de falso positivo pedida pelo Cadu).
+ *
+ * A versão antiga conferia isto e só isto: "a primeira linha da tabela está
+ * visível". No banco de DEV, que é compartilhado e tem centenas de imóveis,
+ * isso é SEMPRE verdade -- inclusive quando o imóvel do cenário não foi
+ * salvo, foi salvo com os valores errados, ou nem chegou no banco. E este
+ * passo fecha o cenário "Criar imóvel com sucesso", que é @smoke: um dos 12
+ * que rodam a cada push para dizer se o sistema está de pé.
+ *
+ * Agora procura o imóvel QUE O CENÁRIO CRIOU, pelo complemento digitado, e
+ * confere que o valor mostrado é o valor digitado.
+ */
 Then('o imóvel deve aparecer na lista', async function (this: CustomWorld) {
-  await this.page.waitForTimeout(500);
-  await expect(this.page.locator('table tbody tr').first()).toBeVisible({ timeout: 5000 });
+  const complemento = this.testData.complementoDigitado;
+  if (!complemento) {
+    throw new Error(
+      'O cenário não guardou o complemento digitado -- sem ele não há como saber QUAL imóvel ' +
+        'procurar na lista. Rode antes o passo "preencho todos os campos obrigatórios:".'
+    );
+  }
+
+  const linha = this.page.locator('tbody tr:visible').filter({ hasText: complemento }).first();
+  await expect(
+    linha,
+    `o imóvel "${complemento}" não apareceu na lista depois de salvo`
+  ).toBeVisible({ timeout: 10000 });
+
+  // E os valores mostrados têm que ser os digitados -- salvar "com sucesso"
+  // guardando outro número é exatamente o tipo de erro que passava batido.
+  const digitados = this.testData.camposDigitados || {};
+  const texto = ((await linha.textContent()) || '').replace(/\s+/g, ' ');
+
+  const valor = digitados['valor'] || digitados['valor aluguel'] || digitados['valor do aluguel'];
+  if (valor) {
+    const emReais = Number(valor).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    expect(
+      texto,
+      `o imóvel foi salvo, mas a lista mostra outro valor. Esperava R$ ${emReais}. Linha: ${texto}`
+    ).toContain(emReais);
+  }
+
+  for (const campo of ['quartos', 'banheiros']) {
+    if (digitados[campo]) {
+      expect(
+        texto,
+        `o imóvel foi salvo, mas a lista não mostra "${digitados[campo]}" em ${campo}. Linha: ${texto}`
+      ).toContain(digitados[campo]);
+    }
+  }
 });
 
 /**
@@ -536,7 +607,15 @@ Then('o imóvel deve aparecer na lista', async function (this: CustomWorld) {
  */
 Then('o imóvel NÃO deve aparecer na lista', async function (this: CustomWorld) {
   const identifier = this.testData.propertyIdentifier;
-  if (!identifier) return;
+  // ⚠️ 29/set/2026: era `if (!identifier) return;` -- ou seja, se o preparo
+  // não tivesse guardado o identificador, o passo dizia "o imóvel sumiu" sem
+  // olhar nada. Num cenário de EXCLUSÃO, passar calado é o pior desfecho.
+  if (!identifier) {
+    throw new Error(
+      'O cenário não guardou o identificador do imóvel -- sem ele não dá para afirmar que ele ' +
+        'sumiu da lista.'
+    );
+  }
   await expect(
     this.page.locator(`[data-property-identifier="${identifier}"]`),
     `o imóvel "${identifier}" continua na tela mesmo depois de excluído`
