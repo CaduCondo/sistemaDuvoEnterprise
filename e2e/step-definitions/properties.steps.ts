@@ -388,12 +388,26 @@ Then('devo ver os campos obrigatórios:', async function (this: CustomWorld, dat
     'área útil': '#property-area',
     valor: '#property-value',
   };
+  // ⚠️ 29/set/2026 (auditoria de falso positivo): o `if (selector)` fazia
+  // este passo IGNORAR em silêncio qualquer campo que não estivesse na lista
+  // acima. Bastava alguém escrever um nome de campo diferente no cenário para
+  // aquele campo deixar de ser conferido -- sem aviso nenhum, com o teste
+  // verde. No limite, um cenário com 4 campos desconhecidos passaria sem
+  // conferir nada. Agora campo desconhecido é falha, não silêncio.
   for (const row of fields) {
     const key = (row.campo || '').toLowerCase();
     const selector = map[key];
-    if (selector) {
-      await expect(this.page.locator(selector)).toBeVisible({ timeout: 5000 });
+    if (!selector) {
+      throw new Error(
+        `O cenário pede o campo "${row.campo}", que este passo não sabe onde encontrar na tela. ` +
+          `Campos conhecidos: ${Object.keys(map).join(', ')}. ` +
+          'Acrescente o campo na lista do passo em vez de deixá-lo passar sem conferência.'
+      );
     }
+    await expect(
+      this.page.locator(selector),
+      `o campo obrigatório "${row.campo}" não está na tela`
+    ).toBeVisible({ timeout: 5000 });
   }
 });
 

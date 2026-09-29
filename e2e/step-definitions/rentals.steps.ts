@@ -1535,21 +1535,35 @@ Then('os pagamentos já pagos devem manter o valor original', async function (th
   const recebimentos = await DatabaseHelper.getPaymentsByRental(this.rentalId);
 
   const pagos = recebimentos.filter((p: any) => p.status === 'paid');
+
+  // ⚠️ 29/set/2026 (auditoria de falso positivo): sem estas duas checagens o
+  // passo passava calado em dois casos. Se a locação não tivesse NENHUM
+  // recebimento pago, o laço abaixo não rodava nenhuma vez -- "os pagamentos
+  // já pagos mantiveram o valor" ficava verde sem existir pagamento pago
+  // nenhum. E se o cenário não tivesse guardado o valor novo, a comparação
+  // principal era pulada dentro do laço.
+  expect(
+    pagos.length,
+    'a locação deste cenário não tem NENHUM recebimento pago -- sem isso o cenário não prova ' +
+      'que pagamento pago é preservado (o preparo criou e marcou como pago?)'
+  ).toBeGreaterThan(0);
   // ⚠️ Corrigido em 17/set/2026 (issue #99): mesma causa raiz de
   // `expectPaymentAmount` mais abaixo (valor em formato de máquina).
-  const valorNovo = this.testData?.expectedFutureValue
-    ? parseFloat(String(this.testData.expectedFutureValue))
-    : null;
+  if (this.testData?.expectedFutureValue == null) {
+    throw new Error(
+      'O cenário não guardou o valor NOVO do aluguel -- sem ele não há como afirmar que o ' +
+        'recebimento pago não foi trocado por esse valor. Rode antes o passo que altera o aluguel.'
+    );
+  }
+  const valorNovo = parseFloat(String(this.testData.expectedFutureValue));
 
   for (const pago of pagos) {
     // O que importa é que o valor da época NÃO foi trocado pelo novo.
-    if (valorNovo !== null) {
-      expect(
-        Number(pago.expected_amount),
-        `o recebimento JÁ PAGO de ${pago.reference_month}/${pago.reference_year} foi alterado para ` +
-          `o valor novo (R$ ${pago.expected_amount}) -- pagamento pago é histórico e não pode mudar`
-      ).not.toBeCloseTo(valorNovo, 2);
-    }
+    expect(
+      Number(pago.expected_amount),
+      `o recebimento JÁ PAGO de ${pago.reference_month}/${pago.reference_year} foi alterado para ` +
+        `o valor novo (R$ ${pago.expected_amount}) -- pagamento pago é histórico e não pode mudar`
+    ).not.toBeCloseTo(valorNovo, 2);
 
     if (pago.paid_amount != null) {
       expect(

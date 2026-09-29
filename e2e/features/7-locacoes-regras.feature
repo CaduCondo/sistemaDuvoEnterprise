@@ -296,6 +296,14 @@ Funcionalidade: Regras de Negócio de Locações
     Então os pagamentos futuros devem ser atualizados para "2800.00"
     E os pagamentos já pagos devem manter o valor original
 
+  # ⚠️ 29/set/2026 — ESTE CENÁRIO ESTÁ VERMELHO POR CULPA DO SISTEMA, NÃO DO
+  # TESTE. Não marcar como @quebrado. Ele cria um recebimento pago de
+  # Janeiro/2026 e não encontra na tela — e está certo: a tela de Recebimentos
+  # só carrega os 500 recebimentos de competência mais recente e esconde o
+  # resto sem avisar (paymentService.getAll, `.limit(500)`). Ver issue #113.
+  # Este cenário foi "corrigido" cinco vezes por dedução antes de alguém
+  # olhar o que estava de fato na tela. Ele volta a passar quando a #113 for
+  # resolvida — até lá, o vermelho é informação verdadeira.
   @sistemaCompleto
   Cenário: Editar locação - Preservar snapshot em pagamentos pagos
     Dado que existe uma locação ativa com aluguel de "2500.00"

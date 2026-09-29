@@ -710,8 +710,42 @@ Then('o menu deve ser colapsável', async function (this: CustomWorld) {
   await expect(this.page.locator('#layout-mobile-menu-button')).toBeVisible({ timeout: 5000 });
 });
 
+/**
+ * ⚠️ 29/set/2026 (auditoria de falso positivo pedida pelo Cadu): três passos
+ * deste arquivo conferiam só `body` estar visível. O `body` de uma página web
+ * está SEMPRE visível -- inclusive numa tela totalmente em branco, numa tela
+ * travada em "Carregando..." e numa tela que explodiu. Esses passos nunca
+ * poderiam ficar vermelhos, ou seja, não eram teste de nada.
+ *
+ * Esta função é o que eles passam a conferir: a tela realmente desenhou o
+ * conteúdo dela.
+ */
+async function conferirQueATelaRenderizou(world: CustomWorld) {
+  // 1. Não ficou presa no "Carregando..."
+  await expect(
+    world.page.getByText(/^\s*Carregando\.\.\.\s*$/i).first(),
+    'a tela ficou presa em "Carregando..."'
+  ).toBeHidden({ timeout: 15000 });
+
+  // 2. Desenhou conteúdo de verdade: um título principal na tela.
+  await expect(
+    world.page.locator('h1, h2').first(),
+    'a tela abriu mas não desenhou nenhum título -- provavelmente está em branco'
+  ).toBeVisible({ timeout: 15000 });
+
+  // 3. Não tem mensagem de erro da aplicação.
+  await expect(
+    world.page.getByText(/erro inesperado|something went wrong|Application error/i).first(),
+    'a tela mostrou uma mensagem de erro'
+  ).toBeHidden({ timeout: 5000 });
+}
+
 Then('todos os elementos devem estar acessíveis', async function (this: CustomWorld) {
-  await expect(this.page.locator('body')).toBeVisible();
+  await conferirQueATelaRenderizou(this);
+  await expect(
+    this.page.locator('#layout-mobile-menu-button'),
+    'no tamanho de celular o botão do menu tem que estar na tela'
+  ).toBeVisible({ timeout: 5000 });
 });
 
 Then('as tabelas devem ser scrolláveis horizontalmente', async function (this: CustomWorld) {
@@ -763,9 +797,7 @@ Then('o botão de logout deve estar sempre acessível', async function (this: Cu
 });
 
 Then('a página deve carregar normalmente', async function (this: CustomWorld) {
-  await expect(this.page.locator('body')).toBeVisible();
-  const hasError = await this.page.getByText(/erro inesperado|something went wrong/i).isVisible().catch(() => false);
-  expect(hasError).toBe(false);
+  await conferirQueATelaRenderizou(this);
 });
 
 When('ao acessar {string}', async function (this: CustomWorld, url: string) {
@@ -774,7 +806,16 @@ When('ao acessar {string}', async function (this: CustomWorld, url: string) {
 });
 
 Then('todos os elementos devem estar presentes', async function (this: CustomWorld) {
-  await expect(this.page.locator('body')).toBeVisible();
+  await conferirQueATelaRenderizou(this);
+
+  // Estes cenários (9-regressao-visual) existem para provar que mexer numa
+  // tela não quebrou OUTRA. Então a outra tela precisa ter desenhado a lista
+  // dela -- seja tabela, sejam cards.
+  const conteudo = this.page.locator('table, [role="table"], [data-testid*="card"], .card').first();
+  await expect(
+    conteudo,
+    'a tela abriu, mas não desenhou nem tabela nem cards -- o conteúdo dela não chegou'
+  ).toBeVisible({ timeout: 15000 });
 });
 
 Then('os filtros devem funcionar', async function (this: CustomWorld) {
