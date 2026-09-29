@@ -17,9 +17,9 @@ sequenciais. Um cenário sem nenhuma das duas está fora de propósito (ver
 | Tag | O que é | Quem tem |
 |---|---|---|
 | `@smoke` | **Rodada 1.** Poucos cenários, rápidos, críticos — os que se quebrarem param o sistema ou mexem em dinheiro. Roda a cada push, primeiro. | 12 cenários (lista completa abaixo) |
-| `@sistemaCompleto` | **Rodada 2.** Todo o resto: cada regra de negócio, arquivo por arquivo. Roda a cada push, só depois do `@smoke` passar. Por definição, cobre tudo que o `@smoke` não cobre — nenhum cenário é testado duas vezes. | todos os outros cenários "saudáveis" |
-| `@quebrado` | Cenário com **defeito conhecido no teste** (não no sistema) — o preparo não cria o dado que o cenário confere, ou o cenário procura algo que a tela nunca teve. Fora das duas rodadas até ser corrigido, para não virar vermelho permanente (ver "Por que foi feito assim"). | 4 cenários, ver lista em `docs/tickets/smoke-30-ago.md` |
-| *(sem tag)* | Cenário que é o **contrato de uma funcionalidade que ainda não existe** — não é defeito de teste, é o produto que falta. Fica assim até a funcionalidade ser implementada. | 1 cenário: "Formação de Valores da rescisão quando o mês estava PENDENTE" (item E da rodada 2 de padronização, `12-rescisao-caucao.feature`) |
+| `@sistemaCompleto` | **Rodada 2.** Todo o resto: cada regra de negócio, arquivo por arquivo. Roda a cada push, só depois do `@smoke` passar. Por definição, cobre tudo que o `@smoke` não cobre — nenhum cenário é testado duas vezes. | 142 cenários (todos os outros "saudáveis") |
+| `@quebrado` | Cenário com **defeito conhecido no teste** (não no sistema) — o preparo não cria o dado que o cenário confere, ou o cenário procura algo que a tela nunca teve. Fora das duas rodadas até ser corrigido, para não virar vermelho permanente (ver "Por que foi feito assim"). | 6 cenários (lista abaixo) |
+| *(sem tag)* | Cenário que é o **contrato de uma funcionalidade que ainda não existe** — não é defeito de teste, é o produto que falta. Fica assim até a funcionalidade ser implementada. | 2 cenários (lista abaixo) |
 | tag de página (`@autenticacao`, `@imoveis`, `@inquilinos`, `@locacoes`, `@pagamentos`, `@caucoes`, `@rescisao`, `@anuncioPublico`, `@permissoesAdmin`, `@permissoesFinanceiro`, `@permissoesGestao`, `@regressaoVisual`, `@financeiro`, `@fundacao`) | Uma por arquivo `.feature`, no topo, acima de `Funcionalidade:`. Todo cenário do arquivo herda ela automaticamente. Serve para rodar só os testes de uma tela, independente da rodada. | todos os cenários (uma tag por arquivo) |
 | `@security`, `@performance`, `@stress`, `@permissions`, `@api-tests`, `@regression` | Não são tags do Cucumber/BDD — são **projetos do Playwright** (`playwright.config.ts`), usados pelos testes `.spec.ts` em `e2e/tests/*`. Cobrem outro tipo de teste (SQL injection/XSS, tempo de carregamento, requisições concorrentes...). Rodam só no workflow manual `e2e-tests.yml`, com `--project=<nome>`. | ver `e2e/tests/{security,performance,stress,permissions,api}` |
 
@@ -59,10 +59,55 @@ tabela de `@quebrado` acima). Escrever ou consertar um cenário de "receber
 aluguel" para o smoke é tarefa registrada no backlog (ver kanban/GitHub —
 card "Escrever cenário de smoke para receber aluguel").
 
+## Os 6 `@quebrado` de hoje (conferido em 29/set/2026)
+
+| Arquivo | Cenário |
+|---|---|
+| `7-locacoes-regras.feature` | Criar locação - Caução integral |
+| `7-locacoes-regras.feature` | Criar locação - Gerar pagamentos automaticamente |
+| `7-locacoes-regras.feature` | Comprovante de Contrato - Somar aluguel e garagem |
+| `8-pagamentos-calculos.feature` | Calcular pagamento com garagem |
+| `8-pagamentos-calculos.feature` | Registrar pagamento como pago |
+| `10-caucoes.feature` | Exportar relatório para Excel |
+
+## Os 2 sem tag de rodada (funcionalidade que ainda não existe)
+
+| Arquivo | Cenário |
+|---|---|
+| `12-rescisao-caucao.feature` | Formação de Valores da rescisão quando o mês estava PENDENTE |
+| `9-regressao-visual.feature` | Breadcrumbs corretos em todas as páginas |
+
+Conferência rápida da soma: 12 (`@smoke`) + 142 (`@sistemaCompleto`) + 6
+(`@quebrado`) + 2 (sem tag) = **162**, que é o total que
+`npm run test:bdd:dry` reporta. Se essa soma não fechar, alguma tag está
+errada.
+
 Regra geral de quem entra no `@smoke` (não muda): rápido, confiável, cria o
 próprio dado, e **crítico** — quebrar isso para o sistema ou mexe em
 dinheiro. Uma variação a mais de cálculo, mais um filtro, mais uma tela de
 detalhe: isso é `@sistemaCompleto`.
+
+## Como saber se um teste está testando de verdade
+
+Um teste verde não prova nada por si só — ele pode estar passando porque não
+olhou. Em 29/set/2026 a suíte foi varrida atrás desses casos e três passos
+foram pegos passando sem conferir nada (ver commit `43e78694`). Os quatro
+padrões que criam "teste que passa sem testar", para não repetir:
+
+1. **Ler `.first()` da tela inteira.** `tbody tr` pega a primeira linha da
+   tabela, que no banco de DEV compartilhado quase nunca é a do cenário.
+   Sempre recortar pelo dado que o próprio cenário criou (inquilino, imóvel).
+2. **`if (!dado) return;`** no meio de um passo de verificação. Se o preparo
+   não guardou o dado, o certo é **falhar** dizendo isso — não passar calado.
+3. **Comparar texto em formato que a tela nunca usa.** Procurar "3000.00" numa
+   tela que escreve "R$ 3.000,00" dá sempre "não achei" — e um passo do tipo
+   "NÃO devo ver X" fica verde para sempre.
+4. **Esperar tempo fixo** (`waitForTimeout(1500)`) em vez de esperar o sinal
+   da tela. Passa na máquina rápida, falha na lenta, e quando falha parece
+   bug do sistema.
+
+Ao mexer num passo, a pergunta é sempre: *se o sistema estivesse errado, este
+passo ficaria vermelho?* Se não ficaria, o passo não é teste.
 
 ## Como mover um cenário de rodada
 
