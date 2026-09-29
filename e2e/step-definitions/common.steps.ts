@@ -288,11 +288,54 @@ Then('devo ver a página do dashboard', async function (this: CustomWorld) {
  * checagem (o `.or(getByText(...))` continua pegando o erro de verdade
  * pelo texto, então nada de real se perde).
  */
-Then('devo ver uma mensagem de erro', async function (this: CustomWorld) {
-  const errorMessage = this.page.locator('[role="alert"]:not(#__next-route-announcer__)').or(
-    this.page.getByText(/erro|inválid|falhou|obrigat|incorreta|bloqueada/i)
+/**
+ * ⚠️ INSTRUMENTADO em 29/set/2026 (auditoria de falso positivo).
+ *
+ * Os dois passos de mensagem (erro e sucesso) aceitam, como último recurso,
+ * QUALQUER texto da tela que contenha uma dessas palavras. Isso é frágil de
+ * um jeito específico: uma tela que tenha a palavra "obrigatório" numa dica
+ * de formulário satisfaz "devo ver uma mensagem de erro" para sempre, mesmo
+ * que a validação nunca tenha disparado. O mesmo vale para "Atualizado em"
+ * numa coluna e "devo ver a mensagem de sucesso".
+ *
+ * Apertar isso de uma vez seria irresponsável: eu não consigo rodar a suíte
+ * aqui, e vários cenários podem depender legitimamente de texto fora de
+ * caixa de aviso. Então, em vez de adivinhar, o passo agora MEDE: tenta
+ * primeiro achar a mensagem dentro de uma caixa de aviso de verdade
+ * (AlertDialog/toast) e, quando só o texto solto resolver, deixa um aviso no
+ * relatório dizendo qual cenário depende do caminho frouxo. Com a lista em
+ * mãos, dá para apertar com segurança, cenário por cenário.
+ */
+const CAIXAS_DE_AVISO =
+  '[role="alertdialog"], [role="status"], [role="alert"]:not(#__next-route-announcer__), [data-sonner-toast]';
+
+async function conferirMensagem(
+  world: CustomWorld,
+  padrao: RegExp,
+  tipo: 'erro' | 'sucesso'
+) {
+  const naCaixa = world.page.locator(CAIXAS_DE_AVISO).filter({ hasText: padrao }).first();
+
+  if (await naCaixa.isVisible({ timeout: 5000 }).catch(() => false)) return;
+
+  // Não achou em caixa de aviso nenhuma. Tenta o caminho frouxo (texto solto)
+  // e, se for ele que salvar o passo, registra isso como dívida.
+  const solto = world.page.getByText(padrao).first();
+  await expect(
+    solto,
+    `não apareceu nenhuma mensagem de ${tipo} na tela`
+  ).toBeVisible({ timeout: 5000 });
+
+  world.attach(
+    `⚠️ FRÁGIL: a mensagem de ${tipo} deste cenário não veio de uma caixa de aviso ` +
+      `(AlertDialog/toast) -- o passo só passou porque achou o texto solto na tela. ` +
+      `Cenário: "${world.testData?.scenarioName}". Ver auditoria de falso positivo de 29/set/2026.`,
+    'text/plain'
   );
-  await expect(errorMessage.first()).toBeVisible({ timeout: 5000 });
+}
+
+Then('devo ver uma mensagem de erro', async function (this: CustomWorld) {
+  await conferirMensagem(this, /erro|inválid|falhou|obrigat|incorreta|bloqueada/i, 'erro');
 });
 
 Then('devo ver a mensagem {string}', async function (this: CustomWorld, message: string) {
@@ -301,10 +344,7 @@ Then('devo ver a mensagem {string}', async function (this: CustomWorld, message:
 });
 
 Then('devo ver a mensagem de sucesso', async function (this: CustomWorld) {
-  const success = this.page.locator('[role="status"]').or(
-    this.page.getByText(/sucesso|salvo|criado|atualizado/i)
-  );
-  await expect(success.first()).toBeVisible({ timeout: 5000 });
+  await conferirMensagem(this, /sucesso|salvo|criado|atualizado/i, 'sucesso');
 
   // ⚠️ Corrigido em 17/set/2026 (issue #99, runs #74/#75): quando a mensagem
   // vem do AlertDialog global (showAlert, ver AlertContext.tsx), o overlay
