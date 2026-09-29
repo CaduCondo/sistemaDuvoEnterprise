@@ -20,7 +20,9 @@
     "test:bdd:dry": "cucumber-js --config e2e/cucumber.config.cjs --dry-run",
     "prebuild": "node scripts/check-supabase-env.js",
     "check:env": "node scripts/check-supabase-env.js",
-    "check:env:test": "node scripts/check-supabase-env.js --self-test"
+    "check:env:test": "node scripts/check-supabase-env.js --self-test",
+    "check:e2e": "tsc -p e2e/tsconfig.json --noEmit",
+    "check:tudo": "npm run check:e2e && tsc --noEmit && npm run test:bdd:dry"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

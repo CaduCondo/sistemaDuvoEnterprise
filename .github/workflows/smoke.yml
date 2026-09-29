@@ -76,6 +76,14 @@ jobs:
       # Compila a aplicacao de verdade, como em producao. Os testes rodam
       # em cima deste build, e nao em modo de desenvolvimento — ver o
       # comentario em scripts/smoke.js.
+      # ⚠️ 29/set/2026: o `tsc` do projeto exclui a pasta e2e, ou seja NUNCA
+      # conferiu os arquivos de teste. Foi assim que um import faltando em
+      # locations.steps.ts derrubou a rodada #77 inteira em 2 minutos, com
+      # zero cenarios executados. Esta checagem custa segundos e impede que
+      # uma rodada inteira seja desperdicada por erro de digitacao no teste.
+      - name: Conferir os arquivos de teste
+        run: npm run check:e2e
+
       - name: Compilar a aplicacao
         run: npm run build
 
@@ -99,6 +107,7 @@ jobs:
             e2e/reports/smoke-report.html
             e2e/reports/smoke-report.json
             e2e/reports/screenshots/
+            e2e/reports/videos/
           retention-days: 14
 
   sistema_completo:
@@ -160,6 +169,7 @@ jobs:
             e2e/reports/sistema-completo-report.html
             e2e/reports/sistema-completo-report.json
             e2e/reports/screenshots/
+            e2e/reports/videos/
           retention-days: 14
 
   # Manda um e-mail com o resumo assim que a rodada completa termina --

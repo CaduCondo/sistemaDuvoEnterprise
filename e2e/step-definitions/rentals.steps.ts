@@ -1,6 +1,10 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import DatabaseHelper from '../helpers/database.helper';
+// ⚠️ 29/set/2026: seis passos deste arquivo usavam o tipo `CustomWorld` sem
+// importá-lo. Ninguém percebeu porque o `tsc` do projeto NUNCA olhou a pasta
+// e2e (ela está no "exclude" do tsconfig da raiz) -- ver npm run check:e2e.
+import type { CustomWorld } from '../support/world';
 
 /**
  * Step Definitions para Locações e Cauções

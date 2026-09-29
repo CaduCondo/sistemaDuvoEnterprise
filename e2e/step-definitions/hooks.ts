@@ -45,7 +45,31 @@ BeforeAll(async function () {
   await DatabaseHelper.limparPeloSeloDeTeste();
 });
 
-Before(async function (this: CustomWorld) {
+/**
+ * Onde ficam as evidências de cada cenário (pedido do Cadu, 29/set/2026):
+ *
+ * - Cenário que PASSA  -> uma FOTO da tela no fim, anexada ao relatório logo
+ *   depois do último passo. É a prova de que o último passo foi validado.
+ * - Cenário que FALHA  -> a foto E o VÍDEO da execução inteira, anexados do
+ *   mesmo jeito, para dar pra ver o que a tela fez até quebrar.
+ *
+ * O vídeo é gravado SEMPRE (o Playwright não sabe adivinhar quem vai falhar),
+ * mas é apagado assim que o cenário passa -- senão a rodada inteira guardaria
+ * 140 vídeos que ninguém vai abrir.
+ */
+const PASTA_DE_VIDEOS = 'e2e/reports/videos';
+const PASTA_DE_FOTOS = 'e2e/reports/screenshots';
+
+function nomeDeArquivo(texto: string) {
+  return texto
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+Before(async function (this: CustomWorld, { pickle }) {
   // HEADED=true abre o navegador na tela; SLOW_MO atrasa cada acao para dar
   // tempo de acompanhar. Os dois sao ligados por `npm run test:smoke:ver`.
   this.browser = await chromium.launch({
@@ -59,6 +83,9 @@ Before(async function (this: CustomWorld) {
   this.context = await this.browser.newContext({
     viewport: { width: 1280, height: 720 },
     baseURL: TEST_CONFIG.baseUrl,
+    // Grava o vídeo de todo cenário; quem passa tem o vídeo descartado no
+    // After (ver explicação acima).
+    recordVideo: { dir: PASTA_DE_VIDEOS, size: { width: 1280, height: 720 } },
   });
   this.page = await this.context.newPage();
 
@@ -74,7 +101,7 @@ Before(async function (this: CustomWorld) {
 
   this.loginPage = new LoginPage(this.page);
   this.dashboardPage = new DashboardPage(this.page);
-  this.testData = {};
+  this.testData = { scenarioName: pickle?.name };
 });
 
 /**
@@ -95,19 +122,63 @@ After({ tags: '@mexeComSenhaDeUsuario' }, async function () {
   await DatabaseHelper.ensureDefaultTestUsers();
 });
 
-After(async function (this: CustomWorld, { result }) {
-  if (result && result.status === 'FAILED' && this.page) {
-    // Guarda um screenshot para facilitar o debug de falhas
-    const name = this.testData?.scenarioName || 'failure';
-    await this.page.screenshot({
-      path: `e2e/reports/screenshots/${Date.now()}-${name}.png`,
-      fullPage: true,
-    }).catch(() => {});
+After(async function (this: CustomWorld, { result, pickle }) {
+  const fs = await import('fs');
+  const falhou = result?.status === 'FAILED';
+  const nome = nomeDeArquivo(pickle?.name || this.testData?.scenarioName || 'cenario');
+
+  // ── 1. A FOTO do último passo ────────────────────────────────────────────
+  // Tirada ANTES de fechar a página, com a tela exatamente como ficou no fim
+  // do cenário. Vai anexada ao relatório: em cenário que passou, é a prova de
+  // que o último passo foi validado; em cenário que falhou, mostra a tela no
+  // momento da quebra.
+  if (this.page && !this.page.isClosed()) {
+    try {
+      const foto = await this.page.screenshot({ fullPage: true });
+      fs.mkdirSync(PASTA_DE_FOTOS, { recursive: true });
+      fs.writeFileSync(`${PASTA_DE_FOTOS}/${falhou ? 'FALHOU-' : ''}${nome}.png`, foto);
+      this.attach(foto, 'image/png');
+      this.attach(
+        falhou
+          ? `📷 Tela no momento da falha do cenário "${pickle?.name}".`
+          : `📷 Prova do último passo do cenário "${pickle?.name}" — validado com sucesso.`,
+        'text/plain'
+      );
+    } catch {
+      // Uma foto que não saiu nunca pode derrubar um cenário que passou.
+      this.attach('⚠️ Não consegui tirar a foto final desta tela.', 'text/plain');
+    }
   }
 
-  await this.page?.close();
-  await this.context?.close();
-  await this.browser?.close();
+  // ── 2. O VÍDEO ───────────────────────────────────────────────────────────
+  // O arquivo só existe depois que o contexto fecha -- por isso o caminho é
+  // pedido antes, mas lido depois.
+  const video = this.page?.video();
+  const caminhoDoVideo = await video?.path().catch(() => undefined);
+
+  await this.page?.close().catch(() => {});
+  await this.context?.close().catch(() => {});
+  await this.browser?.close().catch(() => {});
+
+  if (caminhoDoVideo) {
+    try {
+      if (falhou) {
+        const destino = `${PASTA_DE_VIDEOS}/FALHOU-${nome}.webm`;
+        fs.renameSync(caminhoDoVideo, destino);
+        const bytes = fs.readFileSync(destino);
+        this.attach(bytes, 'video/webm');
+        this.attach(
+          `🎥 Vídeo da execução deste cenário até a falha (também guardado como ${destino}).`,
+          'text/plain'
+        );
+      } else {
+        // Passou: o vídeo não serve para nada e só pesaria o relatório.
+        fs.unlinkSync(caminhoDoVideo);
+      }
+    } catch {
+      if (falhou) this.attach('⚠️ O vídeo deste cenário não pôde ser recuperado.', 'text/plain');
+    }
+  }
 });
 
 // Remove dados de teste (locações, imóveis, inquilinos, localizações) criados
