@@ -141,13 +141,28 @@ When(
     await this.page.getByRole('option', { name: new RegExp(`^${ano}$`) }).click();
     await this.page.waitForTimeout(300);
 
-    // Filtro de local: é um painel (Popover + Command), a opção é o nome.
+    // Filtro de local: é um painel (Popover + Command) com a lista inteira de
+    // Locais do banco.
+    //
+    // ⚠️ 29/set/2026 (CI run #87): a primeira versão clicava em
+    // `getByText(nome).first()` -- o primeiro pedaço de texto da PÁGINA que
+    // batesse com o nome, que pode estar fora do painel ou fora da área
+    // visível da lista. O clique não selecionava nada e o filtro continuava em
+    // "Todos os Locais". Agora digita o nome na busca do próprio painel (o que
+    // deixa uma opção só) e clica na opção pelo seu identificador próprio.
     await this.page.locator('#financial-location-filter').click();
-    await this.page.waitForTimeout(300);
-    const nomeEscapado = dados.locationName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    await this.page.getByText(new RegExp(nomeEscapado, 'i')).first().click();
+
+    const busca = this.page.getByPlaceholder(/Buscar local/i);
+    await busca.waitFor({ state: 'visible', timeout: 10000 });
+    await busca.fill(dados.locationName);
+
+    const opcao = this.page.locator(`[data-testid="financial-location-option-${dados.locationId}"]`);
+    await expect(
+      opcao,
+      `o local "${dados.locationName}" não apareceu na lista do filtro do Financeiro`
+    ).toBeVisible({ timeout: 10000 });
+    await opcao.click();
     await this.page.keyboard.press('Escape');
-    await this.page.waitForTimeout(800);
 
     await expect(
       this.page.locator('#financial-location-filter'),

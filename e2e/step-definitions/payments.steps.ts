@@ -526,8 +526,14 @@ When('visualizo o detalhamento do pagamento', async function() {
 When('visualizo o recibo do pagamento de Janeiro\\/2026', { timeout: 40 * 1000 }, async function (this: import('../support/world').CustomWorld) {
   await this.page.goto('/payments');
   await this.page.waitForLoadState('domcontentloaded');
-  await this.page.locator('#payments-tab-paid').click();
-  await this.page.waitForTimeout(500);
+
+  // ⚠️ 29/set/2026 -- CAUSA REAL, enfim medida em vez de deduzida. O
+  // diagnóstico do CI run #87 mostrou 1199 linhas visíveis e TODAS com status
+  // "Pendente": a aba "Recebimentos Pagos" simplesmente não estava aberta na
+  // hora da busca. O clique nela acontecia ANTES de trocar o período, e a
+  // troca de período remonta a lista e devolve a tela para a aba padrão
+  // (Pendentes). Ordem corrigida: primeiro o período, depois a aba -- e agora
+  // o passo CONFERE que a aba abriu, em vez de supor que o clique pegou.
 
   // ⚠️ Corrigido em 17/set/2026 (issue #99, CI run #79): este clique mirava
   // "#payment-filters-month", que é de `PaymentFilters.tsx` -- um componente
@@ -538,6 +544,14 @@ When('visualizo o recibo do pagamento de Janeiro\\/2026', { timeout: 40 * 1000 }
   await this.page.locator('#period-selector-month').click();
   await this.page.waitForTimeout(300);
   await this.page.getByRole('option', { name: 'Todos os meses' }).click();
+  await this.page.waitForTimeout(500);
+
+  const abaPagos = this.page.locator('#payments-tab-paid');
+  await abaPagos.click();
+  await expect(
+    abaPagos,
+    'cliquei na aba "Recebimentos Pagos" mas a tela não trocou de aba'
+  ).toHaveAttribute('data-state', 'active', { timeout: 10000 });
   await this.page.waitForTimeout(500);
 
   // ⚠️ Corrigido em 18/set/2026 (issue #99, CI run #80): a linha era escolhida

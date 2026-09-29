@@ -2037,6 +2037,7 @@ export default function Financial() {
                               {locationOptions.map(location => (
                                 <CommandItem
                                   key={location.id}
+                                  data-testid={`financial-location-option-${location.id}`}
                                   onSelect={() => {
                                     setSelectedLocationIds(prev => {
                                       if (prev.includes(location.id)) {
