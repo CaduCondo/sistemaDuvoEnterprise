@@ -546,7 +546,19 @@ When('visualizo o recibo do pagamento de Janeiro\\/2026', { timeout: 40 * 1000 }
   // esconde a que não está ativa -- e a aba de Pendentes não tem coluna
   // "Recibo". O teste estava achando a linha de janeiro na aba escondida.
   // `:visible` garante que é a linha da aba que está realmente aberta.
-  let linha = this.page.locator('tbody tr:visible').filter({ hasText: /janeiro/i }).filter({ hasText: '2026' });
+  // ⚠️ 3ª correção em 23/set/2026 (CI run #85): mesmo já filtrando por aba
+  // visível e pelo inquilino do cenário, a linha encontrada vinha sem botão
+  // de recibo. Causa, confirmada no log: a parcela do CAUÇÃO desta locação
+  // vence na data de início (01/01/2026), ou seja cai em janeiro/2026 e
+  // aparece lado a lado com o aluguel de janeiro. E uma linha de caução sem
+  // histórico de pagamento mostra só "-" na coluna Recibo (payments.tsx,
+  // ramo p.isDeposit). Este cenário fala do recibo do ALUGUEL, então a linha
+  // de caução é descartada -- mesmo ajuste feito na contagem de recebimentos.
+  let linha = this.page
+    .locator('tbody tr:visible')
+    .filter({ hasText: /janeiro/i })
+    .filter({ hasText: '2026' })
+    .filter({ hasNotText: 'Caução' });
   if (this.tenantName) {
     linha = linha.filter({ hasText: this.tenantName });
   }
@@ -722,7 +734,16 @@ function linhasDoRecebimento(world: any) {
   // esconde a que não se aplica; o teste estava contando as duas e achando o
   // dobro. `:visible` conta só o que está de fato na tela, que é o que o
   // cenário quer dizer com "devo ver N recebimento".
-  const linhas = world.page.locator('tbody tr:visible');
+  // ⚠️ 3ª correção em 23/set/2026 (issue #99, CI run #84 -- e desta vez com o
+  // texto COMPLETO da linha no log): as "2 linhas" que este passo acusava não
+  // eram duplicidade nenhuma. Uma delas é a parcela do CAUÇÃO, que aparece na
+  // lista de Recebimentos com o selo "Caução" (ver payments.tsx, p.isDeposit).
+  // Em Agosto/2026 a locação tem mesmo dois recebimentos: o aluguel (1/5) e o
+  // caução (1/1). O sistema está certo.
+  //
+  // Os cenários que usam este passo ("Pagamento proporcional...") falam do
+  // ALUGUEL. Então a contagem passa a ignorar as linhas de caução.
+  const linhas = world.page.locator('tbody tr:visible').filter({ hasNotText: 'Caução' });
   return world.tenantName ? linhas.filter({ hasText: world.tenantName }) : linhas;
 }
 
@@ -737,8 +758,11 @@ async function conferirQuantidadeDeRecebimentos(world: any, count: number) {
     await expect(linhas).toHaveCount(count, { timeout: 10000 });
   } catch (erro) {
     const encontradas = await linhas.allInnerTexts().catch(() => []);
+    // ⚠️ 23/set/2026: o corte em 120 caracteres escondia justamente o selo
+    // "Caução" no fim da linha, e isso me fez tratar uma linha legítima como
+    // duplicidade (ver issue #109, fechada como não-bug). Corte maior.
     const descricao = encontradas
-      .map((t: string, i: number) => `  ${i + 1}) ${t.replace(/\s+/g, ' ').trim().slice(0, 120)}`)
+      .map((t: string, i: number) => `  ${i + 1}) ${t.replace(/\s+/g, ' ').trim().slice(0, 300)}`)
       .join('\n');
     throw new Error(
       `Esperava ${count} recebimento(s) da locação deste cenário, mas a tela mostrou ${encontradas.length}:\n${descricao}`

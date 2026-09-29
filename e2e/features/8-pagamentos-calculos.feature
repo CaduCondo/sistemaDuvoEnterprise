@@ -9,25 +9,29 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     Dado que fiz login como "admin"
     E estou na página "/payments"
 
-  # ⚠️ CAUSA CONFIRMADA (19/set/2026): os dois cenários abaixo estão
-  # vermelhos por um BUG REAL DO SISTEMA -- ver issue #109.
+  # ⚠️ CAUSA REAL, enfim (23/set/2026): era DEFEITO DO TESTE, não do sistema.
   #
-  # Foram precisas três tentativas para chegar nisso, e vale registrar para
-  # ninguém repetir o caminho:
-  #   1ª suposição: bug de cálculo da regra de proporcional (#108). Errada.
-  #   2ª suposição: a contagem somava linha escondida (computador/celular).
-  #      Também errada -- mesmo exigindo linha visível, continuou dando 2.
-  #   Fato, lido no log do CI run #83: são DUAS linhas reais e visíveis, do
-  #   mesmo imóvel e inquilino, ambas em Agosto/2026 -- uma como parcela
-  #   "1/1" e outra como "1/5". Ou seja, a locação nasce com recebimento
-  #   DUPLICADO no mesmo mês, com contagens de parcela incompatíveis.
+  # Este caso merece ficar registrado porque eu errei o diagnóstico três
+  # vezes seguidas, sempre por agir com dado incompleto:
+  #   1ª: "é bug de cálculo da regra de proporcional" (#108) -- errado.
+  #   2ª: "a contagem soma linha escondida (computador/celular)" -- errado;
+  #       mesmo exigindo linha visível continuou dando 2.
+  #   3ª: "a locação nasce com recebimento duplicado" (abri a issue #109) --
+  #       errado também, e a issue foi fechada como não-bug.
   #
-  # Quem resolveu isso foi o diagnóstico: o passo "devo ver N recebimento"
-  # lista os recebimentos encontrados quando a conta não bate. Sem ele, a
-  # mensagem era só "esperava 1, veio 2" e dava para chutar à vontade.
+  # O que resolveu foi aumentar o corte do texto no diagnóstico e ler a linha
+  # INTEIRA no log do run #84. Aí apareceu o que faltava:
   #
-  # NÃO mexer nestes cenários para ficar verde: eles fecham sozinhos quando
-  # a #109 for corrigida.
+  #   1) ... Agosto/2026 | 1/1 | Pendente | CAUÇÃO | ...
+  #   2) ... Agosto/2026 | 1/5 | Pendente | ...
+  #
+  # A primeira linha é a parcela do CAUÇÃO, que aparece na lista de
+  # Recebimentos com selo próprio (payments.tsx, p.isDeposit). Ou seja, em
+  # Agosto/2026 a locação tem mesmo dois recebimentos -- o aluguel e o
+  # caução -- e o sistema está certíssimo. Quem estava errado era o teste,
+  # que contava os dois enquanto o cenário fala só do aluguel.
+  #
+  # A contagem agora ignora as linhas de caução.
   @sistemaCompleto
   Cenário: Pagamento proporcional - Início após vencimento (Bug corrigido)
     Dado que crio uma locação com:
