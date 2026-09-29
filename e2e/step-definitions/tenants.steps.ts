@@ -1,6 +1,7 @@
 import { When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import { CustomWorld } from '../support/world';
+import { conferirQueTodasAsLinhasAtendem } from '../helpers/tabela.helper';
 
 /**
  * Step Definitions específicos da página /tenants (feature 6-inquilinos-crud).
@@ -54,11 +55,7 @@ When('seleciono o filtro de status {string}', async function (this: CustomWorld,
 });
 
 Then('devo ver apenas inquilinos com status locatário', async function (this: CustomWorld) {
-  const rows = this.page.locator('table tbody tr');
-  const count = await rows.count();
-  for (let i = 0; i < count; i++) {
-    await expect(rows.nth(i)).toContainText(/locat[aá]rio/i);
-  }
+  await conferirQueTodasAsLinhasAtendem(this.page, /locat[aá]rio/i, 'status Locatário');
 });
 
 When('preencho o CPF com {string}', async function (this: CustomWorld, value: string) {
@@ -83,11 +80,7 @@ Then('os campos de endereço devem ser preenchidos automaticamente', async funct
 });
 
 Then('devo ver apenas inquilinos que contenham {string} no nome', async function (this: CustomWorld, text: string) {
-  const rows = this.page.locator('table tbody tr');
-  const count = await rows.count();
-  for (let i = 0; i < count; i++) {
-    await expect(rows.nth(i)).toContainText(new RegExp(text, 'i'));
-  }
+  await conferirQueTodasAsLinhasAtendem(this.page, new RegExp(text, 'i'), `busca por "${text}"`);
 });
 
 Then('devo ver o formulário de cadastro de inquilino', async function (this: CustomWorld) {

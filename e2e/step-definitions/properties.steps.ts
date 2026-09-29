@@ -2,6 +2,7 @@ import path from 'path';
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import { CustomWorld } from '../support/world';
+import { conferirQueTodasAsLinhasAtendem } from '../helpers/tabela.helper';
 import { comMarcaDeTeste } from '../helpers/database.helper';
 
 /**
@@ -92,11 +93,7 @@ Then('devo ver apenas imóveis que contenham {string} no endereço ou localizaç
   this: CustomWorld,
   text: string
 ) {
-  const rows = this.page.locator('table tbody tr');
-  const count = await rows.count();
-  for (let i = 0; i < count; i++) {
-    await expect(rows.nth(i)).toContainText(new RegExp(text, 'i'));
-  }
+  await conferirQueTodasAsLinhasAtendem(this.page, new RegExp(text, 'i'), `busca por "${text}"`);
 });
 
 /**
@@ -359,19 +356,11 @@ When('seleciono o status {string}', async function (this: CustomWorld, status: s
 });
 
 Then('devo ver apenas imóveis disponíveis', async function (this: CustomWorld) {
-  const rows = this.page.locator('table tbody tr');
-  const count = await rows.count();
-  for (let i = 0; i < count; i++) {
-    await expect(rows.nth(i)).toContainText(/dispon[ií]vel/i);
-  }
+  await conferirQueTodasAsLinhasAtendem(this.page, /dispon[ií]vel/i, 'status Disponível');
 });
 
 Then('devo ver apenas imóveis ocupados', async function (this: CustomWorld) {
-  const rows = this.page.locator('table tbody tr');
-  const count = await rows.count();
-  for (let i = 0; i < count; i++) {
-    await expect(rows.nth(i)).toContainText(/ocupado/i);
-  }
+  await conferirQueTodasAsLinhasAtendem(this.page, /ocupado/i, 'status Ocupado');
 });
 
 Then('devo ver o formulário de cadastro de imóvel', async function (this: CustomWorld) {

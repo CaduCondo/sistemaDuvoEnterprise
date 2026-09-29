@@ -1,6 +1,7 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import DatabaseHelper from '../helpers/database.helper';
+import { conferirQueTodasAsLinhasAtendem } from '../helpers/tabela.helper';
 
 const MESES_PT = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -1111,48 +1112,40 @@ Then('não deve ser possível gerar recibo', async function(this: import('../sup
   }
 });
 
-Then('devo ver apenas pagamentos de Janeiro', async function() {
-  const payments = this.page.locator('tbody tr');
-  const count = await payments.count();
-  
-  for (let i = 0; i < count; i++) {
-    const payment = payments.nth(i);
-    const text = await payment.textContent();
-    expect(text).toContain('Janeiro');
-  }
+/**
+ * ⚠️ REESCRITOS em 29/set/2026 (auditoria de falso positivo pedida pelo Cadu).
+ *
+ * Os quatro passos abaixo tinham o mesmo defeito, o mais traiçoeiro de todos:
+ * percorriam as linhas da tabela conferindo uma por uma... e quando a tabela
+ * vinha VAZIA o laço não rodava nenhuma vez e o passo passava. Ou seja,
+ * "devo ver apenas pagamentos de Janeiro" ficava verde tanto quando o filtro
+ * funcionava quanto quando ele não trazia nada, quando a tela não tinha
+ * carregado ainda, e quando a tabela nem existia. Um filtro completamente
+ * quebrado (que zera a lista) era indistinguível de um filtro perfeito.
+ *
+ * Dois consertos, nos quatro: exigir pelo menos uma linha (sem linha nenhuma
+ * o cenário não prova nada) e olhar só as linhas VISÍVEIS -- a tela mantém as
+ * duas abas montadas no HTML e esconde a inativa.
+ */
+Then('devo ver apenas pagamentos de Janeiro', async function () {
+  // "Janeiro/" com a barra: a coluna Período escreve "Janeiro/2026". Sem a
+  // barra, a palavra poderia vir de qualquer outro canto da linha.
+  await conferirQueTodasAsLinhasAtendem(this.page, /Janeiro\//i, 'Janeiro');
 });
 
-Then('devo ver apenas pagamentos de {int}', async function(year: number) {
-  const payments = this.page.locator('tbody tr');
-  const count = await payments.count();
-  
-  for (let i = 0; i < count; i++) {
-    const payment = payments.nth(i);
-    const text = await payment.textContent();
-    expect(text).toContain(year.toString());
-  }
+Then('devo ver apenas pagamentos de {int}', async function (year: number) {
+  // "/2026" e não só "2026": o ano solto aparece em qualquer data da linha
+  // (vencimento, pagamento), então a checagem antiga passava até com o filtro
+  // trazendo outro ano.
+  await conferirQueTodasAsLinhasAtendem(this.page, new RegExp(`/${year}\\b`), `${year}`);
 });
 
-Then('devo ver apenas pagamentos pendentes', async function() {
-  const payments = this.page.locator('tbody tr');
-  const count = await payments.count();
-  
-  for (let i = 0; i < count; i++) {
-    const payment = payments.nth(i);
-    const text = await payment.textContent();
-    expect(text?.toLowerCase()).toContain('pendente');
-  }
+Then('devo ver apenas pagamentos pendentes', async function () {
+  await conferirQueTodasAsLinhasAtendem(this.page, /pendente/i, 'recebimentos pendentes');
 });
 
-Then('devo ver apenas pagamentos pagos', async function() {
-  const payments = this.page.locator('tbody tr');
-  const count = await payments.count();
-  
-  for (let i = 0; i < count; i++) {
-    const payment = payments.nth(i);
-    const text = await payment.textContent();
-    expect(text?.toLowerCase()).toContain('pago');
-  }
+Then('devo ver apenas pagamentos pagos', async function () {
+  await conferirQueTodasAsLinhasAtendem(this.page, /\bpago\b/i, 'recebimentos pagos');
 });
 
 // Observação: "no bloco {string} devo ver:" vive em rentals.steps.ts (trata
