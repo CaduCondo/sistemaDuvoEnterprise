@@ -92,7 +92,14 @@ Given('que crio uma locação com:', { timeout: 60 * 1000 }, async function(data
   // desta locação. Sem isso, "devo ver 1 recebimento" contava as linhas da
   // tela inteira -- que no banco de DEV compartilhado tinha 122.
   this.tenantName = tenant.name;
-  this.testData = { ...this.testData, complementoDoImovel: complementoUnico };
+  // ⚠️ 29/set/2026: guardar o aluguel é o que permite o passo "o valor deve
+  // ser proporcional a N dias" conferir de verdade. Antes ele procurava
+  // `testData.rental`, que ninguém preenchia -- e por isso passava sempre.
+  this.testData = {
+    ...this.testData,
+    complementoDoImovel: complementoUnico,
+    aluguelMensal: aluguel,
+  };
 
   // Navegar para página de locações
   await this.page.goto('/rentals');
@@ -563,10 +570,24 @@ When('visualizo o recibo do pagamento de Janeiro\\/2026', { timeout: 40 * 1000 }
     linha = linha.filter({ hasText: this.tenantName });
   }
   const primeira = linha.first();
-  await expect(
-    primeira,
-    `não achei a linha do pagamento de Janeiro/2026 da locação deste cenário na aba "Recebimentos Pagos"`
-  ).toBeVisible({ timeout: 10000 });
+  // ⚠️ 29/set/2026 (CI run #86): este passo já foi "corrigido" cinco vezes por
+  // dedução, e voltou a falhar. Em vez de um sexto chute, a mensagem de erro
+  // agora mostra TUDO o que está na aba aberta -- inclusive se o cenário
+  // sequer guardou o nome do inquilino. Sem esse retrato, cada tentativa é
+  // adivinhação (foi assim que a linha de caução ficou 3 rodadas escondida).
+  try {
+    await expect(primeira).toBeVisible({ timeout: 10000 });
+  } catch {
+    const visiveis = await this.page.locator('tbody tr:visible').allInnerTexts().catch(() => []);
+    const retrato = visiveis
+      .map((t, i) => `  ${i + 1}) ${t.replace(/\s+/g, ' ').trim().slice(0, 300)}`)
+      .join('\n');
+    throw new Error(
+      `não achei a linha do pagamento de Janeiro/2026 da locação deste cenário na aba "Recebimentos Pagos".\n` +
+        `Inquilino do cenário: ${this.tenantName || '(NÃO guardado -- a busca não foi escopada)'}\n` +
+        `Linhas visíveis na aba aberta (${visiveis.length}):\n${retrato || '  (nenhuma)'}`
+    );
+  }
 
   const botaoRecibo = primeira.locator('[title^="Recibo"]').first();
   await expect(
@@ -789,52 +810,87 @@ Then('devo ver {int} recebimentos', async function(count: number) {
  * nenhuma linha de recebimento tem literalmente a palavra "valor" escrita,
  * esse passo falharia sempre que a tabela usasse cabeçalho.
  */
+/**
+ * ⚠️ REESCRITO em 29/set/2026 -- este passo era o exemplo perfeito de teste
+ * que passa sem testar nada. Ele lia `tbody tr` **.first()**: a primeira linha
+ * da tela, não a linha da locação do cenário. Como o banco de DEV é
+ * compartilhado e tem mais de cem recebimentos reais, a linha que ele
+ * conferia era de outro inquilino qualquer -- no CI run #86 era a
+ * "Emanuelle Lengler Acosta, parcela 10/12, R$ 3.100,00", que não tem nada a
+ * ver com o cenário. Enquanto por sorte a linha de cima contivesse
+ * "Agosto/2026" e "Pendente", o teste passava verde sem olhar o recebimento
+ * que o cenário criou.
+ *
+ * Agora usa `linhasDoRecebimento`, o mesmo recorte de "devo ver N
+ * recebimento": só as linhas do inquilino deste cenário, sem as de caução.
+ */
 Then('o recebimento deve ter:', async function(dataTable: any) {
-  const expected = dataTable.hashes().map((row: any) => row.valor);
+  const esperados = dataTable.hashes().map((row: any) => row.valor);
+  const linha = linhasDoRecebimento(this).first();
 
-  const firstPayment = this.page.locator('tbody tr').first();
-  await expect(firstPayment).toBeVisible();
+  await expect(
+    linha,
+    'não achei na tela nenhum recebimento de aluguel do inquilino deste cenário'
+  ).toBeVisible({ timeout: 10000 });
 
-  const text = await firstPayment.textContent();
-  for (const value of expected) {
-    expect(text).toContain(value);
+  const texto = ((await linha.textContent()) || '').replace(/\s+/g, ' ');
+  for (const valor of esperados) {
+    expect(texto, `o recebimento deste cenário não mostra "${valor}". Linha lida: ${texto}`).toContain(valor);
   }
 });
 
-Then('o valor deve ser proporcional a {int} dias', async function(days: number) {
-  const rental = this.testData?.rental;
-  if (!rental) return;
-  
-  const monthlyRent = parseFloat(rental['Aluguel']);
-  const expectedValue = (monthlyRent / 30) * days;
-  
-  // Verificar se o valor está próximo do esperado (tolerância de R$ 10)
-  const paymentCard = this.page.locator('tbody tr').first();
-  const text = await paymentCard.textContent();
-  
-  // Extrair valor do texto (formato: R$ 1.234,56)
-  const match = text?.match(/R\$\s*([\d.,]+)/);
-  if (match) {
-    const displayedValue = parseFloat(match[1].replace('.', '').replace(',', '.'));
-    const diff = Math.abs(displayedValue - expectedValue);
-    expect(diff).toBeLessThan(10);
+/**
+ * ⚠️ REESCRITO em 29/set/2026 -- também passava sempre, por dois motivos:
+ * lia `this.testData.rental`, que NUNCA é preenchido (o passo "que crio uma
+ * locação com:" guarda só o complemento do imóvel), e com isso caía no
+ * `if (!rental) return;` antes de conferir coisa alguma. E mesmo que passasse
+ * dali, só conferia se o `if (match)` achasse um "R$" -- se não achasse,
+ * passava calado.
+ *
+ * A regra conferida é a de paymentService.ts: (aluguel / 30) * dias.
+ */
+Then('o valor deve ser proporcional a {int} dias', async function(this: any, dias: number) {
+  const aluguelMensal = this.testData?.aluguelMensal;
+  if (!aluguelMensal) {
+    throw new Error(
+      'O cenário não guardou o valor do aluguel. Sem ele não há como conferir o proporcional.'
+    );
   }
+
+  const esperado = (aluguelMensal / 30) * dias;
+  const linha = linhasDoRecebimento(this).first();
+  await expect(
+    linha,
+    'não achei na tela o recebimento do inquilino deste cenário'
+  ).toBeVisible({ timeout: 10000 });
+
+  const texto = ((await linha.textContent()) || '').replace(/\s+/g, ' ');
+  const achado = texto.match(/R\$\s*([\d.]+,\d{2})/);
+  if (!achado) {
+    throw new Error(`Não achei nenhum valor em reais na linha do recebimento. Linha lida: ${texto}`);
+  }
+
+  const mostrado = parseFloat(achado[1].replace(/\./g, '').replace(',', '.'));
+  expect(
+    Math.abs(mostrado - esperado),
+    `esperava algo perto de R$ ${esperado.toFixed(2)} (${dias} dias de R$ ${aluguelMensal.toFixed(2)}/30), ` +
+      `mas a tela mostra R$ ${mostrado.toFixed(2)}. Linha lida: ${texto}`
+  ).toBeLessThan(1);
 });
 
-Then('NÃO devo ver recebimentos dessa locação', async function() {
-  // Verificar se a lista está vazia ou não contém a locação testada
-  const payments = this.page.locator('tbody tr');
-  const count = await payments.count();
-  
-  // Se houver pagamentos, verificar se nenhum é da locação testada
-  if (count > 0) {
-    const rental = this.testData?.rental;
-    if (rental && rental['Aluguel']) {
-      const allText = await this.page.textContent('body');
-      const hasRentalValue = allText?.includes(rental['Aluguel']);
-      expect(hasRentalValue).toBe(false);
-    }
-  }
+/**
+ * ⚠️ REESCRITO em 29/set/2026 -- o pior dos três: procurava no texto da
+ * página inteira o valor do aluguel escrito cru ("3000.00"). A tela nunca
+ * escreve assim (escreve "R$ 3.000,00"), então a resposta era sempre "não
+ * achei" e o passo sempre passava, inclusive se o recebimento estivesse
+ * aparecendo ali na frente. Ainda por cima dependia do mesmo
+ * `testData.rental` inexistente.
+ */
+Then('NÃO devo ver recebimentos dessa locação', async function(this: any) {
+  await expect(
+    linhasDoRecebimento(this),
+    'este mês não devia mostrar nenhum recebimento desta locação, mas mostrou'
+  ).toHaveCount(0, { timeout: 10000 });
 });
 
 Given('que existe uma locação com status {string} e um recebimento pendente residual em {string}', async function(status: string, periodo: string) {

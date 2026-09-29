@@ -366,18 +366,36 @@ export class DatabaseHelper {
    * falharia por motivo que não tem nada a ver com o que ele quer provar.
    */
   static async setFeePercentages(adminPercentage: number, managementPercentage: number) {
+    // ⚠️ 29/set/2026: a tabela se chama `configs` (plural). Escrito no
+    // singular, o Supabase respondia "nenhuma linha" -- e os dois cenários de
+    // isenção morriam com "Não achei nenhuma linha em `config`" (CI run #86).
+    // Ver src/services/configService.ts, que sempre usou `configs`.
     const { data: existing } = await supabaseAdmin
-      .from('config')
+      .from('configs')
       .select('id')
       .limit(1)
       .maybeSingle();
 
+    // Banco de teste recém-criado pode não ter a linha de configuração ainda.
+    // Criar é melhor que abortar: todo campo é opcional menos os percentuais.
     if (!existing) {
-      throw new Error('Não achei nenhuma linha em `config` para ajustar os percentuais de taxa.');
+      const { error: erroDeCriacao } = await supabaseAdmin
+        .from('configs')
+        .insert({
+          company_name: 'Config E2E',
+          admin_fee_percentage: adminPercentage,
+          management_fee_percentage: managementPercentage,
+        });
+      if (erroDeCriacao) {
+        throw new Error(
+          `Não havia linha em \`configs\` e não consegui criar uma: ${erroDeCriacao.message}`
+        );
+      }
+      return;
     }
 
     const { error } = await supabaseAdmin
-      .from('config')
+      .from('configs')
       .update({
         admin_fee_percentage: adminPercentage,
         management_fee_percentage: managementPercentage,

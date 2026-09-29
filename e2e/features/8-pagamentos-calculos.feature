@@ -48,7 +48,13 @@ Funcionalidade: Cálculos e Regras de Pagamentos
       | Período (referência) | Agosto/2026|
       | Data Vencimento      | 10/08/2026 |
       | Status               | Pendente   |
-    E o valor deve ser proporcional a 26 dias
+    # 23 dias, não 26: de 18/07 (inclusive) ao fim de julho são 14 dias, e de
+    # 1º/08 até a véspera do vencimento (09/08) são 9. É a regra de
+    # paymentService.ts e a que o Cadu descreveu -- o inquilino paga de onde
+    # entrou até o primeiro vencimento. O "26" estava errado desde sempre e
+    # ninguém viu, porque o passo que conferia isso passava sem conferir nada
+    # (corrigido em 29/set/2026).
+    E o valor deve ser proporcional a 23 dias
     E quando filtro por "Julho/2026"
     Então NÃO devo ver recebimentos dessa locação
 

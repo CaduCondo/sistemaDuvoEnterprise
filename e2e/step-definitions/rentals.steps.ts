@@ -410,9 +410,20 @@ When('clico em {string} dessa locação', async function (this: import('../suppo
   await this.page.waitForTimeout(300);
 });
 
-When('confirmo a renovação', async function (this: import('../support/world').CustomWorld) {
+When('confirmo a renovação', { timeout: 60 * 1000 }, async function (this: import('../support/world').CustomWorld) {
   await this.page.locator('#rentals-renew-confirm').click();
-  await this.page.waitForTimeout(1500);
+
+  // ⚠️ 29/set/2026 (CI run #86): esperar 1500ms na sorte não bastava. Renovar
+  // faz DUAS coisas em sequência -- primeiro salva a nova data fim, depois
+  // cria os recebimentos até ela. A espera cega às vezes acabava no meio, e o
+  // passo seguinte lia o banco antes dos recebimentos novos existirem: a data
+  // fim passava, e "não achei recebimento para 10/2027" falhava. A tela só
+  // mostra "Contrato renovado com sucesso" depois das DUAS etapas -- então é
+  // nela que o teste espera, não no relógio.
+  await expect(
+    this.page.getByText(/Contrato renovado com sucesso/i),
+    'a tela não confirmou a renovação -- ou ela falhou, ou demorou mais de 30s'
+  ).toBeVisible({ timeout: 30000 });
 });
 
 Then('a data fim da locação deve avançar 1 ano', async function (this: import('../support/world').CustomWorld) {
@@ -439,12 +450,25 @@ Then(
     const mesEsperado = String(novaData.getMonth() + 1).padStart(2, '0');
     const anoEsperado = String(novaData.getFullYear());
 
-    const temUltimoMes = payments.some(
-      (p: any) => p.reference_month === mesEsperado && p.reference_year === anoEsperado
-    );
-    expect(temUltimoMes, `não achei recebimento para ${mesEsperado}/${anoEsperado} (competência da nova data fim)`).toBe(true);
+    // Leitura única do banco é frágil aqui: a gravação dos recebimentos pode
+    // terminar frações de segundo depois. Repete a consulta até dar o tempo.
+    await expect
+      .poll(
+        async () => {
+          const atuais = await DatabaseHelper.getPaymentsByRental(this.rentalId);
+          return atuais.some(
+            (p: any) => p.reference_month === mesEsperado && p.reference_year === anoEsperado
+          );
+        },
+        {
+          timeout: 20000,
+          message: `não achei recebimento para ${mesEsperado}/${anoEsperado} (competência da nova data fim)`,
+        }
+      )
+      .toBe(true);
 
-    const chaves = payments.map((p: any) => `${p.reference_year}-${p.reference_month}`);
+    const atualizados = await DatabaseHelper.getPaymentsByRental(this.rentalId);
+    const chaves = atualizados.map((p: any) => `${p.reference_year}-${p.reference_month}`);
     expect(new Set(chaves).size, 'há recebimentos duplicados no mesmo mês/ano desta locação').toBe(chaves.length);
   }
 );
