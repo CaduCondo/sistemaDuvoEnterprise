@@ -55,6 +55,19 @@ export async function processContractTermination(data: TerminationData): Promise
   } = data;
 
   // ==========================================
+  // PASSO 0: Tirar o fim de contrato "programado" (03/out/2026)
+  //
+  // Desde a regra de fim de contrato (#108), toda locação já nasce com o
+  // proporcional final e o recebimento de Fim de Contrato vencendo na data
+  // fim. A rescisão cria os recebimentos dela -- então os programados, se
+  // ainda não foram pagos, saem antes, para não ficar cobrança em dobro.
+  // ==========================================
+  {
+    const { apagarFimDeContratoPendente } = await import("./rentalUpdateService");
+    await apagarFimDeContratoPendente(rentalId);
+  }
+
+  // ==========================================
   // PASSO 1: Determinar o mês da rescisão
   // ==========================================
   console.log("\n📅 PASSO 1: Determinar mês da rescisão");

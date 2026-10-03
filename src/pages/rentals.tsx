@@ -444,21 +444,23 @@ export default function RentalsPage() {
       newEndDate.setFullYear(newEndDate.getFullYear() + 1);
       const newEndDateStr = newEndDate.toISOString().split("T")[0];
 
+      // ⚠️ CORREÇÃO (03/out/2026 -- bug de produção, JD. COLOMBO APTO 10):
+      // a renovação passava pela sincronização genérica da EDIÇÃO de locação,
+      // que decide tudo pelo mês -- depois da renovação, setembro/2026 ficou
+      // sem a parcela de 05/09 e outubro ficou com duas. Agora a data fim é salva SEM mexer nos
+      // recebimentos e quem cuida deles é uma função só da renovação, que
+      // nunca move nem apaga parcela regular -- só troca o proporcional e o
+      // Fim de Contrato da data antiga pelos da data nova.
       const { update: updateRental } = await import("@/services/rentalService");
-      await updateRental(rentalToRenew.id, {
-        endDate: newEndDateStr,
-      });
+      await updateRental(rentalToRenew.id, { endDate: newEndDateStr }, { skipPaymentSync: true });
 
-      // ✅ Garante que os recebimentos até a nova data fim existam, mesmo que
-      // a sincronização de dentro de updateRental não tenha criado algum
-      // (ver comentário acima). Só INSERE o que falta -- nunca mexe no que
-      // já existe.
       try {
-        const { createPaymentsForRental } = await import("@/services/paymentService");
-        await createPaymentsForRental({
-          rental: { id: rentalToRenew.id } as Rental,
-          startDate: new Date(rentalToRenew.startDate),
-          endDate: newEndDate,
+        const { renovarRecebimentos } = await import("@/services/rentalUpdateService");
+        await renovarRecebimentos({
+          rentalId: rentalToRenew.id,
+          startDate: String(rentalToRenew.startDate).slice(0, 10),
+          oldEndDate: String(rentalToRenew.endDate).slice(0, 10),
+          newEndDate: newEndDateStr,
           monthlyRent: rentalToRenew.monthlyRent,
           paymentDay: rentalToRenew.paymentDay,
           hasGarage: rentalToRenew.hasGarage,

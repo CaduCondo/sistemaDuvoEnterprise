@@ -160,6 +160,22 @@ Funcionalidade: Regras de Negócio de Locações
     E deve existir um recebimento de aluguel pendente para cada mês até a nova data fim
     E o último recebimento deve ser proporcional aos dias até a nova data fim
 
+  # ⚠️ NOVO (03/out/2026) — bug real em produção, JD. COLOMBO APTO 10 (#108):
+  # renovado um contrato com a parcela regular do último mês ATRASADA,
+  # setembro ficou sem cobrança e outubro ficou com duas. A parcela regular
+  # tem que ficar onde está; só o proporcional e o Fim de Contrato da data
+  # antiga saem e vão para a data fim nova.
+  @sistemaCompleto
+  Cenário: Renovar contrato mantém a parcela regular atrasada e move só o fim de contrato
+    Dado uma locação vencida há poucos dias com a parcela regular do último mês atrasada e o fim de contrato programado
+    Quando clico em "Renovar Contrato" dessa locação
+    E confirmo a renovação
+    Então a data fim da locação deve avançar 1 ano
+    E a parcela regular do último mês deve continuar no mesmo vencimento, com o valor cheio
+    E não deve sobrar proporcional nem Fim de Contrato na data fim antiga
+    E deve existir um recebimento de aluguel pendente para cada mês até a nova data fim
+    E o último recebimento deve ser proporcional aos dias até a nova data fim
+
   # ⚠️ NOVO (07/set/2026) — bug real relatado pelo Cadu, issue #91: quando a
   # data fim passava, o sistema encerrava a locação sozinho E a tela escondia
   # todos os botões de ação. Como o inquilino costuma responder com alguns

@@ -390,7 +390,12 @@ export const rentalService = {
     return rentalService.getById(data.id);
   },
 
-  async update(id: string, rental: Partial<Rental>): Promise<Rental> {
+  /**
+   * `opcoes.skipPaymentSync`: não mexe nos recebimentos (quem chama cuida
+   * deles). Usado pela RENOVAÇÃO de contrato, que tem regra própria --
+   * ver rentalUpdateService.renovarRecebimentos.
+   */
+  async update(id: string, rental: Partial<Rental>, opcoes: { skipPaymentSync?: boolean } = {}): Promise<Rental> {
     const { data: oldRentalData, error: fetchError } = await supabase
       .from("rentals")
       .select(`
@@ -640,7 +645,7 @@ export const rentalService = {
       (rental.monthlyRent !== undefined && rental.monthlyRent !== oldRental.monthlyRent) ||
       (rental.value !== undefined && rental.value !== oldRental.monthlyRent);
 
-    if (rentPaymentsChanged) {
+    if (rentPaymentsChanged && !opcoes.skipPaymentSync) {
       console.log("🔄 [rentalService.update] Sincronizando recebimentos de aluguel...");
       
       try {

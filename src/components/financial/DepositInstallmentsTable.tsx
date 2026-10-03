@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { atualizarFimDeContrato } from "@/services/contractEndService";
 import {
   Table,
   TableBody,
@@ -194,15 +195,17 @@ export function DepositInstallmentsTable({
       // tipada. Cortando o tipo já no `supabase` evita a inferência inteira.
       const { data: terminationData, error: terminationError } = await (supabase as any)
         .from("payments")
-        .select("rental_id, termination_corrected_deposit, termination_additional_expenses, termination_discount, due_date, status")
+        .select("id, rental_id, payment_kind, contract_end, breakdown, expected_amount, termination_corrected_deposit, termination_additional_expenses, termination_discount, due_date, status")
         .eq("payment_kind", "termination")
         .order("due_date", { ascending: false });
 
       if (terminationError) {
         console.error("❌ Erro ao buscar Recebimentos de Rescisão:", terminationError);
       } else {
+        // Fim de Contrato em aberto: caução corrigido recalculado na hora.
+        const terminationAtualizados = await atualizarFimDeContrato((terminationData || []) as any[]);
         const porLocacao: Record<string, { corrected: number; expenses: number; discount: number; status: string }> = {};
-        for (const pagamento of terminationData || []) {
+        for (const pagamento of terminationAtualizados) {
           if (porLocacao[pagamento.rental_id]) continue;
           porLocacao[pagamento.rental_id] = {
             corrected: Number(pagamento.termination_corrected_deposit) || 0,

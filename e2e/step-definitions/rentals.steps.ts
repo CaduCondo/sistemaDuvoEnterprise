@@ -471,9 +471,15 @@ Then(
       )
       .toBe(true);
 
+    // Desde 03/out/2026 (#108) o mês da data fim tem mais de um recebimento
+    // de propósito (parcela regular + proporcional + Fim de Contrato). A
+    // trava contra duplicidade vale só para as parcelas REGULARES, pelo mês
+    // do vencimento.
     const atualizados = await DatabaseHelper.getPaymentsByRental(this.rentalId);
-    const chaves = atualizados.map((p: any) => `${p.reference_year}-${p.reference_month}`);
-    expect(new Set(chaves).size, 'há recebimentos duplicados no mesmo mês/ano desta locação').toBe(chaves.length);
+    const chaves = atualizados
+      .filter((p: any) => (p.payment_kind || 'rent') === 'rent' && !p.contract_end)
+      .map((p: any) => String(p.due_date).slice(0, 7));
+    expect(new Set(chaves).size, 'há parcelas regulares duplicadas no mesmo mês desta locação').toBe(chaves.length);
   }
 );
 
@@ -492,21 +498,153 @@ Then(
 Then(
   'o último recebimento deve ser proporcional aos dias até a nova data fim',
   async function (this: import('../support/world').CustomWorld) {
+    // ⚠️ Regra de 03/out/2026 (#108): o proporcional de fim de contrato vence
+    // NA DATA FIM e cobra só os dias entre o último vencimento regular e a
+    // data fim (sem contar o dia do vencimento). Mesma conta de
+    // src/lib/contractEnd.ts -- importada de lá para não existir uma segunda
+    // implementação que possa divergir.
+    const { diasProporcionalFimContrato } = await import('../../src/lib/contractEnd');
+    const DatabaseHelper = (await import('../helpers/database.helper')).default;
+    const { supabaseAdmin } = await import('../helpers/database.helper');
+    const { data: rental } = await supabaseAdmin
+      .from('rentals')
+      .select('end_date, rent_due_day')
+      .eq('id', this.rentalId)
+      .single();
+    const novaDataFim = String(rental!.end_date);
+    const dias = diasProporcionalFimContrato(novaDataFim, Number(rental!.rent_due_day));
+
+    const payments = await DatabaseHelper.getPaymentsByRental(this.rentalId);
+    const proporcional = payments.find(
+      (p: any) => p.contract_end === true && (p.payment_kind || 'rent') === 'rent'
+    );
+    const fimDeContrato = payments.find(
+      (p: any) => p.contract_end === true && p.payment_kind === 'termination'
+    );
+
+    expect(fimDeContrato, 'não existe o recebimento de Fim de Contrato').toBeTruthy();
+    expect(String(fimDeContrato!.due_date), 'Fim de Contrato tem que vencer na data fim').toBe(novaDataFim);
+
+    if (dias === 0) {
+      expect(proporcional, 'data fim cai no dia do vencimento: não deveria haver proporcional').toBeFalsy();
+      return;
+    }
+
+    const valorEsperado = parseFloat(((this.testData.renovacao.rentValue / 30) * dias).toFixed(2));
+    expect(proporcional, 'não existe o proporcional de fim de contrato').toBeTruthy();
+    expect(String(proporcional!.due_date), 'o proporcional tem que vencer na data fim').toBe(novaDataFim);
+    expect(
+      Number(proporcional!.expected_amount),
+      `proporcional deveria cobrar ${dias} dia(s) (R$ ${valorEsperado.toFixed(2)}), veio R$ ${proporcional!.expected_amount}`
+    ).toBeCloseTo(valorEsperado, 2);
+  }
+);
+
+// ============================================================================
+// RENOVAÇÃO NÃO MEXE NA PARCELA REGULAR (bug de produção, 03/out/2026)
+//
+// JD. COLOMBO APTO 10: contrato com fim em 29/09/2026 e vencimento dia 5. A
+// parcela de 05/09/2026 estava atrasada quando o contrato foi renovado; depois
+// da renovação setembro ficou sem cobrança nenhuma e outubro ficou com duas.
+// Regra do Cadu: a parcela regular fica onde está (atrasada ou paga); só o
+// proporcional e o Fim de Contrato da data antiga é que saem e vão para a
+// data fim nova.
+// ============================================================================
+
+Given(
+  'uma locação vencida há poucos dias com a parcela regular do último mês atrasada e o fim de contrato programado',
+  async function (this: import('../support/world').CustomWorld) {
+    const { supabaseAdmin } = await import('../helpers/database.helper');
+    const sufixo = Date.now();
+    const tenant = await this.createTenant({ name: `Renovacao Atrasada E2E ${sufixo}` });
+
+    const iso = (d: Date) => d.toISOString().split('T')[0];
+    const hoje = new Date();
+    const fimAntigo = new Date(hoje);
+    fimAntigo.setDate(fimAntigo.getDate() - 2);
+    // A parcela regular vence dia 1 do mês da data fim -- precisa cair ANTES
+    // da data fim. Se a data fim for dia 1, recua mais um dia.
+    if (fimAntigo.getDate() === 1) fimAntigo.setDate(fimAntigo.getDate() - 1);
+    const inicio = new Date(fimAntigo);
+    inicio.setFullYear(inicio.getFullYear() - 1);
+    inicio.setDate(inicio.getDate() + 1);
+
+    const rental = await this.createRental({
+      start_date: iso(inicio),
+      end_date: iso(fimAntigo),
+      rent_value: 1200,
+      tenant_id: tenant.id,
+    } as any);
+    await supabaseAdmin.from('rentals').update({ rent_due_day: 1 }).eq('id', rental.id);
+
+    const fimStr = iso(fimAntigo);
+    const vencRegular = fimStr.slice(0, 8) + '01';
+    const mes = fimStr.slice(5, 7);
+    const ano = fimStr.slice(0, 4);
+
+    const { data: inseridos, error } = await (supabaseAdmin as any)
+      .from('payments')
+      .insert([
+        {
+          rental_id: rental.id, due_date: vencRegular, reference_month: mes, reference_year: ano,
+          expected_amount: 1200, status: 'pending', payment_kind: 'rent', contract_end: false,
+          installment: 12, total_installments: 13,
+          breakdown: [{ description: 'Aluguel', amount: 1200, type: 'addition' }],
+        },
+        {
+          rental_id: rental.id, due_date: fimStr, reference_month: mes, reference_year: ano,
+          expected_amount: 400, status: 'pending', payment_kind: 'rent', contract_end: true,
+          installment: 13, total_installments: 13,
+          breakdown: [{ description: 'Aluguel - Proporcional Fim de Contrato (10 dias)', amount: 400, type: 'addition' }],
+        },
+        {
+          rental_id: rental.id, due_date: fimStr, reference_month: mes, reference_year: ano,
+          expected_amount: 0, status: 'pending', payment_kind: 'termination', contract_end: true,
+          breakdown: [{ description: 'Caução Corrigido p/ Devolução', amount: 0, type: 'deduction' }],
+        },
+      ])
+      .select('id, contract_end, payment_kind');
+    if (error) throw error;
+
+    this.rentalId = rental.id;
+    this.testData = {
+      ...this.testData,
+      renovacao: {
+        tenantName: tenant.name,
+        rentValue: 1200,
+        oldEndDate: fimStr,
+        parcelaRegularId: (inseridos || []).find((p: any) => !p.contract_end).id,
+        vencRegular,
+      },
+    };
+  }
+);
+
+Then(
+  'a parcela regular do último mês deve continuar no mesmo vencimento, com o valor cheio',
+  async function (this: import('../support/world').CustomWorld) {
+    const { supabaseAdmin } = await import('../helpers/database.helper');
+    const { data: parcela } = await supabaseAdmin
+      .from('payments')
+      .select('id, due_date, expected_amount, status')
+      .eq('id', this.testData.renovacao.parcelaRegularId)
+      .maybeSingle();
+
+    expect(parcela, 'a parcela regular atrasada SUMIU na renovação -- é o bug do JD. COLOMBO APTO 10').toBeTruthy();
+    expect(String(parcela!.due_date), 'a parcela regular mudou de vencimento na renovação').toBe(this.testData.renovacao.vencRegular);
+    expect(Number(parcela!.expected_amount)).toBeCloseTo(1200, 2);
+  }
+);
+
+Then(
+  'não deve sobrar proporcional nem Fim de Contrato na data fim antiga',
+  async function (this: import('../support/world').CustomWorld) {
     const DatabaseHelper = (await import('../helpers/database.helper')).default;
     const payments = await DatabaseHelper.getPaymentsByRental(this.rentalId);
-    const ordenados = [...payments].sort((a: any, b: any) => String(a.due_date).localeCompare(String(b.due_date)));
-    const ultimo = ordenados[ordenados.length - 1];
-
-    const novaData = new Date(this.testData.renovacao.newEndDate + 'T00:00:00');
-    const diaFim = novaData.getDate();
-    const rentValue = this.testData.renovacao.rentValue;
-    const valorEsperado = parseFloat(((rentValue / 30) * diaFim).toFixed(2));
-
-    expect(Number(ultimo.expected_amount)).toBeGreaterThan(0);
-    expect(
-      Number(ultimo.expected_amount),
-      `último recebimento deveria ser proporcional a ${diaFim} dia(s) (R$ ${valorEsperado.toFixed(2)}), veio R$ ${ultimo.expected_amount}`
-    ).toBeCloseTo(valorEsperado, 2);
+    const sobras = payments.filter(
+      (p: any) => p.contract_end === true && String(p.due_date) === this.testData.renovacao.oldEndDate
+    );
+    expect(sobras.length, `sobraram ${sobras.length} recebimento(s) de fim de contrato na data fim antiga`).toBe(0);
   }
 );
 

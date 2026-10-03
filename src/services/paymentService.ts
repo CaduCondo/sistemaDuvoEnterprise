@@ -3,6 +3,8 @@ import { format, setDate } from "date-fns";
 import type { Payment, Rental, Property, Tenant } from "@/types";
 import type { Tables } from "@/integrations/supabase/types";
 import { logAudit } from "./auditService";
+import { vencimentoValido, diasEntre } from "@/lib/contractEnd";
+import { calcularProporcionalAluguelEGaragem } from "@/lib/rentalCalculations";
 
 type PaymentResponse = Tables<"payments"> & {
   rental: (Tables<"rentals"> & {
@@ -598,9 +600,14 @@ export const deletePaymentsByRentalIdSelective = async (
  *    - Se dia_inicio <= dia_vencimento: criar no mesmo mês, proporcional
  *    - Se dia_inicio > dia_vencimento: criar no mês seguinte, proporcional (~30 dias)
  * 
- * 2. Recebimentos intermediários: valor integral, 1 por mês
+ * 2. Parcelas regulares: valor integral, 1 por mês, enquanto o vencimento do
+ *    mês cair até a data fim (inclusive)
  * 
- * 3. Último recebimento: proporcional aos dias do último mês
+ * 3. Fim de contrato (regra de 03/out/2026, ver src/lib/contractEnd.ts):
+ *    - proporcional dos dias entre o último vencimento e a data fim, vencendo
+ *      na data fim (contract_end = true);
+ *    - recebimento de Fim de Contrato (payment_kind 'termination',
+ *      contract_end = true), vencendo na data fim.
  * 
  * 4. Não pular meses, não duplicar meses
  * 
@@ -683,15 +690,23 @@ export function generateExpectedPayments(params: {
     status: "pending",
     breakdown: firstPaymentBreakdown,
     installment: 1,
+    payment_kind: "rent",
+    contract_end: false,
   });
 
   console.log("📝 Primeiro recebimento criado:", paymentsToCreate[0]);
 
-  // **ETAPA 3: Criar recebimentos intermediários (valor integral)**
-  // ✅ CORRIGIDO: Avançar a partir do PRÓXIMO mês após o reference do primeiro recebimento
+  // **ETAPA 3: Parcelas regulares (valor CHEIO), uma por mês, enquanto o
+  // vencimento do mês cair ATÉ a data fim (inclusive).**
+  //
+  // ⚠️ Regra nova de 03/out/2026 (issue #108, definida pelo Cadu): até aqui a
+  // última parcela regular era transformada em proporcional e o contrato
+  // terminava sem nenhuma cobrança dos dias entre o último vencimento e a data
+  // fim, e sem o recebimento de devolução do caução. Agora a parcela regular
+  // é sempre cheia, e o fim do contrato ganha DOIS recebimentos próprios
+  // (ETAPA 4) -- ver src/lib/contractEnd.ts.
   let currentMonth = firstPaymentMonth + 1;
   let currentYear = firstPaymentYear;
-  
   if (currentMonth > 12) {
     currentMonth = 1;
     currentYear++;
@@ -699,114 +714,100 @@ export function generateExpectedPayments(params: {
 
   let installmentNumber = 2; // Começa da parcela 2
 
-  // ✅ CRÍTICO: Loop até o penúltimo mês (o último será tratado separadamente)
-  // NUNCA incluir o mês final no loop para evitar duplicatas
-  while (
-    currentYear < eYear || 
-    (currentYear === eYear && currentMonth < eMonth)
-  ) {
-    // ✅ CORREÇÃO CRÍTICA: Usar getValidDueDate para calcular a data correta
-    const dueDate = getValidDueDate(paymentDay, currentYear, currentMonth);
-    
-    const breakdown: Array<{ description: string; amount: number; type: string }> = [
-      {
-        description: "Aluguel",
-        amount: parseFloat(rentValue.toFixed(2)),
-        type: "addition",
-      }
-    ];
+  while (vencimentoValido(paymentDay, currentYear, currentMonth) <= endDate) {
+    const dueDate = vencimentoValido(paymentDay, currentYear, currentMonth);
 
+    const breakdown: Array<{ description: string; amount: number; type: string }> = [
+      { description: "Aluguel", amount: parseFloat(rentValue.toFixed(2)), type: "addition" },
+    ];
     if (garage > 0) {
-      breakdown.push({
-        description: "Garagem",
-        amount: parseFloat(garage.toFixed(2)),
-        type: "addition",
-      });
+      breakdown.push({ description: "Garagem", amount: parseFloat(garage.toFixed(2)), type: "addition" });
     }
 
     paymentsToCreate.push({
       rental_id: rentalId,
-      reference_month: String(currentMonth).padStart(2, '0'), // ✅ OK: currentMonth é o período de cobrança
-      reference_year: String(currentYear), // ✅ OK: currentYear é o ano de cobrança
+      reference_month: String(currentMonth).padStart(2, '0'),
+      reference_year: String(currentYear),
       due_date: dueDate,
       expected_amount: parseFloat(totalMonthlyValue.toFixed(2)),
       status: "pending",
-      breakdown: breakdown,
+      breakdown,
       installment: installmentNumber,
-    });
-
-    console.log(`📝 Recebimento intermediário criado - Parcela ${installmentNumber}:`, {
-      month: currentMonth,
-      year: currentYear,
-      amount: totalMonthlyValue,
-      dueDate
+      payment_kind: "rent",
+      contract_end: false,
     });
 
     installmentNumber++;
     currentMonth++;
-    
     if (currentMonth > 12) {
       currentMonth = 1;
       currentYear++;
     }
   }
 
-  // **ETAPA 4: Criar o último recebimento (proporcional)**
-  // ✅ CORREÇÃO: Só criar se ainda não foi criado pelo loop acima
-  // O último mês SEMPRE deve ser proporcional, nunca integral
-  if (currentYear === eYear && currentMonth === eMonth) {
-    // Contagem de dias até o final (NÃO-INCLUSIVO)
-    const daysToChargeLastPayment = eDay;
-    
-    // ✅ CORREÇÃO CRÍTICA: Garantir que aluguel e garagem usem os MESMOS dias no último recebimento
-    const lastProportionalRent = (rentValue / 30) * daysToChargeLastPayment;
-    const lastProportionalGarage = garage > 0 ? (garage / 30) * daysToChargeLastPayment : 0;
-    const lastPaymentAmount = lastProportionalRent + lastProportionalGarage;
+  // **ETAPA 4: Fim de contrato -- proporcional + recebimento de Fim de Contrato.**
+  const ultimoVencimento = paymentsToCreate[paymentsToCreate.length - 1].due_date as string;
+  const diasFinais = diasEntre(ultimoVencimento, endDate);
 
-    // ✅ CORREÇÃO CRÍTICA: Usar getValidDueDate para calcular a data correta
-    const lastDueDate = getValidDueDate(paymentDay, eYear, eMonth);
+  if (diasFinais > 0 && ultimoVencimento < endDate) {
+    const proporcional = calcularProporcionalAluguelEGaragem(rentValue, garage, diasFinais);
 
-    const lastPaymentBreakdown: Array<{ description: string; amount: number; type: string }> = [
+    const breakdownFinal: Array<{ description: string; amount: number; type: string }> = [
       {
-        description: `Aluguel - Última Parcela (${daysToChargeLastPayment} dias)`,
-        amount: parseFloat(lastProportionalRent.toFixed(2)),
+        description: `Aluguel - Proporcional Fim de Contrato (${diasFinais} dias)`,
+        amount: proporcional.aluguel,
         type: "addition",
-      }
+      },
     ];
-
     if (garage > 0) {
-      lastPaymentBreakdown.push({
-        description: `Garagem (${daysToChargeLastPayment} dias)`,
-        amount: parseFloat(lastProportionalGarage.toFixed(2)),
+      breakdownFinal.push({
+        description: `Garagem - Proporcional Fim de Contrato (${diasFinais} dias)`,
+        amount: proporcional.garagem,
         type: "addition",
       });
     }
 
     paymentsToCreate.push({
       rental_id: rentalId,
-      reference_month: String(eMonth).padStart(2, '0'), // ✅ SEMPRE com padding
+      reference_month: String(eMonth).padStart(2, '0'),
       reference_year: String(eYear),
-      due_date: lastDueDate,
-      expected_amount: parseFloat(lastPaymentAmount.toFixed(2)),
+      due_date: endDate,
+      expected_amount: proporcional.total,
       status: "pending",
-      breakdown: lastPaymentBreakdown,
+      breakdown: breakdownFinal,
       installment: installmentNumber,
+      payment_kind: "rent",
+      contract_end: true,
     });
-
-    console.log(`📝 Último recebimento criado - Parcela ${installmentNumber}:`, {
-      month: eMonth,
-      year: eYear,
-      days: daysToChargeLastPayment,
-      amount: lastPaymentAmount,
-      dueDate: lastDueDate
-    });
+    installmentNumber++;
   }
 
-  // **ETAPA 5: Adicionar total_installments a todos os recebimentos**
-  const totalInstallments = paymentsToCreate.length;
-  
+  // Recebimento de Fim de Contrato: devolução do caução corrigido + despesas
+  // + desconto. Nasce com R$ 0,00; o valor do caução corrigido é recalculado
+  // SEMPRE que o recebimento aparece na tela (lista ou aberto) -- ver
+  // src/services/contractEndService.ts. Não tem número de parcela (não é
+  // aluguel) e não entra na base das taxas de administração.
+  paymentsToCreate.push({
+    rental_id: rentalId,
+    reference_month: String(eMonth).padStart(2, '0'),
+    reference_year: String(eYear),
+    due_date: endDate,
+    expected_amount: 0,
+    status: "pending",
+    breakdown: [{ description: "Caução Corrigido p/ Devolução", amount: 0, type: "deduction" }],
+    installment: null,
+    payment_kind: "termination",
+    contract_end: true,
+    termination_corrected_deposit: 0,
+    termination_additional_expenses: 0,
+    termination_discount: 0,
+    notes: `Recebimento de Fim de Contrato - Data fim: ${endDate}. Devolução de caução, despesas adicionais e desconto. Não entra na base das taxas de administração e gerenciamento.`,
+  });
+
+  // **ETAPA 5: total_installments = só as parcelas de aluguel**
+  const totalInstallments = paymentsToCreate.filter((p) => p.payment_kind !== "termination").length;
   paymentsToCreate.forEach(payment => {
-    payment.total_installments = totalInstallments;
+    payment.total_installments = payment.payment_kind === "termination" ? null : totalInstallments;
   });
 
   console.log("✅ [generateExpectedPayments] Recebimentos gerados:", {
@@ -821,6 +822,30 @@ export function generateExpectedPayments(params: {
   });
 
   return paymentsToCreate;
+}
+
+/**
+ * Identifica "qual recebimento é este" para saber se ele já existe:
+ *  - Fim de Contrato (payment_kind 'termination' marcado contract_end): um só
+ *    por data fim;
+ *  - proporcional de fim de contrato (contract_end): um só por data fim;
+ *  - parcela regular de aluguel: uma por mês, pelo mês do VENCIMENTO (é o mês
+ *    que a tela mostra -- o reference_month gravado já esteve errado em
+ *    dados antigos).
+ * Recebimentos de rescisão de verdade (termination sem contract_end) nunca
+ * batem com nada gerado aqui.
+ */
+export function chaveDoRecebimento(p: {
+  due_date?: string | null;
+  payment_kind?: string | null;
+  contract_end?: boolean | null;
+  id?: string;
+}): string {
+  const kind = p.payment_kind || "rent";
+  const due = String(p.due_date || "");
+  if (p.contract_end) return `${kind}:fim:${due}`;
+  if (kind !== "rent") return `${kind}:${p.id || due}`;
+  return `rent:${due.slice(0, 7)}`;
 }
 
 export async function createPaymentsForRental(params: {
@@ -859,9 +884,9 @@ export async function createPaymentsForRental(params: {
 
   // ✅ CRÍTICO: Verificar recebimentos existentes APENAS para este rental_id
   // NUNCA deletar ou modificar recebimentos de outras locações!
-  const { data: existingPayments, error: selectError } = await supabase
+  const { data: existingPayments, error: selectError } = await (supabase as any)
     .from("payments")
-    .select("id, reference_month, reference_year")
+    .select("id, reference_month, reference_year, due_date, payment_kind, contract_end")
     .eq("rental_id", rental.id);
 
   if (selectError) {
@@ -909,12 +934,14 @@ export async function createPaymentsForRental(params: {
     }
   }
 
-  const existingRefs = new Set(
-    (existingPayments || []).map((p) => `${p.reference_year}-${p.reference_month}`)
-  );
+  // ⚠️ Desde 03/out/2026 um mesmo mês pode ter MAIS DE UM recebimento da
+  // mesma locação (ex.: a parcela regular de 05/09 e o proporcional de fim de
+  // contrato de 29/09). Por isso "já existe" não pode mais ser decidido só
+  // pelo mês -- ver chaveDoRecebimento.
+  const existingKeys = new Set((existingPayments || []).map((p: any) => chaveDoRecebimento(p)));
 
   const paymentsToCreate = expectedPayments.filter(
-    p => !existingRefs.has(`${p.reference_year}-${p.reference_month}`)
+    (p) => !existingKeys.has(chaveDoRecebimento(p))
   );
 
   console.log(`➕ [createPaymentsForRental] ${paymentsToCreate.length} recebimentos serão criados`);
@@ -931,7 +958,7 @@ export async function createPaymentsForRental(params: {
       expected_amount: paymentsToCreate[0].expected_amount,
     });
     
-    const { data: insertedData, error } = await supabase.from("payments").insert(paymentsToCreate).select('id, rental_id, reference_month, reference_year');
+    const { data: insertedData, error } = await (supabase as any).from("payments").insert(paymentsToCreate).select('id, rental_id, reference_month, reference_year');
     
     if (error) {
       console.error("❌ [createPaymentsForRental] Erro ao inserir recebimentos:", error);

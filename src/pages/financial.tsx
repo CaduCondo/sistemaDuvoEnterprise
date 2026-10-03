@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { atualizarFimDeContrato } from "@/services/contractEndService";
 import { Layout } from "@/components/Layout";
 import { PeriodSelector } from "@/components/dashboard/PeriodSelector";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
@@ -610,6 +611,7 @@ export default function Financial() {
           interest,
           breakdown,
           payment_kind,
+          contract_end,
           termination_corrected_deposit,
           termination_additional_expenses,
           termination_discount,
@@ -657,9 +659,13 @@ export default function Financial() {
 
       if (paymentsError) throw paymentsError;
 
+      // Fim de Contrato em aberto: caução corrigido recalculado na hora
+      // (03/out/2026 -- ver src/services/contractEndService.ts).
+      const paymentsAtualizados = await atualizarFimDeContrato((paymentsData || []) as any[]);
+
       // Processar dados e extrair locations
       const locationsMapTemp = new Map<string, string>();
-      const formattedPayments = (paymentsData || []).flatMap((payment: any) => {
+      const formattedPayments = paymentsAtualizados.flatMap((payment: any) => {
         const rental = payment.rentals;
         const property = rental?.properties;
         const tenant = rental?.tenants;

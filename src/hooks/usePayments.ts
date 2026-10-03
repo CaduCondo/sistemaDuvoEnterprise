@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { atualizarFimDeContrato } from "@/services/contractEndService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Payment, Rental, Property, Tenant, DepositInstallment as DepositInstallmentType } from "@/types";
@@ -67,6 +68,11 @@ export const usePayments = () => {
       }
 
       console.log(`✅ [usePayments] Payments (aluguel) carregados do banco: ${paymentsData?.length || 0}`);
+
+      // Recebimento de Fim de Contrato em aberto: o caução corrigido é
+      // recalculado AGORA, para a lista nunca mostrar valor velho (regra do
+      // Cadu, 03/out/2026 -- ver src/services/contractEndService.ts).
+      const paymentsAtualizados = await atualizarFimDeContrato((paymentsData || []) as any[]);
 
       // 1b. Buscar deposit_installments (caução) com o MESMO filtro de mês/ano,
       // pra aparecerem juntos com os recebimentos de aluguel nesta tela.
@@ -187,7 +193,7 @@ export const usePayments = () => {
       console.log("🗺️ [usePayments] Maps criados para lookup rápido");
 
       // 6. Mapear payments com dados relacionados (lookup O(1))
-      const mappedPayments = (paymentsData || []).map((payment): Payment => {
+      const mappedPayments = (paymentsAtualizados as any[]).map((payment: any): Payment => {
         const rental = rentalsMap.get(payment.rental_id);
         const property = rental ? propertiesMap.get(rental.property_id) : null;
         const tenant = rental ? tenantsMap.get(rental.tenant_id) : null;

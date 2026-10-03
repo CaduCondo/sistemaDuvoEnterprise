@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { atualizarFimDeContrato } from "@/services/contractEndService";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAttachment } from "@/lib/uploadAttachment";
@@ -289,7 +290,11 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         throw new Error("Pagamento não encontrado");
       }
 
-      const validatedPayment = paymentData as any;
+      // Fim de Contrato em aberto: caução corrigido recalculado na hora de
+      // abrir (03/out/2026 -- ver src/services/contractEndService.ts). Como o
+      // salvamento automático de despesas/desconto grava a partir deste
+      // objeto, o valor atualizado também vai para o banco.
+      const [validatedPayment] = (await atualizarFimDeContrato([paymentData as any])) as any[];
 
       setPayment(validatedPayment);
       setRental(validatedPayment.rentals);
@@ -944,6 +949,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
             const totalRescisao = correctedDeposit + additionalExpenses + discount;
 
             return {
+              termination_corrected_deposit: correctedDeposit,
               termination_additional_expenses: additionalExpenses,
               termination_discount: discount,
               expected_amount: totalRescisao,
