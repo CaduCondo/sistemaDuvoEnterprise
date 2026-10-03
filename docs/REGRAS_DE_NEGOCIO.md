@@ -1106,6 +1106,9 @@ diasNoMes = total de dias no mês de início
 diasUtilizados = dias desde start_date até fim do mês
 valorProporcional = (valorEsperado / diasNoMes) * diasUtilizados
 
+// ⚠️ Desde 03/out/2026: o fim do contrato segue a seção
+// "🏁 Fim de Contrato" logo abaixo (parcela regular cheia + proporcional
+// na data fim + recebimento de Fim de Contrato).
 Para cada mês do contrato:
   criar payment com:
     - rental_id
@@ -1152,30 +1155,94 @@ Para cada mês do contrato:
 > (snapshot). Só os pendentes/futuros passam a valer o valor novo.
 >
 
-> **📌 A última parcela do contrato é sempre proporcional** (corrigido em
-> 18/set/2026, achado pelos testes automatizados)
->
-> O último mês de um contrato quase nunca é um mês inteiro: o contrato acaba
-> no meio dele. Por isso a última parcela cobra só os dias até a data fim, e
-> não o aluguel cheio.
->
-> Até 18/set/2026 isso só valia quando a locação era **criada**. Quando a
-> locação era **renovada ou editada**, outro trecho do sistema cobrava o mês
-> **cheio** sempre que a data fim caísse a partir do dia de vencimento. Na
-> prática: renovando um contrato de R$ 1.500,00 com fim no dia 21, a última
-> parcela saía R$ 1.500,00 em vez de R$ 1.050,00 — o inquilino seria cobrado
-> por um mês inteiro que não vai morar. Os dois caminhos agora seguem a
-> mesma regra.
->
-> ⚠️ Esta regra ainda vai mudar: o Cadu definiu em 17/set/2026 que o período
-> cobrado deve ir **de vencimento a vencimento**, e que a última parcela deve
-> vencer **na própria data fim**, não no dia de vencimento habitual. Isso
-> muda a contagem dos dias e mexe também na primeira parcela e no recebimento
-> de rescisão. Está registrado na issue #108 e será feito como item próprio.
->
-> Protegido pelos cenários "Editar locação - Atualizar valor do aluguel" e
-> "Editar locação - Preservar snapshot em pagamentos pagos"
-> (`e2e/features/7-locacoes-regras.feature`).
+### 🏁 Fim de Contrato — as 3 cobranças do último trecho
+
+> Regra definida pelo Cadu em **03/out/2026** (issue #108). Substitui a regra
+> antiga "a última parcela do contrato é sempre proporcional".
+
+**Exemplo:** contrato do JD. COLOMBO APTO 10 — vencimento dia **5**, data fim
+**29/09/2026**, aluguel R$ 2.800,00. Setembro tem **três** recebimentos:
+
+| Vence | O quê | Valor |
+|---|---|---|
+| 05/09 | parcela regular (dia de vencimento de sempre) | R$ 2.800,00 (cheio) |
+| 29/09 | **proporcional de fim de contrato** — dias depois do último vencimento até a data fim | 24 dias = R$ 2.240,00 |
+| 29/09 | **Fim de Contrato** — devolução do caução corrigido + despesas + desconto | calculado na tela |
+
+Passo a passo de como o sistema conta:
+
+1. **Parcelas regulares:** uma por mês, sempre com o valor cheio, enquanto o
+   dia de vencimento daquele mês cair até a data fim.
+2. **Proporcional de fim de contrato:** conta os dias **depois** do último
+   vencimento até a data fim. O dia do vencimento **não** entra (já foi coberto
+   pela parcela regular): de 05/09 a 29/09 são 24 dias (06/09 a 29/09).
+   Conta: aluguel ÷ 30 × dias (garagem igual, em linha própria). Vence **na
+   própria data fim**. Se a data fim cair exatamente no dia de vencimento, não
+   existe proporcional.
+   - Se a data fim cair **antes** do dia de vencimento do mês (ex.: vencimento
+     dia 20, fim 10/09), o último vencimento é o do mês anterior (20/08) e o
+     proporcional conta de 21/08 a 10/09 = 21 dias.
+3. **Fim de Contrato:** é o "recebimento de rescisão" de quem sai no fim
+   normal do contrato. Nasce **junto com a locação**, vencendo na data fim,
+   com R$ 0,00 gravado. O valor da devolução do caução (só o que foi
+   **efetivamente pago**, corrigido pela poupança até a data fim) é
+   **recalculado toda vez que o recebimento aparece na tela** — na lista de
+   Recebimentos, no Financeiro, na aba Cauções e ao abrir o recebimento —
+   então está sempre atualizado. Ao abrir, ficam os campos de Despesas
+   Adicionais (pintura, limpeza...) e Desconto. Locação **sem caução**
+   também tem o Fim de Contrato (com R$ 0,00), para poder lançar essas
+   cobranças. Não entra na base das taxas de administração.
+
+O proporcional (2) e o Fim de Contrato (3) ficam marcados no banco com
+`payments.contract_end = true` — é essa marca, e nunca o texto das
+observações, que o sistema usa para saber quais recebimentos mover. Contas
+em `src/lib/contractEnd.ts`; valor do caução em
+`src/services/contractEndService.ts`.
+
+#### O que acontece ao RENOVAR o contrato
+
+Renovar é só empurrar a data fim 1 ano para a frente:
+
+- As **parcelas regulares que já existem não mudam** — nem de mês, nem de
+  valor. Atrasada continua atrasada; paga continua paga.
+- O **proporcional** e o **Fim de Contrato** da data fim antiga são
+  **apagados** (se ainda não foram pagos) e **criados de novo na data fim
+  nova**.
+- Os meses que faltam até a nova data fim são criados.
+- Contratos criados pela regra antiga terminavam com a última parcela regular
+  proporcional; renovando, ela volta para o valor cheio (se ainda não paga).
+
+> ⚠️ **Bug de produção corrigido em 03/out/2026** (JD. COLOMBO APTO 10): a
+> renovação passava pela sincronização da tela de *edição* de locação, que
+> decidia tudo pelo mês; depois de renovar, setembro/2026 ficou sem a parcela
+> de 05/09 (que estava atrasada) e outubro ficou com duas. Agora a renovação
+> tem uma rotina própria (`renovarRecebimentos`, em
+> `src/services/rentalUpdateService.ts`) e o recebimento foi corrigido no
+> banco (`docs/tickets/PROD-fim-de-contrato-108.sql`).
+
+#### O que acontece ao EDITAR as datas ou RESCINDIR
+
+- **Editar data início/fim** pela tela da locação: o sistema recalcula a lista
+  esperada com a mesma conta da criação; o fim de contrato antigo (não pago)
+  sai e entra o da data nova; parcela paga nunca é tocada.
+- **Reajustar o aluguel:** o proporcional de fim de contrato é recalculado com
+  os mesmos dias sobre o valor novo; o Fim de Contrato não muda.
+- **Rescisão:** antes de criar os recebimentos dela, a rescisão apaga o
+  proporcional e o Fim de Contrato programados (não pagos), para não cobrar
+  em dobro.
+
+> 🔎 Ponto em aberto: a **rescisão** ainda conta o proporcional **incluindo**
+> o dia do vencimento (`differenceInDays + 1` em `terminationService.ts`), e a
+> **1ª parcela** também inclui o dia de início. A regra de fim de contrato
+> acima **não** inclui o dia do vencimento. Confirmar com o Cadu se as três
+> devem seguir a mesma contagem.
+
+#### Contratos antigos
+
+Locações criadas antes de 03/out/2026 não tinham o proporcional nem o Fim de
+Contrato. O script `docs/tickets/PROD-fim-de-contrato-108.sql` revisa todas
+as locações **ativas**: primeiro roda em simulação e mostra a lista do que
+faria; depois aplica (só em recebimentos não pagos).
 
 #### 3. Caução e Parcelamento
 
