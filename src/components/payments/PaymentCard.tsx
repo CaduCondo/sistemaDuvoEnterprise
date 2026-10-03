@@ -177,7 +177,7 @@ export const PaymentCard = memo(function PaymentCard({
                 <Badge className="bg-indigo-500 text-white text-xs">Caução</Badge>
               )}
               {isTerminationPayment(payment) && (
-                <Badge className="bg-purple-500 text-white text-xs">Rescisão</Badge>
+                <Badge className="bg-purple-500 text-white text-xs">{payment.contractEnd ? "Fim de Contrato" : "Rescisão"}</Badge>
               )}
             </div>
           </div>
@@ -314,7 +314,7 @@ export const PaymentCard = memo(function PaymentCard({
                     <Badge className="bg-indigo-500 text-white text-xs">Caução</Badge>
                   )}
                   {isTerminationPayment(payment) && (
-                    <Badge className="bg-purple-500 text-white text-xs">Rescisão</Badge>
+                    <Badge className="bg-purple-500 text-white text-xs">{payment.contractEnd ? "Fim de Contrato" : "Rescisão"}</Badge>
                   )}
                   {hasAttachments(payment) && (
                     <div 

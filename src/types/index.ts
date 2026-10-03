@@ -267,6 +267,8 @@ export interface Payment {
    * Recebimentos anteriores a migracao vem indefinidos e valem como 'rent'.
    */
   paymentKind?: "rent" | "termination";
+  /** Recebimento de fim de contrato (proporcional final ou Fim de Contrato) -- ver src/lib/contractEnd.ts */
+  contractEnd?: boolean;
   paidAmount: number;
   status: "paid" | "pending" | "overdue" | "partial";
   paymentDate: string | null;

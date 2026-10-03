@@ -231,6 +231,7 @@ export const usePayments = () => {
           // etiqueta "Rescisão" acabava no registro errado. Recebimentos
           // anteriores a migracao vem nulos e valem como 'rent'.
           paymentKind: (payment as any).payment_kind || "rent",
+          contractEnd: (payment as any).contract_end === true,
           paidAmount: payment.paid_amount || 0,
           status: payment.status as "pending" | "paid" | "overdue" | "partial",
           paymentMethod: payment.payment_method || null,

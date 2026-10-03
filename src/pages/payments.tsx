@@ -178,6 +178,8 @@ export default function Payments() {
   }, []);
 
   const getPaymentInstallment = useCallback((payment: Payment) => {
+    // Recebimento de rescisão / Fim de Contrato não é parcela de aluguel.
+    if (payment.paymentKind === "termination") return "-";
     // ✅ CORREÇÃO: Se não tiver installment, assumir parcela única (1/1) para pagamentos de aluguel
     // Para parcelas de caução, viria com o valor correto do banco
     if (!payment.installment || !payment.totalInstallments) {
@@ -768,7 +770,7 @@ export default function Payments() {
               <Badge className="bg-indigo-100 text-indigo-800">Caução</Badge>
             )}
             {isTerminationPayment(p) && (
-              <Badge className="bg-purple-100 text-purple-800">Rescisão</Badge>
+              <Badge className="bg-purple-100 text-purple-800">{p.contractEnd ? "Fim de Contrato" : "Rescisão"}</Badge>
             )}
           </div>
         );
@@ -836,7 +838,7 @@ export default function Payments() {
           <Badge className="bg-indigo-100 text-indigo-800">Caução</Badge>
         )}
         {isTerminationPayment(p) && (
-          <Badge className="bg-purple-100 text-purple-800">Rescisão</Badge>
+          <Badge className="bg-purple-100 text-purple-800">{p.contractEnd ? "Fim de Contrato" : "Rescisão"}</Badge>
         )}
       </div>
     ) },
