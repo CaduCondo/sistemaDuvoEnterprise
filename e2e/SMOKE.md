@@ -16,7 +16,7 @@ sequenciais. Um cenário sem nenhuma das duas está fora de propósito (ver
 
 | Tag | O que é | Quem tem |
 |---|---|---|
-| `@smoke` | **Rodada 1.** Poucos cenários, rápidos, críticos — os que se quebrarem param o sistema ou mexem em dinheiro. Roda a cada push, primeiro. | 12 cenários (lista completa abaixo) |
+| `@smoke` | **Rodada 1.** Poucos cenários, rápidos, críticos — os que se quebrarem param o sistema ou mexem em dinheiro. Roda a cada push, primeiro. | 13 cenários (lista completa abaixo) |
 | `@sistemaCompleto` | **Rodada 2.** Todo o resto: cada regra de negócio, arquivo por arquivo. Roda a cada push, só depois do `@smoke` passar. Por definição, cobre tudo que o `@smoke` não cobre — nenhum cenário é testado duas vezes. | 142 cenários (todos os outros "saudáveis") |
 | `@quebrado` | Cenário com **defeito conhecido no teste** (não no sistema) — o preparo não cria o dado que o cenário confere, ou o cenário procura algo que a tela nunca teve. Fora das duas rodadas até ser corrigido, para não virar vermelho permanente (ver "Por que foi feito assim"). | 6 cenários (lista abaixo) |
 | *(sem tag)* | Cenário que é o **contrato de uma funcionalidade que ainda não existe** — não é defeito de teste, é o produto que falta. Fica assim até a funcionalidade ser implementada. | 2 cenários (lista abaixo) |
@@ -36,7 +36,7 @@ caução que não são smoke):
 npx cucumber-js --config e2e/cucumber.config.cjs --tags "@caucoes and @sistemaCompleto"
 ```
 
-## O que está em `@smoke` hoje (12 cenários)
+## O que está em `@smoke` hoje (13 cenários)
 
 | Arquivo | Cenário | Por quê |
 |---|---|---|
@@ -50,6 +50,7 @@ npx cucumber-js --config e2e/cucumber.config.cjs --tags "@caucoes and @sistemaCo
 | `10-caucoes.feature` | Marcar parcela de caução como recebida via PIX | receber caução |
 | `12-rescisao-caucao.feature` | A rescisão gera dois recebimentos separados | o coração da #49 |
 | `12-rescisao-caucao.feature` | A devolução do caução não entra na base das taxas | a razão de existir da #49 |
+| `12-rescisao-caucao.feature` | Formação de Valores da rescisão quando o mês estava PENDENTE | mexe em dinheiro: o proporcional e a multa entram no recebimento pendente do mês (regra de 05/out/2026, bug LEMOS APTO 05) |
 
 ⚠️ **Lacuna conhecida:** não há hoje um cenário `@smoke` limpo para "receber
 aluguel". Os dois candidatos naturais em `8-pagamentos-calculos.feature`
@@ -70,15 +71,14 @@ card "Escrever cenário de smoke para receber aluguel").
 | `8-pagamentos-calculos.feature` | Registrar pagamento como pago |
 | `10-caucoes.feature` | Exportar relatório para Excel |
 
-## Os 2 sem tag de rodada (funcionalidade que ainda não existe)
+## O 1 sem tag de rodada (funcionalidade que ainda não existe)
 
 | Arquivo | Cenário |
 |---|---|
-| `12-rescisao-caucao.feature` | Formação de Valores da rescisão quando o mês estava PENDENTE |
 | `9-regressao-visual.feature` | Breadcrumbs corretos em todas as páginas |
 
-Conferência rápida da soma: 12 (`@smoke`) + 142 (`@sistemaCompleto`) + 6
-(`@quebrado`) + 2 (sem tag) = **162**, que é o total que
+Conferência rápida da soma: 13 (`@smoke`) + 143 (`@sistemaCompleto`) + 6
+(`@quebrado`) + 1 (sem tag) = **163**, que é o total que
 `npm run test:bdd:dry` reporta. Se essa soma não fechar, alguma tag está
 errada.
 

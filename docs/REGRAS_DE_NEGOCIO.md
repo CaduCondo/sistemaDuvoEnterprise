@@ -2177,15 +2177,33 @@ Toda rescisão gera **dois** registros ligados entre si por
 
 ### O que acontece com o recebimento do mês da rescisão
 
-Depende do status que ele tinha:
+> Regra do Cadu de **05/out/2026** (bug de produção na LEMOS APTO 05: o
+> recebimento do mês já estava pago e a rescisão criou outro cobrando o
+> aluguel cheio do mesmo mês).
 
-| Status do mês | O que acontece | Composição do novo recebimento |
-|---|---|---|
-| **Pendente** | o antigo é **deletado** (não houve pagamento) | Aluguel + Aluguel Proporcional + Garagem + Garagem Proporcional + Multa Rescisória |
-| **Pago** ou **Parcial** | o antigo é **preservado** (é histórico) | Aluguel Proporcional + Garagem Proporcional + Multa Rescisória |
+O sistema olha o recebimento **regular** de aluguel do mês escolhido para a
+rescisão:
 
-Parcelas com vencimento **posterior** à data da rescisão são apagadas em
-ambos os casos.
+| Status do recebimento do mês | O que acontece |
+|---|---|
+| **Pago** ou **Parcial** (cenário 1) | Ele **não é mexido**. Nasce **um** recebimento novo só com o **proporcional** (se houver) e a **multa** (se houver). Esse recebimento novo **não é parcela** — fica sem número. |
+| **Pendente** ou atrasado (cenário 2) | O **proporcional** e a **multa** entram **dentro dele** e são cobrados juntos. Ele mantém o vencimento e continua sendo a **última parcela** do contrato. |
+
+Nos dois casos nasce também o **Recebimento de Rescisão** (devolução do
+caução), **sempre** — mesmo sem caução pago (linha da devolução zerada), para
+poder lançar despesas ou desconto. Ele também **não é parcela**.
+
+**Numeração das parcelas depois da rescisão:** só as parcelas de aluguel são
+renumeradas, e o total passa a ser a quantidade delas. Exemplo: contrato
+rescindido depois da 10ª parcela já paga → as parcelas ficam **1/10 a 10/10**;
+o recebimento de proporcional/multa e o de Rescisão aparecem com parcela "-".
+
+**Rescisão antes do dia de vencimento do mês:** o recebimento do mês cobre um
+período que o inquilino não vai completar. Se ainda está pendente, o aluguel
+cheio dele vira o proporcional até a data de saída (mais a multa), vencendo na
+data da saída. Se já está pago, o recebimento novo cobra só a multa.
+
+Parcelas com vencimento **posterior** ao mês da rescisão são apagadas.
 
 ### Devolução do caução
 

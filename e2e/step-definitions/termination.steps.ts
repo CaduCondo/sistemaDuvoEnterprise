@@ -356,23 +356,27 @@ async function pagamentosDaLocacao(world: CustomWorld) {
 }
 
 /**
- * O recebimento de ALUGUEL criado pela rescisão: é o que vence no dia da
- * saída. Quando a rescisão é depois do vencimento existem dois recebimentos
- * de aluguel no mês (o do mês cheio, no dia 10, e este) — por isso a data de
- * vencimento, e não o mês, é o que identifica.
+ * O recebimento de ALUGUEL da rescisão: o que leva o proporcional e a multa.
+ *
+ * ⚠️ 05/out/2026 (regra do Cadu): ele nem sempre vence no dia da saída. Se o
+ * recebimento do mês estava PENDENTE, o proporcional e a multa entram DENTRO
+ * dele, que continua com o vencimento original. Por isso a identificação é
+ * pelo `termination_group_id` (que liga os recebimentos de uma rescisão), e
+ * não pela data.
  */
 async function recebimentoDeAluguelDaRescisao(world: CustomWorld) {
   const todos = await pagamentosDaLocacao(world);
-  const doDia = todos.filter(
-    (p: any) => p.due_date === world.testData.dataRescisao && (p.payment_kind ?? 'rent') !== 'termination'
+  const daRescisao = todos.filter(
+    (p: any) => !!p.termination_group_id && (p.payment_kind ?? 'rent') !== 'termination'
   );
 
   expect(
-    doDia.length,
-    `esperava 1 recebimento de aluguel vencendo em ${world.testData.dataRescisao}, encontrei ${doDia.length}`
+    daRescisao.length,
+    `esperava 1 recebimento de aluguel ligado à rescisão, encontrei ${daRescisao.length}: ` +
+      `[${daRescisao.map((p: any) => `${p.due_date} R$ ${p.expected_amount}`).join(', ')}]`
   ).toBe(1);
 
-  return doDia[0];
+  return daRescisao[0];
 }
 
 /** O Recebimento de Rescisão (payment_kind='termination') da locação. */
@@ -478,6 +482,7 @@ Given('existem recebimentos de aluguel pendentes nos meses:', async function (th
   const valorMensal = this.testData.aluguel + this.testData.garagem;
   const dia = String(this.testData.diaVencimento).padStart(2, '0');
 
+  let parcela = 1;
   for (const linha of linhas) {
     await this.upsertPayment({
       rental_id: this.rentalId!,
@@ -486,6 +491,9 @@ Given('existem recebimentos de aluguel pendentes nos meses:', async function (th
       due_date: `${linha['ano']}-${linha['mês']}-${dia}`,
       expected_amount: valorMensal,
       status: 'pending',
+      // Recebimento mensal de verdade sempre tem número de parcela; sem ele a
+      // rescisão (05/out/2026) não o trata como parcela de aluguel.
+      installment: parcela++,
     });
   }
 });
@@ -518,6 +526,8 @@ Given(
       paid_amount: pago ? valor : undefined,
       payment_date: pago ? `${ano}-${mes}-${dia}` : undefined,
       breakdown: composicao,
+      // Todo recebimento mensal criado pelo sistema tem número de parcela.
+      installment: 1,
     });
 
     this.testData.recebimentoDoMes = pagamento;
@@ -1051,8 +1061,10 @@ Then('não deve haver nada a devolver de caução', async function (this: Custom
   const todos = await pagamentosDaLocacao(this);
   const rescisoes = todos.filter((p: any) => p.payment_kind === 'termination');
 
-  // Ou o Recebimento de Rescisão nem chega a existir (nada a devolver, nenhuma
-  // despesa, nenhum desconto), ou existe zerado. O que não pode é devolver.
+  // ⚠️ 05/out/2026 (regra do Cadu): o Recebimento de Rescisão nasce SEMPRE,
+  // mesmo sem caução pago -- com a linha da devolução zerada -- para poder
+  // lançar despesas ou desconto. O que não pode é devolver dinheiro.
+  expect(rescisoes.length, 'o Recebimento de Rescisão não foi criado (ele nasce mesmo zerado)').toBe(1);
   for (const rescisao of rescisoes) {
     expect(
       Math.abs(Number(rescisao.termination_corrected_deposit || 0)),
@@ -1083,17 +1095,73 @@ Then('esse recebimento deve estar com status {string}', async function (this: Cu
   ).toBe(status);
 });
 
-Then('o recebimento pendente do mês deve ter sido deletado', async function (this: CustomWorld) {
+// ⚠️ 05/out/2026 (regra do Cadu, cenário 2): o recebimento PENDENTE do mês
+// não é mais apagado e recriado -- o proporcional e a multa entram nele, e ele
+// continua sendo a última parcela do contrato.
+Then('o proporcional e a multa devem ter entrado no recebimento pendente do mês', async function (this: CustomWorld) {
   const antigo = this.testData.recebimentoDoMes;
   expect(antigo, 'o cenário não criou o recebimento do mês').toBeTruthy();
 
   const todos = await pagamentosDaLocacao(this);
-  const aindaExiste = todos.some((p: any) => p.id === antigo.id);
+  const atual = todos.find((p: any) => p.id === antigo.id);
+  expect(atual, 'o recebimento pendente do mês sumiu — o proporcional e a multa deviam ter entrado nele').toBeTruthy();
+  expect(atual.status).toBe('pending');
+  expect(atual.termination_group_id, 'o recebimento do mês não ficou ligado à rescisão').toBeTruthy();
 
+  const linhas = (atual.breakdown || []).map((l: any) => String(l.description));
+  expect(linhas.some((l: string) => l.startsWith('Aluguel Proporcional')), `linhas: ${linhas.join(' | ')}`).toBe(true);
+  expect(linhas.some((l: string) => l.startsWith('Multa Rescisória')), `linhas: ${linhas.join(' | ')}`).toBe(true);
+  expect(Number(atual.expected_amount)).toBeGreaterThan(Number(antigo.expected_amount));
+
+  // E não nasceu nenhum outro recebimento de aluguel para a rescisão.
+  const outros = todos.filter(
+    (p: any) => p.id !== antigo.id && (p.payment_kind ?? 'rent') === 'rent' && p.termination_group_id
+  );
+  expect(outros.length, 'nasceu um recebimento de aluguel a mais além do pendente do mês').toBe(0);
+});
+
+// ⚠️ 05/out/2026 — bug de produção (LEMOS APTO 05): o recebimento do mês já
+// estava PAGO e a rescisão criou OUTRO cobrando o aluguel cheio do mesmo mês.
+// O cenário antigo não pegou porque só olhava o recebimento do proporcional.
+Then('não deve existir outro recebimento cobrando o aluguel cheio do mês', async function (this: CustomWorld) {
+  const antigo = this.testData.recebimentoDoMes;
+  const todos = await pagamentosDaLocacao(this);
+  const [ano, mes] = String(antigo.due_date).split('-');
+  const doMes = todos.filter(
+    (p: any) =>
+      p.id !== antigo.id &&
+      (p.payment_kind ?? 'rent') === 'rent' &&
+      String(p.due_date).startsWith(`${ano}-${mes}`) &&
+      (p.breakdown || []).some((l: any) => /^Aluguel( M[eê]s|$)/.test(String(l.description)))
+  );
   expect(
-    aindaExiste,
-    'o recebimento pendente do mês da rescisão continua no banco — ele deve ser deletado e substituído'
-  ).toBe(false);
+    doMes.length,
+    `cobrou o aluguel cheio do mês de novo: [${doMes.map((p: any) => `${p.due_date} R$ ${p.expected_amount}`).join(', ')}]`
+  ).toBe(0);
+});
+
+Then('o recebimento de aluguel da rescisão não deve ter número de parcela', async function (this: CustomWorld) {
+  const aluguel = await recebimentoDeAluguelDaRescisao(this);
+  const rescisao = await recebimentoDeRescisao(this);
+  expect(aluguel.installment, 'o proporcional/multa sobre um mês já pago não é parcela de aluguel').toBeNull();
+  expect(rescisao.installment, 'o Recebimento de Rescisão (caução) não é parcela de aluguel').toBeNull();
+});
+
+Then('a última parcela de aluguel deve ser o recebimento do mês, como {string}', async function (
+  this: CustomWorld,
+  esperado: string
+) {
+  // esperado = "N/N": o recebimento do mês fecha a numeração (ex.: 10/10).
+  const antigo = this.testData.recebimentoDoMes;
+  const todos = await pagamentosDaLocacao(this);
+  const atual = todos.find((p: any) => p.id === antigo.id);
+  const parcelas = todos.filter((p: any) => (p.payment_kind ?? 'rent') === 'rent' && p.installment != null);
+  expect(atual.installment, 'o recebimento do mês ficou sem número de parcela').not.toBeNull();
+  expect(atual.installment, 'o recebimento do mês não é a última parcela').toBe(parcelas.length);
+  expect(atual.total_installments).toBe(parcelas.length);
+  if (esperado !== 'N/N') {
+    expect(`${atual.installment}/${atual.total_installments}`).toBe(esperado);
+  }
 });
 
 Then('o recebimento pago do mês deve continuar existindo, intocado', async function (this: CustomWorld) {

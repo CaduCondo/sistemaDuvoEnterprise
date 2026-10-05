@@ -182,6 +182,9 @@ export default function Payments() {
     if (payment.paymentKind === "termination") return "-";
     // ✅ CORREÇÃO: Se não tiver installment, assumir parcela única (1/1) para pagamentos de aluguel
     // Para parcelas de caução, viria com o valor correto do banco
+    // Recebimento de aluguel SEM número de parcela = proporcional/multa de
+    // rescisão cobrado à parte (mês já pago) -- não é parcela (05/out/2026).
+    if (!payment.installment && !payment.isDeposit) return "-";
     if (!payment.installment || !payment.totalInstallments) {
       return "1/1";
     }

@@ -786,6 +786,8 @@ export class DatabaseHelper {
     due_date: string; expected_amount: number; status: string;
     paid_amount?: number; payment_date?: string;
     breakdown?: Array<{ description: string; amount: number; type: string }>;
+    /** Número da parcela -- todo recebimento mensal criado pelo sistema tem um. */
+    installment?: number;
   }) {
     const { data: existing } = await supabaseAdmin
       .from('payments')
@@ -805,6 +807,7 @@ export class DatabaseHelper {
       paid_amount: overrides.paid_amount,
       payment_date: overrides.payment_date,
       ...(overrides.breakdown ? { breakdown: overrides.breakdown } : {}),
+      ...(overrides.installment ? { installment: overrides.installment } : {}),
     };
 
     if (existing) {

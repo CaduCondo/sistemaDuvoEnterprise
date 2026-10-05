@@ -185,7 +185,7 @@ toda vez:
 
 - **`@smoke`** — rodada 1, roda primeiro a cada push. Só os poucos
   cenários rápidos e **críticos** (login, criar imóvel/inquilino/locação,
-  receber caução, os dois cenários essenciais da rescisão). Hoje são 12.
+  receber caução, os dois cenários essenciais da rescisão). Hoje são 13.
 - **`@sistemaCompleto`** — rodada 2, só começa depois que a 1 passar
   (`needs: smoke` no workflow). Todo o resto — cada regra de negócio,
   cada variação de cálculo. Por definição cobre tudo que o `@smoke` não

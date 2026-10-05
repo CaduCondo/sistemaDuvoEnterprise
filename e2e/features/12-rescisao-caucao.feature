@@ -219,7 +219,8 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
   @sistemaCompleto
   Cenário: Caução nunca pago — nada a devolver
     # Os fallbacks para o valor contratado foram retirados em 28/ago/2026:
-    # caíam justamente no caso em que nada foi pago.
+    # caíam justamente no caso em que nada foi pago. Desde 05/out/2026 o
+    # Recebimento de Rescisão nasce mesmo assim, com a devolução zerada.
     Dado que o inquilino não pagou nenhuma parcela de caução
     Quando eu registrar a rescisão em "03/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
     Então não deve haver nada a devolver de caução
@@ -282,35 +283,31 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
       | Garagem           |
       | Valor de Desconto |
 
-  # FORA DO SMOKE (30/ago/2026) — mas NÃO porque o cenário esteja errado.
-  # Ele é o contrato do ITEM E DA RODADA 2, que ainda não foi feito: hoje o
-  # terminationService parte este caso em DOIS recebimentos de aluguel (o mês
-  # cheio no dia 10 e o proporcional no dia da saída) e o cenário cobra UM só,
-  # com a conta inteira. Ficaria vermelho em toda rodada, e um vermelho fixo
-  # ensina todo mundo a ignorar o vermelho — que é exatamente a doença que a
-  # suíte de smoke foi criada para curar (ver e2e/SMOKE.md).
-  #
-  # ➜ QUANDO O ITEM E FOR IMPLEMENTADO, DEVOLVA O @smoke AQUI.
-  #    Rode sozinho enquanto isso:
-  #    npx cucumber-js --config e2e/cucumber.config.cjs --name "mês estava PENDENTE"
+  # ⚠️ Regra do Cadu, 05/out/2026 (bug de produção LEMOS APTO 05 — o mês já
+  # estava pago e a rescisão cobrou o aluguel cheio de novo). Na rescisão o
+  # sistema olha o recebimento do mês escolhido:
+  #   Cenário 1 — PAGO ou PARCIAL: não é mexido; nasce um recebimento novo só
+  #               com o proporcional e a multa, SEM número de parcela.
+  #   Cenário 2 — PENDENTE: o proporcional e a multa entram DENTRO dele, que
+  #               continua sendo a última parcela.
+  # Nos dois, o Recebimento de Rescisão (caução) nasce sempre, sem número de
+  # parcela. Este cenário era o "item E da rodada 2", que ficou implementado
+  # junto — por isso voltou para o @smoke, como o comentário antigo pedia.
+  @smoke
   Cenário: Formação de Valores da rescisão quando o mês estava PENDENTE
     # Rescisão em 25/09, DEPOIS do vencimento (dia 10): o mês já tinha vencido
-    # e não foi pago, então o recebimento pendente do mês é DELETADO e o mês
-    # cheio entra na conta junto com os dias extras.
+    # e não foi pago, então o proporcional e a multa entram no próprio
+    # recebimento pendente do mês, cobrados juntos com o mês cheio.
     #   mês cheio:              1.200,00 + 300,00
     #   dias extras 10/09 a 25/09 = 16 dias
     #   aluguel proporcional:   (1.200,00 / 30) x 16 = 640,00
     #   garagem proporcional:   (  300,00 / 30) x 16 = 160,00
     #   multa proporcional ao tempo restante          = 3.000,00
-    #
-    # ⚠️ É UMA tela só, com a conta inteira. Hoje o terminationService parte
-    # este caso em DOIS recebimentos de aluguel (o mês cheio no dia 10 e o
-    # proporcional no dia da saída): o item E da rodada 2 continua aberto.
-    # Este cenário é o contrato — uma rescisão, uma "Formação de Valores".
     Dado que o recebimento de aluguel de "09/2026" está "pendente" com valor de "1500,00"
     Quando eu registrar a rescisão em "25/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
     E eu abrir o recebimento de aluguel da rescisão
-    Então o recebimento pendente do mês deve ter sido deletado
+    Então o proporcional e a multa devem ter entrado no recebimento pendente do mês
+    E a última parcela de aluguel deve ser o recebimento do mês, como "N/N"
     E a "Formação de Valores" deve mostrar, nesta ordem:
       | linha                |
       | Aluguel              |
@@ -324,11 +321,15 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
   Cenário: Formação de Valores da rescisão quando o mês já estava PAGO
     # Mesma data da anterior, mas o recebimento do mês já foi pago: ele é
     # histórico e não se mexe. Nasce um recebimento novo só com o proporcional
-    # e a multa — o mês cheio NÃO entra de novo.
+    # e a multa — o mês cheio NÃO entra de novo, e esse recebimento novo não é
+    # parcela (fica sem número). A numeração termina no mês pago.
     Dado que o recebimento de aluguel de "09/2026" está "pago" com valor de "1500,00"
     Quando eu registrar a rescisão em "25/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
     E eu abrir o recebimento de aluguel da rescisão
     Então o recebimento pago do mês deve continuar existindo, intocado
+    E não deve existir outro recebimento cobrando o aluguel cheio do mês
+    E o recebimento de aluguel da rescisão não deve ter número de parcela
+    E a última parcela de aluguel deve ser o recebimento do mês, como "N/N"
     E a "Formação de Valores" deve mostrar, nesta ordem:
       | linha                |
       | Aluguel Proporcional |
