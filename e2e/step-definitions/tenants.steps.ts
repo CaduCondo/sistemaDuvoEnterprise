@@ -1,7 +1,8 @@
-import { When, Then } from '@cucumber/cucumber';
+import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import { CustomWorld } from '../support/world';
 import { conferirQueTodasAsLinhasAtendem } from '../helpers/tabela.helper';
+import DatabaseHelper, { comMarcaDeTeste } from '../helpers/database.helper';
 
 /**
  * Step Definitions específicos da página /tenants (feature 6-inquilinos-crud).
@@ -135,4 +136,64 @@ When('quando filtro por {string}', async function (this: CustomWorld, filterValu
     await this.page.waitForTimeout(500);
   }
   this.testData.currentFilter = filterValue;
+});
+
+// ==================== #107: não grava antes de validar o e-mail ====================
+
+const ATRASO_CHECAGEM_EMAIL_MS = 4000;
+
+Given('que a checagem de e-mail repetido do banco está lenta', async function (this: CustomWorld) {
+  // Só a consulta da tela "este e-mail já existe?" (GET em tenants filtrando
+  // por email). Todo o resto segue na velocidade normal.
+  await this.page.route(
+    (url) => url.pathname.endsWith('/rest/v1/tenants') && url.searchParams.has('email'),
+    async (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await new Promise((r) => setTimeout(r, ATRASO_CHECAGEM_EMAIL_MS));
+      await route.continue().catch(() => {});
+    }
+  );
+});
+
+When('preencho nome, CPF e telefone de um inquilino novo', async function (this: CustomWorld) {
+  const nome = comMarcaDeTeste(`Checagem Email E2E ${Date.now()}`);
+  this.testData.inquilinoNovo = { nome };
+  await this.page.locator('#tenant-name').fill(nome);
+  await this.page.locator('#tenant-document').fill('529.982.247-25');
+  await this.page.locator('#tenant-phone').fill('(11) 98765-4321');
+});
+
+When('digito um e-mail novo e aperto Enter antes da checagem terminar', async function (this: CustomWorld) {
+  const email = `checagem.e2e.${Date.now()}@teste.com`;
+  this.testData.inquilinoNovo = { ...this.testData.inquilinoNovo, email };
+  const campo = this.page.locator('#tenant-email');
+  await campo.fill(email);
+  // espera o atraso de 500ms da tela passar e a consulta (lenta) começar
+  await this.page.waitForTimeout(800);
+  await campo.press('Enter');
+});
+
+Then('o botão de salvar do inquilino deve mostrar {string}', async function (this: CustomWorld, texto: string) {
+  await expect(this.page.locator('#tenant-form-submit')).toHaveText(texto, { timeout: 2000 });
+});
+
+Then('depois que a checagem termina o botão de salvar do inquilino deve mostrar {string}', async function (this: CustomWorld, texto: string) {
+  await expect(this.page.locator('#tenant-form-submit')).toHaveText(texto, { timeout: ATRASO_CHECAGEM_EMAIL_MS + 8000 });
+});
+
+async function conferirQueNaoGravou(world: CustomWorld) {
+  const nome = world.testData.inquilinoNovo?.nome;
+  expect(nome, 'o cenário não guardou o nome do inquilino novo').toBeTruthy();
+  const gravado = await DatabaseHelper.findTenantByName(nome);
+  if (gravado?.id) await DatabaseHelper.deleteTenant(gravado.id);
+  expect(gravado, `o inquilino "${nome}" foi gravado antes de a checagem de e-mail terminar`).toBeFalsy();
+}
+
+Then('o inquilino novo não deve ter sido gravado', async function (this: CustomWorld) {
+  await conferirQueNaoGravou(this);
+});
+
+Then('o inquilino novo continua sem ter sido gravado', async function (this: CustomWorld) {
+  await this.page.waitForTimeout(1500);
+  await conferirQueNaoGravou(this);
 });

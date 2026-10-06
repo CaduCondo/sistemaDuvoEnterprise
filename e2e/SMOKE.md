@@ -77,8 +77,8 @@ card "Escrever cenário de smoke para receber aluguel").
 |---|---|
 | `9-regressao-visual.feature` | Breadcrumbs corretos em todas as páginas |
 
-Conferência rápida da soma: 13 (`@smoke`) + 146 (`@sistemaCompleto`) + 6
-(`@quebrado`) + 1 (sem tag) = **166**, que é o total que
+Conferência rápida da soma: 13 (`@smoke`) + 147 (`@sistemaCompleto`) + 6
+(`@quebrado`) + 1 (sem tag) = **167**, que é o total que
 `npm run test:bdd:dry` reporta. Se essa soma não fechar, alguma tag está
 errada.
 

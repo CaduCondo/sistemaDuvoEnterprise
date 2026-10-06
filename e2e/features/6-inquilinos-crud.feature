@@ -208,3 +208,19 @@ Funcionalidade: CRUD de Inquilinos
     E clico em "Salvar"
     Então devo ver a mensagem de sucesso
     E o inquilino deve aparecer na lista
+
+  # #107 (regra geral: nenhum cadastro grava antes de conseguir validar).
+  # A consulta "este e-mail já existe?" é deixada lenta de propósito (4s) para
+  # o teste conseguir agir no meio dela -- é o que acontece de verdade com
+  # internet lenta. O Enter no campo de e-mail envia o formulário mesmo com o
+  # botão travado, então é o jeito mais rápido de um usuário tentar salvar.
+  @sistemaCompleto
+  Cenário: Cadastro de inquilino não grava enquanto a checagem de e-mail não termina
+    Dado que a checagem de e-mail repetido do banco está lenta
+    Quando clico no botão "Novo Inquilino"
+    E preencho nome, CPF e telefone de um inquilino novo
+    E digito um e-mail novo e aperto Enter antes da checagem terminar
+    Então o botão de salvar do inquilino deve mostrar "Verificando..."
+    E o inquilino novo não deve ter sido gravado
+    E depois que a checagem termina o botão de salvar do inquilino deve mostrar "Criar"
+    E o inquilino novo continua sem ter sido gravado
