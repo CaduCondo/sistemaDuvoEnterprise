@@ -46,9 +46,45 @@
     obrigação do Claude, não do Cadu.
   - Antes de terminar QUALQUER resposta, conferir `git status`. Se houver arquivo modificado,
     commitar antes de responder.
-- `git push`: SEMPRE perguntar antes de dar o push, mesmo quando o ambiente permite fazer direto (ex.: Claude Code local já autenticado). Só dar o push depois do Cadu confirmar.
+- `git push`: **LIBERADO SEM PERGUNTAR** (regra do Cadu, 05/out/2026 — substitui a regra antiga de pedir confirmação). Se o ambiente tiver credencial do GitHub, o Claude dá o push sozinho. Se não tiver (hoje o shell do computador do Cadu não tem: `git push` falha pedindo usuário), avisar o Cadu em uma linha qual commit está esperando push.
 - Isso vale como regra permanente: não é preciso o Cadu repetir essa autorização a cada conversa.
-- Push é sempre manual pelo Cadu (Source Control do VS Code) — o Claude não alcança a internet do computador dele. Por isso, para não encavalar pushes enquanto os testes do GitHub Actions de um push anterior ainda estão rodando, o Claude pode ir *commitando* várias mudanças pequenas (sempre com autorização, uma a uma) e deixá-las empilhadas localmente, e o Cadu dá um push só juntando tudo quando quiser — evita poluir o histórico do GitHub com pushs desnecessários.
+- Para não encavalar pushes enquanto os testes do GitHub Actions de um push anterior ainda estão rodando, o Claude pode ir commitando várias mudanças pequenas (cada uma no seu commit) e dar um push só juntando tudo.
+- **Antes de dizer "está no ar", conferir no GitHub que o commit chegou lá** (lista de commits ou de runs do Actions). Em 05/out/2026 um commit ficou só local enquanto o Cadu achava que já tinha subido.
+
+### Autorização total (regra do Cadu, 05/out/2026 — vale sempre)
+
+O Cadu autorizou, de forma permanente, tudo o que for necessário para o
+Claude trabalhar sozinho: acessar e alterar a pasta do projeto, **apagar
+qualquer arquivo necessário** (inclusive travas `.git/*.lock` que sobram
+depois de um commit), commitar, dar push, acessar o sistema de PROD e de
+DEV, o banco de dados de PROD e de DEV (Supabase) e o GitHub (issues,
+Project, Actions). Não precisa perguntar de novo. Continua valendo o bom
+senso: em PROD, preferir sempre o caminho de menor risco (transação, conferir
+o registro antes de mudar, script que pode rodar duas vezes sem estragar).
+
+### Testes automáticos: o que é cada rodada e como evidenciar
+
+- **`@smoke`** = validação RÁPIDA do caminho E2E mais importante, do começo
+  ao fim (entrar, cadastrar, criar locação, receber, rescindir...). Serve
+  para achar erro GRAVE no caminho principal. Poucos cenários.
+- **`@sistemaCompleto`** = valida TODAS as regras de negócio, cada variação.
+- **Meta: 100% verde nas duas.** Todo vermelho tem causa medida (log, print,
+  vídeo, banco) — nunca "corrigir por dedução".
+- **Evidência obrigatória** (já implementada em `e2e/step-definitions/hooks.ts`):
+  - cenário que PASSA → **print da tela no último passo**, o que prova que
+    a validação final deu certo (anexo no relatório + `e2e/reports/screenshots/`);
+  - cenário que FALHA → **vídeo** do passo a passo até o erro (anexo no
+    relatório + `e2e/reports/videos/FALHOU-*.webm`) além do print.
+  Se algum cenário ficar sem essa evidência, corrigir o hook — não é opcional.
+- **Bug do SISTEMA achado por teste** → abrir issue no GitHub na hora
+  (contexto, causa, tarefas, BDD, link do vídeo/run do Actions), adicionar
+  ao Project e colocar na posição da fila que a gravidade pedir (dinheiro
+  errado em produção vai pro topo). Bug do TESTE → corrigir o teste.
+- **Depois de todo push:** conferir o GitHub Actions (smoke e completo),
+  comparar com a rodada anterior, separar o que é falha nova do que já
+  existia, e agir — sem o Cadu precisar pedir.
+- **Além do Actions, testar também** a mudança de verdade (tela de PROD/DEV
+  pelo navegador, consulta no banco) antes de dar o item por concluído.
 
 ### Fluxo padrão para bug/feature novo encontrado
 
@@ -94,13 +130,11 @@ pode variar conforme o caso, mas nenhum passo pode ser pulado):
    Claude entende o problema, não só no início.
 4. **Implementar.** Alterar o código para corrigir o bug ou construir a
    feature que o item pede.
-5. **Git — sempre com autorização do Cadu:**
-   - `commit`: sempre perguntar antes, mostrando a mensagem de commit e
-     um resumo simples do que está sendo alterado.
-   - `push`: sempre perguntar antes. Se o ambiente permitir o Claude
-     pushar direto, só fazer depois do "sim" do Cadu. Se o ambiente
-     não der essa credencial pro Claude, avisar isso claramente e pedir
-     pro Cadu dar o push manualmente (passando o branch/commit certo).
+5. **Git — sem pedir autorização (regra de 05/out/2026):**
+   - `commit`: sempre, sozinho, **um commit por assunto** (correção,
+     teste, documentação separados), avisando em uma linha.
+   - `push`: sozinho, se o ambiente tiver credencial; se não tiver,
+     avisar o Cadu qual commit está esperando push.
 6. **Depois do push, checar o GitHub Actions.** Ver se os testes
    automatizados passaram. Se algum teste falhou, investigar o erro e
    criar uma nova issue no GitHub já descrevendo o bug encontrado pela
