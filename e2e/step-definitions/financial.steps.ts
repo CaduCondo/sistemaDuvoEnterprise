@@ -150,17 +150,29 @@ When(
     // visível da lista. O clique não selecionava nada e o filtro continuava em
     // "Todos os Locais". Agora digita o nome na busca do próprio painel (o que
     // deixa uma opção só) e clica na opção pelo seu identificador próprio.
-    await this.page.locator('#financial-location-filter').click();
-
-    const busca = this.page.getByPlaceholder(/Buscar local/i);
-    await busca.waitFor({ state: 'visible', timeout: 10000 });
-    await busca.fill(dados.locationName);
-
+    // ⚠️ 05/out/2026 (CI runs #88, #90, #92 -- intermitente): a lista de
+    // locais do filtro é montada a partir dos recebimentos do PERÍODO. Logo
+    // depois de trocar o mês, a tela ainda está buscando os dados do mês novo;
+    // abrir o painel nesse meio-tempo mostra os locais do mês ANTERIOR, e o
+    // local do cenário não está lá. Agora o painel é reaberto até a lista do
+    // mês certo chegar (até ~25s), em vez de uma tentativa só.
     const opcao = this.page.locator(`[data-testid="financial-location-option-${dados.locationId}"]`);
+    let achou = false;
+    for (let tentativa = 0; tentativa < 8 && !achou; tentativa++) {
+      await this.page.locator('#financial-location-filter').click();
+      const busca = this.page.getByPlaceholder(/Buscar local/i);
+      await busca.waitFor({ state: 'visible', timeout: 10000 });
+      await busca.fill(dados.locationName);
+      achou = await opcao.isVisible({ timeout: 3000 }).catch(() => false);
+      if (!achou) {
+        await this.page.keyboard.press('Escape');
+        await this.page.waitForTimeout(1500);
+      }
+    }
     await expect(
       opcao,
-      `o local "${dados.locationName}" não apareceu na lista do filtro do Financeiro`
-    ).toBeVisible({ timeout: 10000 });
+      `o local "${dados.locationName}" não apareceu na lista do filtro do Financeiro (nem depois de esperar o período carregar)`
+    ).toBeVisible({ timeout: 2000 });
     await opcao.click();
     await this.page.keyboard.press('Escape');
 
