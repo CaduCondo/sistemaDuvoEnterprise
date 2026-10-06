@@ -536,6 +536,8 @@ export default function Financial() {
   // Ref para controlar execuções simultâneas
   const loadingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Número do pedido mais recente. Só o pedido mais recente pode mexer na tela.
+  const pedidoAtualRef = useRef(0);
   
   const [editingPixCode, setEditingPixCode] = useState<{
     id: string;
@@ -560,10 +562,14 @@ export default function Financial() {
   }, [user, filterMonth, filterYear]);
 
   const loadData = async () => {
-    // Prevenir execuções simultâneas
-    if (loadingRef.current) {
-      return;
-    }
+    // ⚠️ 06/out/2026 (achado pelos testes de isenção, CI #93): aqui havia um
+    // "se já está carregando, não faz nada". Se o usuário trocasse o mês
+    // enquanto a tela ainda carregava o mês anterior, a troca era IGNORADA:
+    // o seletor mostrava o mês novo, mas os cards, a tabela e a lista de
+    // locais continuavam com os dados do mês antigo. Agora o pedido antigo é
+    // cancelado e o novo sempre roda; o número do pedido garante que uma
+    // resposta atrasada do mês antigo nunca sobrescreve o mês novo.
+    const meuPedido = ++pedidoAtualRef.current;
 
     // Cancelar requisição anterior se existir
     if (abortControllerRef.current) {
@@ -579,6 +585,7 @@ export default function Financial() {
       financialCache.key === cacheKey &&
       (now - financialCache.timestamp) < CACHE_DURATION
     ) {
+      loadingRef.current = false;
       setPayments(financialCache.data.payments);
       setLocationsMap(financialCache.data.locations);
       setExemptLocationIds(financialCache.data.exemptLocationIds);
@@ -873,6 +880,10 @@ export default function Financial() {
         location_id: expense.location_id
       }));
 
+      // Chegou depois de outro pedido mais novo (o usuário já trocou o
+      // período): descarta, para não mostrar dados do mês errado.
+      if (meuPedido !== pedidoAtualRef.current) return;
+
       setExemptLocationIds(exemptIds);
       setManagementFeeExemptLocationIds(managementFeeExemptIds);
       setConfig(configData);
@@ -905,8 +916,10 @@ export default function Financial() {
       setPayments(filteredPayments);
 
     } catch (error: any) {
-      // Ignorar erros de abort
-      if (error?.name === 'AbortError') {
+      // Ignorar erros de abort -- e qualquer erro de um pedido que já foi
+      // substituído por outro mais novo (o cancelamento pode chegar aqui como
+      // erro do Supabase, sem o nome AbortError).
+      if (error?.name === 'AbortError' || meuPedido !== pedidoAtualRef.current) {
         return;
       }
       
@@ -917,9 +930,11 @@ export default function Financial() {
         type: "error",
       });
     } finally {
-      loadingRef.current = false;
-      setLoading(false);
-      abortControllerRef.current = null;
+      if (meuPedido === pedidoAtualRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+        abortControllerRef.current = null;
+      }
     }
   };
 
