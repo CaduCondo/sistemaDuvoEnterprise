@@ -789,6 +789,9 @@ function linhasDoRecebimento(world: any) {
  * encontradas (Local, Período, Parcela, Status) na própria mensagem de erro.
  */
 async function conferirQuantidadeDeRecebimentos(world: any, count: number) {
+  // ⚠️ 05/out/2026 (CI run #92): "a tela mostrou 0" sem nenhuma pista de
+  // por quê. Antes de contar, espera a tela terminar de carregar.
+  await expect(world.page.getByText('Carregando recebimentos...')).toHaveCount(0, { timeout: 20000 }).catch(() => {});
   const linhas = linhasDoRecebimento(world);
   try {
     await expect(linhas).toHaveCount(count, { timeout: 10000 });
@@ -800,8 +803,27 @@ async function conferirQuantidadeDeRecebimentos(world: any, count: number) {
     const descricao = encontradas
       .map((t: string, i: number) => `  ${i + 1}) ${t.replace(/\s+/g, ' ').trim().slice(0, 300)}`)
       .join('\n');
+    // E diz o que existe no BANCO para esta locação: separa "a locação nem
+    // foi criada / não gerou recebimento" de "a tela não mostrou".
+    let noBanco = '(não consegui consultar o banco)';
+    try {
+      const { supabaseAdmin } = await import('../helpers/database.helper');
+      const { data: inquilino } = await supabaseAdmin.from('tenants').select('id').eq('name', world.tenantName).maybeSingle();
+      const { data: locacoes } = inquilino
+        ? await supabaseAdmin.from('rentals').select('id, start_date, end_date, rent_due_day').eq('tenant_id', inquilino.id)
+        : { data: [] as any[] };
+      const ids = (locacoes || []).map((l: any) => l.id);
+      const { data: recebimentos } = ids.length
+        ? await supabaseAdmin.from('payments').select('due_date, expected_amount, status, installment').in('rental_id', ids)
+        : { data: [] as any[] };
+      noBanco =
+        `locações do inquilino: ${(locacoes || []).length} ` +
+        `[${(locacoes || []).map((l: any) => `${l.start_date}→${l.end_date} venc ${l.rent_due_day}`).join('; ')}]; ` +
+        `recebimentos: [${(recebimentos || []).map((p: any) => `${p.due_date} ${p.installment ?? '-'} R$${p.expected_amount} ${p.status}`).join('; ')}]`;
+    } catch {}
     throw new Error(
-      `Esperava ${count} recebimento(s) da locação deste cenário, mas a tela mostrou ${encontradas.length}:\n${descricao}`
+      `Esperava ${count} recebimento(s) da locação deste cenário, mas a tela mostrou ${encontradas.length}:\n${descricao}\n` +
+        `No banco: ${noBanco}`
     );
   }
 }
