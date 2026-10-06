@@ -322,34 +322,34 @@ Funcionalidade: Regras de Negócio de Locações
   # ⚠️ 29/set/2026 — ficou vermelho por culpa do SISTEMA (issue #113): a tela
   # de Recebimentos só recebia as 1.000 linhas de vencimento mais recente e o
   # recebimento pago de Janeiro/2026 nunca aparecia. Corrigido em 05/out/2026
-  # (usePayments busca em páginas até acabar). Este cenário é a prova.
+  # (usePayments busca em páginas até acabar).
+  # ⚠️ 06/out/2026 (CI #93) — com a linha finalmente achada, o cenário parou
+  # no passo seguinte: ele conferia blocos que NÃO existem nas telas
+  # ("Informações do Contrato" com "Valor do Aluguel/Garagem/Total" dentro do
+  # recibo). Foi escrito contra uma tela imaginada. Reescrito contra as telas
+  # reais: o RECIBO do pago mostra os "Valores" que foram pagos (o retrato da
+  # época) e o recebimento PENDENTE do mês que vem mostra, na "Formação de
+  # Valores", o valor novo (aluguel 2.800,00 + garagem 400,00).
   @sistemaCompleto
   Cenário: Editar locação - Preservar snapshot em pagamentos pagos
     Dado que existe uma locação ativa com aluguel de "2500.00"
     E o pagamento de Janeiro/2026 está "Pago" com valor de "2500.00"
+    E existe um recebimento pendente para o mês que vem com valor de "2500.00"
     Quando o valor do imóvel dessa locação muda para "2800.00"
     E edito a locação
     E altero a garagem para "400.00"
     E salvo as alterações
     E visualizo o recibo do pagamento de Janeiro/2026
-    Então no bloco "Informações do Contrato" devo ver:
-      | campo             | valor   |
-      | Valor do Aluguel  | 2500.00 |
-      | Valor da Garagem  | 0.00    |
-      | Valor Total       | 2500.00 |
-    E no bloco "Formação de Valores" devo ver:
-      | descrição | valor   |
-      | Aluguel   | 2500.00 |
-    Quando visualizo um pagamento futuro
-    Então no bloco "Informações do Contrato" devo ver:
-      | campo             | valor   |
-      | Valor do Aluguel  | 2800.00 |
-      | Valor da Garagem  | 400.00  |
-      | Valor Total       | 3200.00 |
-    E no bloco "Formação de Valores" devo ver:
-      | descrição | valor   |
-      | Aluguel   | 2800.00 |
-      | Garagem   | 400.00  |
+    Então o recibo aberto mostra nos valores:
+      | descrição | valor    |
+      | Aluguel   | 2.500,00 |
+    E o recibo aberto não mostra a linha "Garagem"
+    E o recibo aberto mostra o total "2.500,00"
+    Quando abro o recebimento pendente do mês que vem dessa locação
+    Então a Formação de Valores do recebimento aberto mostra:
+      | descrição | valor    |
+      | Aluguel   | 2.800,00 |
+      | Garagem   | 400,00   |
 
   # ⚠️ CORRIGIDO em 12/set/2026 (issue #99, cluster "bug no teste"): este
   # cenário tentava alterar o valor do aluguel DENTRO do formulário de

@@ -620,31 +620,123 @@ When('visualizo o recibo do pagamento de Janeiro\\/2026', { timeout: 40 * 1000 }
   await this.page.waitForTimeout(500);
 });
 
-/**
- * ⚠️ Corrigido em 16/set/2026 (issue #99, cluster "Editar locação"): era
- * um STUB puro (só um waitForTimeout, não abria pagamento nenhum) --
- * o cenário "Preservar snapshot em pagamentos pagos" comparava o recibo
- * de Janeiro (já aberto pelo passo anterior) contra... o MESMO recibo
- * ainda na tela, nunca contra um pagamento futuro de verdade. Agora
- * fecha o recibo de Janeiro e abre o primeiro pagamento pendente/futuro
- * da locação (clicar na linha, não só no botão de recibo, também abre o
- * preview -- ver handlePaymentClick em payments.tsx).
- */
-When('visualizo um pagamento futuro', async function (this: import('../support/world').CustomWorld) {
-  await this.page.getByRole('dialog').getByRole('button', { name: /fechar/i }).click();
-  await this.page.waitForTimeout(500);
+// ==================== RECIBO x FORMAÇÃO DE VALORES (snapshot) ====================
+//
+// ⚠️ 06/out/2026 (CI #93): o cenário "Preservar snapshot em pagamentos pagos"
+// conferia um bloco "Informações do Contrato" dentro do recibo -- bloco que o
+// recibo nunca teve (o recibo, PaymentReceipt.tsx, tem a seção "Valores:" e a
+// linha "Total Pago:"). E o passo "visualizo um pagamento futuro" clicava na
+// primeira linha pendente do banco inteiro (de qualquer locação) esperando o
+// recibo, mas clicar num pendente abre a tela de gerenciar o recebimento
+// (ManagePaymentForm, com a "Formação de Valores"). Passos reescritos contra
+// as telas reais.
 
-  await this.page.locator('#payments-tab-pending').click();
-  await this.page.waitForTimeout(500);
+/** Texto visível + o que está digitado nos campos (valores editáveis ficam em <input>). */
+async function textoComCampos(bloco: import('@playwright/test').Locator): Promise<string> {
+  const texto = await bloco.innerText().catch(() => '');
+  const campos = await bloco.locator('input').evaluateAll(
+    (els) => els.map((e) => (e as HTMLInputElement).value)
+  ).catch(() => [] as string[]);
+  return `${texto}\n${campos.join('\n')}`.replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ');
+}
 
-  const linhaFutura = this.page.locator('tbody tr').first();
-  await expect(linhaFutura, 'não há nenhum pagamento pendente/futuro para visualizar').toBeVisible({ timeout: 10000 });
-  await linhaFutura.click();
+Then('o recibo aberto mostra nos valores:', async function (this: import('../support/world').CustomWorld, dataTable: any) {
+  const recibo = this.page.locator('#receipt-content');
+  await expect(recibo, 'o recibo não abriu').toBeVisible({ timeout: 15000 });
+  for (const row of dataTable.hashes()) {
+    const linha = recibo.locator('div.flex.justify-between').filter({ hasText: `${row['descrição']}:` }).first();
+    await expect(
+      linha,
+      `o recibo não tem a linha "${row['descrição']}". Recibo:\n${await textoComCampos(recibo)}`
+    ).toBeVisible({ timeout: 10000 });
+    await expect(linha, `a linha "${row['descrição']}" do recibo não tem ${row.valor}`).toContainText(row.valor);
+  }
+});
+
+Then('o recibo aberto não mostra a linha {string}', async function (this: import('../support/world').CustomWorld, descricao: string) {
+  const recibo = this.page.locator('#receipt-content');
+  await expect(
+    recibo.locator('div.flex.justify-between').filter({ hasText: `${descricao}:` }),
+    `o recibo mostra a linha "${descricao}" -- o recibo de um pagamento já pago mudou depois da edição da locação`
+  ).toHaveCount(0);
+});
+
+Then('o recibo aberto mostra o total {string}', async function (this: import('../support/world').CustomWorld, valor: string) {
+  const total = this.page.locator('#receipt-content div').filter({ hasText: /^(Total Pago|Valor Total):/ }).last();
+  await expect(total, 'o recibo não tem a linha de total').toBeVisible({ timeout: 10000 });
+  await expect(total).toContainText(valor);
+});
+
+When('abro o recebimento pendente do mês que vem dessa locação', { timeout: 60 * 1000 }, async function (this: import('../support/world').CustomWorld) {
+  const hoje = new Date();
+  const alvo = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+  const nomeMes = MESES_PT[alvo.getMonth()];
+  const ano = String(alvo.getFullYear());
+
+  const recibo = this.page.getByRole('dialog').filter({ has: this.page.locator('#receipt-content') });
+  if (await recibo.count()) {
+    await recibo.getByRole('button').first().click().catch(() => {});
+    await this.page.keyboard.press('Escape').catch(() => {});
+  }
+
+  await this.page.goto('/payments');
+  await this.page.waitForLoadState('domcontentloaded');
+  await this.page.locator('#period-selector-month').click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: new RegExp(`^${nomeMes}$`, 'i') }).click();
+  await this.page.waitForTimeout(500);
+  await this.page.locator('#period-selector-year').click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: ano, exact: true }).click();
+  await expect(this.page.getByText('Carregando recebimentos...')).toHaveCount(0, { timeout: 20000 }).catch(() => {});
+
+  const abaPendentes = this.page.locator('#payments-tab-pending');
+  await abaPendentes.click();
+  await expect(abaPendentes).toHaveAttribute('data-state', 'active', { timeout: 10000 });
+
+  let linha = this.page.locator('tbody tr:visible').filter({ hasNotText: 'Caução' });
+  if (this.tenantName) linha = linha.filter({ hasText: this.tenantName });
+  const primeira = linha.first();
+  try {
+    await expect(primeira).toBeVisible({ timeout: 15000 });
+  } catch {
+    const visiveis = await this.page.locator('tbody tr:visible').allInnerTexts().catch(() => []);
+    throw new Error(
+      `não achei o recebimento pendente de ${nomeMes}/${ano} da locação do cenário.\n` +
+        `Inquilino: ${this.tenantName || '(não guardado)'}\n` +
+        `Linhas visíveis (${visiveis.length}):\n` +
+        visiveis.slice(0, 30).map((t, i) => `  ${i + 1}) ${t.replace(/\s+/g, ' ').slice(0, 200)}`).join('\n')
+    );
+  }
+  await primeira.getByText(this.tenantName || '', { exact: false }).first().click();
 
   await expect(
-    this.page.locator('#receipt-content'),
-    'o recibo/preview do pagamento futuro não abriu'
-  ).toBeVisible({ timeout: 10000 });
+    this.page.locator('#payments-manage-dialog').getByText('Formação de Valores').first(),
+    'o recebimento pendente não abriu (não apareceu a "Formação de Valores")'
+  ).toBeVisible({ timeout: 15000 });
+});
+
+Then('a Formação de Valores do recebimento aberto mostra:', async function (this: import('../support/world').CustomWorld, dataTable: any) {
+  const bloco = this.page.locator('#payments-manage-dialog')
+    .getByText('Formação de Valores').first()
+    .locator('xpath=ancestor::div[contains(@class,"border-blue-200")][1]');
+  await expect(bloco, 'não achei o bloco "Formação de Valores"').toBeVisible({ timeout: 10000 });
+
+  for (const row of dataTable.hashes()) {
+    // o useEffect que preenche os valores é assíncrono: tenta por até 10s
+    await expect
+      .poll(async () => {
+        const t = await textoComCampos(bloco);
+        return t.includes(row['descrição']) && t.includes(row.valor);
+      }, {
+        message: `a Formação de Valores não mostra ${row['descrição']} ${row.valor}`,
+        timeout: 10000,
+      })
+      .toBe(true)
+      .catch(async (e) => {
+        throw new Error(`${e.message}\nConteúdo do bloco:\n${await textoComCampos(bloco)}`);
+      });
+  }
 });
 
 // ==================== FILTROS ====================
