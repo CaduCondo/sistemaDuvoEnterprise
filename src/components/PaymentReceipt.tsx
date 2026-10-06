@@ -317,10 +317,28 @@ export function PaymentReceipt({
       }
     }
     
-    // 🔥 CORREÇÃO: Se não encontrou no breakdown E rental existe, usar valores da rental
-    if (rentAmount === 0 && rental) {
-      rentAmount = Number(rental.monthlyRent || rental.value || 0);
-      garageAmount = (rental.hasGarage || rental.has_garage) ? Number(rental.garageValue || 0) : 0;
+    // Recebimento sem "Formação de Valores" gravada (61 recebimentos pagos
+    // antigos em produção, mai/2025 a mai/2026).
+    // ⚠️ 06/out/2026 (#117): antes, aqui o recibo usava o aluguel ATUAL da
+    // locação. Depois de um reajuste, o recibo de um mês já pago passava a
+    // mostrar o valor novo (39 recibos em produção mostravam um valor
+    // diferente do que foi cobrado). Agora vale o valor do PRÓPRIO
+    // recebimento; a separação Aluguel/Garagem da locação só é usada quando
+    // ela bate exatamente com esse valor.
+    if (rentAmount === 0 && garageAmount === 0) {
+      const aluguelAtual = rental ? Number(rental.monthlyRent || rental.value || 0) : 0;
+      const garagemAtual = rental && (rental.hasGarage || rental.has_garage)
+        ? Number(rental.garageValue || rental.garage_value || 0)
+        : 0;
+      if (rental && Math.abs(aluguelAtual + garagemAtual - expectedAmount) < 0.01) {
+        rentAmount = aluguelAtual;
+        garageAmount = garagemAtual;
+      } else if (expectedAmount > 0) {
+        rentAmount = expectedAmount;
+      } else {
+        rentAmount = aluguelAtual;
+        garageAmount = garagemAtual;
+      }
     }
     
     // Adicionar Aluguel ao breakdown
