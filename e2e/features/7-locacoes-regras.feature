@@ -305,9 +305,13 @@ Funcionalidade: Regras de Negócio de Locações
   # "a locação não tem nenhum recebimento pendente para conferir -- o
   # cenário não provou nada". Adicionado um recebimento pendente futuro de
   # verdade para o cenário ter o que conferir.
+  # ⚠️ 05/out/2026 (CI run #92): o último passo exige um recebimento PAGO para
+  # provar que ele não é reajustado -- mas o preparo nunca criava nenhum.
+  # Falha do TESTE, não do sistema. Adicionado o pagamento pago de jan/2026.
   @sistemaCompleto
   Cenário: Editar locação - Atualizar valor do aluguel
     Dado que existe uma locação ativa
+    E o pagamento de Janeiro/2026 está "Pago" com valor de "2500.00"
     E existe um recebimento pendente para o mês que vem com valor de "2500.00"
     Quando o valor do imóvel dessa locação muda para "2800.00"
     E edito a locação
@@ -315,14 +319,10 @@ Funcionalidade: Regras de Negócio de Locações
     Então os pagamentos futuros devem ser atualizados para "2800.00"
     E os pagamentos já pagos devem manter o valor original
 
-  # ⚠️ 29/set/2026 — ESTE CENÁRIO ESTÁ VERMELHO POR CULPA DO SISTEMA, NÃO DO
-  # TESTE. Não marcar como @quebrado. Ele cria um recebimento pago de
-  # Janeiro/2026 e não encontra na tela — e está certo: a tela de Recebimentos
-  # só carrega os 500 recebimentos de competência mais recente e esconde o
-  # resto sem avisar (paymentService.getAll, `.limit(500)`). Ver issue #113.
-  # Este cenário foi "corrigido" cinco vezes por dedução antes de alguém
-  # olhar o que estava de fato na tela. Ele volta a passar quando a #113 for
-  # resolvida — até lá, o vermelho é informação verdadeira.
+  # ⚠️ 29/set/2026 — ficou vermelho por culpa do SISTEMA (issue #113): a tela
+  # de Recebimentos só recebia as 1.000 linhas de vencimento mais recente e o
+  # recebimento pago de Janeiro/2026 nunca aparecia. Corrigido em 05/out/2026
+  # (usePayments busca em páginas até acabar). Este cenário é a prova.
   @sistemaCompleto
   Cenário: Editar locação - Preservar snapshot em pagamentos pagos
     Dado que existe uma locação ativa com aluguel de "2500.00"
