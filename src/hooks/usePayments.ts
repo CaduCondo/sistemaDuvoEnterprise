@@ -46,21 +46,44 @@ export const usePayments = () => {
         const endDate = new Date(yearNum, monthNum, 0).toISOString().split('T')[0];
         console.log(`🔍 [usePayments] Aplicando filtro de data: ${startDate} até ${endDate}`);
         dateRange = { startDate, endDate };
+      } else if (month === "all" && year !== "all") {
+        // "Todos os meses" de UM ano: o período é o ano inteiro.
+        const yearNum = parseInt(year);
+        dateRange = { startDate: `${yearNum}-01-01`, endDate: `${yearNum}-12-31` };
       } else {
         console.log(`🔍 [usePayments] SEM FILTRO - buscando TODOS os registros`);
       }
 
+      // ⚠️ Issue #113 (05/out/2026): o banco devolve no MÁXIMO 1.000 linhas
+      // por consulta. Sem filtro de mês, a tela recebia só os 1.000
+      // recebimentos de vencimento mais recente (quase todos futuros e
+      // pendentes) e escondia o resto sem avisar -- recebimentos PAGOS
+      // antigos simplesmente sumiam da aba "Recebimentos Pagos". Agora a
+      // busca vem em páginas de 1.000 até acabar.
+      const buscarTudo = async (montar: () => any) => {
+        const tamanho = 1000;
+        let todas: any[] = [];
+        for (let inicio = 0; ; inicio += tamanho) {
+          const { data, error } = await montar().range(inicio, inicio + tamanho - 1);
+          if (error) return { data: null, error };
+          todas = todas.concat(data || []);
+          if (!data || data.length < tamanho) break;
+        }
+        return { data: todas, error: null };
+      };
+
       // 1. Buscar payments (aluguel) COM FILTRO de mês/ano aplicado no banco
-      let paymentsQuery = supabase
-        .from("payments")
-        .select("*")
-        .order("due_date", { ascending: false });
+      const montarPaymentsQuery = () => {
+        let q: any = supabase
+          .from("payments")
+          .select("*")
+          .order("due_date", { ascending: false })
+          .order("id", { ascending: true });
+        if (dateRange) q = q.gte("due_date", dateRange.startDate).lte("due_date", dateRange.endDate);
+        return q;
+      };
 
-      if (dateRange) {
-        paymentsQuery = paymentsQuery.gte("due_date", dateRange.startDate).lte("due_date", dateRange.endDate);
-      }
-
-      const { data: paymentsData, error: paymentsError } = await paymentsQuery;
+      const { data: paymentsData, error: paymentsError } = await buscarTudo(montarPaymentsQuery);
 
       if (paymentsError) {
         console.error("❌ [usePayments] Erro ao buscar payments:", paymentsError);
@@ -76,16 +99,17 @@ export const usePayments = () => {
 
       // 1b. Buscar deposit_installments (caução) com o MESMO filtro de mês/ano,
       // pra aparecerem juntos com os recebimentos de aluguel nesta tela.
-      let depositsQuery = supabase
-        .from("deposit_installments")
-        .select("*")
-        .order("due_date", { ascending: false });
+      const montarDepositsQuery = () => {
+        let q: any = supabase
+          .from("deposit_installments")
+          .select("*")
+          .order("due_date", { ascending: false })
+          .order("id", { ascending: true });
+        if (dateRange) q = q.gte("due_date", dateRange.startDate).lte("due_date", dateRange.endDate);
+        return q;
+      };
 
-      if (dateRange) {
-        depositsQuery = depositsQuery.gte("due_date", dateRange.startDate).lte("due_date", dateRange.endDate);
-      }
-
-      const { data: depositsData, error: depositsError } = await depositsQuery;
+      const { data: depositsData, error: depositsError } = await buscarTudo(montarDepositsQuery);
 
       if (depositsError) {
         console.error("❌ [usePayments] Erro ao buscar deposit_installments:", depositsError);
