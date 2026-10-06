@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Location } from "@/types";
 import {
   Dialog,
@@ -38,9 +38,19 @@ export function FeeExemptionDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
 
+  // ⚠️ 06/out/2026 (#118, 2ª parte -- medido no CI #95): a busca abaixo
+  // rodava MAIS DE UMA VEZ por abertura. `getExemptions` vem da tela de
+  // Permissões e muda a cada redesenho dela; cada mudança disparava outra
+  // busca enquanto a primeira ainda não tinha terminado. A primeira liberava
+  // a lista, o usuário marcava um local, e a segunda chegava depois e
+  // sobrescrevia a marcação com o que estava salvo. Agora: uma busca só por
+  // abertura.
+  const buscaEmAndamentoRef = useRef(false);
+
   useEffect(() => {
     const loadExemptions = async () => {
-      if (open && !hasLoaded) {
+      if (open && !hasLoaded && !buscaEmAndamentoRef.current) {
+        buscaEmAndamentoRef.current = true;
         setIsLoading(true);
         try {
           const exemptions = await getExemptions();
@@ -54,6 +64,7 @@ export function FeeExemptionDialog({
             variant: "destructive",
           });
         } finally {
+          buscaEmAndamentoRef.current = false;
           setIsLoading(false);
         }
       }
