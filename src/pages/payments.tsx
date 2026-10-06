@@ -1024,11 +1024,16 @@ export default function Payments() {
               </div>
               
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                {/* Sem "Todos os meses"/"Todos os anos" (pedido do Cadu,
+                    06/out/2026): com milhares de recebimentos, a lista sem
+                    filtro de período não serve para nada -- o usuário
+                    procura pelo mês. */}
                 <PeriodSelector
                   selectedMonth={selectedMonth as number}
                   selectedYear={selectedYear as number}
                   onMonthChange={handleMonthChange}
                   onYearChange={handleYearChange}
+                  showAllOption={false}
                 />
               </div>
             </div>
