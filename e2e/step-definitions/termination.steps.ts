@@ -186,13 +186,6 @@ function seletorDeAno(page: Page): Locator {
   return page.getByRole('combobox').filter({ hasText: /^\s*(20\d{2}|Todos os anos)\s*$/ }).first();
 }
 
-/** Página de Recebimentos: tira o filtro de mês (que nasce no mês corrente). */
-async function verTodosOsMeses(page: Page) {
-  await seletorDeMes(page).click();
-  await page.getByRole('option', { name: 'Todos os meses' }).click();
-  await page.waitForTimeout(1200);
-}
-
 /** Aba Locações do Financeiro: o seletor NÃO tem a opção "todos" (showAllOption=false). */
 async function selecionarPeriodo(page: Page, mes: string, ano: string) {
   const nomeDoMes = MESES_PT[Number(mes) - 1];
@@ -270,12 +263,12 @@ async function abrirRecebimentosDoInquilino(world: CustomWorld, pagamento?: any)
   // está em andamento, ele entra na fila -- mexer antes só atrasa.
   await esperarListaDeRecebimentos(page);
 
-  const vencimento: string | undefined = pagamento?.due_date;
+  // ⚠️ 06/out/2026: a tela não tem mais "Todos os meses" (pedido do Cadu).
+  // Sem um recebimento específico, usa o mês da rescisão do cenário.
+  const vencimento: string | undefined = pagamento?.due_date || world.testData?.dataRescisao;
   if (vencimento) {
     const [ano, mes] = vencimento.split('-');
     await selecionarPeriodo(page, mes, ano);
-  } else {
-    await verTodosOsMeses(page);
   }
   await esperarListaDeRecebimentos(page);
 

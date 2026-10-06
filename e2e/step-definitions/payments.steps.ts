@@ -542,9 +542,16 @@ When('visualizo o recibo do pagamento de Janeiro\\/2026', { timeout: 40 * 1000 }
   // de Recebimentos é o PeriodSelector ("#period-selector-month"), como o
   // próprio código já registrava desde 14/set. O clique ficava 30s esperando
   // um campo que nunca existiu e derrubava o cenário do snapshot.
+  // ⚠️ 06/out/2026: a tela de Recebimentos não tem mais "Todos os meses"
+  // (pedido do Cadu) -- e é assim que o usuário faz: escolhe Janeiro/2026.
   await this.page.locator('#period-selector-month').click();
   await this.page.waitForTimeout(300);
-  await this.page.getByRole('option', { name: 'Todos os meses' }).click();
+  await this.page.getByRole('option', { name: /^Janeiro$/i }).click();
+  await this.page.waitForTimeout(500);
+  await this.page.locator('#period-selector-year').click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: '2026', exact: true }).click();
+  await expect(this.page.getByText('Carregando recebimentos...')).toHaveCount(0, { timeout: 20000 }).catch(() => {});
   await this.page.waitForTimeout(500);
 
   const abaPagos = this.page.locator('#payments-tab-paid');
