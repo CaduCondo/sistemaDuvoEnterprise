@@ -199,6 +199,26 @@ When('seleciono a localização {string}', async function (this: CustomWorld, lo
  * automação cria a própria massa, nunca depende de dado real. Agora o
  * cenário cria o Local e o imóvel dele.
  */
+// ⚠️ 05/out/2026: o cenário de busca cria o próprio imóvel -- antes contava
+// com massa antiga do banco de DEV, que a faxina apagou.
+Given('que existe um imóvel de teste com {string} no complemento', async function (this: CustomWorld, texto: string) {
+  const complemento = `${texto} E2E ${Date.now()}`;
+  const property = await this.createProperty({ complement: complemento, status: 'available' });
+  this.propertyId = property.id;
+  this.testData.complementoBuscado = complemento;
+  // A tela já estava aberta (Contexto) antes do imóvel existir.
+  await this.page.reload();
+  await this.page.waitForLoadState('domcontentloaded');
+});
+
+Then('o imóvel de teste deve estar entre os resultados', async function (this: CustomWorld) {
+  const complemento = this.testData.complementoBuscado;
+  await expect(
+    this.page.locator('tbody tr:visible, [class*="card" i]').filter({ hasText: complemento }).first(),
+    `o imóvel "${complemento}", criado pelo cenário, não apareceu na busca`
+  ).toBeVisible({ timeout: 10000 });
+});
+
 Given('que existe um imóvel nesse local', async function (this: CustomWorld) {
   const locationId = this.testData.idLocalCriado;
   if (!locationId) {

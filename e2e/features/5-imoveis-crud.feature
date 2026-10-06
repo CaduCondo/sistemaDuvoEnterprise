@@ -34,10 +34,15 @@ Funcionalidade: CRUD de Imóveis
     Quando clico no botão de visualização em lista
     Então devo ver os imóveis em formato de tabela
 
+  # ⚠️ 05/out/2026 (CI run #92): dependia de existir no banco de DEV algum
+  # imóvel com "Centro" -- massa antiga que a faxina apagou. Agora o cenário
+  # cria o próprio imóvel (regra da issue #96: cada cenário cria seu dado).
   @sistemaCompleto
   Cenário: Filtrar imóveis por busca
+    Dado que existe um imóvel de teste com "Centro" no complemento
     Quando preencho o campo de busca com "Centro"
     Então devo ver apenas imóveis que contenham "Centro" no endereço ou localização
+    E o imóvel de teste deve estar entre os resultados
 
   # ⚠️ Reescrito em 17/set/2026 (issue #99, CI run #76): filtrava por
   # "São Paulo - Centro", um Local que o teste não cria -- sobra de massa
