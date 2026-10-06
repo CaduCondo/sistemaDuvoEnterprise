@@ -67,6 +67,13 @@ export function FeeExemptionDialog({
     }
   }, [open]);
 
+  // ⚠️ 06/out/2026 (achado pelo teste de isenção, CI #94): no primeiro
+  // desenho do diálogo a lista já aparecia, ANTES de começar a buscar as
+  // isenções salvas. Um clique nesse instante marcava o local e, logo em
+  // seguida, a busca terminava e sobrescrevia a marcação -- o "Salvar"
+  // gravava sem o local clicado. Agora a lista só aparece depois da busca.
+  const carregando = isLoading || (open && !hasLoaded);
+
   const handleToggle = (locationId: string) => {
     setSelectedLocations((prev) =>
       prev.includes(locationId)
@@ -118,7 +125,7 @@ export function FeeExemptionDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          {isLoading ? (
+          {carregando ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
           ) : locations.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum local cadastrado.</p>
@@ -165,7 +172,7 @@ export function FeeExemptionDialog({
           >
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || isLoading}>
+          <Button onClick={handleSave} disabled={isSaving || carregando}>
             {isSaving ? "Salvando..." : "Salvar Isenções"}
           </Button>
         </DialogFooter>

@@ -233,6 +233,9 @@ When(
       `o local "${dados.locationName}" não apareceu na lista de isenção`
     ).toBeVisible({ timeout: 15000 });
     await caixa.click();
+    // Confere que a marcação ficou (CI #94: ela se perdia quando a lista de
+    // isenções salvas terminava de carregar depois do clique).
+    await expect(caixa, `o local "${dados.locationName}" não ficou marcado como isento`).toBeChecked({ timeout: 5000 });
 
     await this.page.getByRole('button', { name: /Salvar Isenções/i }).click();
 
