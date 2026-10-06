@@ -2181,27 +2181,43 @@ Toda rescisão gera **dois** registros ligados entre si por
 > recebimento do mês já estava pago e a rescisão criou outro cobrando o
 > aluguel cheio do mesmo mês).
 
-O sistema olha o recebimento **regular** de aluguel do mês escolhido para a
-rescisão:
+O sistema olha o recebimento **regular** de aluguel do mês escolhido na
+rescisão, e se a data da rescisão é **antes** ou **depois** do dia de
+vencimento.
 
-| Status do recebimento do mês | O que acontece |
-|---|---|
-| **Pago** ou **Parcial** (cenário 1) | Ele **não é mexido**. Nasce **um** recebimento novo só com o **proporcional** (se houver) e a **multa** (se houver). Esse recebimento novo **não é parcela** — fica sem número. |
-| **Pendente** ou atrasado (cenário 2) | O **proporcional** e a **multa** entram **dentro dele** e são cobrados juntos. Ele mantém o vencimento e continua sendo a **última parcela** do contrato. |
+**Rescisão ANTES do dia de vencimento** — não há proporcional: o próximo
+aluguel nem começou a correr.
 
-Nos dois casos nasce também o **Recebimento de Rescisão** (devolução do
-caução), **sempre** — mesmo sem caução pago (linha da devolução zerada), para
-poder lançar despesas ou desconto. Ele também **não é parcela**.
+| Caso | Recebimento do mês | O que acontece |
+|---|---|---|
+| 1 | **Pago** | Não é mexido. Nasce um recebimento novo só com a **multa**. |
+| 2 | **Parcial** | A **multa** é somada nele. |
+| 3 | **Pendente** | A **multa** é somada nele. |
 
-**Numeração das parcelas depois da rescisão:** só as parcelas de aluguel são
-renumeradas, e o total passa a ser a quantidade delas. Exemplo: contrato
-rescindido depois da 10ª parcela já paga → as parcelas ficam **1/10 a 10/10**;
-o recebimento de proporcional/multa e o de Rescisão aparecem com parcela "-".
+**Rescisão DEPOIS do dia de vencimento** (ou no próprio dia):
 
-**Rescisão antes do dia de vencimento do mês:** o recebimento do mês cobre um
-período que o inquilino não vai completar. Se ainda está pendente, o aluguel
-cheio dele vira o proporcional até a data de saída (mais a multa), vencendo na
-data da saída. Se já está pago, o recebimento novo cobra só a multa.
+| Caso | Recebimento do mês | O que acontece |
+|---|---|---|
+| 4 | **Pago** | Não é mexido. Nasce um recebimento novo com o **proporcional** + a **multa**. |
+| 5 | **Parcial** | O **proporcional** + a **multa** são somados nele. |
+| 6 | **Pendente** | O **proporcional** + a **multa** são somados nele. |
+
+Em **todos** os casos:
+
+- o recebimento criado ou atualizado passa a **vencer na data da rescisão**;
+- nasce o **Recebimento de Rescisão** (devolução do caução), também vencendo
+  na data da rescisão — **sempre**, mesmo sem caução pago (linha da devolução
+  zerada), para poder lançar despesas ou desconto;
+- o recebimento **criado** (casos 1 e 4) e o de Rescisão **não são parcelas**
+  (aparecem com parcela "-"); o recebimento **atualizado** (casos 2, 3, 5 e 6)
+  continua sendo a última parcela.
+
+**Numeração depois da rescisão:** só as parcelas de aluguel são renumeradas, e
+o total passa a ser a quantidade delas. Exemplo: rescindido depois da 10ª
+parcela, já paga → **1/10 a 10/10**.
+
+Se não existir recebimento regular no mês (dado antigo), o sistema cria um com
+o aluguel do mês + a cobrança da rescisão, como se estivesse pendente.
 
 Parcelas com vencimento **posterior** ao mês da rescisão são apagadas.
 

@@ -90,27 +90,60 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
     E o status da locação no banco deve ser "ended"
     E o imóvel da locação deve ficar com status "available"
 
+  # ⚠️ Reescrito em 05/out/2026 (regra do Cadu). Rescisão ANTES do dia de
+  # vencimento NÃO tem proporcional: o próximo aluguel nem começou a correr.
+  # O recebimento do mês (pendente) recebe só a MULTA somada, e passa a
+  # vencer na data da saída. Até esta data o sistema trocava o aluguel cheio
+  # por um proporcional desde o último vencimento (25 dias = 1.250,00).
+  #
+  #   Saída 03/09, vencimento dia 10 — ANTES do vencimento
+  #   aluguel do mês (pendente):                      1.200,00
+  #   garagem do mês:                                   300,00
+  #   multa proporcional ao tempo restante:
+  #     meses restantes de 03/09/2026 até 31/05/2028 = 20
+  #     (3 x 1.200,00 / 24 meses de contrato) x 20   = 3.000,00
+  #                                                   ----------
+  #   recebimento de aluguel                           4.500,00
   @sistemaCompleto
-  Cenário: O recebimento de aluguel soma proporcional do aluguel, proporcional da garagem e multa da cláusula
-    # Protege a composição do recebimento de aluguel da rescisão e o fato de a
-    # garagem ser proporcionalizada em linha PRÓPRIA (até 24/ago/2026 ela
-    # simplesmente sumia da cobrança).
-    #
-    # Saída 03/09, vencimento dia 10: é ANTES do vencimento, então conta-se só
-    # o proporcional desde o último vencimento (10/08/2026).
-    #   dias usados: de 10/08 a 03/09 = 25 dias, sobre um mês de 30
-    #   aluguel proporcional:  (1.200,00 / 30) x 25 = 1.000,00
-    #   garagem proporcional:  (  300,00 / 30) x 25 =   250,00
-    #   multa proporcional ao tempo restante:
-    #     meses restantes de 03/09/2026 até 31/05/2028 = 20
-    #     (3 x 1.200,00 / 24 meses de contrato) x 20   = 3.000,00
-    #                                                   ----------
-    #   recebimento de aluguel                           4.250,00
+  Cenário: Caso 3 — rescisão ANTES do vencimento com o mês PENDENTE soma só a multa no recebimento do mês
+    Dado que o recebimento de aluguel de "09/2026" está "pendente" com valor de "1500,00"
     Quando eu registrar a rescisão em "03/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
-    Então o recebimento de aluguel da rescisão deve ter valor 4250,00
-    E o recebimento de aluguel da rescisão deve detalhar "Aluguel Proporcional" com 1000,00
-    E o recebimento de aluguel da rescisão deve detalhar "Garagem Proporcional" com 250,00
+    Então a cobrança da rescisão deve ter entrado no próprio recebimento do mês, que continua "pendente"
+    E o recebimento de aluguel da rescisão deve ter valor 4500,00
+    E o recebimento de aluguel da rescisão deve detalhar "Aluguel" com 1200,00
+    E o recebimento de aluguel da rescisão deve detalhar "Garagem" com 300,00
     E o recebimento de aluguel da rescisão deve detalhar "Multa Rescisória" com 3000,00
+    E o recebimento de aluguel da rescisão não deve ter linha de "Aluguel Proporcional"
+    E o recebimento de aluguel e o Recebimento de Rescisão devem vencer na data da rescisão
+
+  @sistemaCompleto
+  Cenário: Caso 1 — rescisão ANTES do vencimento com o mês PAGO cria um recebimento só com a multa
+    Dado que o recebimento de aluguel de "09/2026" está "pago" com valor de "1500,00"
+    Quando eu registrar a rescisão em "03/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
+    Então o recebimento pago do mês deve continuar existindo, intocado
+    E o recebimento de aluguel da rescisão deve ser um recebimento novo
+    E o recebimento de aluguel da rescisão deve ter valor 3000,00
+    E o recebimento de aluguel da rescisão não deve ter linha de "Aluguel Proporcional"
+    E o recebimento de aluguel da rescisão não deve ter número de parcela
+    E o recebimento de aluguel e o Recebimento de Rescisão devem vencer na data da rescisão
+
+  @sistemaCompleto
+  Cenário: Caso 2 — rescisão ANTES do vencimento com o mês PARCIAL soma a multa no recebimento do mês
+    Dado que o recebimento de aluguel de "09/2026" está "parcial" com valor de "1500,00"
+    Quando eu registrar a rescisão em "03/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
+    Então a cobrança da rescisão deve ter entrado no próprio recebimento do mês, que continua "parcial"
+    E o recebimento de aluguel da rescisão deve ter valor 4500,00
+    E o recebimento de aluguel da rescisão não deve ter linha de "Aluguel Proporcional"
+    E o recebimento de aluguel e o Recebimento de Rescisão devem vencer na data da rescisão
+
+  @sistemaCompleto
+  Cenário: Caso 5 — rescisão DEPOIS do vencimento com o mês PARCIAL soma proporcional e multa no recebimento do mês
+    Dado que o recebimento de aluguel de "09/2026" está "parcial" com valor de "1500,00"
+    Quando eu registrar a rescisão em "25/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
+    Então a cobrança da rescisão deve ter entrado no próprio recebimento do mês, que continua "parcial"
+    E o recebimento de aluguel da rescisão deve detalhar "Aluguel Proporcional" com 640,00
+    E o recebimento de aluguel da rescisão deve detalhar "Garagem Proporcional" com 160,00
+    E o recebimento de aluguel e o Recebimento de Rescisão devem vencer na data da rescisão
 
   @sistemaCompleto
   Cenário: A multa é a da cláusula de 12 meses quando é ela a escolhida
@@ -121,12 +154,14 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
     #   mês do contrato na saída (03/09/2026, início 01/06/2026) = 4º
     #   meses até completar 12                                   = 8
     #   (3 x 1.200,00 / 12) x 8                                  = 2.400,00
-    #   proporcional do aluguel + da garagem                     = 1.250,00
+    #   aluguel + garagem do mês (pendente; antes do vencimento
+    #   não há proporcional — regra de 05/out/2026)              = 1.500,00
     #                                                              ----------
-    #   recebimento de aluguel                                     3.650,00
+    #   recebimento de aluguel                                     3.900,00
+    Dado que o recebimento de aluguel de "09/2026" está "pendente" com valor de "1500,00"
     Quando eu registrar a rescisão em "03/09/2026" com a cláusula "Multa Cláusula 12 Meses"
     Então o recebimento de aluguel da rescisão deve detalhar "Multa Rescisória" com 2400,00
-    E o recebimento de aluguel da rescisão deve ter valor 3650,00
+    E o recebimento de aluguel da rescisão deve ter valor 3900,00
 
   @sistemaCompleto
   Cenário: O diálogo de rescisão não tem campo de multa livre
@@ -147,9 +182,12 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
     # Protege a razão de existir da #49. Quem decide o que entra na base é
     # payment_kind: financial.tsx descarta 'termination' do cálculo das duas
     # taxas e da aba Locações.
+    # 05/out/2026: o mês (pendente) + a multa = 1.500,00 + 3.000,00 = 4.500,00
+    # (antes da regra nova o sistema trocava o mês por 25 dias de proporcional).
     Dado que o inquilino pagou todas as parcelas de caução
+    E que o recebimento de aluguel de "09/2026" está "pendente" com valor de "1500,00"
     Quando eu registrar a rescisão em "03/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
-    Então a base de cálculo das taxas de administração e gerenciamento deve ser 4250,00
+    Então a base de cálculo das taxas de administração e gerenciamento deve ser 4500,00
     E a devolução do caução não deve influenciar nenhuma das duas taxas
 
   @sistemaCompleto
@@ -294,7 +332,7 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
   # parcela. Este cenário era o "item E da rodada 2", que ficou implementado
   # junto — por isso voltou para o @smoke, como o comentário antigo pedia.
   @smoke
-  Cenário: Formação de Valores da rescisão quando o mês estava PENDENTE
+  Cenário: Formação de Valores da rescisão quando o mês estava PENDENTE (caso 6)
     # Rescisão em 25/09, DEPOIS do vencimento (dia 10): o mês já tinha vencido
     # e não foi pago, então o proporcional e a multa entram no próprio
     # recebimento pendente do mês, cobrados juntos com o mês cheio.
@@ -308,6 +346,7 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
     E eu abrir o recebimento de aluguel da rescisão
     Então o proporcional e a multa devem ter entrado no recebimento pendente do mês
     E a última parcela de aluguel deve ser o recebimento do mês, como "N/N"
+    E o recebimento de aluguel e o Recebimento de Rescisão devem vencer na data da rescisão
     E a "Formação de Valores" deve mostrar, nesta ordem:
       | linha                |
       | Aluguel              |
@@ -318,7 +357,7 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
       | Valor de Desconto    |
 
   @sistemaCompleto
-  Cenário: Formação de Valores da rescisão quando o mês já estava PAGO
+  Cenário: Formação de Valores da rescisão quando o mês já estava PAGO (caso 4)
     # Mesma data da anterior, mas o recebimento do mês já foi pago: ele é
     # histórico e não se mexe. Nasce um recebimento novo só com o proporcional
     # e a multa — o mês cheio NÃO entra de novo, e esse recebimento novo não é
@@ -330,6 +369,7 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
     E não deve existir outro recebimento cobrando o aluguel cheio do mês
     E o recebimento de aluguel da rescisão não deve ter número de parcela
     E a última parcela de aluguel deve ser o recebimento do mês, como "N/N"
+    E o recebimento de aluguel e o Recebimento de Rescisão devem vencer na data da rescisão
     E a "Formação de Valores" deve mostrar, nesta ordem:
       | linha                |
       | Aluguel Proporcional |

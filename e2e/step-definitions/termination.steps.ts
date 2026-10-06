@@ -504,6 +504,9 @@ Given(
     const [mes, ano] = periodo.split('/');
     const valor = paraNumero(valorTexto);
     const pago = /pag/i.test(situacao);
+    // "parcial": metade paga (05/out/2026 — a rescisão trata PARCIAL como
+    // PENDENTE: a cobrança da rescisão é somada no próprio recebimento).
+    const parcial = /parcial/i.test(situacao);
     const dia = String(this.testData.diaVencimento).padStart(2, '0');
 
     // A mesma composição que paymentService.createPaymentsForRental grava num
@@ -522,9 +525,9 @@ Given(
       reference_year: ano,
       due_date: `${ano}-${mes}-${dia}`,
       expected_amount: valor,
-      status: pago ? 'paid' : 'pending',
-      paid_amount: pago ? valor : undefined,
-      payment_date: pago ? `${ano}-${mes}-${dia}` : undefined,
+      status: pago ? 'paid' : parcial ? 'partial' : 'pending',
+      paid_amount: pago ? valor : parcial ? Math.round(valor * 50) / 100 : undefined,
+      payment_date: pago || parcial ? `${ano}-${mes}-${dia}` : undefined,
       breakdown: composicao,
       // Todo recebimento mensal criado pelo sistema tem número de parcela.
       installment: 1,
@@ -1138,6 +1141,39 @@ Then('não deve existir outro recebimento cobrando o aluguel cheio do mês', asy
     doMes.length,
     `cobrou o aluguel cheio do mês de novo: [${doMes.map((p: any) => `${p.due_date} R$ ${p.expected_amount}`).join(', ')}]`
   ).toBe(0);
+});
+
+// ============================================================================
+// Os 6 casos da rescisão (regra do Cadu, 05/out/2026): o que é atualizado,
+// o que é criado, e o vencimento de tudo = a data da rescisão.
+// ============================================================================
+
+Then('a cobrança da rescisão deve ter entrado no próprio recebimento do mês, que continua {string}', async function (
+  this: CustomWorld,
+  situacao: string
+) {
+  const antigo = this.testData.recebimentoDoMes;
+  expect(antigo, 'o cenário não criou o recebimento do mês').toBeTruthy();
+  const aluguel = await recebimentoDeAluguelDaRescisao(this);
+  expect(aluguel.id, 'a rescisão criou um recebimento novo em vez de somar no recebimento do mês').toBe(antigo.id);
+  const status = /parcial/i.test(situacao) ? 'partial' : /pend/i.test(situacao) ? 'pending' : situacao;
+  expect(aluguel.status).toBe(status);
+  expect(Number(aluguel.expected_amount)).toBeGreaterThan(Number(antigo.expected_amount));
+});
+
+Then('o recebimento de aluguel da rescisão deve ser um recebimento novo', async function (this: CustomWorld) {
+  const antigo = this.testData.recebimentoDoMes;
+  const aluguel = await recebimentoDeAluguelDaRescisao(this);
+  expect(aluguel.id, 'a rescisão mexeu no recebimento do mês, que já estava pago').not.toBe(antigo?.id);
+});
+
+Then('o recebimento de aluguel e o Recebimento de Rescisão devem vencer na data da rescisão', async function (
+  this: CustomWorld
+) {
+  const aluguel = await recebimentoDeAluguelDaRescisao(this);
+  const rescisao = await recebimentoDeRescisao(this);
+  expect(String(aluguel.due_date), 'vencimento do recebimento de aluguel da rescisão').toBe(this.testData.dataRescisao);
+  expect(String(rescisao.due_date), 'vencimento do Recebimento de Rescisão').toBe(this.testData.dataRescisao);
 });
 
 Then('o recebimento de aluguel da rescisão não deve ter número de parcela', async function (this: CustomWorld) {
