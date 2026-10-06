@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import React, { useState, useEffect, useCallback, memo } from "react";
+import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -397,12 +397,29 @@ export const TenantFormDialog = memo(function TenantFormDialog({
   const [formData, setFormData] = useState<FormState>(INITIAL_FORM_STATE);
   const [emailError, setEmailError] = useState<string>("");
   const [checkingEmail, setCheckingEmail] = useState(false);
+  // ⚠️ 06/out/2026 (#107): a checagem de e-mail repetido dizia ter "atraso de
+  // 500ms", mas o cancelamento do timer era devolvido por um handler (onde
+  // não faz nada) -- cada letra digitada disparava uma consulta. A primeira
+  // resposta liberava o botão Salvar com a consulta do e-mail final ainda
+  // rodando, e a resposta de um e-mail pela metade podia chegar por último e
+  // mostrar/esconder o aviso errado. Agora: um timer só (o anterior é
+  // cancelado) e um número de checagem -- só a resposta da ÚLTIMA vale.
+  const emailTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emailCheckSeqRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      if (emailTimerRef.current) clearTimeout(emailTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
 
     setIsEditing(!isViewMode);
     setEmailError(""); // ✅ Limpar erro de email ao abrir dialog
+    if (emailTimerRef.current) clearTimeout(emailTimerRef.current);
+    emailCheckSeqRef.current++;
     setCheckingEmail(false);
 
     if (tenant) {
@@ -446,6 +463,8 @@ export const TenantFormDialog = memo(function TenantFormDialog({
     // ✅ Validação de email único
     if (field === "email") {
       setEmailError("");
+      if (emailTimerRef.current) clearTimeout(emailTimerRef.current);
+      const minhaChecagem = ++emailCheckSeqRef.current;
       
       // Limpar validação anterior
       if (value.trim() === "") {
@@ -463,7 +482,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
       // Verificar se email já existe (debounce de 500ms)
       setCheckingEmail(true);
       
-      const timeoutId = setTimeout(async () => {
+      emailTimerRef.current = setTimeout(async () => {
         try {
           const { data: existingTenant, error: emailCheckError } = await supabase
             .from("tenants")
@@ -471,6 +490,9 @@ export const TenantFormDialog = memo(function TenantFormDialog({
             .eq("email", value)
             .maybeSingle();
           
+          // Já foi digitado outro e-mail depois deste: resposta velha, descarta.
+          if (minhaChecagem !== emailCheckSeqRef.current) return;
+
           if (emailCheckError) {
             console.error("❌ Erro ao verificar email:", emailCheckError);
             setCheckingEmail(false);
@@ -486,11 +508,9 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         } catch (error) {
           console.error("❌ Erro ao verificar email:", error);
         } finally {
-          setCheckingEmail(false);
+          if (minhaChecagem === emailCheckSeqRef.current) setCheckingEmail(false);
         }
       }, 500);
-      
-      return () => clearTimeout(timeoutId);
     }
   }, [tenant?.id]);
 
