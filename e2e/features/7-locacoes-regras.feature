@@ -235,20 +235,33 @@ Funcionalidade: Regras de Negócio de Locações
       | depositInstallment3        | R$ 2.000,00   |
       | depositInstallment3PaymentDate | 2026-10-01 |
 
-  # FORA DO SMOKE (30/ago/2026): o cenário abre "Nova Locação" e preenche só os
-  # campos do caução -- nunca escolhe imóvel, inquilino nem as datas, que são
-  # obrigatórios. O formulário não tem como ser gravado.
-  # Ver docs/tickets/smoke-30-ago.md.
-  @quebrado
+  # ⚠️ Corrigido em 07/out/2026 (issue #121, backlog "religar @quebrado"):
+  # 1) o cenário abria "Nova Locação" e preenchia só os campos do caução --
+  #    nunca escolhia Imóvel, Inquilino nem as datas, que são obrigatórios
+  #    (RentalFormDialog.tsx exige Imóvel, Inquilino, Data Início e Dia de
+  #    Vencimento) -- o formulário não tinha como ser gravado.
+  # 2) o cenário também assumia que a "Data Pagamento" da parcela única já
+  #    marcava ela como PAGA. Mesma regra real confirmada em "Criar locação
+  #    - Data Pagamento da 1ª parcela vira o vencimento, mas ela nasce
+  #    pendente": é só o VENCIMENTO -- a parcela nasce Pendente até alguém
+  #    registrar o pagamento na tela de Recebimento de Caução.
+  # 3) "na aba {string} devo ver:" não navega para /financial -- a aba
+  #    Cauções só existe lá (financial.tsx), não na tela de Locações onde o
+  #    cenário ainda estava depois de salvar. Troquei para o step que já
+  #    navega e confere ("na aba {string} da página Financeiro devo ver:"),
+  #    o mesmo usado em "Criar locação - Parcelamento de caução (3 parcelas)".
+  @sistemaCompleto
   Cenário: Criar locação - Caução integral
     Quando clico no botão "Nova Locação"
+    E preencho todos os campos obrigatórios
     E preencho o valor da caução com "5000.00"
     E NÃO marco a opção "Parcelar caução"
     E preencho a "Data Pagamento" com "01/08/2026"
     E salvo a locação
-    Então na aba "Cauções" devo ver:
-      | Parcela | Valor   | Data Vencimento | Data Pagamento |
-      | 1/1     | 5000.00 | 01/08/2026      | 01/08/2026     |
+    Então a locação deve ser criada com sucesso
+    E na aba "Cauções" da página Financeiro devo ver:
+      | Parcela | Valor   | Data Vencimento | Data Pagamento | Status   |
+      | 1/1     | 5000.00 | 01/08/2026      | (vazio)         | Pendente |
 
   @smoke
   Cenário: Criar locação - Garagem opcional
