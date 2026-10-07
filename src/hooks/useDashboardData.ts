@@ -392,11 +392,14 @@ export function useDashboardData(
           const status = payment.status;
           const locationId = payment.rentals?.properties?.location_id;
           const paidAmount = payment.paid_amount || 0;
-          const expectedAmountValue = payment.expected_amount || 0;
+          // Renegociado (#119): o saldo foi para as parcelas do acordo, que
+          // são recebimentos próprios -- aqui vale só o que dele já foi pago,
+          // senão o mesmo dinheiro seria esperado duas vezes.
+          const expectedAmountValue = status === 'renegotiated' ? paidAmount : (payment.expected_amount || 0);
           
           expectedAmount += expectedAmountValue;
           
-          if (status === 'paid' || status === 'partial') {
+          if (status === 'paid' || status === 'partial' || status === 'renegotiated') {
             grossRevenue += paidAmount;
             
             if (paidAmount > 0) {

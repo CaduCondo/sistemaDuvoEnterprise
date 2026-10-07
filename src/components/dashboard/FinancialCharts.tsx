@@ -374,7 +374,12 @@ export function FinancialCharts({ selectedMonth, selectedYear, userId, userRole 
           const allPayments = paymentsResult[index]?.all || [];
           const paidPayments = paymentsResult[index]?.paid || [];
           
-          const esperada = allPayments.reduce((sum, p: any) => sum + (p.expected_amount || 0), 0);
+          // Renegociado (#119): só o que dele já foi pago; o resto é esperado
+          // nas parcelas do acordo (não contar duas vezes).
+          const esperada = allPayments.reduce(
+            (sum, p: any) => sum + (p.status === "renegotiated" ? p.paid_amount || 0 : p.expected_amount || 0),
+            0
+          );
           const recebida = paidPayments.reduce((sum, p: any) => sum + (p.paid_amount || 0), 0);
           
           console.log(`💰 [DEBUG] Receita ${m.label}: esperada=${esperada}, recebida=${recebida}`);

@@ -683,20 +683,35 @@ export default function Financial() {
           locationsMapTemp.set(location.id, location.name);
         }
 
+        // ⚠️ Acordo de parcelamento (#119) -- regra para NUNCA contar o mesmo
+        // dinheiro duas vezes nesta tabela (controle total do previsto e do
+        // recebido). Quando um recebimento entra num acordo ("Renegociado"),
+        // o que faltava pagar dele passa a ser cobrado pelas PARCELAS do
+        // acordo, que aparecem nos meses delas. Por isso a linha original:
+        //   - continua aparecendo (histórico), com status "Renegociado";
+        //   - passa a ter "valor esperado" = só o que dele já foi pago de
+        //     fato (0 se nada) -- o resto saiu daqui e foi para as parcelas;
+        //   - o que já foi pago continua contando como recebido no mês dele.
+        // Multa/juros congelados no acordo também não somam aqui: eles fazem
+        // parte do valor das parcelas.
+        const renegociado = payment.status === "renegotiated";
+
         const base = {
           id: payment.id,
           rentalId: payment.rental_id,
-          expectedAmount: payment.expected_amount,
+          expectedAmount: renegociado ? Number(payment.paid_amount) || 0 : payment.expected_amount,
           paidAmount: payment.paid_amount || 0,
           dueDate: payment.due_date,
           paymentDate: payment.payment_date,
           paymentTime: payment.payment_time,
-          status: payment.status as "paid" | "pending" | "overdue" | "partial",
+          status: payment.status as Payment["status"],
           referenceMonth: Number(payment.reference_month),
           referenceYear: Number(payment.reference_year),
-          lateFee: payment.late_fee || 0,
-          interest: payment.interest || 0,
-          breakdown: payment.breakdown,
+          lateFee: renegociado ? 0 : payment.late_fee || 0,
+          interest: renegociado ? 0 : payment.interest || 0,
+          breakdown: renegociado ? null : payment.breakdown,
+          agreementId: payment.agreement_id || null,
+          renegotiatedInAgreementId: payment.renegotiated_in_agreement_id || null,
           // payment_kind so existe a partir da migracao 20260824120000;
           // recebimentos antigos vem undefined, tratados como 'rent' por
           // quem consome (ver paymentsToCalculate/getSortedPayments abaixo).
@@ -777,7 +792,9 @@ export default function Financial() {
           return [base];
         }
 
-        const totalExpectedBase = Math.abs(base.expectedAmount || 0);
+        // Renegociado: a base é o valor original do boleto (para repartir o
+        // histórico), mas o saldo em aberto não vira linha (ver abaixo).
+        const totalExpectedBase = Math.abs((renegociado ? payment.expected_amount : base.expectedAmount) || 0);
         let cumulativePaid = 0;
         const rows = history.map((entry: any, index: number) => {
           const paidAmount = Number(entry.amount || 0);
@@ -814,8 +831,15 @@ export default function Financial() {
           };
         });
 
+        // Renegociado: deste boleto só é "esperado" o que foi pago de fato;
+        // o resto é esperado nas parcelas do acordo (#119).
+        if (renegociado) {
+          for (const row of rows) row._billExpectedAmount = cumulativePaid;
+        }
+
         const remaining = totalExpectedBase - cumulativePaid;
-        if (base.status !== "paid" && remaining > 0.01) {
+        // Renegociado: o saldo foi para o acordo -- não sobra linha em aberto.
+        if (base.status !== "paid" && !renegociado && remaining > 0.01) {
           rows.push({
             ...base,
             _rowKey: `${base.id}-remaining`,
@@ -967,6 +991,13 @@ export default function Financial() {
   // Memoizar cálculo de número de parcela
   const calculatePaymentNumber = useCallback((payment: Payment, rental: Rental | undefined) => {
     const rentalData = rental || payment.rental;
+
+    // Parcela de acordo de parcelamento (#119)
+    if ((payment as any).paymentKind === "agreement") {
+      return payment.installment && payment.totalInstallments
+        ? `Acordo ${payment.installment}/${payment.totalInstallments}`
+        : "Entrada";
+    }
     
     // PRIORIDADE 1: Usar valores do banco se existirem
     if (payment.installment && payment.totalInstallments) {
@@ -1625,7 +1656,8 @@ export default function Financial() {
         "Período": format(new Date(filterYear, filterMonth - 1), "MMM/yyyy", { locale: ptBR }),
         "Status": payment.status === "paid" ? "Pago" : 
                  payment.status === "pending" ? "Pendente" :
-                 payment.status === "overdue" ? "Atrasado" : "Parcial",
+                 payment.status === "overdue" ? "Atrasado" :
+                 payment.status === "renegotiated" ? "Renegociado" : "Parcial",
         "Data Vencimento": format(new Date(payment.dueDate + "T00:00:00"), "dd/MM/yyyy"),
         "Data Recebida": payment.paymentDate ? format(new Date(payment.paymentDate + "T00:00:00"), "dd/MM/yyyy") : "-",
         "Horário Recebido": details.paymentTime || "-",
@@ -1707,8 +1739,9 @@ export default function Financial() {
       return sum + (p._billExpectedAmount != null ? p._billExpectedAmount : getExpectedAmount(p));
     }, 0);
     
+    // "renegotiated" entra só com o que dele foi pago DE FATO (#119).
     const totalReceived = paymentsToCalculate
-      .filter((p) => p.status === "paid" || p.status === "partial")
+      .filter((p) => p.status === "paid" || p.status === "partial" || p.status === "renegotiated")
       .reduce((sum, p) => sum + (p.paidAmount || 0), 0);
     
     const feePercentage = config?.admin_fee_percentage ?? 5;
@@ -1716,7 +1749,7 @@ export default function Financial() {
     
     // ✅ CORREÇÃO: Excluir valores negativos do cálculo de Taxa Adm
     const adminFee = paymentsToCalculate
-      .filter((p) => (p.status === "paid" || p.status === "partial") && (p.paidAmount || 0) > 0)
+      .filter((p) => (p.status === "paid" || p.status === "partial" || p.status === "renegotiated") && (p.paidAmount || 0) > 0)
       .reduce((sum, p) => {
         const property = p.property;
         const isExempt = property && exemptLocationIds.includes(property.locationId);
@@ -1729,7 +1762,7 @@ export default function Financial() {
     
     // ✅ CORREÇÃO: Excluir valores negativos do cálculo de Taxa Ger
     const managementFee = paymentsToCalculate
-      .filter((p) => (p.status === "paid" || p.status === "partial") && (p.paidAmount || 0) > 0)
+      .filter((p) => (p.status === "paid" || p.status === "partial" || p.status === "renegotiated") && (p.paidAmount || 0) > 0)
       .reduce((sum, p) => {
         const property = p.property;
         const isManagementFeeExempt = property && managementFeeExemptLocationIds.includes(property.locationId);
@@ -1740,7 +1773,7 @@ export default function Financial() {
     const netRevenue = totalReceived - adminFee - managementFee - totalLocationExpenses;
     
     const totalPaid = paymentsToCalculate
-      .filter(p => p.status === "paid" || p.status === "partial")
+      .filter(p => p.status === "paid" || p.status === "partial" || p.status === "renegotiated")
       .reduce((sum, p) => sum + (p.paidAmount || 0), 0);
 
     return {
@@ -2403,6 +2436,8 @@ export default function Financial() {
                                         ? "bg-red-100 text-red-700 border-red-300 text-xs"
                                         : payment.status === "partial"
                                         ? "bg-yellow-100 text-yellow-700 border-yellow-300 text-xs"
+                                        : payment.status === "renegotiated"
+                                        ? "bg-slate-200 text-slate-700 border-slate-300 text-xs"
                                         : "bg-gray-100 text-gray-700 border-gray-300 text-xs"
                                     }
                                   >
@@ -2412,6 +2447,8 @@ export default function Financial() {
                                       ? "Atrasado"
                                       : payment.status === "partial"
                                       ? "Parcial"
+                                      : payment.status === "renegotiated"
+                                      ? "Renegociado"
                                       : "Pendente"}
                                   </Badge>
                                 </TableCell>
