@@ -43,6 +43,9 @@ function resolverData(texto: string): string {
 const dataBR = (iso: string) => iso.split('-').reverse().join('/');
 const dinheiro = (v: number) => `R$ ${formatarValorBR(v)}`;
 const arred = (n: number) => Math.round(n * 100) / 100;
+/** "R$ 2.590,00" -> 2590 (inverso de `dinheiro`). */
+const valorDoTexto = (texto: string): number =>
+  Number(texto.replace(/[^\d,-]/g, '').replace(',', '.'));
 
 function periodoDe(iso: string): string {
   const [ano, mes] = iso.split('-');
@@ -147,6 +150,10 @@ When('abro "Parcelar débito" dessa locação na tela de Locações', { timeout:
 
 Then('o total do acordo na tela deve ser {string}', async function (this: CustomWorld, valor: string) {
   await expect(this.page.locator('#acordo-total-debito')).toHaveText(valor, { timeout: 10000 });
+  // Alguns cenarios so passam por aqui (nao pelo passo "...mais multa e
+  // juros..." abaixo, que e quem guardava isso antes) e depois conferem
+  // a soma das parcelas contra `totalEsperado` -- sem isso ficava undefined.
+  this.testData.acordo.totalEsperado = valorDoTexto(valor);
 });
 
 Then(
@@ -393,7 +400,10 @@ Then('o recibo deve citar a parcela {int} do acordo', async function (this: Cust
   const recibo = this.page.locator('#receipt-content');
   await expect(recibo).toContainText(new RegExp(`Acordo #\\d+ - parcela ${n}/`));
   await expect(recibo).toContainText('acordo de parcelamento');
-  await this.page.keyboard.press('Escape');
+  // Escape sozinho pode fechar o dialogo errado aqui (o recibo abre por
+  // cima do formulario de Gerenciar pagamento, que tambem e um dialogo):
+  // clica no X do proprio recibo, mesmo padrao ja usado em payments.steps.ts.
+  await this.page.getByRole('dialog').filter({ has: recibo }).getByRole('button').first().click();
   await expect(recibo).toBeHidden({ timeout: 10000 });
 });
 
