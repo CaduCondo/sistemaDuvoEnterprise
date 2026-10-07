@@ -291,21 +291,33 @@ Funcionalidade: Regras de Negócio de Locações
     Então a locação deve ser criada com sucesso
     E a locação criada tem corretor parceiro marcado
 
-  # FORA DO SMOKE (30/ago/2026): o passo de preparo cria a locação direto no
-  # banco, e quem gera os 12 recebimentos é a tela. Sem passar pela tela, não
-  # existe recebimento nenhum para contar -- o cenário não tem como passar.
-  # Ver docs/tickets/smoke-30-ago.md.
-  @quebrado
+  # ⚠️ Corrigido em 07/out/2026 (issue #121, backlog "religar @quebrado"):
+  # 1) "Quando crio uma locação com:" (esta tabela, com colunas
+  #    Imóvel/Inquilino) batia no step de deposits.steps.ts, que cria a
+  #    locação DIRETO NO BANCO -- sem passar pela tela. É a TELA
+  #    (RentalFormDialog.tsx -> rentalService.create()) quem gera os 12
+  #    recebimentos de aluguel; um insert direto no banco não gera nenhum.
+  # 2) O dropdown de Imóvel do formulário (RentalFormDialog.tsx) nunca
+  #    mostra o "property_identifier" (ex.: "IMO-001") -- só Local +
+  #    Complemento + valor. Não tinha como selecionar "IMO-001" pelo texto
+  #    como o cenário tentava.
+  # 3) "devem ser criados 12 pagamentos" contava TODAS as linhas da tabela
+  #    de Recebimentos, sem filtrar por esta locação -- nunca bateria num
+  #    banco de DEV compartilhado com outros cenários.
+  # Reescrito reaproveitando "que crio uma locação com:" (já usado pelos
+  # cenários "Pagamento proporcional...", 8-pagamentos-calculos.feature),
+  # que cria o imóvel/inquilino de teste com marca [E2E] única e cria a
+  # locação de verdade PELA TELA. As 3 asserções passam a olhar só os
+  # recebimentos desta locação (via this.tenantName), ignorando a parcela
+  # de caução -- mesma convenção já usada em "devo ver N recebimento".
+  @sistemaCompleto
   Cenário: Criar locação - Gerar pagamentos automaticamente
-    Dado que existe um imóvel disponível "IMO-001" com aluguel de "2500.00"
-    E existe um inquilino "João Silva"
-    Quando crio uma locação com:
+    Dado que crio uma locação com:
       | campo          | valor      |
-      | Imóvel         | IMO-001    |
-      | Inquilino      | João Silva |
-      | Dia vencimento | 10         |
       | Data início    | 01/01/2026 |
       | Data fim       | 31/12/2026 |
+      | Dia vencimento | 10         |
+      | Aluguel        | 2500.00    |
     Então devem ser criados 12 pagamentos
     E cada pagamento deve ter valor de "2500.00"
     E todos os pagamentos devem vencer no dia 10

@@ -1616,37 +1616,77 @@ Then('devo ver os campos:', async function(dataTable: any) {
   }
 });
 
-Then('devem ser criados {int} pagamentos', async function(count: number) {
+/**
+ * ⚠️ Corrigido em 07/out/2026 (issue #121, backlog "religar @quebrado"):
+ * contava TODAS as linhas da tabela de Recebimentos (sem filtrar por
+ * locação) e nunca trocava o período para "Todos" -- por padrão a tela
+ * (payments.tsx) só mostra o mês/ano ATUAL, e esta locação tem
+ * recebimentos espalhados pelos 12 meses do ano. Agora filtra pelo
+ * inquilino criado por "que crio uma locação com:" (this.tenantName) e
+ * ignora a parcela de caução -- mesma convenção já usada em "devo ver N
+ * recebimento" (payments.steps.ts, linhasDoRecebimento).
+ */
+async function selecionarTodosOsPeriodos(world: any) {
+  await world.page.locator('#period-selector-month').click();
+  await world.page.waitForTimeout(300);
+  await world.page.getByRole('option', { name: 'Todos os meses' }).click();
+  await world.page.waitForTimeout(300);
+
+  await world.page.locator('#period-selector-year').click();
+  await world.page.waitForTimeout(300);
+  await world.page.getByRole('option', { name: 'Todos os anos' }).click();
+  await world.page.waitForTimeout(500);
+}
+
+function linhasDePagamentosDaLocacao(world: any) {
+  const linhas = world.page.locator('tbody tr:visible').filter({ hasNotText: 'Caução' });
+  return world.tenantName ? linhas.filter({ hasText: world.tenantName }) : linhas;
+}
+
+Then('devem ser criados {int} pagamentos', async function(this: import('../support/world').CustomWorld, count: number) {
   await this.page.goto('/payments');
   await this.page.waitForLoadState('domcontentloaded');
-  
-  const payments = this.page.locator('tbody tr');
-  await expect(payments).toHaveCount(count, { timeout: 5000 });
+
+  await selecionarTodosOsPeriodos(this);
+
+  if (this.tenantName) {
+    await this.page.locator('#payments-search-input').fill(this.tenantName);
+    await this.page.waitForTimeout(500);
+  }
+
+  await expect(linhasDePagamentosDaLocacao(this)).toHaveCount(count, { timeout: 10000 });
 });
 
-Then('cada pagamento deve ter valor de {string}', async function(value: string) {
-  const payments = this.page.locator('tbody tr');
+Then('cada pagamento deve ter valor de {string}', async function(this: import('../support/world').CustomWorld, value: string) {
+  // A tela escreve em moeda brasileira ("R$ 2.500,00"), nunca no formato
+  // de máquina do Gherkin ("2500.00") -- compara por número extraído da
+  // linha, mesmo padrão já usado em "o valor deve ser proporcional a N
+  // dias" (payments.steps.ts).
+  const esperado = parseFloat(value);
+  const payments = linhasDePagamentosDaLocacao(this);
   const count = await payments.count();
-  
+
   for (let i = 0; i < count; i++) {
-    const payment = payments.nth(i);
-    const text = await payment.textContent();
-    expect(text).toContain(value);
+    const texto = ((await payments.nth(i).textContent()) || '').replace(/\s+/g, ' ');
+    const achados = [...texto.matchAll(/R\$\s*([\d.]+,\d{2})/g)].map((m) =>
+      parseFloat(m[1].replace(/\./g, '').replace(',', '.'))
+    );
+    expect(
+      achados.some((n) => Math.abs(n - esperado) < 0.01),
+      `pagamento ${i + 1}: nenhum valor em reais da linha bate com R$ ${esperado.toFixed(2)}. Linha lida: ${texto}`
+    ).toBe(true);
   }
 });
 
-Then('todos os pagamentos devem vencer no dia {int}', async function(day: number) {
-  const payments = this.page.locator('tbody tr');
+Then('todos os pagamentos devem vencer no dia {int}', async function(this: import('../support/world').CustomWorld, day: number) {
+  const dayStr = day.toString().padStart(2, '0');
+  const payments = linhasDePagamentosDaLocacao(this);
   const count = await payments.count();
-  
+
   for (let i = 0; i < count; i++) {
-    const payment = payments.nth(i);
-    const text = await payment.textContent();
-    
-    // Verificar se contém o dia (formato pode variar: 10/08, 10-08, etc)
-    const dayStr = day.toString().padStart(2, '0');
-    const hasDay = text?.includes(`/${dayStr}/`) || text?.includes(`-${dayStr}-`) || text?.includes(` ${dayStr} `);
-    expect(hasDay).toBe(true);
+    const texto = (await payments.nth(i).textContent()) || '';
+    const temODia = new RegExp(`\\b${dayStr}\\/\\d{2}\\/\\d{4}\\b`).test(texto);
+    expect(temODia, `pagamento ${i + 1} não vence no dia ${dayStr}. Linha lida: ${texto}`).toBe(true);
   }
 });
 
