@@ -266,8 +266,11 @@ export const usePayments = () => {
           attachments: attachmentsArray,
           partialPayments: Array.isArray(payment.partial_payments) ? payment.partial_payments : [],
           pixCode: payment.pix_code || null,
-          installment: payment.installment || 1,
-          totalInstallments: payment.total_installments || 1,
+          // Sem número de parcela (proporcional/multa da rescisão cobrado à
+          // parte, entrada de acordo) a lista mostra "-". Antes vinha 1 aqui e
+          // a coluna mostrava "1/1" (06/out/2026).
+          installment: payment.installment ?? undefined,
+          totalInstallments: payment.total_installments ?? undefined,
           property: property ? {
             id: property.id,
             locationId: property.location_id,
