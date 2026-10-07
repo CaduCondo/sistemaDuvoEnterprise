@@ -2263,6 +2263,69 @@ como uma rescisão fecha — as telas mostram, abaixo do `VALOR TOTAL`, a
 linha `VALOR TOTAL DA RESCISÃO` com a soma dos dois. O inquilino costuma
 pagar tudo de uma vez.
 
+### Acordo de parcelamento do débito (#119)
+
+> Novo em **07/out/2026**, a pedido do Cadu (caso real: SIGNORE APTO 21).
+> O inquilino pode pagar o que deve da rescisão (ou qualquer débito em
+> aberto) em parcelas.
+
+**Onde:** botão **"Parcelar débito"** na lista de Locações (ícone de aperto
+de mão) e dentro de qualquer recebimento em aberto (tela de Recebimentos).
+Abre um assistente em 3 passos.
+
+**1. O que entra.** Todos os recebimentos em aberto da locação (pendente,
+parcial, atrasado), já marcados — dá para desmarcar. Cada um entra pelo
+**saldo** (o que falta pagar) **mais a multa e os juros por atraso até
+hoje**, com os percentuais de Configurações > Multas e Juros e a mesma conta
+da tela de pagamento.
+
+    Total do acordo = recebimentos em aberto (aluguel, proporcional, multa rescisória)
+                    + multa e juros por atraso de cada um
+                    + Despesas Adicionais
+                    − Caução corrigido
+                    − Valor de Desconto
+
+- **Despesas Adicionais, Caução corrigido e Desconto** vêm do Recebimento de
+  Rescisão, como estão **salvos** nele (botão "Salvar" do bloco Formação de
+  Valores). Se a tela e o banco discordarem, o sistema recusa e pede para
+  salvar e abrir o acordo de novo.
+- O campo **Valor de Desconto** aparece sempre, mesmo com o total da
+  rescisão negativo (antes sumia — revisto aqui).
+- Recebimentos com vencimento **até 31/12/2025 nunca entram**: o sistema
+  não existia e esses registros não são confiáveis.
+- Se o total der zero ou negativo (só a devolução do caução já cobre tudo),
+  **não há o que parcelar**: o saldo é a favor do inquilino.
+
+**2. Parcelas.** De **1 a 6**, **sem juros**. A 1ª vence na data escolhida e
+as seguintes no mesmo dia dos meses seguintes (dia 31 em mês curto vira o
+último dia). Os centavos que sobram da divisão vão para a última parcela.
+Exemplo: R$ 6.000,00 em 3x a partir de 20/10/2026 → 2.000,00 em 20/10,
+20/11 e 20/12/2026.
+
+**3. Confirmar.** Tudo é gravado de uma vez (ou nada é gravado):
+
+| O quê | O que acontece |
+|---|---|
+| Recebimentos que entraram | Status **Renegociado**. Nada é apagado. Valores **congelados** (multa, juros, caução corrigido, despesas, desconto): foram combinados. Ficam só para consulta, na aba **Renegociados** de Recebimentos. |
+| Parcelas | Recebimentos novos "Acordo #N - parcela k/N", cobrados normalmente. Se uma parcela atrasar, multa e juros contam sobre **ela**. |
+| Caução | O caução corrigido abatido é registrado como **devolvido** (coluna "Valor Devolvido" da aba Cauções). |
+
+**Financeiro (aba Locações) — o mesmo dinheiro nunca conta duas vezes.**
+O recebimento renegociado continua aparecendo no mês dele, com status
+"Renegociado", mas o **valor esperado passa a ser só o que dele já foi pago**
+(R$ 0,00 se nada foi pago); o que já foi pago continua contando como
+recebido no mês em que entrou. O restante é esperado nas **parcelas**, que
+aparecem nos meses delas. Taxas Adm/Ger incidem sobre o que as parcelas
+recebem (o caução nunca passa por elas). O mesmo vale para o Painel.
+
+**Desfazer o acordo.** Só enquanto nenhuma parcela tiver pagamento: abrir
+uma parcela (ou um renegociado) e clicar em "Desfazer acordo". As parcelas
+são apagadas e os originais voltam **exatamente** como estavam (status,
+multa, juros, caução devolvido).
+
+**Proteções:** reajuste de aluguel e troca do dia de vencimento **nunca**
+mexem nas parcelas do acordo.
+
 ### Aviso quando a caução está pendente ou parcial
 
 > Novo em **01/set/2026**, a pedido do Cadu: o corretor insistia em fechar a
