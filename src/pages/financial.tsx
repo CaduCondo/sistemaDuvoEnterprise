@@ -2414,7 +2414,11 @@ export default function Financial() {
                                 {/* Parc (Parcela) - MOVIDA PARA CÁ */}
                                 {isFirstOfGroup && (
                                   <TableCell className="text-center text-xs" rowSpan={span}>
-                                    {payment.installment || 1}/{payment.totalInstallments || 24}
+                                    {payment.paymentKind === "agreement"
+                                      ? payment.installment && payment.totalInstallments
+                                        ? `Acordo ${payment.installment}/${payment.totalInstallments}`
+                                        : "Entrada"
+                                      : `${payment.installment || 1}/${payment.totalInstallments || 24}`}
                                   </TableCell>
                                 )}
 
