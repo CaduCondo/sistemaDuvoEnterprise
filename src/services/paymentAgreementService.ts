@@ -153,6 +153,17 @@ export async function desfazerAcordo(acordoId: string): Promise<void> {
   if (error) throw new Error(error.message || "Não foi possível desfazer o acordo.");
 }
 
+export interface LinhaDoAcordo {
+  id: string;
+  descricao: string;
+  vencimento: string;
+  valor: number;
+  status: string;
+  pago: number;
+  /** Linha completa do banco (para abrir o recebimento e montar o recibo). */
+  bruto: any;
+}
+
 export interface AcordoDetalhado {
   id: string;
   numero: number;
@@ -163,37 +174,74 @@ export interface AcordoDetalhado {
   desconto: number;
   entrada: number;
   totalAcordado: number;
-  parcelas: { id: string; descricao: string; vencimento: string; valor: number; status: string; pago: number }[];
-  originais: { id: string; vencimento: string; valor: number; statusAnterior: string | null }[];
+  parcelas: LinhaDoAcordo[];
+  originais: LinhaDoAcordo[];
   podeDesfazer: boolean;
+}
+
+/**
+ * Nome da parcela. Vem da "Formação de Valores" (que o pagamento não muda);
+ * NÃO das observações: ao receber uma parcela, a tela de pagamento grava as
+ * observações digitadas por cima (era isso que apagava "Acordo #1 - parcela
+ * 1/4" do quadro do acordo -- achado pelo Cadu em 07/out/2026).
+ */
+export function descricaoDaParcela(p: any, numeroAcordo?: number): string {
+  let itens: any[] = [];
+  try {
+    itens = typeof p?.breakdown === "string" ? JSON.parse(p.breakdown) : Array.isArray(p?.breakdown) ? p.breakdown : [];
+  } catch {
+    itens = [];
+  }
+  const doAcordo = itens.find((i) => /^(Acordo #|Entrada do acordo)/.test(String(i?.description || "")));
+  if (doAcordo) return String(doAcordo.description);
+  if (p?.installment && p?.total_installments) {
+    return `Acordo #${numeroAcordo ?? "?"} - parcela ${p.installment}/${p.total_installments}`;
+  }
+  return `Entrada do acordo #${numeroAcordo ?? "?"}`;
 }
 
 export async function buscarAcordo(acordoId: string): Promise<AcordoDetalhado | null> {
   const [{ data: acordo, error: e1 }, { data: parcelas }, { data: originais }] = await Promise.all([
     db.from("payment_agreements").select("*").eq("id", acordoId).maybeSingle(),
-    db.from("payments").select("id, notes, due_date, expected_amount, status, paid_amount").eq("agreement_id", acordoId).order("due_date"),
-    db
-      .from("payments")
-      .select("id, due_date, expected_amount, status_before_agreement")
-      .eq("renegotiated_in_agreement_id", acordoId)
-      .order("due_date"),
+    db.from("payments").select("*").eq("agreement_id", acordoId).order("due_date"),
+    db.from("payments").select("*").eq("renegotiated_in_agreement_id", acordoId).order("due_date"),
   ]);
   if (e1) throw e1;
   if (!acordo) return null;
+  const numero = Number(acordo.agreement_number);
 
-  const listaParcelas = (parcelas || []).map((p: any) => ({
+  const listaParcelas: LinhaDoAcordo[] = (parcelas || []).map((p: any) => ({
     id: p.id,
-    descricao: p.notes || "",
+    descricao: descricaoDaParcela(p, numero),
     vencimento: p.due_date,
     valor: Number(p.expected_amount) || 0,
     status: p.status,
     pago: Number(p.paid_amount) || 0,
+    bruto: p,
   }));
+
+  const listaOriginais: LinhaDoAcordo[] = (originais || []).map((o: any) => ({
+    id: o.id,
+    descricao: descreverRecebimento(o),
+    vencimento: o.due_date,
+    // Valor congelado no acordo: saldo + multa + juros (no Recebimento de
+    // Rescisão, caução corrigido + despesas − desconto).
+    valor: arred(
+      (Number(o.expected_amount) || 0) - (Number(o.paid_amount) || 0) + (Number(o.late_fee) || 0) + (Number(o.interest) || 0)
+    ),
+    status: o.status,
+    pago: Number(o.paid_amount) || 0,
+    bruto: o,
+  }));
+
+  // Todas as parcelas pagas = acordo quitado (mostrado assim na tela).
+  const quitado =
+    acordo.status === "active" && listaParcelas.length > 0 && listaParcelas.every((p) => p.status === "paid");
 
   return {
     id: acordo.id,
-    numero: Number(acordo.agreement_number),
-    status: acordo.status,
+    numero,
+    status: quitado ? "paid" : acordo.status,
     dataAcordo: acordo.agreement_date,
     totalOriginal: Number(acordo.total_original) || 0,
     multaJuros: Number(acordo.late_fees) || 0,
@@ -201,14 +249,9 @@ export async function buscarAcordo(acordoId: string): Promise<AcordoDetalhado | 
     entrada: Number(acordo.down_payment) || 0,
     totalAcordado: Number(acordo.total_agreed) || 0,
     parcelas: listaParcelas,
-    originais: (originais || []).map((o: any) => ({
-      id: o.id,
-      vencimento: o.due_date,
-      valor: Number(o.expected_amount) || 0,
-      statusAnterior: o.status_before_agreement,
-    })),
+    originais: listaOriginais,
     podeDesfazer:
       acordo.status === "active" &&
-      listaParcelas.every((p: { status: string; pago: number }) => p.status !== "paid" && p.status !== "partial" && p.pago <= 0),
+      listaParcelas.every((p) => p.status !== "paid" && p.status !== "partial" && p.pago <= 0),
   };
 }

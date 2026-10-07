@@ -1305,7 +1305,10 @@ export default function Payments() {
           </DialogHeader>
           {uiState.selectedPaymentId && (
             <ManagePaymentForm
+              // key: trocar de recebimento (ex.: outra parcela do acordo) zera o formulário
+              key={uiState.selectedPaymentId}
               paymentId={uiState.selectedPaymentId}
+              onOpenPayment={(id) => setUiState(prev => ({ ...prev, selectedPaymentId: id }))}
               onSuccess={handleManagePaymentSuccess}
               onClose={() => setUiState(prev => ({ ...prev, selectedPaymentId: null }))}
               onCancelPayment={permissions.canDeletePayment ? (id) => setUiState(prev => ({ ...prev, paymentToCancel: id, selectedPaymentId: null })) : undefined}

@@ -96,13 +96,15 @@ interface ManagePaymentFormProps {
   }) => void;
   onClose?: () => void;
   embedded?: boolean;
+  /** Abre outro recebimento no lugar deste (ex.: outra parcela do acordo, #119). */
+  onOpenPayment?: (paymentId: string) => void;
   // Se informado, mostra um botão "Cancelar Pagamento" no rodapé (à
   // esquerda) quando o recebimento já está pago — dispara a confirmação de
   // cancelamento do lado de quem chamou (ex: página de Recebimentos).
   onCancelPayment?: (paymentId: string) => void;
 }
 
-export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = false, onCancelPayment }: ManagePaymentFormProps) {
+export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = false, onCancelPayment, onOpenPayment }: ManagePaymentFormProps) {
   const router = useRouter();
   const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
@@ -1337,6 +1339,11 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       {(payment?.agreement_id || payment?.renegotiated_in_agreement_id) && (
         <PaymentAgreementInfo
           acordoId={payment.agreement_id || payment.renegotiated_in_agreement_id}
+          paymentIdAtual={paymentId}
+          onOpenPayment={onOpenPayment}
+          rental={rental}
+          property={property}
+          tenant={tenant}
           onChanged={() => onSuccess?.({ payment, rental, property, tenant } as any)}
         />
       )}
