@@ -133,3 +133,22 @@ Funcionalidade: Acordo de parcelamento do débito do inquilino (#119)
     Dado um Recebimento de Rescisão com total negativo
     Quando abro esse Recebimento de Rescisão
     Então o campo "Valor de Desconto" e o botão "Salvar" da Formação de Valores devem estar na tela
+
+  @sistemaCompleto
+  Cenário: Parcela paga mantém o nome, tem recibo e cada linha do acordo abre o próprio recebimento
+    # Achado pelo Cadu em 07/out/2026: ao receber a 1ª parcela, o nome
+    # "Acordo #N - parcela 1/N" sumia do quadro do acordo (a tela de pagamento
+    # grava as observações por cima).
+    Dado uma locação com estes recebimentos em aberto:
+      | tipo    | vencimento | valor   |
+      | aluguel | hoje+15    | 1000.00 |
+    Quando abro "Parcelar débito" dessa locação na tela de Locações
+    E escolho 2 parcelas com a primeira vencendo em "hoje+30"
+    E confirmo o acordo
+    E a parcela 1 do acordo foi paga com as observações apagadas
+    E abro a parcela 2 do acordo na tela de Recebimentos
+    Então o quadro do acordo deve mostrar a parcela 1 com o nome, "Pago" e o botão de recibo
+    Quando abro o recibo da parcela 1 pelo quadro do acordo
+    Então o recibo deve citar a parcela 1 do acordo
+    Quando clico na linha da parcela 1 no quadro do acordo
+    Então o recebimento aberto deve ser o da parcela 1

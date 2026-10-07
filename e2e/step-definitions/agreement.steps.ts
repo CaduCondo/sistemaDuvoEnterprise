@@ -354,3 +354,59 @@ Then('o campo "Valor de Desconto" e o botão "Salvar" da Formação de Valores d
   await expect(this.page.locator('#breakdown-discount-termination'), 'campo "Valor de Desconto"').toBeVisible({ timeout: 10000 });
   await expect(this.page.locator('#breakdown-save-expenses'), 'botão "Salvar" da Formação de Valores').toBeVisible();
 });
+
+// ---------------------------------------------------------------------------
+// Quadro do acordo: nome da parcela paga, recibos e navegação (07/out/2026)
+// ---------------------------------------------------------------------------
+
+Given('a parcela {int} do acordo foi paga com as observações apagadas', async function (this: CustomWorld, n: number) {
+  const parcela = (await parcelasDoAcordo(this.rentalId!))[n - 1];
+  // Igual ao que a tela de pagamento grava: status pago, valor e data, e as
+  // observações trocadas pelo que foi digitado (aqui, vazio).
+  await DatabaseHelper.updatePayment(parcela.id, {
+    status: 'paid',
+    paid_amount: parcela.expected_amount,
+    payment_date: isoLocal(new Date()),
+    notes: '',
+  });
+});
+
+Then(
+  'o quadro do acordo deve mostrar a parcela {int} com o nome, "Pago" e o botão de recibo',
+  async function (this: CustomWorld, n: number) {
+    const parcela = (await parcelasDoAcordo(this.rentalId!))[n - 1];
+    const linha = this.page.locator(`#acordo-parcelas tr[data-parcela-id="${parcela.id}"]`);
+    await expect(linha).toBeVisible({ timeout: 15000 });
+    await expect(linha, 'o nome da parcela sumiu').toContainText(new RegExp(`Acordo #\\d+ - parcela ${n}/`));
+    await expect(linha).toContainText('Pago');
+    await expect(this.page.locator(`[data-testid="acordo-recibo-${parcela.id}-0"]`), 'botão de recibo').toBeVisible();
+  }
+);
+
+When('abro o recibo da parcela {int} pelo quadro do acordo', async function (this: CustomWorld, n: number) {
+  const parcela = (await parcelasDoAcordo(this.rentalId!))[n - 1];
+  await this.page.locator(`[data-testid="acordo-recibo-${parcela.id}-0"]`).click();
+  await expect(this.page.locator('#receipt-content')).toBeVisible({ timeout: 15000 });
+});
+
+Then('o recibo deve citar a parcela {int} do acordo', async function (this: CustomWorld, n: number) {
+  const recibo = this.page.locator('#receipt-content');
+  await expect(recibo).toContainText(new RegExp(`Acordo #\\d+ - parcela ${n}/`));
+  await expect(recibo).toContainText('acordo de parcelamento');
+  await this.page.keyboard.press('Escape');
+  await expect(recibo).toBeHidden({ timeout: 10000 });
+});
+
+When('clico na linha da parcela {int} no quadro do acordo', async function (this: CustomWorld, n: number) {
+  const parcela = (await parcelasDoAcordo(this.rentalId!))[n - 1];
+  this.testData.acordo.parcelaAberta = parcela;
+  await this.page.locator(`#acordo-parcelas tr[data-parcela-id="${parcela.id}"] td`).first().click();
+});
+
+Then('o recebimento aberto deve ser o da parcela {int}', async function (this: CustomWorld, n: number) {
+  const parcela = this.testData.acordo.parcelaAberta;
+  // A linha do recebimento aberto fica destacada (e deixa de ser clicável).
+  const linha = this.page.locator(`#acordo-parcelas tr[data-parcela-id="${parcela.id}"]`);
+  await expect(linha).toHaveClass(/bg-sky-50/, { timeout: 15000 });
+  await expect(this.page.locator('#payments-manage-dialog')).toContainText(`Parcela ${n}/`);
+});
