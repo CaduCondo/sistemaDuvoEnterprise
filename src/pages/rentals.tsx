@@ -912,13 +912,13 @@ export default function RentalsPage() {
     { key: "endDate", label: "Data Fim", headerClassName: "text-center", cellClassName: "text-center px-1", className: "w-[70px]", render: (r: Rental) => r.endDate ? new Date(r.endDate + "T12:00:00").toLocaleDateString("pt-BR") : "-" },
     { key: "status", label: "Status", headerClassName: "text-center", cellClassName: "text-center px-1", className: "w-[70px]", render: (r: Rental) => getStatusBadge(r.status, r.endDate) },
     { key: "actions", label: "Ações", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-1", className: "w-[150px]", render: (r: Rental) => {
-      // ⚠️ Antes, os botões sumiam sozinhos assim que a data fim passava
-      // (mesmo a locação continuando "active" no banco) -- isso travava a
-      // equipe sem conseguir Renovar nem Rescindir uma locação vencida, bem
-      // no momento em que mais precisava agir (ex.: inquilino demorou pra
-      // confirmar renovação). Os botões agora seguem só o `isActive` real da
-      // locação, igual a visão em grade já fazia.
-      if (!r.isActive) return <span className="text-xs text-muted-foreground">-</span>;
+      // ⚠️ Antes, os botões sumiam sozinhos assim que a locação ficava
+      // "Encerrado" (rescindida) OU assim que a data fim passava -- isso
+      // travava a equipe sem conseguir Renovar, Rescindir, abrir o Histórico
+      // ou fazer um Acordo de parcelamento numa locação já encerrada (achado
+      // pelo Cadu em 07/out/2026: travava inclusive fechar o acordo do débito
+      // da própria rescisão). Os botões de ação aparecem para TODAS as
+      // locações agora, qualquer que seja o status.
 
       return (
         <div className="flex items-center justify-center gap-0.5">
@@ -1284,8 +1284,7 @@ export default function RentalsPage() {
                               {formatCurrency((rental.value || 0) + (rental.garageValue || 0))}
                             </p>
                           </div>
-                          {rental.isActive && (
-                            <div className="flex gap-1.5 flex-shrink-0">
+                          <div className="flex gap-1.5 flex-shrink-0">
                               <Button
                                 id={`rentals-history-${rental.id}`}
                                 variant="outline"
@@ -1348,8 +1347,7 @@ export default function RentalsPage() {
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
-                            </div>
-                          )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
