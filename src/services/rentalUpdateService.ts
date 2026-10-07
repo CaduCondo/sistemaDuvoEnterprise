@@ -331,6 +331,9 @@ export async function adjustRentalValue(
   for (const payment of unpaidPayments as any[]) {
     // Recebimento de Fim de Contrato (caução) não é aluguel: nunca muda aqui.
     if (payment.payment_kind === "termination") continue;
+    // Parcela de acordo de parcelamento (#119): valor combinado com o
+    // inquilino, nunca vira "valor do aluguel".
+    if (payment.payment_kind === "agreement") continue;
 
     // Proporcional de fim de contrato: continua proporcional, só que sobre o
     // valor novo (mesmos dias).
@@ -419,6 +422,8 @@ export async function syncPaymentDueDay(
     // Fim de contrato (proporcional final e recebimento de Fim de Contrato)
     // vence na DATA FIM, não no dia de vencimento -- não muda de dia aqui.
     if (payment.contract_end) continue;
+    // Parcela de acordo (#119) vence no dia combinado no acordo.
+    if (payment.payment_kind === "agreement") continue;
     const dataAtual = new Date(payment.due_date + "T00:00:00");
     const diasNoMes = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
     // Se o novo dia não existe naquele mês (ex.: dia 31 num mês de 30 dias),

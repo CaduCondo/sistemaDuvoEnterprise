@@ -90,6 +90,15 @@ export function usePaymentCalculations({
       }
     }
 
+    // Parcela/entrada de acordo de parcelamento (#119): a "Formação de
+    // Valores" dela não tem linha de Aluguel/Garagem, e o código acima cairia
+    // no aluguel da LOCAÇÃO. O valor é o da parcela -- e é sobre ele que
+    // multa e juros contam se a parcela atrasar.
+    if (payment?.payment_kind === "agreement") {
+      calculatedRentalValue = Number(payment.expected_amount) || 0;
+      calculatedGarageValue = 0;
+    }
+
     // VALOR TOTAL DO ALUGUEL = Aluguel do Imóvel + Garagem (quando aplicável)
     const valorAluguel = Math.round((calculatedRentalValue + calculatedGarageValue) * 100) / 100;
     
