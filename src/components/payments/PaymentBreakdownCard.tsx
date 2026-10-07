@@ -330,11 +330,13 @@ export function PaymentBreakdownCard({
                 </p>
               </div>
 
-              {/* Item 6 (28/ago/2026): total NEGATIVO significa que a
-                  imobiliaria devolve dinheiro ao inquilino. Nao ha o que
-                  descontar de quem nao esta pagando, entao o campo some.
-                  Total positivo ou zero: continua. */}
-              <div className="space-y-2" hidden={finalTotal < 0}>
+              {/* Item 6 (28/ago/2026) escondia este campo quando o total da
+                  rescisao ficava NEGATIVO. Revisto em 07/out/2026 (#119, Cadu):
+                  o desconto tambem abate o total quando a divida do inquilino
+                  vira acordo de parcelamento (o total que importa e o da
+                  rescisao inteira - proporcional, multa rescisoria, despesas,
+                  devolucao do caucao e desconto). O campo fica sempre visivel. */}
+              <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-4 items-center text-sm">
                   <span>Valor de Desconto</span>
                   

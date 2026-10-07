@@ -68,7 +68,7 @@ function paraNumero(valor: string): number {
 }
 
 /** 4250 -> "4.250,00" (sem "R$", para casar com o texto da célula) */
-function formatarValorBR(valor: number): string {
+export function formatarValorBR(valor: number): string {
   return Math.abs(valor).toLocaleString('pt-BR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -187,7 +187,7 @@ function seletorDeAno(page: Page): Locator {
 }
 
 /** Aba Locações do Financeiro: o seletor NÃO tem a opção "todos" (showAllOption=false). */
-async function selecionarPeriodo(page: Page, mes: string, ano: string) {
+export async function selecionarPeriodo(page: Page, mes: string, ano: string) {
   const nomeDoMes = MESES_PT[Number(mes) - 1];
 
   await seletorDeMes(page).click();
@@ -229,7 +229,7 @@ async function abrirAbaFinanceiro(world: CustomWorld, nomeDaAba: string) {
  * enquanto ela não termina a tela mostra "Carregando recebimentos..." e as abas
  * nem são desenhadas. Esperar a aba aparecer é, portanto, esperar a lista.
  */
-async function esperarListaDeRecebimentos(page: Page) {
+export async function esperarListaDeRecebimentos(page: Page) {
   await expect(
     page.locator('#payments-tab-pending'),
     'a lista de Recebimentos não terminou de carregar'
@@ -252,7 +252,7 @@ async function esperarListaDeRecebimentos(page: Page) {
  *
  * Filtrando pelo mês, a conta é feita no banco e voltam poucas linhas.
  */
-async function abrirRecebimentosDoInquilino(world: CustomWorld, pagamento?: any) {
+export async function abrirRecebimentosDoInquilino(world: CustomWorld, pagamento?: any) {
   const page = world.page;
 
   await page.goto('/payments');
@@ -297,7 +297,7 @@ function linhaDoRecebimento(world: CustomWorld, pagamento: any): Locator {
  *
  * O que prova que os dados chegaram é o NOME DO INQUILINO dentro do diálogo.
  */
-async function abrirRecebimento(world: CustomWorld, pagamento: any) {
+export async function abrirRecebimento(world: CustomWorld, pagamento: any) {
   await abrirRecebimentosDoInquilino(world, pagamento);
 
   const linha = linhaDoRecebimento(world, pagamento);
@@ -552,9 +552,8 @@ Given('que estou preenchendo o Recebimento de Rescisão', async function (this: 
     due_date: '2026-09-03',
     reference_month: '09',
     reference_year: '2026',
-    // Total POSITIVO de propósito: quando o VALOR TOTAL é negativo (a
-    // imobiliária é que paga), o campo "Valor de Desconto" some da tela —
-    // rodada 3, item 6. Não haveria o que descontar de quem não está pagando.
+    // (Até 07/out/2026 o campo "Valor de Desconto" sumia com total negativo
+    // -- rodada 3, item 6. Revisto na #119: agora aparece sempre.)
     //   -1.000,00 (devolução) + 2.000,00 (despesas) = +1.000,00
     termination_corrected_deposit: -1000,
     termination_additional_expenses: 2000,
