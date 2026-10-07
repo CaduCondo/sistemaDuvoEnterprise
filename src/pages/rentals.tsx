@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAlert } from "@/contexts/AlertContext";
-import { Home, Plus, User, ChevronDown, ChevronUp, Trash2, XCircle, Grid3x3, List, AlertTriangle, RefreshCw, Ban, MapPin, Eye, FileText, Calendar, Search, Wand2, RotateCw, Pencil, HelpCircle } from "lucide-react";
+import { Home, Plus, User, ChevronDown, ChevronUp, Trash2, XCircle, Grid3x3, List, AlertTriangle, RefreshCw, Ban, MapPin, Eye, FileText, Calendar, Search, Wand2, RotateCw, Pencil, HelpCircle, Handshake } from "lucide-react";
 import { getAll as getAllRentals, remove as deleteRental, terminateContract } from "@/services/rentalService";
 import { getAvailable as getAvailableProperties, update as updateProperty, getAll as getAllProperties } from "@/services/propertyService";
 import { getActive as getActiveTenants, update as updateTenant, getAll as getAllTenants } from "@/services/tenantService";
@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Building2 } from "lucide-react";
+import { PaymentAgreementDialog } from "@/components/payments/PaymentAgreementDialog";
 import type React from "react";
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
@@ -73,6 +74,8 @@ export default function RentalsPage() {
   const [deleteStep, setDeleteStep] = useState<1 | 2 | 3>(1);
   const [deleteChoices, setDeleteChoices] = useState({ pending: false, paid: false });
   const [rentalToEnd, setRentalToEnd] = useState<Rental | null>(null);
+  // Acordo de parcelamento do débito (#119)
+  const [rentalParaAcordo, setRentalParaAcordo] = useState<Rental | null>(null);
   const [rentalToRenew, setRentalToRenew] = useState<Rental | null>(null);
   const [rentalForPaymentHistory, setRentalForPaymentHistory] = useState<Rental | null>(null);
   
@@ -959,6 +962,19 @@ export default function RentalsPage() {
             <XCircle className="h-3.5 w-3.5" />
           </Button>
           <Button
+            id={`rentals-agreement-${r.id}`}
+            variant="outline"
+            size="icon"
+            className="h-7 w-7 bg-sky-600 hover:bg-sky-700 text-white border-sky-600"
+            onClick={(e) => {
+              e.stopPropagation();
+              setRentalParaAcordo(r);
+            }}
+            title="Parcelar débito (acordo)"
+          >
+            <Handshake className="h-3.5 w-3.5" />
+          </Button>
+          <Button
             id={`rentals-delete-${r.id}`}
             variant="destructive"
             size="icon"
@@ -1310,6 +1326,19 @@ export default function RentalsPage() {
                                 <XCircle className="h-4 w-4" />
                               </Button>
                               <Button
+                                id={`rentals-agreement-${rental.id}`}
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 bg-sky-600 hover:bg-sky-700 text-white border-sky-600"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRentalParaAcordo(rental);
+                                }}
+                                title="Parcelar débito (acordo)"
+                              >
+                                <Handshake className="h-4 w-4" />
+                              </Button>
+                              <Button
                                 id={`rentals-delete-${rental.id}`}
                                 variant="destructive"
                                 size="icon"
@@ -1387,6 +1416,14 @@ export default function RentalsPage() {
         preselectedPropertyId={selectedPropertyId}
         preselectedTenantId={selectedTenantId}
       />
+
+      {rentalParaAcordo && (
+        <PaymentAgreementDialog
+          open={!!rentalParaAcordo}
+          onOpenChange={(aberto) => !aberto && setRentalParaAcordo(null)}
+          rentalId={rentalParaAcordo.id}
+        />
+      )}
 
       <RentalTerminationDialog
         open={!!rentalToEnd}

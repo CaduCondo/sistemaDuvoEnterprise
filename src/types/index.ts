@@ -266,11 +266,16 @@ export interface Payment {
    *                    despesas e desconto), NAO entra na base das taxas.
    * Recebimentos anteriores a migracao vem indefinidos e valem como 'rent'.
    */
-  paymentKind?: "rent" | "termination";
+  paymentKind?: "rent" | "termination" | "agreement";
   /** Recebimento de fim de contrato (proporcional final ou Fim de Contrato) -- ver src/lib/contractEnd.ts */
   contractEnd?: boolean;
+  /** Parcela/entrada de um acordo de parcelamento (#119). */
+  agreementId?: string | null;
+  /** Recebimento original que entrou num acordo de parcelamento (#119). */
+  renegotiatedInAgreementId?: string | null;
   paidAmount: number;
-  status: "paid" | "pending" | "overdue" | "partial";
+  /** 'renegotiated' = entrou num acordo de parcelamento (#119); não é cobrado mais. */
+  status: "paid" | "pending" | "overdue" | "partial" | "renegotiated";
   paymentDate: string | null;
   paymentMethod: string | null;
   notes: string | null;

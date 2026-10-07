@@ -180,6 +180,12 @@ export default function Payments() {
   const getPaymentInstallment = useCallback((payment: Payment) => {
     // Recebimento de rescisão / Fim de Contrato não é parcela de aluguel.
     if (payment.paymentKind === "termination") return "-";
+    // Acordo de parcelamento (#119): "Acordo 1/3"; a entrada não tem número.
+    if (payment.paymentKind === "agreement") {
+      return payment.installment && payment.totalInstallments
+        ? `Acordo ${payment.installment}/${payment.totalInstallments}`
+        : "Entrada";
+    }
     // ✅ CORREÇÃO: Se não tiver installment, assumir parcela única (1/1) para pagamentos de aluguel
     // Para parcelas de caução, viria com o valor correto do banco
     // Recebimento de aluguel SEM número de parcela = proporcional/multa de
@@ -554,7 +560,7 @@ export default function Payments() {
   }, [loadPayments, selectedMonth, selectedYear, showAlert]);
 
   // Pagamentos filtrados por busca e separados por status
-  const { pendingPayments, paidPayments } = useMemo(() => {
+  const { pendingPayments, paidPayments, renegotiatedPayments } = useMemo(() => {
     const filterBySearch = (p: Payment) => {
       if (!debouncedSearchQuery) return true;
 
@@ -607,6 +613,13 @@ export default function Payments() {
     const paid = payments.filter((p) => {
       return p.status === "paid" && filterBySearch(p);
     });
+
+    // Recebimentos que entraram num acordo de parcelamento (#119): não são
+    // mais cobrados (quem cobra são as parcelas do acordo), mas continuam
+    // visíveis, com os valores congelados no dia do acordo.
+    const renegotiated = payments
+      .filter((p) => p.status === "renegotiated" && filterBySearch(p))
+      .sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || ""));
 
     // ✅ ORDENAÇÃO PADRÃO: Pendentes por Data de Vencimento (ascendente)
     if (sortKeyPending) {
@@ -702,7 +715,7 @@ export default function Payments() {
       });
     }
 
-    return { pendingPayments: pending, paidPayments: paid };
+    return { pendingPayments: pending, paidPayments: paid, renegotiatedPayments: renegotiated };
   }, [payments, debouncedSearchQuery, rentals, properties, tenants, sortKeyPending, sortDirectionPending, sortKeyPaid, sortDirectionPaid, getPropertyForPayment, getTenantForPayment, getPaymentInstallment, getExpectedAmount]);
 
   // Helper para determinar cores baseado na data de vencimento
@@ -765,7 +778,8 @@ export default function Payments() {
           pending: { label: "Pendente", className: "bg-yellow-100 text-yellow-800" },
           overdue: { label: "Atrasado", className: "bg-red-100 text-red-800" },
           partial: { label: "Parcial", className: "bg-orange-100 text-orange-800" },
-        }[p.status] || { label: "Pendente", className: "bg-yellow-100 text-yellow-800" };
+          renegotiated: { label: "Renegociado", className: "bg-slate-200 text-slate-800" },
+        }[p.status as string] || { label: "Pendente", className: "bg-yellow-100 text-yellow-800" };
         return (
           <div className="flex flex-col items-center gap-1">
             <Badge className={config.className}>{config.label}</Badge>
@@ -774,6 +788,9 @@ export default function Payments() {
             )}
             {isTerminationPayment(p) && (
               <Badge className="bg-purple-100 text-purple-800">{p.contractEnd ? "Fim de Contrato" : "Rescisão"}</Badge>
+            )}
+            {p.paymentKind === "agreement" && (
+              <Badge className="bg-sky-100 text-sky-800">Acordo</Badge>
             )}
           </div>
         );
@@ -1046,7 +1063,7 @@ export default function Payments() {
           </div>
         ) : (
           <Tabs defaultValue="pending" className="space-y-0">
-            <TabsList className="grid w-full max-w-md grid-cols-2 h-auto p-1">
+            <TabsList className="grid w-full max-w-2xl grid-cols-3 h-auto p-1">
               <TabsTrigger id="payments-tab-pending" value="pending" className="gap-2 text-xs sm:text-base py-3 px-4 sm:px-6">
                 <span className="hidden sm:inline">Recebimentos Pendentes</span>
                 <span className="sm:hidden">Pendentes</span>
@@ -1059,6 +1076,13 @@ export default function Payments() {
                 <span className="sm:hidden">Pagos</span>
                 <Badge variant="default" className="bg-green-500 text-xs">
                   {paidPayments.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger id="payments-tab-renegotiated" value="renegotiated" className="gap-2 text-xs sm:text-base py-3 px-4 sm:px-6">
+                <span className="hidden sm:inline">Renegociados</span>
+                <span className="sm:hidden">Acordo</span>
+                <Badge variant="secondary" className="text-xs">
+                  {renegotiatedPayments.length}
                 </Badge>
               </TabsTrigger>
             </TabsList>
@@ -1169,6 +1193,32 @@ export default function Payments() {
               ) : (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground">Nenhum recebimento pago encontrado</p>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Aba: Renegociados (#119) -- recebimentos que entraram num acordo
+                de parcelamento. Só consulta: clicar abre o recebimento (somente
+                leitura) com o quadro do acordo. */}
+            <TabsContent value="renegotiated" className="mt-0 space-y-0">
+              {renegotiatedPayments.length > 0 ? (
+                <div className="w-full overflow-x-auto">
+                  <div className="inline-block min-w-full align-middle">
+                    <SortableTable
+                      data={renegotiatedPayments}
+                      columns={pendingColumns}
+                      sortKey={null}
+                      sortDirection={null}
+                      onSort={() => {}}
+                      onRowClick={(p) => setUiState(prev => ({ ...prev, selectedPaymentId: p.id }))}
+                      getRowClassName={() => "bg-slate-50 border-l-4 border-l-slate-400 hover:bg-slate-100"}
+                      emptyMessage="Nenhum recebimento renegociado neste período."
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">Nenhum recebimento renegociado neste período</p>
                 </div>
               )}
             </TabsContent>

@@ -174,6 +174,10 @@ export function PaymentReceipt({
   // Estrutura para armazenar os itens do breakdown
   const breakdownItems: BreakdownItem[] = [];
   
+  // Parcela/entrada de acordo de parcelamento (#119)
+  const isAcordo = (paymentData.payment_kind || paymentData.paymentKind || payment.paymentKind) === "agreement";
+  const descricaoAcordo: string = String(paymentData.notes || payment.notes || "");
+
   // Detectar rescisão baseada no conteúdo do breakdown
   let isTermination = false;
 
@@ -325,7 +329,7 @@ export function PaymentReceipt({
     // diferente do que foi cobrado). Agora vale o valor do PRÓPRIO
     // recebimento; a separação Aluguel/Garagem da locação só é usada quando
     // ela bate exatamente com esse valor.
-    if (rentAmount === 0 && garageAmount === 0) {
+    if (rentAmount === 0 && garageAmount === 0 && otherItems.length === 0) {
       const aluguelAtual = rental ? Number(rental.monthlyRent || rental.value || 0) : 0;
       const garagemAtual = rental && (rental.hasGarage || rental.has_garage)
         ? Number(rental.garageValue || rental.garage_value || 0)
@@ -973,17 +977,28 @@ export function PaymentReceipt({
             <h1 className="text-lg font-bold">
               {isTermination ? "RECIBO DE RESCISÃO DE CONTRATO" : "RECIBO DE ALUGUEL"}
             </h1>
-            {!isTermination && (
+            {isAcordo ? (
+              <p className="text-xs text-gray-600">({descricaoAcordo})</p>
+            ) : !isTermination && payment.installment ? (
               <p className="text-xs text-gray-600">({currentInstallment}/{totalInstallments})</p>
-            )}
+            ) : null}
           </div>
 
           <div className="space-y-4">
             <p className="text-justify leading-relaxed">
               Recebi dos Srs. <strong>{tenantName}</strong>, a importância de{" "}
               <strong>{formatCurrency(totalAmount)}</strong>{" "}
-              (<strong>{numberToWords(totalAmount)}</strong>), proveniente ao depósito de aluguel referente ao mês de{" "}
-              <strong>{referenceMonthName} de {payment.referenceYear}</strong>, tendo seu vencimento em{" "}
+              (<strong>{numberToWords(totalAmount)}</strong>),{" "}
+              {isAcordo ? (
+                <>
+                  referente ao acordo de parcelamento de débitos da locação (<strong>{descricaoAcordo}</strong>), tendo seu vencimento em{" "}
+                </>
+              ) : (
+                <>
+                  proveniente ao depósito de aluguel referente ao mês de{" "}
+                  <strong>{referenceMonthName} de {payment.referenceYear}</strong>, tendo seu vencimento em{" "}
+                </>
+              )}
               <strong>{new Date(payment.dueDate + "T12:00:00").toLocaleDateString("pt-BR")}</strong>, do imóvel situado em{" "}
               <strong>{propertyAddress}</strong>, após a apresentação dos comprovantes de depósito bancário e contas de água e luz do mês anterior pagos, sendo este vinculado ao{" "}
               <strong>INSTRUMENTO PARTICULAR DE CONTRATO DE LOCAÇÃO PARA FIM RESIDENCIAL</strong>, assinado entre as partes em{" "}

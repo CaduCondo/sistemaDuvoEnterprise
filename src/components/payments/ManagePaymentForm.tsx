@@ -24,6 +24,8 @@ import { Camera, Paperclip, CreditCard, Edit, X, Upload, FileText, Loader2, Imag
 import type { Payment, Rental, Property, Tenant } from "@/types";
 import { calculateCorrectedDeposit } from "@/services/igpmService";
 import { PaymentInfoCards } from "./PaymentInfoCards";
+import { PaymentAgreementDialog } from "./PaymentAgreementDialog";
+import { PaymentAgreementInfo } from "./PaymentAgreementInfo";
 import { PaymentBreakdownCard } from "./PaymentBreakdownCard";
 import { PaymentFormFields } from "./PaymentFormFields";
 import { PaymentAttachments } from "./PaymentAttachments";
@@ -78,6 +80,10 @@ interface PaymentFormData {
   installment?: number | null;
   total_installments?: number | null;
   partial_payments?: any;
+  rental_id?: string;
+  // Acordo de parcelamento (#119)
+  agreement_id?: string | null;
+  renegotiated_in_agreement_id?: string | null;
 }
 
 interface ManagePaymentFormProps {
@@ -110,6 +116,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   const [removeInterest, setRemoveInterest] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
+  const [acordoAberto, setAcordoAberto] = useState(false);
   const [repairExpenses, setRepairExpenses] = useState<number>(0);
   const [repairExpensesInput, setRepairExpensesInput] = useState<string>("R$ 0,00");
   const [discountAmount, setDiscountAmount] = useState<number>(0);
@@ -310,7 +317,9 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       setEffectiveRentalValue(baseRentalValue);
       setEffectiveGarageValue(baseGarageValue);
 
-      const alreadyPaid = validatedPayment.status === "paid";
+      // Renegociado (#119): entrou num acordo de parcelamento, valores
+      // congelados -- só consulta, como um recebimento pago.
+      const alreadyPaid = validatedPayment.status === "paid" || validatedPayment.status === "renegotiated";
       setIsPaid(alreadyPaid);
       setIsEditMode(!alreadyPaid);
 
@@ -1000,6 +1009,8 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
   useEffect(() => {
     if (!isTerminationPayment || loading || !payment) return;
+    // Valores congelados num acordo de parcelamento (#119): nunca regravar.
+    if (payment.status === "renegotiated") return;
     
     const timeoutId = setTimeout(() => {
       handleSaveExpensesAndDiscount();
@@ -1323,6 +1334,13 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
       <PaymentInfoCards rental={rental} property={property} tenant={tenant} />
 
+      {(payment?.agreement_id || payment?.renegotiated_in_agreement_id) && (
+        <PaymentAgreementInfo
+          acordoId={payment.agreement_id || payment.renegotiated_in_agreement_id}
+          onChanged={() => onSuccess?.({ payment, rental, property, tenant } as any)}
+        />
+      )}
+
       {Array.isArray(payment?.partial_payments) && payment.partial_payments.length > 0 && (
         <Card>
           <CardHeader>
@@ -1446,7 +1464,22 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       </Card>
 
       <div className="flex items-center justify-between gap-4 pt-4">
-        <div>
+        <div className="flex gap-2">
+          {/* Acordo de parcelamento (#119): junta os recebimentos em aberto da
+              locação e divide em até 6 parcelas. Não aparece em parcela de
+              acordo nem em recebimento já renegociado/pago. */}
+          {payment?.rental_id &&
+            ["pending", "partial", "overdue"].includes(payment?.status) &&
+            !payment?.agreement_id && (
+              <Button
+                id="manage-payment-parcelar"
+                type="button"
+                variant="outline"
+                onClick={() => setAcordoAberto(true)}
+              >
+                Parcelar débito
+              </Button>
+            )}
           {(payment?.status === "paid" || payment?.status === "partial") && onCancelPayment && (
             <Button
               type="button"
@@ -1459,7 +1492,17 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         </div>
 
         <div className="flex gap-4">
-        {isPaid && !isEditMode ? (
+        {payment?.status === "renegotiated" ? (
+          <Button
+            id="manage-payment-close"
+            type="button"
+            variant="outline"
+            onClick={() => onClose ? onClose() : router.push("/payments")}
+          >
+            <X className="mr-2 h-4 w-4" />
+            Fechar
+          </Button>
+        ) : isPaid && !isEditMode ? (
           <>
             <Button
               type="button"
@@ -1501,6 +1544,15 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         )}
         </div>
       </div>
+
+      {payment?.rental_id && (
+        <PaymentAgreementDialog
+          open={acordoAberto}
+          onOpenChange={setAcordoAberto}
+          rentalId={payment.rental_id}
+          onCreated={() => onSuccess?.({ payment, rental, property, tenant } as any)}
+        />
+      )}
 
       {historyReceiptEntry && (
         <PaymentReceipt

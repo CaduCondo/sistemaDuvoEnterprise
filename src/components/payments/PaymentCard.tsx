@@ -74,6 +74,8 @@ const getStatusBadge = (status: Payment["status"]) => {
       return <Badge className="bg-yellow-500 text-white text-xs">Parcial</Badge>;
     case "overdue":
       return <Badge className="bg-red-500 text-white text-xs">Atrasado</Badge>;
+    case "renegotiated":
+      return <Badge className="bg-slate-400 text-white text-xs">Renegociado</Badge>;
     default:
       return <Badge className="bg-gray-500 text-white text-xs">Pendente</Badge>;
   }

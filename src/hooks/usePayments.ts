@@ -256,8 +256,11 @@ export const usePayments = () => {
           // anteriores a migracao vem nulos e valem como 'rent'.
           paymentKind: (payment as any).payment_kind || "rent",
           contractEnd: (payment as any).contract_end === true,
+          // Acordo de parcelamento (#119)
+          agreementId: (payment as any).agreement_id || null,
+          renegotiatedInAgreementId: (payment as any).renegotiated_in_agreement_id || null,
           paidAmount: payment.paid_amount || 0,
-          status: payment.status as "pending" | "paid" | "overdue" | "partial",
+          status: payment.status as Payment["status"],
           paymentMethod: payment.payment_method || null,
           notes: payment.notes || null,
           lateFee: 0,
