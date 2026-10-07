@@ -8,10 +8,14 @@ import DatabaseHelper from '../helpers/database.helper';
  * / FinancialCharts.tsx) somava o Recebimento de Rescisão (devolução de
  * caução) na Receita/Esperado/Taxas -- a mesma contaminação que o
  * Financeiro já tinha corrigido na #49. Período isolado próprio
- * (fevereiro/2031): não existe limpeza entre cenários na mesma execução
- * (só ao final, pelo selo [E2E]) -- reaproveitar dez/2030 (já usado pelo
- * cenário "Taxa de administração", em 8-pagamentos-calculos.feature)
- * poluiria os dois.
+ * (fevereiro/2030): não existe limpeza entre cenários na mesma execução
+ * (só ao final, pelo selo [E2E]) -- reaproveitar dezembro/2030 (já usado
+ * pelo cenário "Taxa de administração", em 8-pagamentos-calculos.feature)
+ * poluiria os dois. ⚠️ Corrigido em 07/out/2026 (CI run #99): tinha usado
+ * 2031 antes, mas o seletor de Ano (PeriodSelector.tsx) só lista 10 anos
+ * (ano atual -5 a +4) -- 2031 não aparecia na lista, e o clique no "option"
+ * ficava girando até estourar o timeout do step (20s). O ano isolado
+ * precisa estar sempre dentro dessa janela.
  */
 Given(
   'um aluguel {string} de {string} e um Recebimento de Rescisão {string} de {string}, isolados no mesmo período de teste',
@@ -19,7 +23,7 @@ Given(
     const valorAluguel = parseFloat(valorAluguelTexto);
     const valorRescisao = parseFloat(valorRescisaoTexto);
     const mes = '02';
-    const ano = '2031';
+    const ano = '2030';
     const sufixo = Date.now();
 
     const criarPagamento = async (nomeInquilino: string, valor: number, status: string, kind: string) => {

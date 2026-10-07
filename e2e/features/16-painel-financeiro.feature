@@ -11,7 +11,7 @@ Funcionalidade: Painel de Gestão - totais batem com o Financeiro (#120)
   # na #49. Ver issue #120 e o levantamento de cobertura #121 ("nenhum
   # cenário compara os totais do Painel com os do Financeiro no mesmo mês").
   #
-  # Período isolado (fevereiro/2031): diferente do dez/2030 já usado pelo
+  # Período isolado (fevereiro/2030): diferente de dezembro/2030 já usado pelo
   # cenário "Taxa de administração" (8-pagamentos-calculos.feature) -- não
   # há limpeza entre cenários dentro da mesma execução (só ao final, pelo
   # selo [E2E]), então cada cenário isolado precisa do seu próprio mês.
