@@ -863,6 +863,29 @@ export class DatabaseHelper {
     return data;
   }
 
+  /**
+   * Insere um recebimento exatamente com os campos informados (sem o "um por
+   * mês" do upsertPayment) -- o acordo de parcelamento (#119) junta, por
+   * exemplo, o aluguel e o proporcional + multa da rescisão do MESMO mês.
+   * A limpeza é pela locação (cleanupAllTestData apaga os recebimentos dela).
+   */
+  static async insertPayment(payload: Record<string, any>) {
+    const { data, error } = await supabaseAdmin.from('payments').insert(payload).select().single();
+    if (error) throw new Error(`Falha ao criar recebimento: ${error.message}`);
+    return data;
+  }
+
+  /** Acordos de parcelamento de uma locação (#119), do mais novo ao mais antigo. */
+  static async getAgreementsByRental(rentalId: string) {
+    const { data, error } = await supabaseAdmin
+      .from('payment_agreements')
+      .select('*')
+      .eq('rental_id', rentalId)
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(`Falha ao buscar acordos: ${error.message}`);
+    return data || [];
+  }
+
   static async getPaymentById(id: string) {
     const { data, error } = await supabaseAdmin.from('payments').select('*').eq('id', id).single();
     if (error) throw new Error(`Falha ao buscar pagamento: ${error.message}`);

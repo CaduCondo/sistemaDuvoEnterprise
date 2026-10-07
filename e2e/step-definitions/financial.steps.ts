@@ -115,31 +115,35 @@ Given(
   }
 );
 
-When(
-  'abro o Financeiro em {string} filtrado por esse local',
-  { timeout: 60 * 1000 },
-  async function (this: CustomWorld, periodoBR: string) {
-    const dados = this.testData.isencao;
-    if (!dados) throw new Error('Nenhum local de isenção foi montado antes deste passo.');
-    const { nomeDoMes, ano } = lerPeriodo(periodoBR);
-
-    await this.page.goto('/financial');
-    await this.page.waitForLoadState('domcontentloaded');
+/**
+ * Abre o Financeiro num mês/ano e filtra por UM local (pelo id e nome).
+ * Exportado para outros cenários (acordo de parcelamento, #119) usarem o mesmo
+ * caminho, com as mesmas esperas já acertadas aqui.
+ */
+export async function abrirFinanceiroFiltrado(
+  world: CustomWorld,
+  periodoBR: string,
+  dados: { locationId: string; locationName: string }
+) {
+  const { nomeDoMes, ano } = lerPeriodo(periodoBR);
+  const self = world;
+    await self.page.goto('/financial');
+    await self.page.waitForLoadState('domcontentloaded');
 
     // O card só existe depois que a tela termina de buscar os dados.
     await expect(
-      this.page.locator('[data-testid="kpi-receita-bruta"]'),
+      self.page.locator('[data-testid="kpi-receita-bruta"]'),
       'a tela Financeiro não terminou de carregar'
     ).toBeVisible({ timeout: 20000 });
 
     // Período (PeriodSelector, o mesmo usado em Recebimentos e no Painel).
-    await this.page.locator('#period-selector-month').click();
-    await this.page.getByRole('option', { name: new RegExp(`^${nomeDoMes}$`, 'i') }).click();
-    await this.page.waitForTimeout(300);
+    await self.page.locator('#period-selector-month').click();
+    await self.page.getByRole('option', { name: new RegExp(`^${nomeDoMes}$`, 'i') }).click();
+    await self.page.waitForTimeout(300);
 
-    await this.page.locator('#period-selector-year').click();
-    await this.page.getByRole('option', { name: new RegExp(`^${ano}$`) }).click();
-    await this.page.waitForTimeout(300);
+    await self.page.locator('#period-selector-year').click();
+    await self.page.getByRole('option', { name: new RegExp(`^${ano}$`) }).click();
+    await self.page.waitForTimeout(300);
 
     // Filtro de local: é um painel (Popover + Command) com a lista inteira de
     // Locais do banco.
@@ -156,17 +160,17 @@ When(
     // abrir o painel nesse meio-tempo mostra os locais do mês ANTERIOR, e o
     // local do cenário não está lá. Agora o painel é reaberto até a lista do
     // mês certo chegar (até ~25s), em vez de uma tentativa só.
-    const opcao = this.page.locator(`[data-testid="financial-location-option-${dados.locationId}"]`);
+    const opcao = self.page.locator(`[data-testid="financial-location-option-${dados.locationId}"]`);
     let achou = false;
     for (let tentativa = 0; tentativa < 8 && !achou; tentativa++) {
-      await this.page.locator('#financial-location-filter').click();
-      const busca = this.page.getByPlaceholder(/Buscar local/i);
+      await self.page.locator('#financial-location-filter').click();
+      const busca = self.page.getByPlaceholder(/Buscar local/i);
       await busca.waitFor({ state: 'visible', timeout: 10000 });
       await busca.fill(dados.locationName);
       achou = await opcao.isVisible({ timeout: 3000 }).catch(() => false);
       if (!achou) {
-        await this.page.keyboard.press('Escape');
-        await this.page.waitForTimeout(1500);
+        await self.page.keyboard.press('Escape');
+        await self.page.waitForTimeout(1500);
       }
     }
     await expect(
@@ -174,12 +178,21 @@ When(
       `o local "${dados.locationName}" não apareceu na lista do filtro do Financeiro (nem depois de esperar o período carregar)`
     ).toBeVisible({ timeout: 2000 });
     await opcao.click();
-    await this.page.keyboard.press('Escape');
+    await self.page.keyboard.press('Escape');
 
     await expect(
-      this.page.locator('#financial-location-filter'),
+      self.page.locator('#financial-location-filter'),
       `o filtro não ficou com "${dados.locationName}" selecionado`
     ).toContainText(dados.locationName, { timeout: 10000 });
+}
+
+When(
+  'abro o Financeiro em {string} filtrado por esse local',
+  { timeout: 60 * 1000 },
+  async function (this: CustomWorld, periodoBR: string) {
+    const dados = this.testData.isencao;
+    if (!dados) throw new Error('Nenhum local de isenção foi montado antes deste passo.');
+    await abrirFinanceiroFiltrado(this, periodoBR, dados);
   }
 );
 
