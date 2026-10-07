@@ -237,6 +237,7 @@ export function useDashboardData(
                 due_date,
                 expected_amount,
                 paid_amount,
+                payment_kind,
                 rentals!inner(
                   id,
                   properties!inner(
@@ -388,6 +389,11 @@ export function useDashboardData(
         let overdueAmount = 0;
 
         financialPaymentsData.forEach((payment: any) => {
+          // #120: Recebimento de Rescisao (devolucao de caucao) nao e
+          // aluguel -- nao pode entrar no Esperado/Receita/Taxas do Painel,
+          // mesma regra que o Financeiro ja segue desde #49.
+          if (payment.payment_kind === "termination") return;
+
           const dueDate = payment.due_date;
           const status = payment.status;
           const locationId = payment.rentals?.properties?.location_id;

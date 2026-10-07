@@ -178,13 +178,13 @@ export function FinancialCharts({ selectedMonth, selectedYear, userId, userRole 
             // Buscar TODOS os pagamentos (não só paid) para mostrar receita esperada
             let queryAll = supabase
               .from("payments")
-              .select("expected_amount, paid_amount, status, rental:rentals!inner(properties!inner(location_id))")
+              .select("expected_amount, paid_amount, status, payment_kind, rental:rentals!inner(properties!inner(location_id))")
               .eq("reference_month", month)
               .eq("reference_year", year);
 
             let queryPaid = supabase
               .from("payments")
-              .select("paid_amount, status, rental:rentals!inner(properties!inner(location_id))")
+              .select("paid_amount, status, payment_kind, rental:rentals!inner(properties!inner(location_id))")
               .eq("status", "paid")
               .eq("reference_month", month)
               .eq("reference_year", year);
@@ -195,10 +195,15 @@ export function FinancialCharts({ selectedMonth, selectedYear, userId, userRole 
             }
 
             const [allPayments, paidPayments] = await Promise.all([queryAll, queryPaid]);
-            
+
+            // #120: Recebimento de Rescisao (devolucao de caucao) nao e
+            // aluguel -- nao pode entrar nos graficos de receita, mesma
+            // regra que o Financeiro ja segue desde #49.
+            const semRescisao = (rows: any[]) => rows.filter((p: any) => p.payment_kind !== "termination");
+
             return {
-              all: allPayments.data || [],
-              paid: paidPayments.data || []
+              all: semRescisao(allPayments.data || []),
+              paid: semRescisao(paidPayments.data || [])
             };
           });
 
