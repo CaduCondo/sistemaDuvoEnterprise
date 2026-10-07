@@ -1958,3 +1958,65 @@ Then('o imóvel deve ficar {string}', async function(status: string) {
     `o imóvel "${complemento}" não está mostrando o status "${status}" na tela`
   ).toBeVisible({ timeout: 10000 });
 });
+
+// ============================================================================
+// Locação Encerrada (rescindida de verdade) continua com os botões de ação
+// (07/out/2026, pedido direto do Cadu): até aqui, qualquer locação com
+// status "terminated" escondia TODOS os botões de ação na tela (lista e
+// grade) -- travava editar a rescisão ou criar um Acordo de parcelamento
+// (#119) numa locação já encerrada, que é justamente quando mais se precisa
+// mexer nela (cobrar o débito). Ver src/pages/rentals.tsx.
+// ============================================================================
+
+Given('uma locação já encerrada de verdade \\(rescindida)', async function (this: import('../support/world').CustomWorld) {
+  const sufixo = Date.now();
+  const tenant = await this.createTenant({ name: `Encerrada E2E ${sufixo}` });
+
+  const hoje = new Date();
+  const inicio = new Date(hoje);
+  inicio.setFullYear(inicio.getFullYear() - 1);
+  const fim = new Date(hoje);
+  fim.setDate(fim.getDate() - 30);
+
+  const rental = await this.createRental({
+    start_date: inicio.toISOString().split('T')[0],
+    end_date: fim.toISOString().split('T')[0],
+    rent_value: 1500,
+    tenant_id: tenant.id,
+  } as any);
+
+  await this.updateRental(rental.id, { status: 'terminated' });
+
+  this.rentalId = rental.id;
+  this.testData = {
+    ...this.testData,
+    encerrada: { tenantName: tenant.name },
+  };
+});
+
+When('procuro por essa locação encerrada na tela de Locações', async function (this: import('../support/world').CustomWorld) {
+  await this.page.goto('/rentals');
+  await this.page.waitForLoadState('domcontentloaded');
+
+  // O filtro de Status começa em "Ativo" -- uma locação encerrada some da
+  // lista até trocar pra "Encerrado" ou "Todos".
+  await this.page.locator('#rentals-status-filter').click();
+  await this.page.getByRole('option', { name: 'Encerrado', exact: true }).click();
+  await this.page.waitForTimeout(300);
+
+  const busca = this.page.locator('#rentals-search-input');
+  await busca.fill(this.testData.encerrada.tenantName);
+  await this.page.waitForTimeout(800);
+});
+
+Then('todos os botões de ação da locação encerrada devem estar disponíveis', async function (this: import('../support/world').CustomWorld) {
+  // Os 5 botões da coluna "Ações" (ver src/pages/rentals.tsx) -- inclui
+  // "agreement" (Parcelar débito) de propósito: é o botão que o Cadu
+  // relatou não conseguir usar numa locação já encerrada.
+  for (const id of ['history', 'renew', 'terminate', 'agreement', 'delete']) {
+    await expect(
+      this.page.locator(`#rentals-${id}-${this.rentalId}`),
+      `o botão "${id}" não apareceu pra uma locação Encerrada -- não dá pra trabalhar com a rescisão ou o acordo dela`
+    ).toBeVisible({ timeout: 10000 });
+  }
+});

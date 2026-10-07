@@ -191,6 +191,19 @@ Funcionalidade: Regras de Negócio de Locações
     E o status dela no banco deve continuar "active"
     E o imóvel dela deve continuar "occupied"
 
+  # ⚠️ NOVO (07/out/2026) -- bug relatado pelo Cadu: os botões de ação
+  # sumiam da tela assim que a locação ficava "Encerrado" (rescindida de
+  # verdade, não só vencida -- ver cenário acima), travando quem precisasse
+  # editar a rescisão ou criar um Acordo de parcelamento (#119) pra cobrar o
+  # débito dela. Os botões agora aparecem pra qualquer locação, qualquer que
+  # seja o status.
+  @sistemaCompleto
+  Cenário: Locação Encerrada continua com os botões de ação disponíveis
+    Dado uma locação já encerrada de verdade (rescindida)
+    Quando procuro por essa locação encerrada na tela de Locações
+    Então o status dela deve aparecer como "Encerrado"
+    E todos os botões de ação da locação encerrada devem estar disponíveis
+
   # ✅ NOVO: Testa carregamento de parcelas ao visualizar locação
   #
   # ⚠️ Corrigido em 17/set/2026 (issue #99, esclarecido pelo Cadu): este
