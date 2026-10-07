@@ -176,7 +176,19 @@ export function PaymentReceipt({
   
   // Parcela/entrada de acordo de parcelamento (#119)
   const isAcordo = (paymentData.payment_kind || paymentData.paymentKind || payment.paymentKind) === "agreement";
-  const descricaoAcordo: string = String(paymentData.notes || payment.notes || "");
+  // Nome da parcela: da Formação de Valores (o pagamento grava as observações
+  // digitadas por cima de notes -- 07/out/2026).
+  const descricaoAcordo: string = (() => {
+    let itens: any[] = [];
+    try {
+      const bd = paymentData.breakdown ?? payment.breakdown;
+      itens = typeof bd === "string" ? JSON.parse(bd) : Array.isArray(bd) ? bd : [];
+    } catch {
+      itens = [];
+    }
+    const doAcordo = itens.find((i: any) => /^(Acordo #|Entrada do acordo)/.test(String(i?.description || "")));
+    return String(doAcordo?.description || paymentData.notes || payment.notes || "");
+  })();
 
   // Detectar rescisão baseada no conteúdo do breakdown
   let isTermination = false;
