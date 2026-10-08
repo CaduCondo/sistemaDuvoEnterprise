@@ -240,7 +240,17 @@ export async function deleteLocation(id: string): Promise<void> {
     .eq("id", id)
     .single();
 
-  const { error } = await supabase.from("locations").delete().eq("id", id);
+  // Usamos .select() no delete para que o Supabase devolva as linhas
+  // efetivamente apagadas. Sem isso, um DELETE que não casa com nenhuma
+  // linha (RLS bloqueando silenciosamente, id já apagado, etc.) retorna
+  // sucesso (error = null, data = []) e a tela mostrava "Local excluído
+  // com sucesso" mesmo sem apagar nada -- bug relatado pelo Cadu em
+  // 08/out/2026: exclusão "funcionava" mas o local continuava na lista.
+  const { data: deletedRows, error } = await supabase
+    .from("locations")
+    .delete()
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     if (error.code === "23503") {
@@ -249,6 +259,12 @@ export async function deleteLocation(id: string): Promise<void> {
       );
     }
     throw error;
+  }
+
+  if (!deletedRows || deletedRows.length === 0) {
+    throw new Error(
+      "Não foi possível excluir o local: nenhum registro foi removido. Isso pode acontecer se o local já foi excluído por outra pessoa ou por falta de permissão. Atualize a página e tente novamente."
+    );
   }
 
   // ✅ Log de auditoria

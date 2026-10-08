@@ -43,3 +43,32 @@ Funcionalidade: Cadastro de Locais (Configurações)
     Quando abro a aba "Locais" das Configurações
     E clico em "Novo Local"
     Então o botão de salvar do cadastro deve estar liberado
+
+  # ⚠️ NOVO (08/out/2026) -- bug reportado pelo Cadu (prints anexados): clicou
+  # em excluir um Local duplicado, o sistema mostrou "Local excluído com
+  # sucesso", mas ao voltar para a lista o Local continuava lá.
+  #
+  # Causa raiz (locationService.ts, deleteLocation): a policy de RLS de
+  # DELETE em "locations" era restrita a `TO authenticated` (sessão real do
+  # Supabase Auth). Este sistema usa login próprio (system_users) e nunca cria
+  # sessão do Supabase Auth -- a API sempre bate no banco como "anon". Quando
+  # o RLS barra um DELETE, o Supabase NÃO retorna erro: só devolve 0 linhas
+  # afetadas. O código fazia `.delete().eq("id", id)` sem conferir quantas
+  # linhas vieram de volta, então tratava "0 linhas apagadas" como sucesso.
+  #
+  # Corrigido em dois lugares:
+  #   1) Migration supabase/migrations/20261008194839_fix_locations_rls.sql
+  #      -- troca as policies de DELETE/UPDATE de "locations" para públicas,
+  #      igual ao padrão já usado em location_expenses e já corrigido antes
+  #      para payment_methods (20260809163323_fix_payment_methods_rls.sql).
+  #   2) locationService.ts -- `.delete().select("id")` agora confere se
+  #      alguma linha voltou e lança erro explícito se vier vazio, para que
+  #      um bloqueio futuro (RLS, permissão, local já excluído por outra
+  #      pessoa) nunca mais seja mostrado como sucesso.
+  @sistemaCompleto
+  Cenário: Excluir um Local realmente remove ele da lista
+    Dado que existe um local "Local Exclusão E2E"
+    Quando abro a aba "Locais" das Configurações
+    E excluo o local da lista
+    Então devo ver a mensagem "Local excluído com sucesso"
+    E o local não deve mais aparecer na lista de Locais

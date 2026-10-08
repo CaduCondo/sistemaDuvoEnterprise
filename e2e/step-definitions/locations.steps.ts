@@ -168,3 +168,38 @@ Then('devo ver a conta {string} na lista de Contas a Pagar, no mês atual', asyn
     `não encontrei a conta "${descricao}" na lista -- ela devia aparecer no mês/ano já selecionado no filtro (o mesmo mês/ano usado ao cadastrar), sem precisar trocar o filtro`
   ).toBeVisible({ timeout: 10000 });
 });
+
+/**
+ * ================= Exclusão de Local (feature 13) =================
+ * ⚠️ Criado em 08/out/2026 (bug reportado pelo Cadu): acha a linha do Local
+ * criado por "que existe um local {string}" pelo nome, clica no botão de
+ * excluir (ícone Trash2, sem id -- settings.tsx não dá id a ele) e confirma
+ * no AlertDialog "Confirmar Exclusão" (id="settings-location-delete-dialog").
+ */
+When('excluo o local da lista', async function (this: CustomWorld) {
+  const nome = this.testData.nomeLocalCriado;
+  if (!nome) {
+    throw new Error('Nenhum local foi criado antes deste passo (testData.nomeLocalCriado vazio).');
+  }
+  const linha = this.page.locator('tbody tr').filter({ hasText: nome }).first();
+  await expect(linha, `não encontrei a linha do local "${nome}" na lista`).toBeVisible({ timeout: 10000 });
+  await linha.getByRole('button').last().click();
+
+  const dialog = this.page.locator('#settings-location-delete-dialog');
+  await expect(dialog, 'o diálogo "Confirmar Exclusão" não abriu').toBeVisible({ timeout: 10000 });
+  await dialog.getByRole('button', { name: 'Excluir' }).click();
+});
+
+Then('o local não deve mais aparecer na lista de Locais', async function (this: CustomWorld) {
+  const nome = this.testData.nomeLocalCriado;
+  if (!nome) {
+    throw new Error('Nenhum local foi criado antes deste passo (testData.nomeLocalCriado vazio).');
+  }
+  // A lista só reflete a exclusão depois do refetch que settings.tsx dispara
+  // 500ms após o sucesso (confirmDeleteLocation) -- esperar sumir em vez de
+  // conferir na hora.
+  await expect(
+    this.page.locator('tbody tr').filter({ hasText: nome }),
+    `o local "${nome}" ainda aparece na lista depois de excluído -- exclusão não removeu de verdade (ver bug de RLS/08-out-2026)`
+  ).toHaveCount(0, { timeout: 10000 });
+});
