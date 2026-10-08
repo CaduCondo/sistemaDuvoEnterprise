@@ -102,3 +102,69 @@ Then('o botão de salvar do cadastro deve estar liberado', async function (this:
   await expect(botao, 'o botão de salvar do cadastro de Locais não apareceu').toBeVisible({ timeout: 10000 });
   await expect(botao, 'o botão de salvar continuou bloqueado mesmo depois da lista carregar').toBeEnabled({ timeout: 15000 });
 });
+
+/**
+ * ================= Contas a Pagar por Local (feature 17) =================
+ * Passos do fluxo "Contas a Pagar" aberto a partir da linha de um Local na
+ * aba "Locais" de Configurações (LocationExpensesDialog.tsx).
+ */
+
+/**
+ * O botão "Contas a Pagar" de cada linha tem id dinâmico
+ * (`settings-location-expenses-${location.id}`, settings.tsx) -- usa o id
+ * guardado por "que existe um local {string}" (testData.idLocalCriado).
+ */
+When('abro as Contas a Pagar do local', async function (this: CustomWorld) {
+  const id = this.testData.idLocalCriado;
+  if (!id) {
+    throw new Error('Nenhum local foi criado antes deste passo (testData.idLocalCriado vazio).');
+  }
+  const botao = this.page.locator(`#settings-location-expenses-${id}`);
+  await expect(botao, 'não encontrei o botão "Contas a Pagar" deste local na lista').toBeVisible({ timeout: 10000 });
+  await botao.click();
+  await this.page.waitForTimeout(500);
+});
+
+/**
+ * Preenche o diálogo "Inclusão de Conta a Pagar" -- Tipo, Valor e Descrição.
+ * Mês e Ano ficam de propósito no valor padrão (ambos nascem no mês/ano
+ * ATUAL, LocationExpensesDialog.tsx linhas 147-148) -- é exatamente o fluxo
+ * que expôs o bug de mês/fuso horário (ver 17-contas-a-pagar-local.feature).
+ * Os <Select> do Tipo/Mês/Ano não têm id (só o Valor, #expense-value); o
+ * Tipo é o 1º combobox do diálogo, na ordem em que aparece no JSX.
+ */
+When('preencho a conta a pagar com tipo {string}, valor {string} e descrição {string}', async function (
+  this: CustomWorld,
+  tipo: string,
+  valor: string,
+  descricao: string
+) {
+  const dialog = this.page.getByRole('dialog').filter({ hasText: 'Inclusão de Conta a Pagar' });
+  await expect(dialog, 'o diálogo "Inclusão de Conta a Pagar" não abriu').toBeVisible({ timeout: 10000 });
+
+  await dialog.getByRole('combobox').first().click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: new RegExp(tipo, 'i') }).click();
+
+  await dialog.locator('#expense-value').fill(valor);
+  await dialog.getByPlaceholder('Ex: Conta de luz do mês').fill(descricao);
+});
+
+/**
+ * ⚠️ Criado em 08/out/2026 (bug reportado pelo Cadu, prints anexados):
+ * depois de "Adicionar", a conta precisa aparecer na lista JÁ ABERTA, sem
+ * precisar trocar o filtro de mês/ano -- é esse o sintoma que expôs o bug
+ * de fuso horário em handleSave (LocationExpensesDialog.tsx). A lista fica
+ * visível no mesmo diálogo (o "Adicionar" só fecha o diálogo de FORMULÁRIO,
+ * não o de detalhamento).
+ */
+Then('devo ver a conta {string} na lista de Contas a Pagar, no mês atual', async function (
+  this: CustomWorld,
+  descricao: string
+) {
+  const linha = this.page.locator('tbody tr').filter({ hasText: descricao });
+  await expect(
+    linha,
+    `não encontrei a conta "${descricao}" na lista -- ela devia aparecer no mês/ano já selecionado no filtro (o mesmo mês/ano usado ao cadastrar), sem precisar trocar o filtro`
+  ).toBeVisible({ timeout: 10000 });
+});

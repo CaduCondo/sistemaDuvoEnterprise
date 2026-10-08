@@ -248,17 +248,25 @@ export function LocationExpensesDialog({ open, onOpenChange, location }: Locatio
     }
 
     try {
-      const selectedDate = new Date(`${referenceYear}-${referenceMonth}-01`);
-      const month = selectedDate.getMonth() + 1;
-      const year = selectedDate.getFullYear();
-
+      // ⚠️ Corrigido em 08/out/2026: este trecho montava uma string
+      // "AAAA-M-DD" (ex.: "2026-10-01") e criava um `new Date(...)` só pra
+      // ler de volta o mês/ano com `.getMonth()+1`/`.getFullYear()` --
+      // redundante, já que `referenceMonth`/`referenceYear` (estado dos
+      // selects, linhas 147-148) já são os números certos, 1-based. O
+      // problema: essa string ISO é interpretada pelo motor JS como
+      // meia-noite EM UTC, e `.getMonth()`/`.getFullYear()` leem de volta
+      // no fuso LOCAL do navegador. Para quem está num fuso atrás de UTC
+      // (Brasil, UTC-3), meia-noite de 1º/10 em UTC ainda é 30/09 à noite
+      // no horário local -- a conta virava Setembro mesmo com "Out"
+      // selecionado no formulário. Usa os números do estado direto, sem
+      // passar por Date nenhum.
       const expenseData = {
         locationId: location.id,
         expenseType: expenseType as LocationExpense["expenseType"],
         description,
         amount: numericValue,
-        referenceMonth: month,
-        referenceYear: year,
+        referenceMonth: referenceMonth,
+        referenceYear: referenceYear,
         status: "pending" as LocationExpense["status"],
       };
 
