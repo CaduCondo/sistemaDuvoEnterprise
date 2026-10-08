@@ -922,6 +922,28 @@ When('anexo o comprovante', async function() {
   await this.page.waitForTimeout(300);
 });
 
+/**
+ * ✅ Criado em 07/out/2026 (issue #121, backlog "religar @quebrado",
+ * cenário "Registrar pagamento como pago"): o cenário antigo usava
+ * "clico em 'Salvar'", mas o botão real do diálogo de Recebimento
+ * (ManagePaymentForm.tsx) nunca se chama "Salvar" -- é "Confirmar
+ * Recebimento" (só vira "Salvar Alterações" ao EDITAR um pagamento já
+ * pago). Usa o id estável do botão (#manage-payment-submit) em vez do
+ * rótulo, e fecha o aviso de sucesso que aparece depois
+ * (handleManagePaymentSuccess, payments.tsx) -- sem isso ele fica por
+ * cima da tela e pode interferir nos próximos passos.
+ */
+When('confirmo o recebimento do pagamento', async function(this: import('../support/world').CustomWorld) {
+  await this.page.locator('#manage-payment-submit').click();
+
+  const alerta = this.page.getByRole('alertdialog');
+  if (await alerta.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await alerta.getByRole('button', { name: /^OK$/i }).click();
+  }
+
+  await this.page.waitForTimeout(500);
+});
+
 When('confirmo o cancelamento', async function() {
   const confirmButton = this.page.getByRole('button', { name: /confirmar/i });
   await confirmButton.click();
@@ -1264,10 +1286,33 @@ Then('o status deve mudar para {string}', async function(this: import('../suppor
   await expect(statusBadge).toBeVisible({ timeout: 5000 });
 });
 
-Then('devo poder gerar o recibo', async function() {
-  const receiptButton = this.page.getByRole('button', { name: /gerar recibo/i });
-  await expect(receiptButton).toBeVisible();
-  await expect(receiptButton).toBeEnabled();
+/**
+ * ⚠️ Corrigido em 07/out/2026 (issue #121, backlog "religar @quebrado"):
+ * procurava um botão "Gerar Recibo" que nunca existiu -- o recibo sai
+ * como um botão NUMERADO ("Recibo 1", "Recibo 2"...) na coluna "Recibo"
+ * da aba "Recebimentos Pagos" (payments.tsx), pra onde o pagamento foi
+ * depois de confirmado. Troca pra essa aba, filtra pelo inquilino do
+ * teste e confere o botão na linha dele -- mesmo seletor já usado em
+ * "clico no botão de recibo".
+ */
+Then('devo poder gerar o recibo', async function(this: import('../support/world').CustomWorld) {
+  await this.page.locator('#payments-tab-paid').click();
+  await this.page.waitForTimeout(500);
+
+  const nomeInquilino = this.testData?.tenantName;
+  if (nomeInquilino) {
+    await this.page.locator('#payments-search-input').fill(nomeInquilino);
+    await this.page.waitForTimeout(500);
+  }
+
+  const linha = nomeInquilino
+    ? this.page.locator('tbody tr').filter({ hasText: nomeInquilino })
+    : this.page.locator('tbody tr');
+  const botaoRecibo = linha.locator('[title^="Recibo"]').first();
+  await expect(
+    botaoRecibo,
+    'não encontrei nenhum botão de recibo na linha do pagamento de teste'
+  ).toBeVisible({ timeout: 10000 });
 });
 
 /**

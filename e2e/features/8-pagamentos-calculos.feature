@@ -147,16 +147,30 @@ Funcionalidade: Cálculos e Regras de Pagamentos
   # Não existe (e não vai existir) equivalente por pagamento de aluguel --
   # por isso o cenário foi removido em vez de deixado sem tag.
 
-  # FORA DO SMOKE (30/ago/2026): o último passo espera um botão "Gerar Recibo"
-  # que não existe na tela (o recibo sai pela coluna Recibo da aba Pagos).
-  # Ver docs/tickets/smoke-30-ago.md.
-  @quebrado
+  # ⚠️ Corrigido em 07/out/2026 (issue #121, backlog "religar @quebrado"):
+  # 1) "que existe um pagamento pendente" (sem aspas) batia no STUB antigo
+  #    (só navegava para /payments, sem criar nada) -- existe um passo
+  #    irmão já corrigido, "que existe um pagamento {string}", que cria de
+  #    verdade (inquilino + locação + pagamento) e já filtra a tela pelo
+  #    inquilino do teste. Trocado para "que existe um pagamento
+  #    "Pendente"".
+  # 2) "clico em 'Salvar'" nunca bate no botão real do diálogo de
+  #    Recebimento -- ManagePaymentForm.tsx chama esse botão de "Confirmar
+  #    Recebimento" (só vira "Salvar Alterações" ao EDITAR um pagamento já
+  #    pago). Trocado por um passo dedicado que usa o id estável do botão
+  #    e fecha o aviso de sucesso que aparece depois.
+  # 3) não existe (e nunca existiu) botão "Gerar Recibo" -- o recibo sai
+  #    como um botão NUMERADO ("Recibo 1", "Recibo 2"...) na coluna
+  #    "Recibo" da aba "Recebimentos Pagos" (payments.tsx), pra onde o
+  #    pagamento vai depois de confirmado. "devo poder gerar o recibo"
+  #    passou a conferir isso.
+  @sistemaCompleto
   Cenário: Registrar pagamento como pago
-    Dado que existe um pagamento pendente
+    Dado que existe um pagamento "Pendente"
     Quando marco o pagamento como "Pago"
     E preencho a data de pagamento
     E anexo o comprovante
-    E clico em "Salvar"
+    E confirmo o recebimento do pagamento
     Então o status deve mudar para "Pago"
     E devo poder gerar o recibo
 
