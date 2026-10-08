@@ -203,3 +203,24 @@ Then('o local não deve mais aparecer na lista de Locais', async function (this:
     `o local "${nome}" ainda aparece na lista depois de excluído -- exclusão não removeu de verdade (ver bug de RLS/08-out-2026)`
   ).toHaveCount(0, { timeout: 10000 });
 });
+
+/**
+ * ⚠️ Criado em 08/out/2026 (bug do cabeçalho duplicado, ver
+ * LocationExpensesDialog.tsx e 17-contas-a-pagar-local.feature). Conta
+ * quantos elementos com esse texto de título estão VISÍVEIS na tela (o
+ * bloco de impressão, quando o bug volta, some do `display:none` normal
+ * mas aparece fora do `@media print` -- `isVisible`/`locator` do Playwright
+ * considera visibilidade real de tela, não CSS de impressão).
+ */
+Then('devo ver só 1 cabeçalho {string} na tela', async function (this: CustomWorld, textoTitulo: string) {
+  const titulos = this.page.locator(`text=${textoTitulo}`);
+  const total = await titulos.count();
+  let visiveis = 0;
+  for (let i = 0; i < total; i++) {
+    if (await titulos.nth(i).isVisible()) visiveis++;
+  }
+  expect(
+    visiveis,
+    `esperava 1 cabeçalho visível com "${textoTitulo}" na tela, encontrei ${visiveis} -- cabeçalho de impressão duplicado de novo?`
+  ).toBe(1);
+});

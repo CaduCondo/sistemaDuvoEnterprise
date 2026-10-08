@@ -368,8 +368,20 @@ export function LocationExpensesDialog({ open, onOpenChange, location }: Locatio
       
       <Dialog open={open && !isFormOpen && !confirmDelete} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {/*
+            ⚠️ Corrigido em 08/out/2026 (bug reportado pelo Cadu, print
+            anexado): faltava "hidden" aqui -- o CSS de impressão
+            (printStyles, acima) só esconde este bloco DENTRO de
+            `@media print` (`.no-print { display: none }` só existe lá
+            dentro). Fora da impressão, nada escondia este bloco, então
+            ele aparecia JUNTO com o cabeçalho de tela logo abaixo --
+            2 títulos "Detalhamento das Contas do Mês" na mesma tela.
+            "hidden print:block" (mesmo padrão já usado nas colunas
+            "Descrição"/"Valor" da tabela, mais abaixo) esconde por
+            padrão e só mostra ao imprimir.
+          */}
           {/* Cabeçalho para impressão */}
-          <div className="print-header">
+          <div className="print-header hidden print:block">
             <h1>Detalhamento das Contas do Mês - {location.name}</h1>
             <p>Controle de despesas mensais por localização</p>
             <div className="print-period">Período: {getMonthName(filterMonth)}/{filterYear}</div>
