@@ -439,28 +439,26 @@ Funcionalidade: Regras de Negócio de Locações
     E salvo as alterações
     Então o pagamento de referência Junho/2026 deve ser atualizado para "166.67"
 
-  # ⚠️ MARCADO @quebrado em 13/set/2026 (issue #99, cluster "Locações"):
-  # o passo "que existe uma locação com:" cria a locação DIRETO NO BANCO
-  # (payments.steps.ts), sem passar pela tela. O Comprovante de Contrato
-  # (RentalContract.tsx) só aparece automaticamente logo depois que uma
-  # locação é criada PELO FORMULÁRIO (RentalFormDialog.tsx,
-  # setShowContract(true) no fluxo de criação) -- não existe hoje nenhum
-  # botão "Ver Contrato"/"Comprovante" para reabrir isso numa locação já
-  # existente (conferido em rentals.tsx: o único botão com ícone de
-  # documento na lista é "Histórico de Pagamentos", outra tela). Ou seja,
-  # o passo "visualizo o Comprovante de Contrato de Locação" procura um
-  # botão que nunca existiu -- mesma classe de defeito já documentada em
-  # "Criar locação - Gerar pagamentos automaticamente" (preparo direto no
-  # banco pula a tela que a asserção depende). Fica fora das rodadas até
-  # o cenário ser reescrito para criar a locação pela tela (ou até o
-  # produto ganhar um botão de reabrir o comprovante).
-  @quebrado
+  # ⚠️ Corrigido em 07/out/2026 (issue #121, backlog "religar @quebrado"):
+  # 1) "que existe uma locação com:" criava a locação DIRETO NO BANCO, sem
+  #    passar pela tela. O Comprovante de Contrato (RentalContract.tsx) só
+  #    aparece automaticamente logo depois que uma locação é criada PELO
+  #    FORMULÁRIO (RentalFormDialog.tsx) -- não existe (e nunca existiu)
+  #    nenhum botão "Ver Contrato"/"Comprovante" para reabrir isso numa
+  #    locação já existente (conferido em rentals.tsx: o único botão com
+  #    ícone de documento na lista é "Histórico de Pagamentos", outra
+  #    tela). "visualizo o Comprovante de Contrato de Locação" procurava
+  #    um botão que nunca existiu.
+  # 2) "que existe uma locação com:" passou a criar de verdade, pela tela
+  #    -- e o Comprovante já abre sozinho ao salvar, então não precisa (e
+  #    não dá mais) clicar em nenhum botão para "visualizá-lo": o passo
+  #    "Quando visualizo..." foi removido daqui.
+  @sistemaCompleto
   Cenário: Comprovante de Contrato - Somar aluguel e garagem
     Dado que existe uma locação com:
       | campo          | valor   |
       | Aluguel        | 1500.00 |
       | Garagem        | 400.00  |
-    Quando visualizo o "Comprovante de Contrato de Locação"
     Então no campo "Valor Total" devo ver "1900.00"
     E não apenas o valor do aluguel
 

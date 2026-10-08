@@ -195,7 +195,24 @@ Given('que existe uma locação com aluguel de {string}', async function(value: 
  * "Comprovante de Contrato - Somar aluguel e garagem" terminava num passo que
  * também não conferia nada, então o par se escondia mutuamente.
  */
-Given('que existe uma locação com:', async function(dataTable: any) {
+/**
+ * ⚠️ Reescrito em 07/out/2026 (issue #121, backlog "religar @quebrado"):
+ * criava a locação DIRETO NO BANCO (sem imóvel, sem passar pela tela).
+ * Dois cenários dependem deste passo e os dois precisam da locação de
+ * verdade, criada PELA TELA (RentalFormDialog.tsx):
+ * - "Comprovante de Contrato - Somar aluguel e garagem": o Comprovante só
+ *   abre sozinho logo depois da criação pelo formulário -- um insert
+ *   direto no banco nunca o abre.
+ * - "Calcular pagamento com garagem": o recebimento de aluguel só existe
+ *   depois que a tela gera os 12 pagamentos da locação -- um insert
+ *   direto também não gera nenhum.
+ * Cria imóvel + inquilino de teste com marca [E2E] única (mesmo padrão de
+ * "que crio uma locação com:" acima) e cria a locação pela tela. O
+ * Comprovante de Contrato fica aberto de propósito ao final -- é o que o
+ * 1º cenário precisa ler; o 2º fecha antes de ir para Recebimentos (ver
+ * "visualizo o detalhamento do pagamento").
+ */
+Given('que existe uma locação com:', async function(this: import('../support/world').CustomWorld, dataTable: any) {
   const data = dataTable.rowsHash();
 
   const numero = (texto: string | undefined) => {
@@ -210,26 +227,65 @@ Given('que existe uma locação com:', async function(dataTable: any) {
   const garagem = numero(data['Garagem'] ?? data['Valor Garagem']);
 
   const sufixo = Date.now();
-  const tenant = await this.createTenant({ name: `Locacao Comprovante E2E ${sufixo}` });
-
-  const rental = await this.createRental({
-    start_date: '2026-01-01',
-    end_date: '2026-12-31',
-    rent_due_day: 10,
-    rent_value: aluguel,
-    has_garage: garagem > 0,
-    garage_value: garagem,
-    tenant_id: tenant.id,
+  const complementoUnico = `[E2E] Comprovante ${sufixo}`;
+  await DatabaseHelper.createProperty({
+    complement: complementoUnico,
+    value: aluguel,
+    status: 'available',
   });
+  const tenant = await DatabaseHelper.createTenant({ name: `Locacao Comprovante E2E ${sufixo}` });
 
-  this.rentalId = rental.id;
+  this.tenantName = tenant.name;
   this.testData = {
     ...this.testData,
-    rentalId: rental.id,
     rentValue: aluguel,
     garageValue: garagem,
-    rental: { ...data, id: rental.id, tenantName: tenant.name },
+    rental: { ...data, tenantName: tenant.name },
   };
+
+  const escapar = (texto: string) => texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  await this.page.goto('/rentals');
+  await this.page.waitForLoadState('domcontentloaded');
+  await this.page.getByRole('button', { name: /nova locação/i }).click();
+  await this.page.waitForTimeout(500);
+
+  await this.page.locator('#rental-property').click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: new RegExp(escapar(complementoUnico), 'i') }).click();
+
+  await this.page.locator('#rental-tenant').click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: new RegExp(escapar(tenant.name), 'i') }).click();
+
+  await this.page.locator('#rental-start-date').fill('2026-01-01');
+  await this.page.locator('#rental-end-date').fill('2026-12-31');
+
+  await this.page.locator('#rental-payment-day').click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: '10', exact: true }).click();
+
+  if (garagem > 0) {
+    await this.page.locator('#rental-has-garage').click();
+    await this.page.waitForTimeout(300);
+    await this.page.locator('#rental-garage-value').fill(String(garagem));
+  }
+
+  // Caução: obrigatório preencher a Data Pagamento (o valor pode ficar 0,
+  // o formulário não valida isso -- ver "Criar locação - Caução
+  // integral", 7-locacoes-regras.feature).
+  await this.page.locator('#rental-deposit-date').fill('2026-01-01');
+
+  await this.page.locator('#rental-form-submit').click();
+
+  const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
+  await expect(
+    comprovante,
+    'o Comprovante de Contrato não abriu depois de salvar a locação'
+  ).toBeVisible({ timeout: 10000 });
+
+  const rental = await this.getMostRecentRental();
+  this.rentalId = rental.id;
 });
 
 Given('a taxa de administração é {string}', async function(rate: string) {
@@ -489,10 +545,36 @@ When('vou para a página de Recebimentos', async function() {
   await this.page.waitForLoadState('domcontentloaded');
 });
 
-When('visualizo o detalhamento do pagamento', async function() {
-  // Clicar no primeiro pagamento da lista
-  const firstPayment = this.page.locator('tbody tr').first();
-  await firstPayment.click();
+/**
+ * ⚠️ Corrigido em 07/out/2026 (issue #121, backlog "religar @quebrado"):
+ * clicava no primeiro "tbody tr" da tela ATUAL -- "qualquer recebimento
+ * da base" (DEV compartilhado tem mais de 100), sem relação com a
+ * locação deste cenário. Agora fecha o Comprovante de Contrato (deixado
+ * aberto de propósito por "que existe uma locação com:"), navega para
+ * Recebimentos, filtra pelo inquilino deste cenário e abre o primeiro
+ * recebimento de ALUGUEL dele (ignora a parcela de caução).
+ */
+When('visualizo o detalhamento do pagamento', async function(this: import('../support/world').CustomWorld) {
+  const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
+  if (await comprovante.isVisible().catch(() => false)) {
+    await comprovante.getByRole('button', { name: /fechar/i }).click();
+    await this.page.waitForTimeout(300);
+  }
+
+  await this.page.goto('/payments');
+  await this.page.waitForLoadState('domcontentloaded');
+
+  if (this.tenantName) {
+    await this.page.locator('#payments-search-input').fill(this.tenantName);
+    await this.page.waitForTimeout(500);
+  }
+
+  const linha = this.page.locator('tbody tr:visible').filter({ hasNotText: 'Caução' }).first();
+  await expect(
+    linha,
+    'não achei na tela nenhum recebimento de aluguel da locação deste cenário'
+  ).toBeVisible({ timeout: 10000 });
+  await linha.click();
   await this.page.waitForTimeout(500);
 });
 
@@ -1130,6 +1212,37 @@ Then('devo ver:', async function(dataTable: any) {
 
     const valueText = this.page.getByText(row.valor).first();
     await expect(valueText).toBeVisible();
+  }
+});
+
+/**
+ * ✅ Criado em 07/out/2026 (issue #121, backlog "religar @quebrado",
+ * cenário "Calcular pagamento com garagem"): "devo ver:" (acima) procura
+ * o texto cru do Gherkin na página -- nunca funcionaria pra dinheiro,
+ * porque a tela escreve em moeda brasileira ("R$ 2.500,00"), nunca no
+ * formato de máquina do Gherkin ("2500.00"). Este passo é específico do
+ * detalhamento de recebimento (usePaymentBreakdown.ts: só mostra
+ * "Aluguel" e, se houver, "Garagem", mais o total dos dois -- não existe
+ * "Taxa Administração" nem "Valor Líquido" por recebimento, só a taxa
+ * administrativa AGREGADA no Dashboard Financeiro) -- compara "Total"
+ * contra o valor em destaque do card e as demais linhas por número
+ * extraído do texto, igual ao parser já usado em "o valor deve ser
+ * proporcional a N dias".
+ */
+Then('devo ver no detalhamento:', async function(this: import('../support/world').CustomWorld, dataTable: any) {
+  const rows = dataTable.hashes();
+  const dialog = this.page.getByRole('dialog');
+  const texto = ((await dialog.textContent()) || '').replace(/\s+/g, ' ');
+
+  for (const row of rows) {
+    const esperado = parseFloat(row.valor);
+    const achados = [...texto.matchAll(/R\$\s*([\d.]+,\d{2})/g)].map((m) =>
+      parseFloat(m[1].replace(/\./g, '').replace(',', '.'))
+    );
+    expect(
+      achados.some((n) => Math.abs(n - esperado) < 0.01),
+      `campo "${row.campo}": nenhum valor em reais do detalhamento bate com R$ ${esperado.toFixed(2)}. Detalhamento lido: ${texto}`
+    ).toBe(true);
   }
 });
 

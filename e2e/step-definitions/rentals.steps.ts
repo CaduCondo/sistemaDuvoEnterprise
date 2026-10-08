@@ -1861,11 +1861,30 @@ Then('pagamentos futuros devem ter {string}', async function(value: string) {
   }
 });
 
-Then('no campo {string} devo ver {string}', async function(fieldName: string, value: string) {
-  const field = this.page.getByText(new RegExp(fieldName, 'i'));
-  await expect(field).toBeVisible();
-  
-  const valueElement = this.page.getByText(value);
+/**
+ * ⚠️ Corrigido em 07/out/2026 (issue #121, backlog "religar @quebrado"):
+ * procurava o texto cru do Gherkin ("1900.00") na tela -- a tela escreve
+ * em moeda brasileira ("R$ 1.900,00"), que nunca contém esse texto cru.
+ * Quando o valor é numérico, compara pelo equivalente em R$ (mesma
+ * conversão já usada em "não apenas o valor do aluguel"); texto comum
+ * continua indo direto, como antes.
+ */
+Then('no campo {string} devo ver {string}', async function(this: import('../support/world').CustomWorld, fieldName: string, value: string) {
+  const field = this.page.getByText(new RegExp(fieldName, 'i')).first();
+  await expect(field, `não achei o campo "${fieldName}" na tela`).toBeVisible();
+
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const esperado = parseFloat(value);
+    const formatado = esperado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const valueElement = this.page.getByText(new RegExp(formatado.replace(/\./g, '\\.'))).first();
+    await expect(
+      valueElement,
+      `não achei "R$ ${formatado}" na tela (equivalente a "${value}")`
+    ).toBeVisible();
+    return;
+  }
+
+  const valueElement = this.page.getByText(value).first();
   await expect(valueElement).toBeVisible();
 });
 

@@ -111,26 +111,29 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     E seleciono o período de teste no filtro de mês e ano
     Então o card "Taxa Adm" deve mostrar a taxa administrativa sobre "2500.00"
 
-  # FORA DO SMOKE (30/ago/2026): o passo "Dado que existe uma locação com:" não
-  # cria nada -- só guarda a tabela. O cenário acaba abrindo um recebimento
-  # qualquer da base e conferindo valores que não são os dele. Além disso pede
-  # "Taxa Administração", que não existe na tela de Recebimentos.
-  # Ver docs/tickets/smoke-30-ago.md.
-  @quebrado
+  # ⚠️ Corrigido em 07/out/2026 (issue #121, backlog "religar @quebrado"):
+  # "Dado que existe uma locação com:" criava a locação DIRETO NO BANCO
+  # (sem imóvel, sem passar pela tela) -- "visualizo o detalhamento do
+  # pagamento" caía num recebimento qualquer do banco de DEV compartilhado,
+  # sem relação com este cenário. "Taxa Administração" e "Valor Líquido"
+  # também nunca existiram no detalhamento por recebimento (confirmado em
+  # usePaymentBreakdown.ts: só mostra "Aluguel" e, se houver, "Garagem",
+  # mais o total dos dois -- a taxa administrativa só existe AGREGADA no
+  # Dashboard Financeiro, já coberta no cenário acima, "Taxa de
+  # administração aparece corretamente no Dashboard Financeiro"). O passo
+  # "que existe uma locação com:" passou a criar de verdade, pela tela.
+  @sistemaCompleto
   Cenário: Calcular pagamento com garagem
     Dado que existe uma locação com:
       | campo          | valor   |
       | Aluguel        | 2500.00 |
       | Garagem        | 300.00  |
-    E a taxa de administração é "10%"
     Quando visualizo o detalhamento do pagamento
-    Então devo ver:
-      | campo                  | valor    |
-      | Aluguel                | 2500.00  |
-      | Garagem                | 300.00   |
-      | Total Bruto            | 2800.00  |
-      | Taxa Administração     | 280.00   |
-      | Valor Líquido          | 2520.00  |
+    Então devo ver no detalhamento:
+      | campo   | valor   |
+      | Aluguel | 2500.00 |
+      | Garagem | 300.00  |
+      | Total   | 2800.00 |
 
   # ❌ REMOVIDO em 14/set/2026 (issue #99). Este cenário testava uma
   # comissão de "corretor parceiro" incidindo sobre um recebimento de
