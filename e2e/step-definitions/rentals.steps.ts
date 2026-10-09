@@ -1897,6 +1897,18 @@ Then('no campo {string} devo ver {string}', async function(this: import('../supp
  *
  * A regra: no Comprovante de Contrato, o "Valor Total" é aluguel + garagem.
  * Então o comprovante NÃO pode mostrar o valor do aluguel sozinho como total.
+ *
+ * ⚠️ Consertado DE NOVO em 09/out/2026 -- CI run #100, falha "o comprovante
+ * está mostrando R$ 1.500,00 como Valor Total". Investigando RentalContract.tsx
+ * (linhas 73-86): o componente já soma aluguel + garagem corretamente, o bug
+ * era NESTE PASSO. `this.page.locator('*', { hasText: ... })` casa com
+ * QUALQUER elemento cujo texto (de toda a subárvore) contenha o trecho
+ * procurado -- como "Valor do Aluguel" e "Valor Total" ficam dentro do MESMO
+ * <div> pai (ver componente), esse <div> pai (e todo ancestral dele) batia
+ * com os dois filtros ao mesmo tempo, mesmo com o "Valor Total" mostrando a
+ * soma certa em outra linha. Falso positivo clássico de seletor amplo demais.
+ * Corrigido mirando o bloco específico (o <div> que é PAI DIRETO do rótulo
+ * "Valor Total:", não qualquer ancestral) e lendo o texto só dali.
  */
 Then('não apenas o valor do aluguel', async function() {
   const aluguel = this.testData?.rentValue;
@@ -1914,22 +1926,32 @@ Then('não apenas o valor do aluguel', async function() {
 
   const total = Number(aluguel) + Number(garagem);
 
-  // O total correto tem que estar na tela...
+  // Rótulo e valor são irmãos dentro do mesmo <div> ("Valor Total:" + <p> com
+  // o número, ver RentalContract.tsx) -- ler o texto só desse <div> pai
+  // específico evita pegar qualquer outro valor solto na tela.
+  const rotuloTotal = this.page.getByText('Valor Total:', { exact: true }).first();
   await expect(
-    this.page.getByText(new RegExp(formatar(total).replace(/[.]/g, '\\.'))).first(),
-    `o comprovante não mostra o valor total de R$ ${formatar(total)} (aluguel + garagem)`
+    rotuloTotal,
+    'não encontrei o rótulo "Valor Total:" no comprovante'
   ).toBeVisible({ timeout: 5000 });
+  const blocoTotal = rotuloTotal.locator('xpath=..');
+  const textoTotal = (await blocoTotal.innerText()).replace(/\s+/g, ' ').trim();
 
-  // ...e o aluguel sozinho NÃO pode estar aparecendo como "Valor Total".
-  const rotuloTotal = this.page
-    .locator('*', { hasText: /valor total/i })
-    .filter({ hasText: new RegExp(formatar(Number(aluguel)).replace(/[.]/g, '\\.')) });
-
+  // O total correto tem que estar no bloco...
   expect(
-    await rotuloTotal.count(),
-    `o comprovante está mostrando R$ ${formatar(Number(aluguel))} como "Valor Total" -- ` +
-      'esse é só o aluguel, a garagem ficou de fora da soma'
-  ).toBe(0);
+    textoTotal.includes(`R$ ${formatar(total)}`),
+    `o bloco "Valor Total" do comprovante mostra "${textoTotal}", esperava R$ ${formatar(total)} (aluguel + garagem)`
+  ).toBe(true);
+
+  // ...e, se a garagem tem valor de verdade, o aluguel sozinho NÃO pode ser
+  // o que aparece como total (sinal de que a garagem ficou de fora da soma).
+  if (Number(garagem) !== 0 && formatar(Number(aluguel)) !== formatar(total)) {
+    expect(
+      textoTotal.includes(`R$ ${formatar(Number(aluguel))}`),
+      `o bloco "Valor Total" do comprovante mostra "${textoTotal}" -- ` +
+        `isso é só o aluguel (R$ ${formatar(Number(aluguel))}), a garagem ficou de fora da soma`
+    ).toBe(false);
+  }
 });
 
 /**
