@@ -28,6 +28,15 @@ module.exports = {
     // "tudo que o @smoke não cobriu" (ver e2e/SMOKE.md).
     tags: '@sistemaCompleto',
 
+    // ⚠️ NOVO (09/out/2026) -- mesma auditoria de confiabilidade do
+    // cucumber.smoke.config.cjs (ver comentário completo lá): runs de CI
+    // consecutivos (#97-#100) falharam cada um num cenário DIFERENTE,
+    // sempre "function timed out... 20000 milliseconds" -- sinal de teste
+    // instável (runner lento/round-trip do Supabase), não de bug real.
+    // `retry: 1` evita que uma lentidão pontual vire alarme falso, sem
+    // esconder instabilidade de verdade (o relatório mostra as tentativas).
+    retry: 1,
+
     // SEM --parallel (06/set/2026, issue #75) -- ver o comentário completo
     // (e a atualização de que isso sozinho NÃO resolveu) em
     // cucumber.smoke.config.cjs.

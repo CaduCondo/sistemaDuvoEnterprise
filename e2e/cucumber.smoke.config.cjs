@@ -26,6 +26,23 @@ module.exports = {
     // Só os cenários marcados com @smoke.
     tags: '@smoke',
 
+    // ⚠️ NOVO (09/out/2026) -- auditoria de confiabilidade pedida pelo
+    // Cadu: comparando falhas de CI de runs consecutivos (#97, #98, #99,
+    // #100), cada um falhou num cenário DIFERENTE, sempre com a mesma
+    // assinatura "function timed out, ensure the promise resolves within
+    // 20000 milliseconds" (o timeout padrão de passo, setDefaultTimeout em
+    // hooks.ts) -- nunca é o MESMO teste quebrado de verdade, é sempre
+    // algum passo que passou de 20s por lentidão pontual do runner do
+    // GitHub Actions (CPU compartilhada) ou round-trip do Supabase. Isso é
+    // a definição de teste instável (flaky), não defeito do sistema.
+    // `retry: 1` manda o cucumber-js rodar de novo, automaticamente,
+    // qualquer cenário que falhar uma vez antes de reportar como falha de
+    // verdade -- e o relatório HTML/JSON continua mostrando quantas
+    // tentativas cada cenário levou, então uma instabilidade real nunca
+    // fica escondida, só deixa de virar alarme falso. Ver
+    // https://github.com/cucumber/cucumber-js/blob/main/docs/retry.md
+    retry: 1,
+
     /*
      * SEM --parallel (06/set/2026, issue #75) — antes era `parallel: 2`.
      * ⚠️ ATUALIZAÇÃO (06/set/2026, mesmo dia): tirar o --parallel NÃO
