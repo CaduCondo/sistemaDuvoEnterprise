@@ -268,7 +268,16 @@ Given('que existe uma locação com:', async function(this: import('../support/w
   if (garagem > 0) {
     await this.page.locator('#rental-has-garage').click();
     await this.page.waitForTimeout(300);
-    await this.page.locator('#rental-garage-value').fill(String(garagem));
+    // ⚠️ Corrigido em 09/out/2026 -- CI run #100, "Calcular pagamento com
+    // garagem" falhou mostrando Garagem = R$ 3,00 em vez de R$ 300,00.
+    // Causa: #rental-garage-value usa applyMoneyMask (src/lib/masks.ts),
+    // que trata TODO dígito do campo como centavo (é a máscara de digitar:
+    // cada tecla empurra um dígito, "300" vira R$3,00, só "30000" vira
+    // R$300,00). `.fill(String(garagem))` com garagem=300 mandava "300"
+    // direto -- sem os 2 zeros de centavo, a máscara dividia por 100 e
+    // cortava o valor por 100. Preenchendo em centavos (valor × 100,
+    // arredondado) o resultado bate com o que a máscara espera.
+    await this.page.locator('#rental-garage-value').fill(String(Math.round(garagem * 100)));
   }
 
   // Caução: obrigatório preencher a Data Pagamento (o valor pode ficar 0,
