@@ -945,8 +945,23 @@ When('anexo o comprovante', async function() {
 When('confirmo o recebimento do pagamento', async function(this: import('../support/world').CustomWorld) {
   await this.page.locator('#manage-payment-submit').click();
 
+  /**
+   * ⚠️ Corrigido em 09/out/2026 (CI run #101, issue #111): o clique em
+   * #manage-payment-submit dispara salvar o pagamento + subir o anexo do
+   * comprovante (quando há) + handleManagePaymentSuccess, que só chama
+   * showAlert("Sucesso!") DEPOIS de recarregar a lista de recebimentos
+   * (loadPayments). Ou seja, esse alertdialog "Sucesso!" é o sinal real de
+   * "a lista já está atualizada" -- não um aviso qualquer que dá pra
+   * ignorar. O timeout antigo de 5000ms, com `.catch(() => false)`, fazia o
+   * passo desistir de esperar e seguir em frente SEM a lista atualizada
+   * sempre que o salvamento (upload do comprovante incluso) passava de 5s
+   * num runner de CI mais lento -- e o próximo passo ("o status deve mudar
+   * para Pago") tinha só mais 5s pra achar uma linha que a tela ainda nem
+   * tinha recarregado. Resultado: falha "elemento não encontrado", nas duas
+   * tentativas do retry, mesmo o sistema estando certo.
+   */
   const alerta = this.page.getByRole('alertdialog');
-  if (await alerta.isVisible({ timeout: 5000 }).catch(() => false)) {
+  if (await alerta.isVisible({ timeout: 15000 }).catch(() => false)) {
     await alerta.getByRole('button', { name: /^OK$/i }).click();
   }
 

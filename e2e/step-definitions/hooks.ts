@@ -9,18 +9,20 @@ import TEST_CONFIG from '../config/test.config';
 /**
  * Tempo máximo de CADA passo (não do cenário inteiro).
  *
- * ⚠️ Baixado de 60s para 20s em 07/set/2026 (issue #66) -- o motivo é o
- * custo das FALHAS, não o das passagens. Um passo que passa leva 1-3s; quem
- * consome os 60s é sempre um passo que vai falhar (espera um elemento que
- * nunca aparece). Como a rodada @sistemaCompleto tem hoje dezenas de
- * cenários vermelhos, esses 60s por falha somavam mais de 30 minutos e
- * estouravam o limite do job -- o relatório nunca era gerado e ficávamos
- * sem saber o que estava falhando de verdade.
+ * ⚠️ Baixado de 60s para 20s em 07/set/2026 (issue #66) -- o motivo foi o
+ * custo das FALHAS, não o das passagens: na época a suite tinha dezenas de
+ * cenários vermelhos e 60s por falha estourava o limite do job.
  *
- * 20s continua folgado: no smoke real, o passo mais lento (compilar +
- * navegar + login) fica bem abaixo disso.
+ * ⚠️ Subido de 20s para 30s em 09/out/2026 (CI run #101, issue #111): com a
+ * suite já bem mais verde (165/167) e o `retry: 1` do cucumber.*.config.cjs
+ * cobrindo flakiness pontual, sobraram 2 cenários que falham nas DUAS
+ * tentativas com o mesmo sintoma (timeout de 20s) -- não é flakiness, é
+ * trabalho legítimo (criar 12 pagamentos; upload de comprovante + salvar +
+ * recarregar a lista) que às vezes passa de 20s num runner de CI mais
+ * lento. 30s dá a folga que faltava sem voltar ao problema de 2026-09-07
+ * (poucos cenários vermelhos hoje, então o custo de falha em dobro é baixo).
  */
-setDefaultTimeout(20 * 1000);
+setDefaultTimeout(30 * 1000);
 
 // Garante que os usuários de teste (admin/financeiro/corretor) existem antes
 // de qualquer cenário rodar.
