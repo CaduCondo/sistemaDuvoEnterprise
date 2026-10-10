@@ -160,13 +160,29 @@ Given('que crio uma locação com:', { timeout: 60 * 1000 }, async function(data
   // ainda aberto por cima da tela.
   await this.page.locator('#rental-form-submit').click();
 
+  /**
+   * ⚠️ Corrigido em 10/out/2026 (CI run #101/#102, issue #111): o clique em
+   * #rental-form-submit dispara, em sequência e tudo aguardado (ver
+   * RentalFormDialog.tsx): updateProperty + updateTenant + createRental
+   * (que já cria as parcelas de caução) + createPaymentsForRental (12
+   * inserts, um por mês). São ~15 idas e vindas ao Supabase ANTES do
+   * Comprovante de Contrato aparecer na tela -- e só depois de fechar o
+   * Comprovante é que vem o alertdialog "Locação criada com sucesso.". Os
+   * timeouts antigos (10s pro Comprovante, 5s pro alerta), com
+   * `.catch(() => false)`, faziam o passo desistir de esperar e voltar
+   * ANTES desse tanto de trabalho terminar sempre que a cadeia toda passava
+   * de 10s num runner de CI mais lento -- e aí "devem ser criados 12
+   * pagamentos" ia checar uma locação que talvez nem tivesse os 12
+   * pagamentos no banco ainda. Subidos pra 20s/15s (o passo inteiro tem
+   * 60s de orçamento, então ainda sobra folga).
+   */
   const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
-  if (await comprovante.isVisible({ timeout: 10000 }).catch(() => false)) {
+  if (await comprovante.isVisible({ timeout: 20000 }).catch(() => false)) {
     await comprovante.getByRole('button', { name: /fechar/i }).click();
   }
 
   const alerta = this.page.getByRole('alertdialog');
-  if (await alerta.isVisible({ timeout: 5000 }).catch(() => false)) {
+  if (await alerta.isVisible({ timeout: 15000 }).catch(() => false)) {
     await alerta.getByRole('button', { name: /^OK$/i }).click();
   }
 
@@ -1300,14 +1316,38 @@ Then('devo ver no detalhamento:', async function(this: import('../support/world'
  * mode violation"). Escopado pela linha do pagamento de teste quando
  * conhecida (guardada por "que existe um pagamento {string}"); senão cai
  * pro `.first()` pra não quebrar cenários mais antigos que não guardam isso.
+ *
+ * ⚠️ Corrigido em 10/out/2026 (CI run #101 e #102, issue #111): a causa real
+ * da falha não era timing -- era aba errada. payments.tsx tem abas
+ * separadas "Recebimentos Pendentes" / "Recebimentos Pagos"
+ * (#payments-tab-pending / #payments-tab-paid) e a linha SAI de uma e
+ * ENTRA na outra quando o status muda (mesma lógica já documentada no passo
+ * "devo poder gerar o recibo", logo abaixo). Este passo nunca trocava de
+ * aba: ao marcar como "Pago", a linha sumia da aba Pendentes (onde o
+ * cenário ainda estava) e o `tbody tr` consultado não tinha o pagamento
+ * nenhum -- por isso aumentar o timeout (5s -> 15s no alertdialog de
+ * sucesso, run #102) não resolveu nada, e nem resolveria: não importa
+ * quanto se espere, a linha não está naquela aba. Agora troca pra aba
+ * certa (Pago -> #payments-tab-paid, qualquer outro status ->
+ * #payments-tab-pending) antes de procurar a linha, igual ao padrão já
+ * usado em "devo poder gerar o recibo".
  */
 Then('o status deve mudar para {string}', async function(this: import('../support/world').CustomWorld, status: string) {
+  const abaId = /pago/i.test(status) ? '#payments-tab-paid' : '#payments-tab-pending';
+  await this.page.locator(abaId).click();
+  await this.page.waitForTimeout(300);
+
   const nomeInquilino = this.testData?.tenantName;
+  if (nomeInquilino) {
+    await this.page.locator('#payments-search-input').fill(nomeInquilino);
+    await this.page.waitForTimeout(300);
+  }
+
   const escopo = nomeInquilino
     ? this.page.locator('tbody tr').filter({ hasText: nomeInquilino })
     : this.page;
   const statusBadge = escopo.getByText(new RegExp(status, 'i')).first();
-  await expect(statusBadge).toBeVisible({ timeout: 5000 });
+  await expect(statusBadge).toBeVisible({ timeout: 10000 });
 });
 
 /**
