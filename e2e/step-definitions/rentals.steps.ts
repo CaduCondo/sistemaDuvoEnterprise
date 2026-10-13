@@ -1618,43 +1618,52 @@ Then('devo ver os campos:', async function(dataTable: any) {
 
 /**
  * ⚠️ Corrigido em 07/out/2026 (issue #121, backlog "religar @quebrado"):
- * contava TODAS as linhas da tabela de Recebimentos (sem filtrar por
- * locação) e nunca trocava o período para "Todos" -- por padrão a tela
- * (payments.tsx) só mostra o mês/ano ATUAL, e esta locação tem
- * recebimentos espalhados pelos 12 meses do ano. Agora filtra pelo
- * inquilino criado por "que crio uma locação com:" (this.tenantName) e
- * ignora a parcela de caução -- mesma convenção já usada em "devo ver N
- * recebimento" (payments.steps.ts, linhasDoRecebimento).
+ * filtra pelo inquilino criado por "que crio uma locação com:"
+ * (this.tenantName) e ignora a parcela de caução -- mesma convenção já
+ * usada em "devo ver N recebimento" (payments.steps.ts,
+ * linhasDoRecebimento). Usada pelos passos "cada pagamento deve ter
+ * valor de" / "o status deve mudar para", que olham a tela de fato (ao
+ * contrário de "devem ser criados N pagamentos", corrigido em 13/out/2026
+ * pra conferir direto no banco -- ver comentário logo abaixo).
  */
-async function selecionarTodosOsPeriodos(world: any) {
-  await world.page.locator('#period-selector-month').click();
-  await world.page.waitForTimeout(300);
-  await world.page.getByRole('option', { name: 'Todos os meses' }).click();
-  await world.page.waitForTimeout(300);
-
-  await world.page.locator('#period-selector-year').click();
-  await world.page.waitForTimeout(300);
-  await world.page.getByRole('option', { name: 'Todos os anos' }).click();
-  await world.page.waitForTimeout(500);
-}
-
 function linhasDePagamentosDaLocacao(world: any) {
   const linhas = world.page.locator('tbody tr:visible').filter({ hasNotText: 'Caução' });
   return world.tenantName ? linhas.filter({ hasText: world.tenantName }) : linhas;
 }
 
+/**
+ * ⚠️ Corrigido em 13/out/2026 (CI run #103, issue #111, 3ª causa raiz
+ * encontrada): este passo usava `selecionarTodosOsPeriodos` pra tentar
+ * clicar nas opções "Todos os meses"/"Todos os anos" do seletor de
+ * período -- mas a tela de Pagamentos (payments.tsx) passa
+ * `showAllOption={false}` pro PeriodSelector DE PROPÓSITO (pedido do
+ * Cadu, 06/out/2026: com milhares de recebimentos, a lista sem filtro de
+ * período não serve pra nada). Essas opções simplesmente NÃO EXISTEM
+ * nessa tela -- `getByRole('option', { name: 'Todos os meses' })` nunca
+ * aparecia, e o clique ficava esperando indefinidamente até estourar o
+ * timeout global do passo (30s, hooks.ts), sempre, de forma 100%
+ * determinística (não é flakiness -- por isso `retry: 1` nunca ajudou).
+ * Essa locação tem 12 recebimentos espalhados pelos 12 meses do ano
+ * (01/01/2026 a 31/12/2026), então nem dava pra contornar escolhendo um
+ * mês específico na tela sem somar 12 filtros diferentes.
+ *
+ * "Foram criados 12 pagamentos" é, na raiz, um fato do BACKEND (a tela
+ * de Recebimentos é só uma forma de visualizar isso, limitada por
+ * período) -- então agora confere direto no banco, com o mesmo
+ * DatabaseHelper.getPaymentsByRental já usado por outros passos deste
+ * arquivo (ex.: "a parcela N deve ter:"), em vez de brigar com um filtro
+ * de UI que não foi pensado pra "ver tudo".
+ */
 Then('devem ser criados {int} pagamentos', async function(this: import('../support/world').CustomWorld, count: number) {
-  await this.page.goto('/payments');
-  await this.page.waitForLoadState('domcontentloaded');
+  expect(this.rentalId, 'nenhuma locação foi criada ainda (this.rentalId vazio)').toBeTruthy();
 
-  await selecionarTodosOsPeriodos(this);
+  const pagamentos = await DatabaseHelper.getPaymentsByRental(this.rentalId!);
 
-  if (this.tenantName) {
-    await this.page.locator('#payments-search-input').fill(this.tenantName);
-    await this.page.waitForTimeout(500);
-  }
-
-  await expect(linhasDePagamentosDaLocacao(this)).toHaveCount(count, { timeout: 10000 });
+  expect(
+    pagamentos.length,
+    `esperava ${count} pagamentos para a locação ${this.rentalId}, banco tem ${pagamentos.length}: ` +
+    JSON.stringify(pagamentos.map((p: any) => ({ mes: p.reference_month, ano: p.reference_year, status: p.status })))
+  ).toBe(count);
 });
 
 Then('cada pagamento deve ter valor de {string}', async function(this: import('../support/world').CustomWorld, value: string) {

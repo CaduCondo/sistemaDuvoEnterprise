@@ -957,29 +957,39 @@ When('anexo o comprovante', async function() {
  * rótulo, e fecha o aviso de sucesso que aparece depois
  * (handleManagePaymentSuccess, payments.tsx) -- sem isso ele fica por
  * cima da tela e pode interferir nos próximos passos.
+ *
+ * ⚠️ Corrigido em 13/out/2026 (CI run #103, issue #111, 2ª causa raiz
+ * encontrada): o `.catch(() => false)` do `isVisible({timeout: 15000})`
+ * (aumentado de 5000ms no run #102) ainda tinha o MESMO defeito de
+ * fundo, só que mais raro -- se o salvamento (update do pagamento +
+ * upload do comprovante + loadPayments) passasse de 15s num runner de CI
+ * mais lento, o passo desistia de esperar o alertdialog e seguia em
+ * frente SEM clicar "OK". O alertdialog aparecia DEPOIS, por cima da
+ * tela -- e o próximo passo ("o status deve mudar para Pago") tentava
+ * clicar na aba #payments-tab-paid, que ficava coberta por esse modal
+ * ainda aberto. O clique do Playwright então ficava esperando o elemento
+ * deixar de estar "obscured" (tapado), sem nunca lançar o erro certo --
+ * só estourava o timeout GENÉRICO do passo (30s, hooks.ts), com a
+ * mensagem genérica do cucumber em vez de um erro do Playwright. Por
+ * isso o fix de run #102 (aumentar 5s->15s) não resolveu: o problema
+ * nunca foi "quanto tempo esperar aqui", e sim "o que fazer se demorar
+ * mais que isso" -- esperar e SEMPRE fechar, nunca desistir em silêncio.
+ * Removido o `.catch(() => false)`: se o alertdialog realmente não
+ * aparecer dentro do prazo, o passo agora falha aqui, com um erro claro
+ * apontando pra este clique -- em vez de deixar um modal pendurado
+ * sabotar o passo seguinte com um erro sem relação nenhuma com a causa
+ * real.
  */
-When('confirmo o recebimento do pagamento', async function(this: import('../support/world').CustomWorld) {
+When('confirmo o recebimento do pagamento', { timeout: 40 * 1000 }, async function(this: import('../support/world').CustomWorld) {
   await this.page.locator('#manage-payment-submit').click();
 
-  /**
-   * ⚠️ Corrigido em 09/out/2026 (CI run #101, issue #111): o clique em
-   * #manage-payment-submit dispara salvar o pagamento + subir o anexo do
-   * comprovante (quando há) + handleManagePaymentSuccess, que só chama
-   * showAlert("Sucesso!") DEPOIS de recarregar a lista de recebimentos
-   * (loadPayments). Ou seja, esse alertdialog "Sucesso!" é o sinal real de
-   * "a lista já está atualizada" -- não um aviso qualquer que dá pra
-   * ignorar. O timeout antigo de 5000ms, com `.catch(() => false)`, fazia o
-   * passo desistir de esperar e seguir em frente SEM a lista atualizada
-   * sempre que o salvamento (upload do comprovante incluso) passava de 5s
-   * num runner de CI mais lento -- e o próximo passo ("o status deve mudar
-   * para Pago") tinha só mais 5s pra achar uma linha que a tela ainda nem
-   * tinha recarregado. Resultado: falha "elemento não encontrado", nas duas
-   * tentativas do retry, mesmo o sistema estando certo.
-   */
   const alerta = this.page.getByRole('alertdialog');
-  if (await alerta.isVisible({ timeout: 15000 }).catch(() => false)) {
-    await alerta.getByRole('button', { name: /^OK$/i }).click();
-  }
+  await expect(
+    alerta,
+    'o alertdialog de "Sucesso!" (sinal de que o pagamento + a lista de recebimentos já foram salvos) não apareceu'
+  ).toBeVisible({ timeout: 20000 });
+  await alerta.getByRole('button', { name: /^OK$/i }).click();
+  await expect(alerta, 'o alertdialog de "Sucesso!" não fechou depois do clique em OK').toBeHidden({ timeout: 5000 });
 
   await this.page.waitForTimeout(500);
 });
