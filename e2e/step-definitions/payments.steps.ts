@@ -193,6 +193,21 @@ Given('que crio uma locação com:', { timeout: 60 * 1000 }, async function(data
     ...this.testData,
     rental: data
   };
+
+  // ⚠️ Corrigido em 13/out/2026 (CI run #104, issue #111, 4a causa raiz
+  // encontrada): este passo nunca guardava this.rentalId -- só
+  // this.tenantName/this.testData. Passou desapercebido enquanto
+  // "devem ser criados {int} pagamentos" contava linhas NA TELA (filtrado
+  // por this.tenantName); mas o fix do run #103 trocou aquele passo pra
+  // conferir direto no banco via DatabaseHelper.getPaymentsByRental(
+  // this.rentalId), que ai sempre vinha undefined. Mesma convenção ja
+  // usada em "salvo a locacao" (rentals.steps.ts): pega a locacao mais
+  // recente do banco, que e sempre a que acabou de ser criada aqui (a
+  // suite nunca roda cenarios em paralelo).
+  const rentalCriada = await this.getMostRecentRental();
+  if (rentalCriada) {
+    this.rentalId = rentalCriada.id;
+  }
 });
 
 Given('que existe uma locação com aluguel de {string}', async function(value: string) {
