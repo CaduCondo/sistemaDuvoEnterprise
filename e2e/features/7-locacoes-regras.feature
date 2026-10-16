@@ -310,24 +310,31 @@ Funcionalidade: Regras de Negócio de Locações
   # locação de verdade PELA TELA. As 3 asserções passam a olhar só os
   # recebimentos desta locação (via this.tenantName), ignorando a parcela
   # de caução -- mesma convenção já usada em "devo ver N recebimento".
-  # ⚠️ Corrigido em 16/out/2026 (CI run #106): "Data início" 01/01 e "Data
-  # fim" 31/12 nao caem no "Dia vencimento" 10 -- isso aciona DUAS regras
-  # proporcionais intencionais (nao sao bugs):
-  # 1) inicio != dia de vencimento -> parcela 1 fica proporcional (9 dias =
-  #    750.00, nao os 2500.00 cheios) -- ver calculateFirstInstallment() em
-  #    paymentService.ts.
-  # 2) fim != dia de vencimento -> ETAPA 4 (issue #108) soma 2 recebimentos
-  #    extras de fim de contrato, totalizando 14 pagamentos, nao 12.
-  # Trocando para datas que caem EXATAMENTE no dia de vencimento (10/01 a
-  # 10/12, 12 meses) elimina as duas proporcionalidades, e o cenario passa
-  # a testar de fato o que seu nome promete: 12 parcelas CHEIAS de
-  # 2500.00, todas vencendo no dia 10.
+  # ⚠️ Corrigido em 16/out/2026 (CI runs #106 e #107): "Data início" 01/01 e
+  # "Data fim" 31/12 nao caem no "Dia vencimento" 10 -- isso aciona DUAS
+  # regras proporcionais intencionais (nao sao bugs), em calculateFirstInstallment()
+  # e na ETAPA 4 (issue #108) de paymentService.ts.
+  #
+  # Tentativa 1 (run #106->#107) trocou para 10/01/2026 -> 10/12/2026 (ambas
+  # no dia 10), mas ISSO AINDA FALHOU, porque a regra real de
+  # calculateFirstInstallment() quando dia_inicio === dia_vencimento NAO é
+  # "parcela 1 no mesmo mês" -- é "parcela 1 cheia, mas no MES SEGUINTE"
+  # (quem muda de imóvel no dia do vencimento só paga o 1º mês completo
+  # um mês depois, já tendo morado o mês inteiro). Com início 10/01, a
+  # parcela 1 vencia 10/02, e fim 10/12 ficava 1 parcela ANTES do fim real
+  # do ciclo de 12 parcelas -- sobravam só 11 regulares + 1 de rescisão.
+  #
+  # Tentativa 2 (esta): manter início 10/01/2026 (parcela 1 vence 10/02/2026,
+  # cheia) e mover o fim para 10/01/2027 -- exatamente a data de vencimento
+  # da 12ª parcela (Fev/26 a Jan/27) -- para diasFinais=0 e nenhuma
+  # ETAPA 4 extra. Resultado esperado: 12 parcelas CHEIAS de 2500.00,
+  # todas vencendo no dia 10 (Fev/2026 a Jan/2027).
   @sistemaCompleto
   Cenário: Criar locação - Gerar pagamentos automaticamente
     Dado que crio uma locação com:
       | campo          | valor      |
       | Data início    | 10/01/2026 |
-      | Data fim       | 10/12/2026 |
+      | Data fim       | 10/01/2027 |
       | Dia vencimento | 10         |
       | Aluguel        | 2500.00    |
     Então devem ser criados 12 pagamentos
