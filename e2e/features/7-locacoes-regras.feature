@@ -310,12 +310,24 @@ Funcionalidade: Regras de Negócio de Locações
   # locação de verdade PELA TELA. As 3 asserções passam a olhar só os
   # recebimentos desta locação (via this.tenantName), ignorando a parcela
   # de caução -- mesma convenção já usada em "devo ver N recebimento".
+  # ⚠️ Corrigido em 16/out/2026 (CI run #106): "Data início" 01/01 e "Data
+  # fim" 31/12 nao caem no "Dia vencimento" 10 -- isso aciona DUAS regras
+  # proporcionais intencionais (nao sao bugs):
+  # 1) inicio != dia de vencimento -> parcela 1 fica proporcional (9 dias =
+  #    750.00, nao os 2500.00 cheios) -- ver calculateFirstInstallment() em
+  #    paymentService.ts.
+  # 2) fim != dia de vencimento -> ETAPA 4 (issue #108) soma 2 recebimentos
+  #    extras de fim de contrato, totalizando 14 pagamentos, nao 12.
+  # Trocando para datas que caem EXATAMENTE no dia de vencimento (10/01 a
+  # 10/12, 12 meses) elimina as duas proporcionalidades, e o cenario passa
+  # a testar de fato o que seu nome promete: 12 parcelas CHEIAS de
+  # 2500.00, todas vencendo no dia 10.
   @sistemaCompleto
   Cenário: Criar locação - Gerar pagamentos automaticamente
     Dado que crio uma locação com:
       | campo          | valor      |
-      | Data início    | 01/01/2026 |
-      | Data fim       | 31/12/2026 |
+      | Data início    | 10/01/2026 |
+      | Data fim       | 10/12/2026 |
       | Dia vencimento | 10         |
       | Aluguel        | 2500.00    |
     Então devem ser criados 12 pagamentos
