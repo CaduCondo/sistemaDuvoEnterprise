@@ -172,6 +172,21 @@ export const BreakdownItem = memo(({ item, isDeduction, igpmCorrection, formatCu
                             {igpmCorrection.poupancaDetails || igpmCorrection.igpmDetails || "Detalhes de correção não disponíveis."}
                           </div>
                         </div>
+
+                        {/* ⚠️ issue #115: a tabela de índices da poupança é cadastrada à
+                            mão mês a mês -- quando o período da correção passa do
+                            último mês conhecido, a conta parava nesse mês em
+                            silêncio (só um console.warn). Agora avisa na tela qual
+                            foi o último índice realmente usado. */}
+                        {igpmCorrection.correcaoIncompleta && (
+                          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                            <p className="text-xs text-amber-800 dark:text-amber-200">
+                              ⚠️ Correção aplicada até <strong>{igpmCorrection.ultimoIndiceUsado}</strong> (último
+                              índice da poupança cadastrado no sistema). Meses mais recentes
+                              ainda não entraram nessa conta.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </TooltipContent>
                   </Tooltip>

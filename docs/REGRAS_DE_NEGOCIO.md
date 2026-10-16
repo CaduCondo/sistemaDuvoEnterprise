@@ -2232,6 +2232,18 @@ Parcelas com vencimento **posterior** ao mês da rescisão são apagadas.
 - Uma parcela marcada como paga com valor R$ 0,00 é dado inconsistente
   (defeito antigo do `markDepositInstallmentAsPaid`): vale o valor da
   parcela.
+- **A tabela de índices (`POUPANCA_DATABASE` em `src/services/igpmService.ts`)
+  é cadastrada à mão, mês a mês**, com o valor do dia 01 da série 195 do
+  Banco Central (SGS). Ela só recebe um mês depois que ele fecha (nunca um
+  índice provisório). ⚠️ Corrigido em 16/out/2026 (issue #115): a tabela
+  tinha ficado parada em fevereiro/2026 por 7 meses, e todo caução
+  devolvido nesse meio tempo saía **sem nenhuma correção**, em silêncio.
+  Agora, quando o período da correção passa do último mês cadastrado, a
+  tela avisa "⚠️ Correção até MM/YYYY (último índice cadastrado)" — tanto
+  na Rescisão quanto no recebimento de Fim de Contrato. Ver se o mês mais
+  recente fechou e, se sim, cadastrar o índice é tarefa de manutenção
+  mensal (ainda manual; buscar automaticamente pela API do Banco Central é
+  ideia futura, não decidida).
 
 ### Sinais no Recebimento de Rescisão
 

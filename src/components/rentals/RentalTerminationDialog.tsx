@@ -71,6 +71,9 @@ export function RentalTerminationDialog({
   
   const [correctedDepositAmount, setCorrectedDepositAmount] = useState<number>(0);
   const [poupancaPercentage, setPoupancaPercentage] = useState<number>(0);
+  // issue #115: aviso de que a correção parou no último índice cadastrado
+  const [poupancaCorrecaoIncompleta, setPoupancaCorrecaoIncompleta] = useState<boolean>(false);
+  const [poupancaUltimoIndice, setPoupancaUltimoIndice] = useState<string>("");
   const [lastInstallmentDate, setLastInstallmentDate] = useState<string>("");
 
   // ⚠️ NOVO (01/set/2026): parcelas de caução com status "pending" ou
@@ -176,6 +179,8 @@ export function RentalTerminationDialog({
             
             setCorrectedDepositAmount(poupancaCorrection.correctedAmount);
             setPoupancaPercentage(poupancaCorrection.poupancaPercentage);
+            setPoupancaCorrecaoIncompleta(poupancaCorrection.correcaoIncompleta);
+            setPoupancaUltimoIndice(poupancaCorrection.ultimoIndiceUsado);
           } catch (error) {
             console.error("❌ Erro ao calcular Poupança:", error);
             setCorrectedDepositAmount(totalDeposit);
@@ -391,6 +396,11 @@ export function RentalTerminationDialog({
                         <p className="text-2xl font-bold text-center text-blue-900 dark:text-blue-100">
                           R$ {correctedDepositAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </p>
+                        {poupancaCorrecaoIncompleta && (
+                          <p className="text-xs text-amber-700 dark:text-amber-400">
+                            ⚠️ Correção até {poupancaUltimoIndice} (último índice da poupança cadastrado)
+                          </p>
+                        )}
                         <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-1">
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -446,6 +456,14 @@ export function RentalTerminationDialog({
                                         <div className="text-xs font-medium border-t pt-1">
                                           Total Acumulado: +{poupancaPercentage.toFixed(4)}%
                                         </div>
+                                        {/* ⚠️ issue #115: tabela de indices da poupanca e
+                                            cadastrada a mao -- avisa quando a correcao parou
+                                            no ultimo mes conhecido em vez de seguir ate hoje. */}
+                                        {poupancaData.correcaoIncompleta && (
+                                          <div className="text-[11px] text-amber-700 dark:text-amber-400 border-t pt-1">
+                                            ⚠️ Correção até {poupancaData.ultimoIndiceUsado} (último índice cadastrado)
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   } catch (error) {

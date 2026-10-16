@@ -143,6 +143,9 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
     months: number;
     igpmDetails?: string;
     poupancaDetails?: string;
+    // issue #115: aviso de que a correção parou no último índice cadastrado
+    correcaoIncompleta?: boolean;
+    ultimoIndiceUsado?: string;
   } | null>(null);
 
   const [formData, setFormData] = useState({
