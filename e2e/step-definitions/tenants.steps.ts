@@ -126,15 +126,29 @@ Then('o inquilino deve aparecer na lista', async function (this: CustomWorld) {
 // componente que não é mais usado em lugar nenhum -- o filtro real
 // (PeriodSelector.tsx) não tinha id até este ciclo. Ver comentário
 // completo em payments.steps.ts, "filtro pelo mês {string}".
+// ⚠️ Corrigido em 16/out/2026 (issue #111, achado de auditoria): mesmo
+// FALSO POSITIVO do "filtro por" de common.steps.ts -- se
+// #period-selector-month nao estivesse visivel no instante do check, o
+// passo nao selecionava mes nenhum e passava quieto, so gravando
+// currentFilter como se o filtro tivesse sido aplicado. Unico cenario que
+// usa este step e "Totais do mês - Isenta soma apenas valores pagos" em
+// 8-pagamentos-calculos.feature, que depende do filtro de mes estar
+// REALMENTE aplicado para a asserção seguinte fazer sentido.
+// Trocado por expect(...).toBeVisible() -- falha alto e claro se o
+// seletor de periodo nao aparecer, em vez de silenciosamente nao filtrar.
 When('quando filtro por {string}', async function (this: CustomWorld, filterValue: string) {
   const monthSelect = this.page.locator('#period-selector-month');
-  if (await monthSelect.isVisible().catch(() => false)) {
-    const [monthName] = filterValue.split('/');
-    await monthSelect.click();
-    await this.page.waitForTimeout(300);
-    await this.page.getByRole('option', { name: new RegExp(monthName, 'i') }).click();
-    await this.page.waitForTimeout(500);
-  }
+  await expect(
+    monthSelect,
+    'o seletor de mes (#period-selector-month) nao apareceu na tela de Recebimentos'
+  ).toBeVisible({ timeout: 10000 });
+
+  const [monthName] = filterValue.split('/');
+  await monthSelect.click();
+  await this.page.waitForTimeout(300);
+  await this.page.getByRole('option', { name: new RegExp(monthName, 'i') }).click();
+  await this.page.waitForTimeout(500);
+
   this.testData.currentFilter = filterValue;
 });
 

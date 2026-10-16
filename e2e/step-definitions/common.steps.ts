@@ -921,15 +921,30 @@ When('crio uma nova locação', async function (this: CustomWorld) {
 
 /** =================== FILTROS GENÉRICOS (multi-página) =================== */
 
+// ⚠️ Corrigido em 16/out/2026 (issue #111, achado de auditoria): o
+// `if (await searchInput.isVisible().catch(() => false))` original dava
+// FALSO POSITIVO -- se o campo de busca nao estivesse visivel no instante
+// exato do check (pagina ainda carregando, selector errado por alguma
+// mudanca de tela), o passo simplesmente NAO filtrava nada, nao lancava
+// erro nenhum, e so gravava currentFilter como se tivesse funcionado. Os
+// cenarios que usam este step ("filtro por" em 8-pagamentos-calculos.feature
+// e 9-regressao-visual.feature) ficariam verdes mesmo que o filtro real
+// nunca fosse aplicado, mascarando regressao na tela de filtros.
+// Trocado por expect(...).toBeVisible() -- se nenhum dos 3 campos de busca
+// aparecer na tela em 10s, o teste FALHA alto e claro, em vez de passar
+// escondendo que nada foi filtrado.
 When('filtro por {string}', async function (this: CustomWorld, filterValue: string) {
   const searchInput = this.page.locator(
     '#property-filters-search, #tenant-filters-search, #rentals-search-input, input[type="search"]'
   ).first();
 
-  if (await searchInput.isVisible().catch(() => false)) {
-    await searchInput.fill(filterValue);
-    await this.page.waitForTimeout(500);
-  }
+  await expect(
+    searchInput,
+    `campo de busca/filtro nao apareceu na tela (nenhum de #property-filters-search, #tenant-filters-search, #rentals-search-input, input[type="search"] ficou visivel)`
+  ).toBeVisible({ timeout: 10000 });
+
+  await searchInput.fill(filterValue);
+  await this.page.waitForTimeout(500);
 
   this.testData.currentFilter = filterValue;
 });
