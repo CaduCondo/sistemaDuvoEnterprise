@@ -167,24 +167,40 @@ Given('que crio uma locação com:', { timeout: 60 * 1000 }, async function(data
    * (que já cria as parcelas de caução) + createPaymentsForRental (12
    * inserts, um por mês). São ~15 idas e vindas ao Supabase ANTES do
    * Comprovante de Contrato aparecer na tela -- e só depois de fechar o
-   * Comprovante é que vem o alertdialog "Locação criada com sucesso.". Os
-   * timeouts antigos (10s pro Comprovante, 5s pro alerta), com
-   * `.catch(() => false)`, faziam o passo desistir de esperar e voltar
-   * ANTES desse tanto de trabalho terminar sempre que a cadeia toda passava
-   * de 10s num runner de CI mais lento -- e aí "devem ser criados 12
-   * pagamentos" ia checar uma locação que talvez nem tivesse os 12
-   * pagamentos no banco ainda. Subidos pra 20s/15s (o passo inteiro tem
-   * 60s de orçamento, então ainda sobra folga).
+   * Comprovante é que vem o alertdialog "Locação criada com sucesso.".
+   *
+   * ⚠️ Corrigido em 13/out/2026 (issue #111, hardening preventivo depois
+   * de achar o mesmo padrão causando o bug real em "confirmo o
+   * recebimento do pagamento", payments.steps.ts): os dois `isVisible(...)
+   * .catch(() => false)` abaixo (antes 10s/5s, depois 20s/15s) SEMPRE
+   * deveriam achar o Comprovante e o alertdialog -- os dois aparecem
+   * sempre que o salvamento dá certo, não são opcionais. Um
+   * `.catch(() => false)` nesse caso não é "esperar um elemento
+   * opcional", é "desistir em silêncio e seguir com um diálogo ainda
+   * aberto por cima da tela" se a cadeia de ~15 chamadas ao Supabase
+   * demorar mais que o timeout -- e esse diálogo pendurado pode travar o
+   * clique de um passo seguinte sem nunca mostrar o erro real (foi
+   * exatamente isso que aconteceu no run #103 com o alertdialog de
+   * "confirmo o recebimento do pagamento"). Trocado por `expect(...)
+   * .toBeVisible()`: se não aparecer, o passo falha AQUI, com uma
+   * mensagem clara, em vez de sabotar o passo seguinte. O passo inteiro
+   * tem 60s de orçamento, então ainda sobra folga.
    */
   const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
-  if (await comprovante.isVisible({ timeout: 20000 }).catch(() => false)) {
-    await comprovante.getByRole('button', { name: /fechar/i }).click();
-  }
+  await expect(
+    comprovante,
+    'o Comprovante de Contrato não abriu depois de salvar a locação'
+  ).toBeVisible({ timeout: 20000 });
+  await comprovante.getByRole('button', { name: /fechar/i }).click();
+  await expect(comprovante, 'o Comprovante de Contrato não fechou').toBeHidden({ timeout: 5000 });
 
   const alerta = this.page.getByRole('alertdialog');
-  if (await alerta.isVisible({ timeout: 15000 }).catch(() => false)) {
-    await alerta.getByRole('button', { name: /^OK$/i }).click();
-  }
+  await expect(
+    alerta,
+    'o alertdialog de "Locação criada com sucesso." não apareceu depois de fechar o Comprovante'
+  ).toBeVisible({ timeout: 15000 });
+  await alerta.getByRole('button', { name: /^OK$/i }).click();
+  await expect(alerta, 'o alertdialog de sucesso não fechou depois do clique em OK').toBeHidden({ timeout: 5000 });
 
   await this.page.waitForTimeout(1000);
 
@@ -1009,9 +1025,31 @@ When('confirmo o recebimento do pagamento', { timeout: 40 * 1000 }, async functi
   await this.page.waitForTimeout(500);
 });
 
-When('confirmo o cancelamento', async function() {
+/**
+ * Corrigido em 15/out/2026 (CI run #105, issue #111, 6a causa raiz
+ * encontrada): mesmo padrao do fix de "confirmo o recebimento do
+ * pagamento" (acima) -- confirmCancelPayment (payments.tsx) faz
+ * cancelPayment + loadPayments + so DEPOIS mostra o alertdialog
+ * "Recebimento cancelado" (showAlert). Este passo clicava em "Confirmar"
+ * e so esperava 500ms fixos, sem nunca esperar nem fechar esse
+ * alertdialog -- se o cancelamento+reload demorasse mais que isso (CI
+ * mais lento), o alerta aparecia DEPOIS, por cima da tela, e bloqueava o
+ * clique do proximo passo ("o status deve mudar para Pendente", que
+ * troca de aba) -- estourando so o timeout generico do cucumber (30s),
+ * sem erro claro, exatamente como aconteceu no run #105.
+ */
+When('confirmo o cancelamento', { timeout: 40 * 1000 }, async function(this: import('../support/world').CustomWorld) {
   const confirmButton = this.page.getByRole('button', { name: /confirmar/i });
   await confirmButton.click();
+
+  const alerta = this.page.getByRole('alertdialog');
+  await expect(
+    alerta,
+    'o alertdialog de "Recebimento cancelado" nao apareceu depois de confirmar o cancelamento'
+  ).toBeVisible({ timeout: 20000 });
+  await alerta.getByRole('button', { name: /^OK$/i }).click();
+  await expect(alerta, 'o alertdialog de "Recebimento cancelado" nao fechou depois do clique em OK').toBeHidden({ timeout: 5000 });
+
   await this.page.waitForTimeout(500);
 });
 

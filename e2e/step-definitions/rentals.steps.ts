@@ -1654,48 +1654,83 @@ function linhasDePagamentosDaLocacao(world: any) {
  * arquivo (ex.: "a parcela N deve ter:"), em vez de brigar com um filtro
  * de UI que não foi pensado pra "ver tudo".
  */
+/**
+ * ⚠️ Corrigido em 15/out/2026 (CI run #105, issue #111, 5a causa raiz
+ * encontrada -- esta NAO era bug de teste nem de produto, era o teste
+ * desatualizado em relacao a uma regra de negocio real): depois do fix
+ * anterior (conferir direto no banco), o CI mostrou "esperava 12, banco
+ * tem 14" -- com os 2 "extras" sempre em dezembro (mes de vencimento
+ * desta locacao: 01/01/2026 a 31/12/2026, dia 10). NAO e duplicacao: e a
+ * regra de fim de contrato decidida pelo Cadu em 03/out/2026 (issue
+ * #108, ver generateExpectedPayments em paymentService.ts, ETAPA 4) --
+ * todo contrato de prazo fixo cujo vencimento do ultimo mes regular
+ * (aqui, 10/12) nao cai exatamente na data fim (31/12) ganha, na hora da
+ * CRIACAO (nao so numa rescisao manual), mais dois recebimentos
+ * proprios: 1) o proporcional dos dias finais (11/12 a 31/12, 21 dias,
+ * valor diferente dos 2500,00 cheios) e 2) o "Recebimento de Fim de
+ * Contrato" (devolucao de caucao/despesas/desconto, payment_kind
+ * "termination", valor 0 no nascimento). Isso vale pra QUALQUER locacao
+ * de prazo fixo cujo fim nao bata com o dia de vencimento -- ou seja, a
+ * normalidade, nao a excecao.
+ *
+ * O proposito deste cenario sempre foi conferir a geracao das 12
+ * parcelas REGULARES de aluguel (dai as asserts seguintes, "cada
+ * pagamento deve ter valor de 2500.00" e "vencer no dia 10" -- que nao
+ * valem pros 2 extras, com valor e vencimento diferentes). Os 3 passos
+ * abaixo agora filtram por payment_kind === 'rent' && !contract_end pra
+ * isolar exatamente essas 12, em vez de ignorar a regra de fim de
+ * contrato ou contar os 14 sem distincao.
+ *
+ * Os 2 ultimos passos tambem pararam de usar linhasDePagamentosDaLocacao
+ * (le a TELA) -- o fix anterior tirou a navegacao pra /payments deste
+ * cenario, entao aquela leitura passaria a conferir a tabela errada (a
+ * de Locacoes, de onde o cenario nunca saiu). Direto no banco, igual ao
+ * primeiro passo: mais robusto e nao depende de qual pagina esta aberta.
+ */
+function parcelasRegularesDeAluguel(pagamentos: any[]): any[] {
+  return pagamentos.filter((p) => p.payment_kind === 'rent' && !p.contract_end);
+}
+
 Then('devem ser criados {int} pagamentos', async function(this: import('../support/world').CustomWorld, count: number) {
-  expect(this.rentalId, 'nenhuma locação foi criada ainda (this.rentalId vazio)').toBeTruthy();
+  expect(this.rentalId, 'nenhuma locacao foi criada ainda (this.rentalId vazio)').toBeTruthy();
 
   const pagamentos = await DatabaseHelper.getPaymentsByRental(this.rentalId!);
+  const regulares = parcelasRegularesDeAluguel(pagamentos);
 
   expect(
-    pagamentos.length,
-    `esperava ${count} pagamentos para a locação ${this.rentalId}, banco tem ${pagamentos.length}: ` +
-    JSON.stringify(pagamentos.map((p: any) => ({ mes: p.reference_month, ano: p.reference_year, status: p.status })))
+    regulares.length,
+    `esperava ${count} parcelas regulares de aluguel para a locacao ${this.rentalId}, banco tem ${regulares.length} ` +
+    `(de ${pagamentos.length} recebimentos no total -- os demais sao de fim de contrato, ver regra do issue #108): ` +
+    JSON.stringify(pagamentos.map((p: any) => ({ mes: p.reference_month, ano: p.reference_year, kind: p.payment_kind, fimDeContrato: p.contract_end, status: p.status })))
   ).toBe(count);
+
+  this.testData = { ...this.testData, pagamentosRegularesDaLocacao: regulares };
 });
 
 Then('cada pagamento deve ter valor de {string}', async function(this: import('../support/world').CustomWorld, value: string) {
-  // A tela escreve em moeda brasileira ("R$ 2.500,00"), nunca no formato
-  // de máquina do Gherkin ("2500.00") -- compara por número extraído da
-  // linha, mesmo padrão já usado em "o valor deve ser proporcional a N
-  // dias" (payments.steps.ts).
   const esperado = parseFloat(value);
-  const payments = linhasDePagamentosDaLocacao(this);
-  const count = await payments.count();
+  const regulares = this.testData?.pagamentosRegularesDaLocacao;
+  expect(regulares, 'nenhum pagamento foi conferido ainda (rode "devem ser criados N pagamentos" antes deste passo)').toBeTruthy();
 
-  for (let i = 0; i < count; i++) {
-    const texto = ((await payments.nth(i).textContent()) || '').replace(/\s+/g, ' ');
-    const achados = [...texto.matchAll(/R\$\s*([\d.]+,\d{2})/g)].map((m) =>
-      parseFloat(m[1].replace(/\./g, '').replace(',', '.'))
-    );
+  for (const pagamento of regulares) {
     expect(
-      achados.some((n) => Math.abs(n - esperado) < 0.01),
-      `pagamento ${i + 1}: nenhum valor em reais da linha bate com R$ ${esperado.toFixed(2)}. Linha lida: ${texto}`
+      Math.abs(parseFloat(pagamento.expected_amount) - esperado) < 0.01,
+      `pagamento de ${pagamento.reference_month}/${pagamento.reference_year}: valor no banco e ${pagamento.expected_amount}, esperava ${esperado.toFixed(2)}`
     ).toBe(true);
   }
 });
 
 Then('todos os pagamentos devem vencer no dia {int}', async function(this: import('../support/world').CustomWorld, day: number) {
   const dayStr = day.toString().padStart(2, '0');
-  const payments = linhasDePagamentosDaLocacao(this);
-  const count = await payments.count();
+  const regulares = this.testData?.pagamentosRegularesDaLocacao;
+  expect(regulares, 'nenhum pagamento foi conferido ainda (rode "devem ser criados N pagamentos" antes deste passo)').toBeTruthy();
 
-  for (let i = 0; i < count; i++) {
-    const texto = (await payments.nth(i).textContent()) || '';
-    const temODia = new RegExp(`\\b${dayStr}\\/\\d{2}\\/\\d{4}\\b`).test(texto);
-    expect(temODia, `pagamento ${i + 1} não vence no dia ${dayStr}. Linha lida: ${texto}`).toBe(true);
+  for (const pagamento of regulares) {
+    const diaDoVencimento = String(pagamento.due_date).split('-')[2];
+    expect(
+      diaDoVencimento,
+      `pagamento de ${pagamento.reference_month}/${pagamento.reference_year}: vence em ${pagamento.due_date}, esperava dia ${dayStr}`
+    ).toBe(dayStr);
   }
 });
 
