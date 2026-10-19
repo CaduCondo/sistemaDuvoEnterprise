@@ -10,6 +10,16 @@
  * (vai direto pro Storage), mas as fotos ANTIGAS continuam em base64 ate
  * alguem rodar esta migracao uma vez.
  *
+ * ⚠️ v2: a v1 buscava `images` de TODAS as propriedades numa unica query
+ * (select("id, location_id, complement, images")) -- e com 113MB de base64
+ * somados, isso estourava o statement_timeout do Postgres (erro 57014)
+ * antes mesmo de comecar a migrar qualquer coisa. Agora o script busca
+ * primeiro so os dados leves (id, location_id, complement, image_count --
+ * sem a coluna `images`), e so entao busca `images` de UMA propriedade por
+ * vez, exatamente na hora de migrar aquela propriedade. Isso mantem cada
+ * query pequena o suficiente pra nao estourar o timeout, mesmo que uma
+ * propriedade especifica ainda tenha varias fotos grandes.
+ *
  * COMO RODAR
  *
  *   1) Dry-run (nao escreve nada, so mostra o que seria feito):
@@ -34,9 +44,6 @@
  * erro aparece no log, pra poder investigar e rodar de novo depois.
  */
 
-const fs = require("fs");
-const path = require("path");
-
 const args = process.argv.slice(2);
 const APPLY = args.includes("--apply");
 const envArg = args.find((a) => a.startsWith("--env="));
@@ -60,7 +67,6 @@ const BUCKET = "uploads";
 const FOLDER = "property-images";
 
 function parseDataUrl(dataUrl) {
-  // data:image/jpeg;base64,/9j/4AAQ...
   const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
   if (!match) return null;
   const mime = match[1];
@@ -111,29 +117,51 @@ async function main() {
   console.log(APPLY ? "MODO: aplicando de verdade (--apply)" : "MODO: dry-run (nenhuma escrita)");
   console.log("");
 
-  const { data: properties, error } = await supabase
+  // Passo 1: so os dados leves, SEM a coluna images (evita o timeout).
+  const { data: lightList, error: listError } = await supabase
     .from("properties")
-    .select("id, location_id, complement, images");
+    .select("id, location_id, complement, image_count")
+    .order("id", { ascending: true });
 
-  if (error) {
-    console.error("Erro ao buscar properties:", error);
+  if (listError) {
+    console.error("Erro ao listar properties:", listError);
     process.exit(1);
   }
 
-  const needsMigration = properties.filter(
-    (p) => Array.isArray(p.images) && p.images.some((img) => typeof img === "string" && img.startsWith("data:"))
-  );
+  const candidates = lightList.filter((p) => (p.image_count || 0) > 0);
 
-  console.log(`Total de propriedades: ${properties.length}`);
-  console.log(`Propriedades com imagens em base64 (a migrar): ${needsMigration.length}`);
+  console.log(`Total de propriedades: ${lightList.length}`);
+  console.log(`Propriedades com pelo menos 1 imagem (candidatas a checar): ${candidates.length}`);
   console.log("");
 
   let okCount = 0;
   let failCount = 0;
+  let skippedAlreadyMigrated = 0;
   const failures = [];
 
-  for (const p of needsMigration) {
-    const originalImages = p.images;
+  for (const light of candidates) {
+    // Passo 2: busca `images` de UMA propriedade por vez.
+    const { data: full, error: fetchError } = await supabase
+      .from("properties")
+      .select("id, images")
+      .eq("id", light.id)
+      .single();
+
+    if (fetchError) {
+      failCount++;
+      failures.push({ id: light.id, location_id: light.location_id, complement: light.complement, erro: fetchError.message });
+      console.log(`[FALHOU AO BUSCAR] ${light.location_id || "?"} ${light.complement || ""} (${light.id}): ${fetchError.message}`);
+      continue;
+    }
+
+    const originalImages = Array.isArray(full.images) ? full.images : [];
+    const hasBase64 = originalImages.some((img) => typeof img === "string" && img.startsWith("data:"));
+
+    if (!hasBase64) {
+      skippedAlreadyMigrated++;
+      continue; // ja tudo em URL (ou vazio) -- nada a fazer
+    }
+
     const newImages = [];
     let failed = false;
     let failReason = null;
@@ -169,8 +197,8 @@ async function main() {
 
     if (failed) {
       failCount++;
-      failures.push({ id: p.id, location_id: p.location_id, complement: p.complement, erro: failReason });
-      console.log(`[FALHOU] ${p.location_id || "?"} ${p.complement || ""} (${p.id}): ${failReason}`);
+      failures.push({ id: light.id, location_id: light.location_id, complement: light.complement, erro: failReason });
+      console.log(`[FALHOU] ${light.location_id || "?"} ${light.complement || ""} (${light.id}): ${failReason}`);
       continue;
     }
 
@@ -178,22 +206,22 @@ async function main() {
       const { error: updateError } = await supabase
         .from("properties")
         .update({ images: newImages })
-        .eq("id", p.id);
+        .eq("id", light.id);
 
       if (updateError) {
         failCount++;
-        failures.push({ id: p.id, location_id: p.location_id, complement: p.complement, erro: updateError.message });
-        console.log(`[FALHOU AO SALVAR] ${p.location_id || "?"} ${p.complement || ""} (${p.id}): ${updateError.message}`);
+        failures.push({ id: light.id, location_id: light.location_id, complement: light.complement, erro: updateError.message });
+        console.log(`[FALHOU AO SALVAR] ${light.location_id || "?"} ${light.complement || ""} (${light.id}): ${updateError.message}`);
         continue;
       }
     }
 
     okCount++;
-    console.log(`[OK] ${p.location_id || "?"} ${p.complement || ""} (${p.id}) -- ${originalImages.length} imagem(ns)`);
+    console.log(`[OK] ${light.location_id || "?"} ${light.complement || ""} (${light.id}) -- ${originalImages.length} imagem(ns)`);
   }
 
   console.log("");
-  console.log(`Concluido. OK: ${okCount} | Falhas: ${failCount}`);
+  console.log(`Concluido. OK: ${okCount} | Ja migradas (puladas): ${skippedAlreadyMigrated} | Falhas: ${failCount}`);
   if (failures.length > 0) {
     console.log("\nDetalhe das falhas:");
     console.log(JSON.stringify(failures, null, 2));
