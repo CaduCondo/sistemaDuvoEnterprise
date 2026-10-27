@@ -1,5 +1,12 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { criarClienteSupabaseAnon } from "@/lib/supabaseServidor";
+import { exigirSessao } from "@/lib/apiAuth";
+
+// SESSAO EXIGIDA (issue #94) -- esta rota tambem nao tem caller dentro do
+// repo hoje (a tela le as permissoes direto do Supabase via
+// src/services/roleMenuPermissionService.ts), mas continua publicada e
+// devolvia o mapa completo de permissoes por perfil para qualquer um, sem
+// login. Ver issue #94 para o buraco maior que esta correcao nao fecha.
 
 // Cliente Supabase server-side (com timeout de rede embutido -- ver #66)
 const supabase = criarClienteSupabaseAnon({
@@ -13,6 +20,9 @@ export default async function handler(
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  const sessao = exigirSessao(req, res);
+  if (!sessao) return;
 
   const startTime = Date.now();
 

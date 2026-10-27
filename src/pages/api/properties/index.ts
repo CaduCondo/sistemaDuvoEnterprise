@@ -1,9 +1,19 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { exigirSessao } from "@/lib/apiAuth";
 
 /**
  * API Route: /api/properties
  * Otimizada com timeout aumentado e cache
+ *
+ * SESSAO EXIGIDA (issue #94) -- esta rota nao tem nenhum caller dentro do
+ * repo hoje (a tela de Imoveis le direto do Supabase via
+ * src/services/propertyService.ts), mas continua publicada e, sem essa
+ * checagem, respondia com a lista completa de imoveis (inclusive os nao
+ * disponiveis) para qualquer requisicao anonima. Ver issue #94 para o
+ * cenario maior: a maioria das telas internas ainda fala direto com o
+ * Supabase pelo navegador, sem passar por nenhuma rota de API -- esta
+ * correcao fecha so esta rota especifica, nao esse buraco maior.
  */
 export default async function handler(
   req: NextApiRequest,
@@ -21,6 +31,9 @@ export default async function handler(
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  const sessao = exigirSessao(req, res);
+  if (!sessao) return;
 
   try {
     console.log("=== API /properties: Fetching data (OPTIMIZED) ===");
