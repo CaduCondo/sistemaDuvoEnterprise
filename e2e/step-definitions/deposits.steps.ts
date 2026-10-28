@@ -317,6 +317,23 @@ When("abro o recebimento pendente da parcela {int} de caução", async function 
     throw new Error(`parcela ${numero} de caução não foi encontrada no preparo do cenário`);
   }
 
+  // ⚠️ CI run #112 (28/out/2026): "existe um inquilino {string}" (usado no
+  // Contexto desta feature, ver rentals.steps.ts) só grava
+  // this.testData.tenant.name -- NÃO grava this.tenantName, que é de quem
+  // abrirRecebimentosDoInquilino() depende (ver termination.steps.ts).
+  // Outro passo com texto quase igual ("que existe um inquilino {string}
+  // sem dados opcionais", em common.steps.ts) grava os dois campos; esta
+  // feature usa o que só grava um. Preenchendo aqui em vez de mexer no
+  // passo compartilhado, que outros cenários já usam do jeito que está.
+  if (!this.tenantName) {
+    this.tenantName = this.testData.tenant?.name;
+  }
+  if (!this.tenantName) {
+    throw new Error(
+      "não sei o nome do inquilino deste cenário (nem this.tenantName nem this.testData.tenant.name foram preenchidos no preparo)"
+    );
+  }
+
   await abrirRecebimentosDoInquilino(this, installment);
 
   const linha = this.page
