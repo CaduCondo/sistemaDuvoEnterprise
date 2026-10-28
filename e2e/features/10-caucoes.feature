@@ -90,6 +90,26 @@ Funcionalidade: Gestão de Cauções
     E a parcela 1 tem pix_code preenchido
     E a linha da parcela 1 fica verde na tabela
 
+  # ==========================================================================
+  # issue #33 -- mesma causa raiz do travamento já corrigida em Locação
+  # (commits b6011d5e e f0a1490d): fechar o diálogo de pagamento no mesmo
+  # instante em que o aviso de sucesso termina de fechar confundia o Radix e
+  # travava a página (precisa F5). O cenário acima ("Marcar parcela... via
+  # PIX") registra o pagamento direto no banco, então não pega esse tipo de
+  # bug -- este cenário passa pelo diálogo de verdade, igual ao já existente
+  # para Inquilinos (ver 6-inquilinos-crud.feature), reaproveitando os mesmos
+  # passos genéricos de fechar o aviso e conferir que a tela não travou.
+  # ==========================================================================
+
+  @smoke
+  Cenário: A tela continua respondendo depois de registrar um recebimento de caução
+    Dado que existe uma locação com caução em 3x
+    Quando abro o recebimento pendente da parcela 1 de caução
+    E preencho a data do recebimento com hoje
+    E clico em "Registrar Recebimento"
+    E fecho a mensagem de sucesso no botão OK
+    Então a tela deve continuar respondendo
+
   @sistemaCompleto
   Cenário: Editar comissão de corretor parceiro inline
     Dado que existe uma locação com caução em 3x

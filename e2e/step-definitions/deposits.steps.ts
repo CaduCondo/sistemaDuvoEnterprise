@@ -4,6 +4,7 @@ import * as os from "os";
 import * as path from "path";
 import * as XLSX from "xlsx";
 import { CustomWorld } from "../support/world";
+import { abrirRecebimentosDoInquilino } from "./termination.steps";
 
 /**
  * Step Definitions da feature 10-caucoes.feature.
@@ -294,6 +295,52 @@ When("crio uma locação com:", async function (this: CustomWorld, dataTable: an
 
   this.rentalId = rental.id;
   this.testData.depositInstallments = await this.getDepositInstallments(this.rentalId);
+});
+
+// ==========================================================================
+// issue #33 -- mesma causa raiz do travamento já corrigida em Locação
+// (commits b6011d5e e f0a1490d) e guardada por um cenário equivalente no
+// cadastro de Inquilino (ver "A tela continua respondendo depois de fechar
+// a mensagem de sucesso" em 6-inquilinos-crud.feature). O
+// DepositPaymentDialog (Registrar Recebimento de Caução) tinha o mesmo
+// padrão: fechar o diálogo de pagamento no mesmo instante em que o aviso de
+// sucesso termina de fechar confunde o Radix e trava a página (precisa F5).
+// Corrigido junto com a issue -- este passo abre o diálogo de verdade pela
+// tela (os outros passos deste arquivo registram o pagamento direto no
+// banco, então não passavam por aqui) para o cenário de smoke conseguir
+// pegar essa classe de bug se ela voltar.
+// ==========================================================================
+
+When("abro o recebimento pendente da parcela {int} de caução", async function (this: CustomWorld, numero: number) {
+  const installment = this.testData.depositInstallments?.[numero - 1];
+  if (!installment) {
+    throw new Error(`parcela ${numero} de caução não foi encontrada no preparo do cenário`);
+  }
+
+  await abrirRecebimentosDoInquilino(this, installment);
+
+  const linha = this.page
+    .locator("tbody tr")
+    .filter({ hasText: this.tenantName! })
+    .filter({ hasText: /caução/i })
+    .first();
+
+  await expect(
+    linha,
+    `não achei na tela a parcela de caução pendente de ${this.tenantName}`
+  ).toBeVisible({ timeout: 15000 });
+
+  await linha.click();
+
+  await expect(
+    this.page.getByText("Registrar Recebimento de Caução"),
+    "o diálogo de recebimento de caução não abriu"
+  ).toBeVisible({ timeout: 15000 });
+});
+
+When("preencho a data do recebimento com hoje", async function (this: CustomWorld) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  await this.page.locator("#paymentDate").fill(hoje);
 });
 
 When("marco a parcela {int} como recebida:", async function (this: CustomWorld, number: number, dataTable: any) {
