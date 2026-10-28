@@ -82,6 +82,28 @@ export async function createUser(userData: {
     },
   });
 
+  // ✅ CORREÇÃO (issue #39): /api/send-welcome-email já existia (template
+  // pronto, com as credenciais quando há senha temporária), mas nada no
+  // sistema chamava essa rota -- usuário novo nunca recebia e-mail nenhum.
+  // Mesmo padrão não-bloqueante já usado em resetPassword logo abaixo: o
+  // usuário já foi criado de verdade, então uma falha só no envio do e-mail
+  // não pode impedir o admin de saber que a criação funcionou.
+  if (userData.temporary_password) {
+    try {
+      await fetch("/api/send-welcome-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: data.email,
+          name: data.name,
+          temporaryPassword: userData.password,
+        }),
+      });
+    } catch (erroEmail) {
+      console.error("Erro ao enviar e-mail de boas-vindas (usuário já foi criado):", erroEmail);
+    }
+  }
+
   return data;
 }
 
