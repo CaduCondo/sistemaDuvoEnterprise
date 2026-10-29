@@ -773,6 +773,38 @@ Then('devo ver o formulário com os dados preenchidos', async function (this: Cu
   await expect(this.page.locator('#property-value')).not.toHaveValue('');
 });
 
+// ✅ Issue #35: editor de texto (negrito/itálico/tamanho) no campo Descrição
+// (RichTextEditor, src/components/ui/rich-text-editor.tsx). O campo é um
+// <div contentEditable>, não um <textarea> -- preenche digitando direto nele
+// e aplica a formatação pela barra de ferramentas (botões "Negrito"/
+// "Itálico"/tamanho "G"), com Ctrl+A para selecionar o texto digitado antes
+// de cada botão (a formatação só se aplica ao texto selecionado).
+When('escrevo {string} na Descrição e aplico negrito, itálico e tamanho grande', async function (this: CustomWorld, texto: string) {
+  const editor = this.page.locator('#property-description');
+  await editor.click();
+  await editor.fill(''); // limpa qualquer conteúdo anterior do campo
+  await editor.pressSequentially(texto, { delay: 10 });
+
+  await editor.click();
+  await this.page.keyboard.press('ControlOrMeta+a');
+  await this.page.getByRole('button', { name: 'Negrito' }).click();
+  await this.page.getByRole('button', { name: 'Itálico' }).click();
+  await this.page.getByRole('button', { name: 'Tamanho G' }).click();
+  await this.page.waitForTimeout(200);
+});
+
+Then('a formatação da Descrição deve estar salva', async function (this: CustomWorld) {
+  await this.page.waitForTimeout(500);
+  const card = await acharCardDoImovel(this, this.testData.propertyIdentifier);
+  await card.click();
+  await this.page.waitForTimeout(500);
+
+  const descricao = this.page.locator('#property-description');
+  await expect(descricao.locator('b, strong').first()).toBeVisible({ timeout: 5000 });
+  await expect(descricao.locator('i, em').first()).toBeVisible();
+  await expect(descricao.locator('span[style*="font-size"]').first()).toBeVisible();
+});
+
 Then('devo ver o alerta de confirmação', async function (this: CustomWorld) {
   await expect(this.page.getByRole('alertdialog')).toBeVisible({ timeout: 5000 });
 });

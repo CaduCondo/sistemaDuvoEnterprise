@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Property } from "@/types";
 import { formatPublicCode } from "@/lib/propertyCode";
+import { stripHtml } from "@/lib/utils";
+import { sanitizeDescriptionHtml } from "@/components/ui/rich-text-editor";
 import {
   MapPin,
   Bed,
@@ -212,9 +214,9 @@ export default function PropertyDetailPage() {
     <>
       <Head>
         <title>{displayTitle} - Imóvel para Locação</title>
-        <meta name="description" content={property.description || `${displayTitle} - R$ ${property.value.toLocaleString("pt-BR")}/mês`} />
+        <meta name="description" content={stripHtml(property.description) || `${displayTitle} - R$ ${property.value.toLocaleString("pt-BR")}/mês`} />
         <meta property="og:title" content={`${displayTitle} - Imóvel para Locação`} />
-        <meta property="og:description" content={property.description || `Confira este imóvel - R$ ${property.value.toLocaleString("pt-BR")}/mês`} />
+        <meta property="og:description" content={stripHtml(property.description) || `Confira este imóvel - R$ ${property.value.toLocaleString("pt-BR")}/mês`} />
         <meta property="og:type" content="website" />
         {images[0] && <meta property="og:image" content={images[0]} />}
       </Head>
@@ -280,7 +282,13 @@ export default function PropertyDetailPage() {
               {property.description && (
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 mb-3">Descrição</h2>
-                  <p className="text-slate-600 leading-relaxed whitespace-pre-line">{property.description}</p>
+                  {/* Issue #35: Descrição pode ter HTML simples (negrito/itálico/
+                      tamanho) digitado no RichTextEditor do cadastro -- sanitizado
+                      de novo aqui (defesa em profundidade) antes de renderizar. */}
+                  <div
+                    className="text-slate-600 leading-relaxed [&_p]:mb-2 [&_div]:mb-2"
+                    dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(property.description) }}
+                  />
                 </div>
               )}
 

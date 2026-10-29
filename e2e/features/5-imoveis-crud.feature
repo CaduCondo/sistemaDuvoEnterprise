@@ -120,6 +120,17 @@ Funcionalidade: CRUD de Imóveis
     Então devo ver a mensagem de sucesso
     E o valor deve estar atualizado na lista
 
+  # issue #35: o campo Descrição ganhou negrito/itálico/tamanho -- sem teste
+  # nenhum, ninguém saberia se a formatação realmente fica salva.
+  @sistemaCompleto
+  Cenário: Formatar a Descrição do imóvel com negrito, itálico e tamanho
+    Dado que existe um imóvel "IMO-001"
+    Quando clico no botão de editar do imóvel "IMO-001"
+    E escrevo "Apartamento reformado" na Descrição e aplico negrito, itálico e tamanho grande
+    E clico em "Salvar"
+    Então devo ver a mensagem de sucesso
+    E a formatação da Descrição deve estar salva
+
   # Cobertura nova para o bug GRAVE de produção de 16/set/2026: até então,
   # nenhum cenário automatizado simulava o envio de uma foto de verdade
   # (Playwright `setInputFiles`) -- por isso a tela conseguiu, por meses,

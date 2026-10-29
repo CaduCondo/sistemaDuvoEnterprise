@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Select,
   SelectContent,
@@ -533,13 +533,11 @@ export const PropertyFormDialog = memo(function PropertyFormDialog({
             <Label htmlFor="property-description" className="text-sm font-medium">
               Descrição
             </Label>
-            <Textarea
+            <RichTextEditor
               id="property-description"
               value={formData.description}
-              onChange={(e) => handleFieldChange("description", e.target.value)}
-              className="text-sm resize-none min-h-[80px] mobile-input"
+              onChange={(html) => handleFieldChange("description", html)}
               placeholder="Descreva o imóvel..."
-              rows={3}
               disabled={isReadOnly}
             />
           </div>
