@@ -66,3 +66,34 @@ Then('devo ver o valor do aluguel no anúncio', async function (this: CustomWorl
     this.page.getByText(new RegExp(formatado.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).first()
   ).toBeVisible({ timeout: 10000 });
 });
+
+// ✅ Issue #34: "Outros" é um local coringa sem endereço próprio -- o dono
+// digita um endereço manual no cadastro do imóvel, e é esse endereço (não o
+// do local, que fica vazio) que precisa aparecer no anúncio público.
+Given('que existe um imóvel disponível anunciado no local Outros com endereço manual', async function (this: CustomWorld) {
+  const localizacao = await this.findOrCreateOutrosLocation();
+  const imovel = await this.createProperty({
+    location_id: localizacao.id,
+    status: 'available',
+    value: 1234,
+    manual_street: 'Rua Dos Testes E2E',
+    manual_number: '777',
+    manual_neighborhood: 'Bairro Teste E2E',
+    manual_city: 'Cidade Teste E2E',
+    manual_state: 'SP',
+    manual_zip_code: '01234-567',
+  });
+
+  this.propertyId = imovel.id;
+  this.testData.imovelAnunciado = imovel;
+  this.testData.linkCurto =
+    imovel.public_code === undefined || imovel.public_code === null
+      ? imovel.id
+      : String(imovel.public_code).padStart(4, '0');
+});
+
+Then('devo ver o endereço manual do imóvel no anúncio', async function (this: CustomWorld) {
+  await expect(
+    this.page.getByText(/Rua Dos Testes E2E/).first()
+  ).toBeVisible({ timeout: 10000 });
+});

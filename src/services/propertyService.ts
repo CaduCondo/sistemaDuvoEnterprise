@@ -110,6 +110,12 @@ const mapDatabasePropertyFull = (item: any): Property => {
     createdAt: item.created_at,
     address: "",
     features: [],
+    manualStreet: item.manual_street || undefined,
+    manualNumber: item.manual_number || undefined,
+    manualNeighborhood: item.manual_neighborhood || undefined,
+    manualCity: item.manual_city || undefined,
+    manualState: item.manual_state || undefined,
+    manualZipCode: item.manual_zip_code || undefined,
   };
 };
 
@@ -259,6 +265,12 @@ export const getById = async (id: string): Promise<Property | null> => {
         has_furniture,
         accepts_pets,
         has_barbecue,
+        manual_street,
+        manual_number,
+        manual_neighborhood,
+        manual_city,
+        manual_state,
+        manual_zip_code,
         created_at,
         updated_at
       `)
@@ -325,6 +337,12 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
       accepts_pets: property.acceptsPets || false,
       has_barbecue: property.hasBarbecue || false,
       listing_type: property.listingType || "rent",
+      manual_street: property.manualStreet || null,
+      manual_number: property.manualNumber || null,
+      manual_neighborhood: property.manualNeighborhood || null,
+      manual_city: property.manualCity || null,
+      manual_state: property.manualState || null,
+      manual_zip_code: property.manualZipCode || null,
     })
     .select(`
       id,
@@ -343,6 +361,12 @@ export const create = async (property: Omit<Property, "id" | "createdAt" | "upda
       has_furniture,
       accepts_pets,
       has_barbecue,
+      manual_street,
+      manual_number,
+      manual_neighborhood,
+      manual_city,
+      manual_state,
+      manual_zip_code,
       created_at,
       updated_at,
       locations!properties_location_id_fkey(name)
@@ -412,6 +436,12 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
   if (property.acceptsPets !== undefined) propertyData.accepts_pets = property.acceptsPets;
   if (property.hasBarbecue !== undefined) propertyData.has_barbecue = property.hasBarbecue;
   if (property.listingType !== undefined) propertyData.listing_type = property.listingType;
+  if (property.manualStreet !== undefined) propertyData.manual_street = property.manualStreet || null;
+  if (property.manualNumber !== undefined) propertyData.manual_number = property.manualNumber || null;
+  if (property.manualNeighborhood !== undefined) propertyData.manual_neighborhood = property.manualNeighborhood || null;
+  if (property.manualCity !== undefined) propertyData.manual_city = property.manualCity || null;
+  if (property.manualState !== undefined) propertyData.manual_state = property.manualState || null;
+  if (property.manualZipCode !== undefined) propertyData.manual_zip_code = property.manualZipCode || null;
 
   const { data, error } = await supabase
     .from("properties")
@@ -434,6 +464,12 @@ export const update = async (id: string, property: Partial<Property>): Promise<P
       has_furniture,
       accepts_pets,
       has_barbecue,
+      manual_street,
+      manual_number,
+      manual_neighborhood,
+      manual_city,
+      manual_state,
+      manual_zip_code,
       created_at,
       updated_at,
       locations!properties_location_id_fkey(name)
@@ -607,6 +643,12 @@ export const getPublicProperties = async (): Promise<Property[]> => {
         has_furniture,
         accepts_pets,
         has_barbecue,
+        manual_street,
+        manual_number,
+        manual_neighborhood,
+        manual_city,
+        manual_state,
+        manual_zip_code,
         image_count,
         created_at
       `)
@@ -697,11 +739,22 @@ export const getPublicProperties = async (): Promise<Property[]> => {
 
     const properties = data.map((item: any) => {
       const location = locationsMap.get(item.location_id) as any;
-      
+
+      // Issue #34: local "Outros" é um coringa sem endereço fixo -- se o
+      // imóvel tem endereço manual preenchido, usar ele em vez do endereço
+      // (vazio) do local. Mesmo padrão de match já usado em PaymentReceipt.tsx.
+      const isOutros = location?.name?.toLowerCase() === "outros";
+      const hasManualAddress = isOutros && !!item.manual_street;
+
       // Montar endereço
       const addressParts = [];
-      if (location?.street) addressParts.push(location.street);
-      if (location?.number) addressParts.push(location.number);
+      if (hasManualAddress) {
+        if (item.manual_street) addressParts.push(item.manual_street);
+        if (item.manual_number) addressParts.push(item.manual_number);
+      } else {
+        if (location?.street) addressParts.push(location.street);
+        if (location?.number) addressParts.push(location.number);
+      }
       const address = addressParts.join(", ");
 
       // 🔥 Criar array vazio com length correto baseado em image_count
@@ -713,9 +766,9 @@ export const getPublicProperties = async (): Promise<Property[]> => {
         publicCode: item.public_code ?? undefined,
         locationId: item.location_id,
         location: location?.name || "",
-        city: location?.city || "",
-        neighborhood: location?.neighborhood || "",
-        state: location?.state || "",
+        city: hasManualAddress ? (item.manual_city || "") : (location?.city || ""),
+        neighborhood: hasManualAddress ? (item.manual_neighborhood || "") : (location?.neighborhood || ""),
+        state: hasManualAddress ? (item.manual_state || "") : (location?.state || ""),
         address: address,
         propertyIdentifier: item.property_identifier || "",
         complement: item.complement || "",

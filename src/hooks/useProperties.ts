@@ -52,6 +52,13 @@ export interface PropertyFormData {
   hasGarage: boolean;
   hasBarbecue: boolean;
   listingType: "rent" | "sale";
+  // Issue #34: endereço manual, preenchido só quando location.name === "Outros"
+  manual_street?: string;
+  manual_number?: string;
+  manual_neighborhood?: string;
+  manual_city?: string;
+  manual_state?: string;
+  manual_zip_code?: string;
 }
 
 const SORT_FUNCTIONS = {
@@ -196,6 +203,12 @@ export function useProperties(): UsePropertiesReturn {
       listingType: formData.listingType || "rent",
       address: "",
       features: [],
+      manualStreet: formData.manual_street || undefined,
+      manualNumber: formData.manual_number || undefined,
+      manualNeighborhood: formData.manual_neighborhood || undefined,
+      manualCity: formData.manual_city || undefined,
+      manualState: formData.manual_state || undefined,
+      manualZipCode: formData.manual_zip_code || undefined,
     };
 
     const createdProperty = await propertyService.create(propertyData);
@@ -271,6 +284,12 @@ export function useProperties(): UsePropertiesReturn {
       hasGarage: formData.hasGarage,
       hasBarbecue: formData.hasBarbecue,
       listingType: formData.listingType || "rent",
+      manualStreet: formData.manual_street || undefined,
+      manualNumber: formData.manual_number || undefined,
+      manualNeighborhood: formData.manual_neighborhood || undefined,
+      manualCity: formData.manual_city || undefined,
+      manualState: formData.manual_state || undefined,
+      manualZipCode: formData.manual_zip_code || undefined,
     };
 
     await propertyService.update(id, propertyData);

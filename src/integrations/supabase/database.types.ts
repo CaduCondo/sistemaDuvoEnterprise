@@ -834,6 +834,12 @@ export type Database = {
           images: Json | null
           listing_type: string
           location_id: string
+          manual_city: string | null
+          manual_neighborhood: string | null
+          manual_number: string | null
+          manual_state: string | null
+          manual_street: string | null
+          manual_zip_code: string | null
           property_identifier: string | null
           public_code: number
           rooms: number | null
@@ -856,6 +862,12 @@ export type Database = {
           images?: Json | null
           listing_type?: string
           location_id: string
+          manual_city?: string | null
+          manual_neighborhood?: string | null
+          manual_number?: string | null
+          manual_state?: string | null
+          manual_street?: string | null
+          manual_zip_code?: string | null
           property_identifier?: string | null
           public_code?: number
           rooms?: number | null
@@ -878,6 +890,12 @@ export type Database = {
           images?: Json | null
           listing_type?: string
           location_id?: string
+          manual_city?: string | null
+          manual_neighborhood?: string | null
+          manual_number?: string | null
+          manual_state?: string | null
+          manual_street?: string | null
+          manual_zip_code?: string | null
           property_identifier?: string | null
           public_code?: number
           rooms?: number | null

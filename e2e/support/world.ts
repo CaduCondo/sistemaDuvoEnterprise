@@ -94,6 +94,10 @@ export class CustomWorld extends World {
     return DatabaseHelper.findLocationByName(name);
   }
 
+  async findOrCreateOutrosLocation() {
+    return DatabaseHelper.findOrCreateOutrosLocation();
+  }
+
   async findPropertyByIdentifier(identifier: string) {
     return DatabaseHelper.findPropertyByIdentifier(identifier);
   }

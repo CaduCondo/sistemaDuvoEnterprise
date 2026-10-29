@@ -174,6 +174,12 @@ export const PropertyFormDialog = memo(function PropertyFormDialog({
     setIsInternalEditMode(false);
   }, [onSubmit]);
 
+  // ✅ Issue #34: local "Outros" é um coringa sem endereço próprio --
+  // quando selecionado, mostra campos de endereço manual (mesmo padrão de
+  // comparação por nome já usado em PaymentReceipt.tsx).
+  const selectedLocation = locations.find((loc) => loc.id === formData.location_id);
+  const isOutros = selectedLocation?.name?.toLowerCase() === "outros";
+
   const handleFieldChange = useCallback((field: keyof PropertyFormData, value: any) => {
     setFormData({ ...formData, [field]: value });
   }, [formData, setFormData]);
@@ -260,6 +266,97 @@ export const PropertyFormDialog = memo(function PropertyFormDialog({
               />
             </div>
           </div>
+
+          {/* ✅ Issue #34: local "Outros" não tem endereço próprio no
+              cadastro de locais -- o dono digita um endereço manual aqui
+              para que o anúncio público não fique sem endereço nenhum. */}
+          {isOutros && (
+            <div className="space-y-3 rounded-md border border-dashed border-muted-foreground/30 p-3 sm:p-4">
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                O local "Outros" não tem endereço cadastrado. Preencha o endereço deste imóvel para que ele apareça no anúncio.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="property-manual-street" className="text-sm font-medium">
+                    Rua
+                  </Label>
+                  <Input
+                    id="property-manual-street"
+                    value={formData.manual_street || ""}
+                    onChange={(e) => handleFieldChange("manual_street", e.target.value)}
+                    placeholder="Ex: Rua das Flores"
+                    className="h-11 sm:h-10 text-sm mobile-input"
+                    disabled={isReadOnly}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="property-manual-number" className="text-sm font-medium">
+                    Número
+                  </Label>
+                  <Input
+                    id="property-manual-number"
+                    value={formData.manual_number || ""}
+                    onChange={(e) => handleFieldChange("manual_number", e.target.value)}
+                    placeholder="123"
+                    className="h-11 sm:h-10 text-sm mobile-input"
+                    disabled={isReadOnly}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="property-manual-neighborhood" className="text-sm font-medium">
+                    Bairro
+                  </Label>
+                  <Input
+                    id="property-manual-neighborhood"
+                    value={formData.manual_neighborhood || ""}
+                    onChange={(e) => handleFieldChange("manual_neighborhood", e.target.value)}
+                    placeholder="Centro"
+                    className="h-11 sm:h-10 text-sm mobile-input"
+                    disabled={isReadOnly}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="property-manual-city" className="text-sm font-medium">
+                    Cidade
+                  </Label>
+                  <Input
+                    id="property-manual-city"
+                    value={formData.manual_city || ""}
+                    onChange={(e) => handleFieldChange("manual_city", e.target.value)}
+                    className="h-11 sm:h-10 text-sm mobile-input"
+                    disabled={isReadOnly}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="property-manual-state" className="text-sm font-medium">
+                    Estado (UF)
+                  </Label>
+                  <Input
+                    id="property-manual-state"
+                    value={formData.manual_state || ""}
+                    onChange={(e) => handleFieldChange("manual_state", e.target.value.toUpperCase().slice(0, 2))}
+                    placeholder="SP"
+                    maxLength={2}
+                    className="h-11 sm:h-10 text-sm mobile-input"
+                    disabled={isReadOnly}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="property-manual-zip" className="text-sm font-medium">
+                    CEP
+                  </Label>
+                  <Input
+                    id="property-manual-zip"
+                    value={formData.manual_zip_code || ""}
+                    onChange={(e) => handleFieldChange("manual_zip_code", e.target.value)}
+                    placeholder="00000-000"
+                    className="h-11 sm:h-10 text-sm mobile-input"
+                    disabled={isReadOnly}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <div className="space-y-2">

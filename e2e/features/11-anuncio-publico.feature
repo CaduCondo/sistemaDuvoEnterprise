@@ -21,3 +21,11 @@ Funcionalidade: Anúncio público de imóvel
     Quando abro o link curto do anúncio sem estar logado
     Então devo continuar na página do anúncio
     E devo ver o valor do aluguel no anúncio
+
+  # issue #34: local "Outros" não tem endereço próprio -- sem o endereço
+  # manual do imóvel, o anúncio ficava sem endereço nenhum.
+  Cenário: Imóvel no local Outros mostra o endereço manual no anúncio
+    Dado que existe um imóvel disponível anunciado no local Outros com endereço manual
+    Quando abro o link curto do anúncio sem estar logado
+    Então devo continuar na página do anúncio
+    E devo ver o endereço manual do imóvel no anúncio

@@ -46,6 +46,12 @@ const INITIAL_FORM_DATA: PropertyFormData = {
   hasGarage: false,
   hasBarbecue: false,
   listingType: "rent",
+  manual_street: "",
+  manual_number: "",
+  manual_neighborhood: "",
+  manual_city: "",
+  manual_state: "",
+  manual_zip_code: "",
 };
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive"> = {
@@ -231,6 +237,12 @@ export default function PropertiesPage() {
     hasGarage: property.hasGarage || false,
     hasBarbecue: property.hasBarbecue || false,
     listingType: property.listingType || "rent",
+    manual_street: property.manualStreet || "",
+    manual_number: property.manualNumber || "",
+    manual_neighborhood: property.manualNeighborhood || "",
+    manual_city: property.manualCity || "",
+    manual_state: property.manualState || "",
+    manual_zip_code: property.manualZipCode || "",
   }), []);
 
   const handleEdit = useCallback((property: Property) => {

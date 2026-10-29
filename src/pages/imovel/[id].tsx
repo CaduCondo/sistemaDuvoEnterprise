@@ -102,18 +102,24 @@ export default function PropertyDetailPage() {
         }
 
         const location = data.locations;
+        // ✅ Issue #34: local "Outros" é um coringa sem endereço fixo -- se o
+        // imóvel tem endereço manual preenchido, usar ele no anúncio em vez
+        // do endereço (vazio) do local. Mesmo padrão de match já usado em
+        // PaymentReceipt.tsx (comparação por nome, case-insensitive).
+        const isOutros = location?.name?.toLowerCase() === "outros";
+        const hasManualAddress = isOutros && !!data.manual_street;
         const mappedProperty: Property = {
           id: data.id,
           publicCode: data.public_code ?? undefined,
           locationId: location?.id || "",
           location: location?.name || "",
-          address: location?.street || "",
-          number: location?.number || "",
+          address: hasManualAddress ? (data.manual_street || "") : (location?.street || ""),
+          number: hasManualAddress ? (data.manual_number || "") : (location?.number || ""),
           complement: data.complement || "",
-          neighborhood: location?.neighborhood || "",
-          city: location?.city || "",
-          state: location?.state || "",
-          zipCode: location?.zip_code || "",
+          neighborhood: hasManualAddress ? (data.manual_neighborhood || "") : (location?.neighborhood || ""),
+          city: hasManualAddress ? (data.manual_city || "") : (location?.city || ""),
+          state: hasManualAddress ? (data.manual_state || "") : (location?.state || ""),
+          zipCode: hasManualAddress ? (data.manual_zip_code || "") : (location?.zip_code || ""),
           rooms: data.rooms || 0,
           bathrooms: data.bathrooms || 0,
           area: data.area || 0,

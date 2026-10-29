@@ -135,6 +135,22 @@ export interface Property {
   city?: string;
   state?: string;
   zipCode?: string;
+
+  // Issue #34: endereço digitado à mão para este imóvel, só usado quando
+  // o local (location.name) é "Outros" -- ver propertyService.ts e
+  // src/pages/imovel/[id].tsx.
+  manualStreet?: string;
+  manual_street?: string; // Compatibility
+  manualNumber?: string;
+  manual_number?: string; // Compatibility
+  manualNeighborhood?: string;
+  manual_neighborhood?: string; // Compatibility
+  manualCity?: string;
+  manual_city?: string; // Compatibility
+  manualState?: string;
+  manual_state?: string; // Compatibility
+  manualZipCode?: string;
+  manual_zip_code?: string; // Compatibility
   
   // Image optimization
   allImages?: string[]; // Todas as imagens do imóvel (usado na página pública)

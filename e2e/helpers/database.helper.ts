@@ -359,6 +359,29 @@ export class DatabaseHelper {
   }
 
   /**
+   * Issue #34: "Outros" é um local coringa de verdade do sistema (ver
+   * PaymentReceipt.tsx e propertyService.ts -- o match é por nome exato,
+   * case-insensitive), não um fixture de teste. Por isso NÃO usa
+   * `comMarcaDeTeste` (o nome tem que ficar exatamente "Outros") e não é
+   * rastreado para exclusão ao final: já deve existir em qualquer ambiente
+   * real, e se não existir, criar um é só garantir que o ambiente de teste
+   * tem o mesmo local que produção.
+   */
+  static async findOrCreateOutrosLocation() {
+    const existing = await this.findLocationByName('outros');
+    if (existing) return existing;
+
+    const { data, error } = await supabaseAdmin
+      .from('locations')
+      .insert({ name: 'Outros', city: '', state: '', neighborhood: '', is_active: true })
+      .select()
+      .single();
+
+    if (error) throw new Error(`Falha ao criar localização "Outros": ${error.message}`);
+    return data;
+  }
+
+  /**
    * ⚠️ Criado em 25/set/2026 (issue #110): fixa os percentuais de taxa antes
    * do cenário rodar. Sem isto, um cenário que espera "3% de R$ 1.000 = R$ 30"
    * depende do que estiver gravado em `config` no banco de DEV -- que qualquer
@@ -442,6 +465,9 @@ export class DatabaseHelper {
     location_id: string; property_identifier: string; complement: string;
     value: number; status: string; rooms: number; bathrooms: number; area: number;
     has_garage: boolean;
+    // Issue #34: endereço manual, só usado quando o local é "Outros"
+    manual_street: string; manual_number: string; manual_neighborhood: string;
+    manual_city: string; manual_state: string; manual_zip_code: string;
   }> = {}) {
     let locationId = overrides.location_id;
     if (!locationId) {
@@ -462,6 +488,12 @@ export class DatabaseHelper {
         bathrooms: overrides.bathrooms ?? 1,
         area: overrides.area ?? 60,
         has_garage: overrides.has_garage ?? false,
+        manual_street: overrides.manual_street,
+        manual_number: overrides.manual_number,
+        manual_neighborhood: overrides.manual_neighborhood,
+        manual_city: overrides.manual_city,
+        manual_state: overrides.manual_state,
+        manual_zip_code: overrides.manual_zip_code,
       })
       .select()
       .single();
