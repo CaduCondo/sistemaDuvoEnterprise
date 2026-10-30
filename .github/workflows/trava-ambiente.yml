@@ -31,3 +31,8 @@ jobs:
 
       - name: Rodar o auto-teste da trava
         run: node scripts/check-supabase-env.js --self-test
+
+      # Trava do reset de DEV (issue #36): o reset apaga o banco de destino,
+      # entao a conferencia origem=PROD / destino=DEV tambem e testada em todo push.
+      - name: Rodar o auto-teste da trava do reset de DEV
+        run: node scripts/reset-dev/guard.js --self-test

@@ -1,0 +1,55 @@
+name: Reset do banco de DEV
+
+# Substitui o banco de DEV por uma copia fresca do de PRODUCAO, com os dados
+# pessoais (nome, CPF, telefone, e-mail, endereco...) trocados por dados
+# falsos. Issue #36. Passo a passo e configuracao: docs/RESET_DEV.md
+#
+# PRODUCAO so e LIDA. A trava (scripts/reset-dev/guard.js) bloqueia o reset
+# se os secrets estiverem trocados, e todo o trabalho no DEV e uma transacao
+# unica: se qualquer passo falhar, o DEV fica exatamente como estava.
+
+on:
+  schedule:
+    # Todo domingo as 06:00 UTC = 03:00 em Brasilia.
+    - cron: '0 6 * * 0'
+  workflow_dispatch:
+
+# Nunca dois resets ao mesmo tempo, e um reset em andamento nao e cancelado.
+concurrency:
+  group: reset-dev
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    name: Copiar PROD para DEV (dados pessoais mascarados)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+      DEV_DB_URL: ${{ secrets.DEV_DB_URL }}
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Auto-teste da trava (sem banco)
+        run: node scripts/reset-dev/guard.js --self-test
+
+      - name: Conferir que origem=PROD e destino=DEV
+        run: node scripts/reset-dev/guard.js
+
+      - name: Instalar pg_dump/psql 17
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Resetar o DEV
+        run: bash scripts/reset-dev/reset-dev.sh
