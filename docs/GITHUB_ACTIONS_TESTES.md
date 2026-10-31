@@ -12,9 +12,11 @@
 | **Smoke Test** | `smoke.yml` | **Job 1 (`smoke`)**: roda os cenários BDD marcados com `@smoke`. É o portão rápido — se ficar vermelho, alguma coisa importante quebrou de verdade. **Job 2 (`sistema_completo`)**: só começa depois que o job 1 passar; roda TODOS os cenários marcados `@sistemaCompleto` (todas as regras de negócio que o smoke não cobre). | Todo push e PR em `main`/`develop`, ou manual | smoke: ~2-5 min · sistema completo: ~15-25 min |
 | **Trava de ambiente** | `trava-ambiente.yml` | Confere que a trava que impede produção de subir apontando para o banco de DEV continua funcionando. Não usa banco, nem navegador, nem segredo. | Todo push e PR | ~12 s |
 | **E2E Tests (suíte completa - manual)** | `e2e-tests.yml` | A suíte Playwright completa (permissões, segurança, performance, stress — fora do BDD). Fica manual porque cobre um tipo de teste diferente do BDD e ainda não foi toda revisada. | **Só manual** (Actions → Run workflow) | 10-60 min |
-| **Sync from Vercel (Auto)** | `sync-from-vercel.yml` | Herança de quando se usava o Softgen; hoje provavelmente não acha nada para sincronizar. Ver [SETUP_GITHUB_AUTO_SYNC.md](./SETUP_GITHUB_AUTO_SYNC.md). | 1x/dia às 20h ou manual | ~15 s |
+| **Reset do banco de DEV** | `reset-dev.yml` | Substitui o banco de DEV por uma cópia de produção com os dados pessoais mascarados (issue #36). Precisa dos secrets `PROD_DB_URL` e `DEV_DB_URL` — passo a passo em [RESET_DEV.md](./RESET_DEV.md). | Domingo às 3h (Brasília) ou manual | poucos min |
 
-Os quatro são independentes e podem rodar ao mesmo tempo, exceto os dois jobs
+Os quatro são independentes e podem rodar ao mesmo tempo (atenção: se o
+reset do DEV rodar junto com os testes, os testes daquele push podem falhar —
+é só rodar de novo), exceto os dois jobs
 de `smoke.yml`: o `sistema_completo` só começa quando o `smoke` termina e
 passa (`needs: smoke`).
 
@@ -257,3 +259,4 @@ automaticamente, não precisa repetir). Regras para um cenário entrar no
 - [e2e/README.md](../e2e/README.md) — guia geral dos testes
 - [e2e/COMANDOS.md](../e2e/COMANDOS.md) — comandos
 - [DEPLOYMENT.md](./DEPLOYMENT.md) — deploy e a trava de ambiente
+- [RESET_DEV.md](./RESET_DEV.md) — reset semanal do DEV a partir de produção (dados pessoais mascarados)

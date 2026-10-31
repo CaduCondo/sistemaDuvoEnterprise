@@ -172,6 +172,7 @@ npm run test:e2e
 **Documentação de testes:**
 - [e2e/SMOKE.md](../e2e/SMOKE.md) - **Comece por aqui**: as duas rodadas, o esquema completo de tags e o histórico
 - [docs/GITHUB_ACTIONS_TESTES.md](./GITHUB_ACTIONS_TESTES.md) - Os workflows do GitHub Actions
+- [docs/RESET_DEV.md](./RESET_DEV.md) - Reset semanal do banco de DEV a partir de produção (dados pessoais mascarados)
 - [e2e/README.md](../e2e/README.md) - Guia geral de testes E2E
 - [e2e/COMANDOS.md](../e2e/COMANDOS.md) - Comandos úteis
 
