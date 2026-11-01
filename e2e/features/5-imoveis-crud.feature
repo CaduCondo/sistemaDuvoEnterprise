@@ -110,6 +110,26 @@ Funcionalidade: CRUD de Imóveis
     Então devo ver a mensagem de sucesso
     E o imóvel deve aparecer na lista
 
+  # Achado no teste em produção de 01/nov/2026: depois de criar um imóvel e
+  # clicar OK no aviso, a tela às vezes parava de aceitar cliques (o aviso
+  # abria antes do formulário terminar de fechar). Correção em AlertContext.
+  @sistemaCompleto
+  Cenário: A tela continua respondendo depois de criar um imóvel
+    Dado existe uma localização "São Paulo - Centro"
+    E estou na página "/properties"
+    Quando clico no botão "Novo Imóvel"
+    E preencho todos os campos obrigatórios:
+      | campo        | valor              |
+      | Local        | São Paulo - Centro |
+      | Complemento  | Apto 102           |
+      | Quartos      | 2                  |
+      | Banheiros    | 1                  |
+      | Área         | 80                 |
+      | Valor        | 2500.00            |
+    E clico em "Salvar"
+    E fecho a mensagem de sucesso no botão OK
+    Então a tela deve continuar respondendo
+
   @sistemaCompleto
   Cenário: Editar imóvel existente
     Dado que existe um imóvel "IMO-001"
