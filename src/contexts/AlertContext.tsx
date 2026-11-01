@@ -26,6 +26,49 @@ interface AlertContextType {
 
 const AlertContext = createContext<AlertContextType | undefined>(undefined);
 
+// Diálogos do Radix ficam na tela com data-state="closed" enquanto fazem a
+// animação de fechar, e só depois somem.
+const SELETOR_FECHANDO = '[role="dialog"][data-state="closed"], [role="alertdialog"][data-state="closed"]';
+const SELETOR_QUALQUER = '[role="dialog"], [role="alertdialog"]';
+const SELETOR_ABERTO = '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]';
+
+function abrirQuandoNadaEstiverFechando(abrir: () => void) {
+  const inicio = Date.now();
+  const conferir = () => {
+    const passou = Date.now() - inicio;
+    const fechando = document.querySelectorAll(SELETOR_FECHANDO).length > 0;
+    // Mínimo de 250ms (o formulário pode ainda nem ter começado a fechar no
+    // instante em que o aviso é pedido) e máximo de 1,5s.
+    if ((passou >= 250 && !fechando) || passou >= 1500) {
+      // Se não sobrou diálogo aberto nenhum e o body ficou travado, destrava
+      // ANTES de abrir -- senão o aviso memoriza o body travado.
+      if (document.querySelectorAll(SELETOR_ABERTO).length === 0 && document.body.style.pointerEvents === "none") {
+        document.body.style.pointerEvents = "";
+      }
+      abrir();
+      return;
+    }
+    setTimeout(conferir, 50);
+  };
+  setTimeout(conferir, 50);
+}
+
+function limparQuandoTudoFechar() {
+  const inicio = Date.now();
+  const conferir = () => {
+    const sobrouAberto = document.querySelectorAll(SELETOR_ABERTO).length > 0;
+    if (sobrouAberto) return; // outro diálogo abriu: ele cuida do body
+    const sobrouAlgum = document.querySelectorAll(SELETOR_QUALQUER).length > 0;
+    if (!sobrouAlgum) {
+      forceDialogCleanup();
+      return;
+    }
+    if (Date.now() - inicio < 2000) setTimeout(conferir, 100);
+    else forceDialogCleanup();
+  };
+  setTimeout(conferir, 100);
+}
+
 export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [alertData, setAlertData] = useState<AlertOptions>({
@@ -44,9 +87,18 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   // A correção real é nunca deixar os dois modais abertos ao mesmo tempo: damos um
   // pequeno delay para o Dialog anterior terminar de fechar (animação ~200ms) antes
   // de abrir este.
+  //
+  // ⚠️ REFEITO EM 01/nov/2026 — o "esperar 250ms" não bastava. Em tela pesada
+  // (Imóveis com 140+ linhas, ou o CI do GitHub, mais lento) o formulário
+  // ainda estava no meio da animação de fechar quando o aviso abria. O aviso
+  // então "memorizava" o body como travado (pointer-events: none) e, ao
+  // fechar, devolvia o body travado -- tela sem aceitar clique até um F5.
+  // Visto em produção ao criar imóvel e no smoke do run #115 (caução).
+  // Agora esperamos de verdade: o aviso só abre quando nenhum diálogo está
+  // mais no meio de fechar (no máximo 1,5s, para nunca sumir o aviso).
   const showAlert = useCallback((options: AlertOptions) => {
     setAlertData(options);
-    setTimeout(() => setOpen(true), 250);
+    abrirQuandoNadaEstiverFechando(() => setOpen(true));
   }, []);
 
   /**
@@ -80,11 +132,11 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
       // fechar), a página trava sem nada clicável. forceDialogCleanup() faz uma
       // limpeza mais completa que só resetar o body (remove overlays e focus
       // guards órfãos, reseta pointer-events em qualquer elemento preso).
-      setTimeout(() => {
-        if (document.querySelectorAll('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').length === 0) {
-          forceDialogCleanup();
-        }
-      }, 100);
+      // (01/nov/2026) Antes era UMA conferência aos 100ms -- cedo demais: o
+      // Radix só devolve o body quando o aviso termina de sumir (animação),
+      // e se ele devolvesse "travado" depois disso, ninguém mais arrumava.
+      // Agora confere até o aviso sumir de vez (no máximo 2s).
+      limparQuandoTudoFechar();
 
       // Resetar data
       setAlertData({
