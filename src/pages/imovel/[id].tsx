@@ -192,6 +192,9 @@ export default function PropertyDetailPage() {
 
   const addressParts = [];
   if (property.address) addressParts.push(property.address);
+  // O número faltava no endereço do anúncio (achado no teste em produção de
+  // 01/nov/2026, issue #34) -- a janela da página inicial já mostrava.
+  if (property.number && property.number.trim() !== "") addressParts.push(property.number);
   if (property.complement && property.complement.trim() !== "") addressParts.push(property.complement);
   if (property.neighborhood) addressParts.push(property.neighborhood);
   if (property.city) addressParts.push(property.city);
