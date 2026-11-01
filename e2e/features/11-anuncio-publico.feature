@@ -24,6 +24,9 @@ Funcionalidade: Anúncio público de imóvel
 
   # issue #34: local "Outros" não tem endereço próprio -- sem o endereço
   # manual do imóvel, o anúncio ficava sem endereço nenhum.
+  # (01/nov/2026: estava sem tag de rodada e nunca rodava no CI -- por isso
+  # não pegou o número faltando no endereço do anúncio.)
+  @sistemaCompleto
   Cenário: Imóvel no local Outros mostra o endereço manual no anúncio
     Dado que existe um imóvel disponível anunciado no local Outros com endereço manual
     Quando abro o link curto do anúncio sem estar logado

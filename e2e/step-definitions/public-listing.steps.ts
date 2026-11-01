@@ -94,6 +94,7 @@ Given('que existe um imóvel disponível anunciado no local Outros com endereço
 
 Then('devo ver o endereço manual do imóvel no anúncio', async function (this: CustomWorld) {
   await expect(
-    this.page.getByText(/Rua Dos Testes E2E/).first()
+    // Rua E número juntos: o número faltava no anúncio (01/nov/2026).
+    this.page.getByText(/Rua Dos Testes E2E, 777/).first()
   ).toBeVisible({ timeout: 10000 });
 });
