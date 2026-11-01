@@ -537,22 +537,19 @@ export function DepositPaymentDialog({
 
       if (error) throw error;
 
-      // ✅ CORREÇÃO (issue #33, mesma causa raiz já corrigida em Locação -- ver
-      // f0a1490d): fechar este Dialog no mesmo instante em que o aviso de
-      // sucesso termina de fechar confunde o Radix (2 Dialogs fechando
-      // colados), deixando a página travada (nada clicável) até um F5. O
-      // setTimeout dá tempo do AlertDialog terminar sua própria limpeza antes
-      // deste Dialog fechar.
+      // ✅ CORREÇÃO (issue #33, refeita): este Dialog fecha ANTES de o aviso de
+      // sucesso abrir -- nunca os dois abertos ao mesmo tempo (o showAlert já
+      // espera 250ms para abrir, ver AlertContext). A primeira correção só
+      // atrasava o fechamento deste Dialog para DEPOIS do OK do aviso; com os
+      // dois abertos juntos o Radix às vezes devolvia o body travado
+      // (pointer-events: none) -- falhou no smoke do run #115 (01/nov/2026).
+      // Mesmo padrão de Inquilinos (TenantFormDialog fecha, depois o aviso abre).
+      onSuccess();
+      onOpenChange(false);
       showAlert({
         title: "Sucesso",
         description: "Recebimento de caução registrado com sucesso!",
         type: "success",
-        onConfirm: () => {
-          setTimeout(() => {
-            onSuccess();
-            onOpenChange(false);
-          }, 250);
-        },
       });
     } catch (error) {
       console.error("Erro ao registrar recebimento:", error);
@@ -594,21 +591,14 @@ export function DepositPaymentDialog({
 
       if (error) throw error;
 
-      // ✅ CORREÇÃO (issue #33, mesma causa raiz já corrigida em Locação -- ver
-      // f0a1490d): mesmo ajuste do registro de recebimento acima -- dá tempo
-      // do AlertDialog de sucesso terminar de fechar antes deste Dialog
-      // fechar, para o Radix não confundir a restauração do scroll/pointer-
-      // events do body.
+      // ✅ CORREÇÃO (issue #33, refeita): mesmo ajuste do registro acima --
+      // fecha este Dialog antes de o aviso de sucesso abrir.
+      onSuccess();
+      onOpenChange(false);
       showAlert({
         title: "Sucesso",
         description: "Recebimento excluído com sucesso!",
         type: "success",
-        onConfirm: () => {
-          setTimeout(() => {
-            onSuccess();
-            onOpenChange(false);
-          }, 250);
-        },
       });
     } catch (error) {
       console.error("Erro ao excluir recebimento:", error);
