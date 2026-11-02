@@ -47,6 +47,7 @@ ALTER TABLE configs
   ADD COLUMN IF NOT EXISTS landlord_bank_name TEXT,
   ADD COLUMN IF NOT EXISTS landlord_bank_agency TEXT,
   ADD COLUMN IF NOT EXISTS landlord_bank_account TEXT,
+  ADD COLUMN IF NOT EXISTS landlord_bank_operation TEXT,
   ADD COLUMN IF NOT EXISTS landlord_pix_key TEXT,
   ADD COLUMN IF NOT EXISTS landlord_whatsapp TEXT;
 

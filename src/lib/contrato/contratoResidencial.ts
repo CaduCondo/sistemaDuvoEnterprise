@@ -27,6 +27,7 @@ export interface DadosLocador {
   cidade?: string | null; // cidade da assinatura
   banco?: string | null;
   agencia?: string | null;
+  operacao?: string | null; // ex.: "poupança 1288"
   conta?: string | null;
   pix?: string | null;
   whatsapp?: string | null;
@@ -200,16 +201,19 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
       ? `Um <b>IMÓVEL RESIDENCIAL</b>, com ${comodos.length > 1 ? comodos.slice(0, -1).join(", ") + " e " + comodos[comodos.length - 1] : comodos[0]}.`
       : "Um <b>IMÓVEL RESIDENCIAL</b>.";
 
+  // Redação do § 2º conforme o contrato do Carlos (enviado pelo Cadu em
+  // 02/nov/2026): conta em nome do ADMINISTRADOR, chave PIX, comprovante
+  // pelo WhatsApp e contrarrecibo pelo mesmo meio.
   const pagamento: string[] = [];
   if (!vazio(L.banco) && !vazio(L.agencia) && !vazio(L.conta)) {
     pagamento.push(
-      `PIX/DEPÓSITO/TED em nome de ${esc(L.nome)}, no ${esc(L.banco)}, <b>agência ${esc(L.agencia)}</b>, <b>conta ${esc(L.conta)}</b>`
+      `PIX/DEPÓSITO/TED em nome do ADMINISTRADOR ${esc(L.nome)}, no Banco ${esc(L.banco)}, <b>agência ${esc(L.agencia)}</b>${vazio(L.operacao) ? "" : `, operação <b>${esc(L.operacao)}</b>`}, conta <b>${esc(L.conta)}</b>`
     );
   }
-  if (!vazio(L.pix)) pagamento.push(`na <b>chave PIX: ${esc(L.pix)}</b>`);
+  if (!vazio(L.pix)) pagamento.push(`na <b><u>chave PIX ${esc(L.pix)}</u></b>; em nome do LOCADOR`);
   const whatsapp = vazio(L.whatsapp)
     ? ""
-    : `, sendo necessário que ${oLocatario} envie o comprovante de pagamento pelo WhatsApp ${esc(L.whatsapp)}`;
+    : `, sendo que ${oLocatario} se compromete a enviar o <u>comprovante de pagamento pelo WhatsApp no nº ${esc(L.whatsapp)}</u> e o LOCADOR, por sua vez, se compromete a enviar o contrarrecibo ${aoLocatario} pelo mesmo meio de comunicação`;
 
   const primeiro = C.primeiroVencimento
     ? `, vencendo o primeiro no dia <b>${dataPorExtenso(C.primeiroVencimento)}</b> e os demais`
