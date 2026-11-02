@@ -53,14 +53,21 @@ no GitHub como *secret* (ninguém consegue ler depois de salvo).
 1. Entre em **supabase.com/dashboard** e abra o projeto de **PRODUÇÃO**
    (o código começa com `alvghyfb...`).
 2. No topo da tela, clique no botão **Connect**.
-3. Na janela que abrir, procure **Session pooler** (não use "Direct
-   connection": o GitHub não consegue usar essa).
-4. Copie o texto, que tem este formato:
+3. Na janela que abrir, clique no quadrado **Direct** (escrito embaixo
+   "Connection string"). Atenção: a janela abre no quadrado "Framework",
+   que não é o certo.
+4. Em **Connection Method**, marque **Session pooler** (o terceiro). Não use
+   "Direct connection" nem "Transaction pooler": o GitHub não consegue usar
+   essas.
+5. Desça um pouco até **Connection string**, no quadro "Shared pooler", e
+   clique no botãozinho de copiar à direita do texto. O texto tem este
+   formato:
    `postgresql://postgres.alvghyfb...:[YOUR-PASSWORD]@aws-0-....pooler.supabase.com:5432/postgres`
-5. Troque `[YOUR-PASSWORD]` (incluindo os colchetes) pela **senha do banco**
+6. Troque `[YOUR-PASSWORD]` (incluindo os colchetes) pela **senha do banco**
    de produção.
    - Não lembra a senha? Em **Project Settings → Database → Reset database
-     password** dá para criar uma nova. O sistema não usa essa senha (ele usa
+     password** (ou no botão **Reset database password**, nessa mesma
+     janela, logo acima do texto) dá para criar uma nova. O sistema não usa essa senha (ele usa
      as chaves da API), então trocar não derruba nada.
    - Se a senha tiver caracteres especiais (`@`, `#`, `/`, `:`...), prefira
      gerar uma nova só com letras e números — esses caracteres quebram o
@@ -68,7 +75,7 @@ no GitHub como *secret* (ninguém consegue ler depois de salvo).
 
 ### Passo 2 — pegar o endereço do banco de DEV
 
-Mesma coisa do passo 1, mas no projeto de **DEV** (código começa com
+Mesmos passos do passo 1 (Connect → Direct → Session pooler), mas no projeto de **DEV** (código começa com
 `yrknfwei...`), com a senha do banco de DEV.
 
 ### Passo 3 — salvar os dois no GitHub
