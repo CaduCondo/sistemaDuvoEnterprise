@@ -551,13 +551,12 @@ export default function Payments() {
   // tela de Recebimentos (mesmo diálogo já usado na tela de Locação).
   const handleDepositPaymentSuccess = useCallback(async () => {
     setUiState(prev => ({ ...prev, selectedDepositPayment: null }));
+    // (02/nov/2026, issue #124) Sem aviso aqui: o DepositPaymentDialog já
+    // mostra o seu ("Recebimento de caução registrado/excluído com sucesso").
+    // Os dois juntos davam 2 avisos seguidos -- o segundo abria logo depois
+    // do OK no primeiro, e a tela parecia travada (smoke runs #115 e #116).
     await loadPayments(selectedMonth.toString(), selectedYear.toString());
-    showAlert({
-      title: "Sucesso!",
-      description: "Recebimento de caução atualizado com sucesso.",
-      type: "success",
-    });
-  }, [loadPayments, selectedMonth, selectedYear, showAlert]);
+  }, [loadPayments, selectedMonth, selectedYear]);
 
   // Pagamentos filtrados por busca e separados por status
   const { pendingPayments, paidPayments, renegotiatedPayments } = useMemo(() => {
