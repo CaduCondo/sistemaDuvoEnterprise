@@ -13,6 +13,27 @@
 -- (array_agg), porque um DROP ... CASCADE pode levar junto objetos que
 -- ainda estariam na lista -- dai o IF EXISTS em todos.
 
+-- (02/nov/2026, 1ª rodada de verdade) Gatilhos de OUTROS schemas (ex.:
+-- on_auth_user_created em auth.users) que usam funções do public iriam
+-- embora no DROP ... CASCADE das funções. Guardamos a definição deles aqui
+-- e o passo 5 (5-restaurar-gatilhos-externos.sql) recria depois que as
+-- funções de PROD forem carregadas.
+-- search_path vazio: assim pg_get_triggerdef escreve o nome completo da
+-- função (public.xxx), que é o que vale na hora de recriar.
+SET LOCAL search_path = '';
+CREATE TEMP TABLE reset_dev_gatilhos_externos ON COMMIT DROP AS
+SELECT pg_get_triggerdef(t.oid) AS definicao,
+       format('%I.%I', cn.nspname, c.relname) AS tabela,
+       t.tgname AS nome
+  FROM pg_trigger t
+  JOIN pg_proc p ON p.oid = t.tgfoid
+  JOIN pg_namespace pn ON pn.oid = p.pronamespace
+  JOIN pg_class c ON c.oid = t.tgrelid
+  JOIN pg_namespace cn ON cn.oid = c.relnamespace
+ WHERE pn.nspname = 'public'
+   AND cn.nspname <> 'public'
+   AND NOT t.tgisinternal;
+
 DO $$
 DECLARE
   comandos text[];

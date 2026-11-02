@@ -34,16 +34,20 @@ done
 # Linhas que nao se aplicam ao DEV:
 #   CREATE/COMMENT SCHEMA public -> o schema ja existe no DEV (so o conteudo e trocado)
 #   SET transaction_timeout      -> so existe a partir do Postgres 17
+#   ALTER DEFAULT PRIVILEGES     -> no Supabase so o dono (supabase_admin) pode
+#                                   mudar; o DEV ja tem as suas (o schema public
+#                                   nao e apagado). 1a rodada real falhou aqui.
 sed -i -E \
   -e '/^CREATE SCHEMA ("?public"?);/d' \
   -e '/^COMMENT ON SCHEMA ("?public"?) /d' \
   -e '/^SET transaction_timeout/d' \
+  -e '/^ALTER DEFAULT PRIVILEGES /d' \
   "$TMP"/*.sql
 
-# As permissoes de PROD (linhas GRANT/REVOKE/ALTER DEFAULT PRIVILEGES da
+# As permissoes de PROD (linhas GRANT/REVOKE da
 # copia), para reaplicar no fim por cima de permissoes zeradas -- ver
 # 4-zerar-permissoes.sql.
-grep -hE '^(GRANT|REVOKE|ALTER DEFAULT PRIVILEGES) ' "$TMP/pre-data.sql" "$TMP/post-data.sql" > "$TMP/permissoes.sql" || true
+grep -hE '^(GRANT|REVOKE) ' "$TMP/pre-data.sql" "$TMP/post-data.sql" > "$TMP/permissoes.sql" || true
 
 ls -lh "$TMP"
 
@@ -56,6 +60,7 @@ psql "$DEV_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -q \
   -f "$TMP/post-data.sql" \
   -f "$AQUI/4-zerar-permissoes.sql" \
   -f "$TMP/permissoes.sql" \
+  -f "$AQUI/5-restaurar-gatilhos-externos.sql" \
   -c "NOTIFY pgrst, 'reload schema';"
 
 # 3) Resumo para o log do GitHub Actions.
