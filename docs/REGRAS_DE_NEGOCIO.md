@@ -42,6 +42,13 @@ Imóvel, Novo Inquilino, Recebimentos, etc). Agora só fecha pelo "X" ou pelos
 botões da própria tela (Cancelar, Criar, Salvar...). Padrão alterado em
 `src/components/ui/dialog.tsx`, vale para todas as telas do sistema.
 
+**Aviso de "Sucesso" (NOVO — novembro/2026):** depois de salvar, aparece
+**um** aviso só, e ele só abre quando o formulário já terminou de fechar.
+Antes, em tela pesada (ex.: Imóveis), clicar OK no aviso às vezes deixava a
+tela sem aceitar cliques até apertar F5 (issue #124). Na tela de
+Recebimentos, receber caução mostrava 2 avisos iguais seguidos — agora é um
+só. Regra técnica em `src/contexts/AlertContext.tsx`.
+
 ### Estrutura de Navegação
 ```
 ├── Login (página pública)
@@ -838,6 +845,40 @@ Gerenciar cadastro completo de imóveis disponíveis para locação.
   automaticamente no cadastro; a formatação (completar com zeros à esquerda)
   fica em `src/lib/propertyCode.ts`. A URL antiga, com o UUID, **continua
   funcionando**, para não quebrar links já compartilhados.
+
+### Novidades do Cadastro de Imóvel (NOVO — Outubro/2026)
+
+#### Endereço próprio para imóvel no local "Outros" (issue #34)
+
+O local "Outros" não tem endereço (é usado para imóveis que não ficam em
+nenhum condomínio cadastrado). Por isso, ao escolher "Outros", o cadastro
+mostra campos para digitar o endereço do próprio imóvel.
+
+Passo a passo:
+1. Imóveis → **Novo Imóvel** (ou abra um imóvel e clique em **Editar Imóvel**).
+2. Em **Local**, escolha **Outros**.
+3. Aparece um quadro com **Rua, Número, Bairro, Cidade, Estado (UF) e CEP**.
+   Preencha (nenhum é obrigatório, mas sem a Rua o anúncio não mostra
+   endereço nenhum).
+4. Salve.
+
+No anúncio público, o endereço aparece assim: **Rua, Número, Complemento,
+Bairro, Cidade, UF**. Para qualquer outro local, o endereço continua vindo
+do cadastro do Local.
+
+> Corrigido em 01/nov/2026: o anúncio (`/imovel/[código]`) nunca mostrava o
+> **número** do endereço, para nenhum local. Achado no teste em produção.
+
+#### Descrição com negrito, itálico e tamanho de letra (issue #35)
+
+O campo **Descrição** do imóvel tem uma barrinha em cima:
+- **B** = negrito, *I* = itálico;
+- **P / N / G / XG** = tamanho da letra (pequeno, normal, grande, extra grande).
+
+Passo a passo: selecione o pedaço do texto com o mouse e clique no botão.
+A formatação aparece igual no anúncio público e no card do imóvel. Por
+segurança, o sistema limpa qualquer código estranho colado no campo antes de
+salvar e de mostrar.
 
 ---
 
