@@ -54,4 +54,13 @@ ALTER TABLE configs
 COMMENT ON COLUMN configs.landlord_name IS 'LOCADOR do contrato (issue #125). Dado pessoal: só no banco, nunca no código.';
 COMMENT ON COLUMN configs.landlord_city IS 'Cidade que aparece na data de assinatura do contrato (ex.: São Paulo).';
 
+-- 4) locations.contract_clauses: cláusulas específicas de cada local
+--    (condomínio/prédio), em ordem: [{"titulo": "...", "texto": "..."}].
+--    Entram no contrato depois de "Impostos, taxas e encargos".
+ALTER TABLE locations
+  ADD COLUMN IF NOT EXISTS contract_clauses JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+COMMENT ON COLUMN locations.contract_clauses IS
+  'Cláusulas específicas do local para o contrato: [{titulo, texto}] (issue #125).';
+
 NOTIFY pgrst, 'reload schema';

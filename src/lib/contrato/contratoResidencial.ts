@@ -10,8 +10,14 @@
 //   - cláusulas e parágrafos numerados em ordem (o modelo pulava da sexta
 //     para a décima, e § 3º -> § 5º, § 7º -> § 9º na vistoria);
 //   - "Imóvel Comercial" no preâmbulo corrigido para "Residencial";
-//   - a cláusula de responsabilidade SOLIDÁRIA dos locatários sai (só faz
-//     sentido com mais de um locatário).
+//   - a cláusula de responsabilidade SOLIDÁRIA fica, adaptada para um
+//     locatário: ele responde por tudo mesmo morando com outras pessoas
+//     (decisão do Cadu, 02/nov/2026);
+//   - espaço para CLÁUSULAS ESPECÍFICAS DO LOCAL (cada condomínio/prédio tem
+//     suas regras). Elas entram logo depois de "Impostos, taxas e encargos",
+//     que é onde o modelo original pulava da sexta para a décima cláusula.
+//     Hoje vêm de locations.contract_clauses (vazio por padrão; a tela para
+//     cadastrar ainda não existe).
 // O resto do texto jurídico foi mantido como no modelo.
 //
 // Esta função é pura (sem banco, sem tela): recebe os dados prontos e
@@ -44,8 +50,16 @@ export interface DadosLocatario {
   endereco?: string | null; // endereço completo já montado
 }
 
+export interface ClausulaLocal {
+  titulo: string;
+  /** Texto da cláusula. Pode ter mais de um parágrafo, separados por linha em branco. */
+  texto: string;
+}
+
 export interface DadosImovel {
   usoComercial?: boolean;
+  /** Regras específicas do local (condomínio/prédio), em ordem. */
+  clausulasLocal?: ClausulaLocal[] | null;
   quartos?: number | null;
   banheiros?: number | null;
   temGaragem?: boolean;
@@ -220,14 +234,18 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
     : ", vencendo";
 
   // numeração automática das cláusulas
-  const ORDINAIS = [
-    "primeira", "segunda", "terceira", "quarta", "quinta", "sexta", "sétima", "oitava", "nona", "décima",
-    "décima primeira", "décima segunda", "décima terceira", "décima quarta", "décima quinta",
-    "décima sexta", "décima sétima", "décima oitava", "décima nona", "vigésima",
-  ];
+  // Ordinais femininos até 39 ("trigésima nona"), para caber qualquer
+  // quantidade razoável de cláusulas específicas do local.
+  const UNID = ["", "primeira", "segunda", "terceira", "quarta", "quinta", "sexta", "sétima", "oitava", "nona"];
+  const DEZ = ["", "décima", "vigésima", "trigésima"];
+  const ordinal = (n: number) => {
+    const d = Math.floor(n / 10);
+    const u = n % 10;
+    return [DEZ[d], UNID[u]].filter(Boolean).join(" ");
+  };
   let nClausula = 0;
   const clausula = (titulo: string) =>
-    `<h3><u>Cláusula ${ORDINAIS[nClausula++]}</u>: ${titulo}</h3>`;
+    `<h3><u>Cláusula ${ordinal(++nClausula)}</u>: ${titulo}</h3>`;
   const p = (html: string) => `<p>${html}</p>`;
 
   const partes: string[] = [];
@@ -344,6 +362,15 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
       `<b>§ 4º</b> - É DE INTEIRA RESPONSABILIDADE E OBRIGAÇÃO ${g("DO LOCATÁRIO", "DA LOCATÁRIA")} A TRANSFERÊNCIA DE TITULARIDADE das contas de luz e outras, no prazo de 15 dias do início deste contrato. Caso não o faça, o LOCADOR poderá pedir às concessionárias o desligamento do fornecimento desses serviços.`
     )
   );
+
+  // Cláusulas específicas do local (ver comentário no topo do arquivo).
+  for (const cl of I.clausulasLocal || []) {
+    if (vazio(cl?.titulo) || vazio(cl?.texto)) continue;
+    partes.push(clausula(esc(String(cl.titulo).toUpperCase())));
+    for (const paragrafo of String(cl.texto).split(/\n\s*\n/)) {
+      if (!vazio(paragrafo)) partes.push(p(esc(paragrafo.trim()).replace(/\n/g, "<br>")));
+    }
+  }
 
   partes.push(clausula("PRAZO DO CONTRATO"));
   partes.push(
@@ -553,6 +580,13 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   partes.push(
     p(
       `<b>Incêndio</b>: Em caso de incêndio, ou de acidentes, que obriguem a reconstrução do imóvel, o LOCADOR aceitará a rescisão do contrato bem como as chaves do imóvel, desde que ${oLocatario} esteja com a apólice do seguro incêndio em vigor. Caso não esteja em vigor, ${oLocatario} declara expressamente que se responsabiliza pela reconstrução do imóvel, arcando com o pagamento do aluguel e encargos até a efetiva entrega do imóvel em perfeitas condições, como o recebera, em conformidade com a lei.`
+    )
+  );
+
+  partes.push(clausula(`DA RESPONSABILIDADE SOLIDÁRIA ${g("DO LOCATÁRIO", "DA LOCATÁRIA")}`));
+  partes.push(
+    p(
+      `${OLocatario} ${g("declara-se", "declara-se")} ${g("responsável", "responsável")} por todas as obrigações decorrentes deste contrato de locação, nos termos dos artigos 2º e 265 do Código Civil e do artigo 2º da Lei nº 8.245/91, respondendo pela integralidade das obrigações assumidas, independentemente de quem esteja ocupando o imóvel ou realizando os pagamentos, inclusive pelos atos das pessoas que com ${g("ele", "ela")} residirem no imóvel. A presente responsabilidade permanecerá vigente durante todo o período da locação e eventuais prorrogações, até a efetiva quitação de todas as obrigações decorrentes deste contrato.`
     )
   );
 
