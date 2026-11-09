@@ -321,11 +321,16 @@ export function PublicHeader() {
 
                   <form onSubmit={handleSubmit} className="space-y-3">
                     <div className="space-y-1.5">
-                      <Label htmlFor="username" className="text-sm font-medium">E-mail:</Label>
+                      {/* Aceita e-mail OU nome de usuário (a rota /api/auth/login procura
+                          pelos dois). Era type="email", o que impedia entrar só com o usuário
+                          -- e no DEV o e-mail é falso, então ninguém conseguia entrar lá. */}
+                      <Label htmlFor="username" className="text-sm font-medium">E-mail ou usuário:</Label>
                       <Input
                         id="username"
-                        type="email"
-                        placeholder="email@exemplo.com"
+                        type="text"
+                        autoComplete="username"
+                        autoCapitalize="none"
+                        placeholder="email@exemplo.com ou usuário"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required

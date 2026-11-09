@@ -44,21 +44,15 @@ test.describe('Security - Autenticação', () => {
     await loginPage.goto();
     await loginPage.openLoginDropdown();
 
-    // ⚠️ Corrigido em 2026-08: #username é <input type="email" required>
-    // (src/components/public/PublicHeader.tsx) — um payload de SQL
-    // injection como "admin' OR '1'='1" não é um e-mail válido, então o
-    // próprio navegador bloqueia o submit via validação HTML5 nativa,
-    // ANTES de qualquer chamada ao backend. Não aparece um toast de erro
-    // customizado (hasError() nunca fica true) porque handleSubmit nunca
-    // roda — essa é a barreira de segurança real neste formulário.
+    // O campo aceita e-mail OU nome de usuário (type="text"), então o texto
+    // chega ao servidor. A barreira é a rota /api/auth/login, que busca o
+    // usuário com consulta parametrizada: o payload vira só um "usuário que
+    // não existe" e o login é recusado.
     await loginPage.usernameInput.fill("admin' OR '1'='1");
     await loginPage.passwordInput.fill("' OR '1'='1");
 
-    const isValid = await loginPage.usernameInput.evaluate((el: HTMLInputElement) => el.checkValidity());
-    expect(isValid).toBe(false);
-
     await loginPage.submitButton.click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1500);
 
     // NÃO deve fazer login
     expect(page.url()).not.toContain('/dashboard');
