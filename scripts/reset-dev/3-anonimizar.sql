@@ -14,9 +14,8 @@
 --
 -- O que muda:
 --   tenants       nome, CPF, RG, documento, e-mail, telefone, rua, numero, CEP
---   system_users  CPF, RG, telefone, e-mail, senha temporaria
---                 (nome, usuario e senha continuam -> da para entrar no DEV
---                  com o mesmo USUARIO de producao; o e-mail nao serve mais)
+--   system_users  NADA (desde 09/nov/2026): entram no DEV iguais a producao,
+--                 com o mesmo e-mail, usuario e senha.
 --   audit_logs    apagado inteiro (guarda copias antigas dos dados pessoais e IPs)
 --   anexos        apagados das linhas (apontam para contratos/comprovantes
 --                 reais guardados no Storage de PRODUCAO)
@@ -90,13 +89,9 @@ BEGIN
 END $m$;
 
 -- --------------------------------------------------------- usuarios do sistema
-DO $m$
-BEGIN
-  PERFORM pg_temp.mascarar('system_users', 'cpf',   $$pg_temp.cpf_falso({c}::text, 'ucpf' || id)$$);
-  PERFORM pg_temp.mascarar('system_users', 'rg',    $$pg_temp.mascarar_digitos({c}::text, 'urg' || id)$$);
-  PERFORM pg_temp.mascarar('system_users', 'phone', $$pg_temp.mascarar_digitos({c}::text, 'utel' || id)$$);
-  PERFORM pg_temp.mascarar('system_users', 'email', $$CASE WHEN {c} IS NULL OR {c} = '' THEN {c} ELSE 'usuario.' || substr(md5(id::text), 1, 12) || '@exemplo.test' END$$);
-END $m$;
+-- NAO mascarar (decisao do Cadu, 09/nov/2026): os usuarios do sistema sao a
+-- propria familia, e trocar o e-mail deles impedia de entrar no DEV pelo
+-- e-mail. Usuarios do sistema chegam no DEV iguais a PRODUCAO.
 
 DO $$
 DECLARE
@@ -164,12 +159,6 @@ BEGIN
    WHERE email IS NOT NULL AND email <> '' AND email NOT LIKE '%@exemplo.test';
   IF sobrando > 0 THEN
     RAISE EXCEPTION 'Reset DEV: % inquilino(s) ainda com e-mail real -- reset cancelado.', sobrando;
-  END IF;
-
-  SELECT count(*) INTO sobrando FROM public.system_users
-   WHERE email IS NOT NULL AND email <> '' AND email NOT LIKE '%@exemplo.test';
-  IF sobrando > 0 THEN
-    RAISE EXCEPTION 'Reset DEV: % usuario(s) ainda com e-mail real -- reset cancelado.', sobrando;
   END IF;
 
   RAISE NOTICE 'Reset DEV: dados pessoais mascarados e conferidos.';

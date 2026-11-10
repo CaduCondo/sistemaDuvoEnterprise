@@ -24,7 +24,7 @@ inquilinos.
 | RG, documento, telefone, número da casa, CEP | Mesmo formato, dígitos trocados |
 | E-mail do inquilino | `inquilino.xxxx@exemplo.test` (falso, não recebe e-mail) |
 | Rua do inquilino | `Rua de Teste` |
-| Usuários do sistema (você, sua irmã, seu pai) | Mesmo **usuário** e **senha** de produção. CPF, RG, telefone e e-mail trocados — **para entrar no DEV, use o nome de usuário, não o e-mail**. Se você trocar a senha em produção, a senha do DEV muda junto no próximo domingo. O botão "Esqueci minha senha" **não funciona no DEV** (o e-mail é falso, nada chega) |
+| Usuários do sistema (você, sua irmã, seu pai) | **Iguais a produção** (mesmo e-mail, usuário e senha — não são alterados). Se você trocar a senha em produção, a do DEV muda junto no próximo domingo |
 | Anexos (contratos, comprovantes) | Removidos (eles apontam para arquivos reais de produção) |
 | Histórico de auditoria | Apagado (guarda cópias antigas dos dados pessoais) |
 
