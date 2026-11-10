@@ -6,9 +6,15 @@
 --    salvar, e o contrato avisa quando falta.
 -- 2) properties.usage_type: 'residential' (padrão) ou 'commercial'. Por
 --    enquanto só existe o modelo de contrato residencial.
--- 3) configs.landlord_*: dados do LOCADOR que vão em todo contrato. Ficam no
---    banco, NUNCA no código: o repositório do GitHub é público e o contrato
---    leva CPF, RG, endereço e dados bancários.
+-- 3) system_users.is_landlord + landlord_*: o LOCADOR é um usuário do
+--    sistema marcado com "Também é locador" (decisão do Cadu, 05/nov/2026).
+--    Nome, CPF, RG e telefone já existem no usuário; aqui entram só os
+--    dados que faltam para o contrato. Ficam no banco, NUNCA no código: o
+--    repositório do GitHub é público e o contrato leva CPF, RG, endereço e
+--    dados bancários.
+-- 4) rentals.landlord_user_id: quem é o locador daquela locação. Locações
+--    antigas ficam vazias (regra do Cadu: não alterar dado que não foi o
+--    Claude que criou) -- a tela escolhe o locador ao criar locação nova.
 --
 -- Pode rodar mais de uma vez sem estragar nada (IF NOT EXISTS).
 
@@ -38,23 +44,27 @@ END $$;
 COMMENT ON COLUMN properties.usage_type IS
   'Uso do imóvel: residential ou commercial. Define o modelo de contrato (issue #125).';
 
-ALTER TABLE configs
-  ADD COLUMN IF NOT EXISTS landlord_name TEXT,
-  ADD COLUMN IF NOT EXISTS landlord_cpf TEXT,
-  ADD COLUMN IF NOT EXISTS landlord_rg TEXT,
+ALTER TABLE system_users
+  ADD COLUMN IF NOT EXISTS is_landlord BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS landlord_address TEXT,
   ADD COLUMN IF NOT EXISTS landlord_city TEXT,
   ADD COLUMN IF NOT EXISTS landlord_bank_name TEXT,
   ADD COLUMN IF NOT EXISTS landlord_bank_agency TEXT,
-  ADD COLUMN IF NOT EXISTS landlord_bank_account TEXT,
   ADD COLUMN IF NOT EXISTS landlord_bank_operation TEXT,
+  ADD COLUMN IF NOT EXISTS landlord_bank_account TEXT,
   ADD COLUMN IF NOT EXISTS landlord_pix_key TEXT,
   ADD COLUMN IF NOT EXISTS landlord_whatsapp TEXT;
 
-COMMENT ON COLUMN configs.landlord_name IS 'LOCADOR do contrato (issue #125). Dado pessoal: só no banco, nunca no código.';
-COMMENT ON COLUMN configs.landlord_city IS 'Cidade que aparece na data de assinatura do contrato (ex.: São Paulo).';
+COMMENT ON COLUMN system_users.is_landlord IS 'Usuário também é LOCADOR nos contratos (issue #125).';
+COMMENT ON COLUMN system_users.landlord_address IS 'Endereço completo do locador para o contrato. Dado pessoal: só no banco, nunca no código.';
+COMMENT ON COLUMN system_users.landlord_city IS 'Cidade que aparece na data de assinatura do contrato (ex.: São Paulo).';
 
--- 4) locations.contract_clauses: cláusulas específicas de cada local
+ALTER TABLE rentals
+  ADD COLUMN IF NOT EXISTS landlord_user_id UUID REFERENCES system_users(id) ON DELETE SET NULL;
+
+COMMENT ON COLUMN rentals.landlord_user_id IS 'LOCADOR desta locação (usuário com is_landlord). Vazio nas locações antigas (issue #125).';
+
+-- 5) locations.contract_clauses: cláusulas específicas de cada local
 --    (condomínio/prédio), em ordem: [{"titulo": "...", "texto": "..."}].
 --    Entram no contrato depois de "Impostos, taxas e encargos".
 ALTER TABLE locations
