@@ -21,6 +21,21 @@ import {
  */
 export function EnvironmentWarningBanner() {
   const [mensagem, setMensagem] = useState<string | null>(null);
+  const [ambienteDeTeste, setAmbienteDeTeste] = useState(false);
+
+  // No ambiente de teste, a aba do navegador mostra "[TESTE]" no começo do
+  // título -- as páginas trocam o título sozinhas, então fica vigiando.
+  useEffect(() => {
+    if (!ambienteDeTeste) return;
+    const PREFIXO = "[TESTE] ";
+    const marcar = () => {
+      if (!document.title.startsWith(PREFIXO)) document.title = PREFIXO + document.title;
+    };
+    marcar();
+    const vigia = new MutationObserver(marcar);
+    vigia.observe(document.head, { subtree: true, childList: true, characterData: true });
+    return () => vigia.disconnect();
+  }, [ambienteDeTeste]);
 
   useEffect(() => {
     // So roda no navegador: window.location nao existe durante a renderizacao
@@ -43,8 +58,38 @@ export function EnvironmentWarningBanner() {
       setMensagem(
         "ATENÇÃO: este ambiente de teste está conectado ao banco de PRODUÇÃO. Qualquer alteração feita aqui muda os dados reais dos clientes."
       );
+      return;
+    }
+
+    // Tudo certo e é o ambiente de teste (DEV online ou localhost): faixa
+    // amarela + "[TESTE]" na aba, para nunca confundir com o sistema real.
+    if (!siteDeProducao && ambienteDoBanco === "development") {
+      setAmbienteDeTeste(true);
     }
   }, []);
+
+  if (!mensagem && ambienteDeTeste) {
+    return (
+      <div
+        role="status"
+        data-testid="ambiente-de-teste-banner"
+        style={{
+          position: "relative", // não fixa: não pode cobrir botões do topo
+          zIndex: 99999,
+          width: "100%",
+          backgroundColor: "#f59e0b",
+          color: "#1f2937",
+          padding: "6px 16px",
+          fontSize: "14px",
+          fontWeight: 700,
+          lineHeight: 1.4,
+          textAlign: "center",
+        }}
+      >
+        ⚠ AMBIENTE DE TESTE — os dados daqui são separados dos de produção
+      </div>
+    );
+  }
 
   if (!mensagem) return null;
 
