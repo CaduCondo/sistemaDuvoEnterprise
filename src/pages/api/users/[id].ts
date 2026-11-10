@@ -18,7 +18,20 @@ const URL_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const CHAVE_SECRETA = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const CAMPOS_PUBLICOS =
-  "id, email, name, username, role, active, phone, cpf, rg, photo, theme, created_at, requires_password_change, temporary_password";
+  "id, email, name, username, role, active, phone, cpf, rg, photo, theme, created_at, requires_password_change, temporary_password, " +
+  "is_landlord, landlord_address, landlord_city, landlord_bank_name, landlord_bank_agency, landlord_bank_operation, landlord_bank_account, landlord_pix_key, landlord_whatsapp";
+
+/** Dados de locador (issue #125): o próprio usuário ou um admin podem editar. */
+const CAMPOS_LOCADOR = [
+  "landlord_address",
+  "landlord_city",
+  "landlord_bank_name",
+  "landlord_bank_agency",
+  "landlord_bank_operation",
+  "landlord_bank_account",
+  "landlord_pix_key",
+  "landlord_whatsapp",
+];
 
 function servidorSupabase() {
   return criarClienteSupabaseAdmin();
@@ -38,9 +51,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const supabase = servidorSupabase();
 
   if (req.method === "PATCH") {
-    const { name, email, phone, cpf, rg, photo, role, status } = req.body ?? {};
+    const { name, email, phone, cpf, rg, photo, role, status, is_landlord } = req.body ?? {};
 
-    const mudaRoleOuStatus = role !== undefined || status !== undefined;
+    // Marcar/desmarcar "Também é locador" também é coisa de admin.
+    const mudaRoleOuStatus = role !== undefined || status !== undefined || is_landlord !== undefined;
 
     // Editar o próprio perfil: liberado. Mudar role/status: só admin, mesmo
     // que seja o próprio usuário mudando o próprio -- ver comentário acima.
@@ -71,6 +85,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (photo !== undefined) atualizacoes.photo = photo;
     if (role !== undefined) atualizacoes.role = role;
     if (status !== undefined) atualizacoes.active = status === "active" || status === "ativo";
+    if (is_landlord !== undefined) atualizacoes.is_landlord = Boolean(is_landlord);
+    for (const campo of CAMPOS_LOCADOR) {
+      const valor = req.body?.[campo];
+      if (valor !== undefined) {
+        atualizacoes[campo] = typeof valor === "string" && valor.trim() === "" ? null : valor;
+      }
+    }
 
     if (Object.keys(atualizacoes).length === 0) {
       return res.status(400).json({ error: "Nada para atualizar" });

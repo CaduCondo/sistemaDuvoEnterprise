@@ -118,6 +118,15 @@ export async function updateUser(
     cpf?: string;
     rg?: string;
     photo?: string;
+    is_landlord?: boolean;
+    landlord_address?: string;
+    landlord_city?: string;
+    landlord_bank_name?: string;
+    landlord_bank_agency?: string;
+    landlord_bank_operation?: string;
+    landlord_bank_account?: string;
+    landlord_pix_key?: string;
+    landlord_whatsapp?: string;
   }
 ) {
   const { data: oldData } = await supabase

@@ -49,7 +49,30 @@ export interface SystemUser {
   password?: string; // Optional for updates
   blocked_until?: string | null; // Bloqueio temporário por falhas de login
   login_attempts?: number; // Contador de tentativas de login
+  // Locador nos contratos (issue #125) -- dados só no banco, nunca no código
+  is_landlord?: boolean;
+  landlord_address?: string | null;
+  landlord_city?: string | null;
+  landlord_bank_name?: string | null;
+  landlord_bank_agency?: string | null;
+  landlord_bank_operation?: string | null;
+  landlord_bank_account?: string | null;
+  landlord_pix_key?: string | null;
+  landlord_whatsapp?: string | null;
 }
+
+/** Campos de locador que a tela de usuário edita (issue #125). */
+export const CAMPOS_LOCADOR = [
+  "landlord_address",
+  "landlord_city",
+  "landlord_bank_name",
+  "landlord_bank_agency",
+  "landlord_bank_operation",
+  "landlord_bank_account",
+  "landlord_pix_key",
+  "landlord_whatsapp",
+] as const;
+export type CampoLocador = (typeof CAMPOS_LOCADOR)[number];
 
 export interface CompanyConfig {
   id: string;

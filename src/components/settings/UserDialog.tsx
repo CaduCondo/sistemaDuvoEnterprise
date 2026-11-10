@@ -22,7 +22,9 @@ import { forceDialogCleanup } from "@/lib/forceCleanup";
 import { useToast } from "@/hooks/use-toast";
 import { createUser, updateUser } from "@/services/systemUserService";
 import { supabase } from "@/integrations/supabase/client";
-import { applyPhoneMask } from "@/lib/masks";
+import { applyPhoneMask, applyCpfMask } from "@/lib/masks";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CAMPOS_LOCADOR, CampoLocador } from "@/types";
 import { isEmailEnabled } from "@/services/emailSettingsService";
 
 // Função para gerar senha temporária aleatória
@@ -52,6 +54,20 @@ function generateTemporaryPassword(): string {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
+// Campos do bloco "Também é locador" (issue #125), na ordem da tela.
+const ROTULOS_LOCADOR: Record<CampoLocador, { rotulo: string; dica?: string; largo?: boolean }> = {
+  landlord_address: { rotulo: "Endereço completo", dica: "Rua, número, complemento, bairro, cidade/UF e CEP — como deve sair no contrato", largo: true },
+  landlord_city: { rotulo: "Cidade da assinatura", dica: "Ex.: São Paulo" },
+  landlord_whatsapp: { rotulo: "WhatsApp para comprovantes", dica: "Número que recebe os comprovantes de pagamento" },
+  landlord_bank_name: { rotulo: "Banco" },
+  landlord_bank_agency: { rotulo: "Agência" },
+  landlord_bank_operation: { rotulo: "Operação", dica: "Se o banco não usa, deixe em branco" },
+  landlord_bank_account: { rotulo: "Conta" },
+  landlord_pix_key: { rotulo: "Chave PIX", largo: true },
+};
+
+const LOCADOR_VAZIO = Object.fromEntries(CAMPOS_LOCADOR.map((c) => [c, ""])) as Record<CampoLocador, string>;
+
 // Validação de email
 function isValidEmail(email: string): boolean {
   return email.includes('@') && email.length > 3;
@@ -78,6 +94,10 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
     phone: "",
     role: "" as "" | "admin" | "broker" | "financial",
     active: true,
+    cpf: "",
+    rg: "",
+    is_landlord: false,
+    ...LOCADOR_VAZIO,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailError, setEmailError] = useState("");
@@ -91,6 +111,12 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         phone: user.phone || "",
         role: user.role,
         active: user.active !== undefined ? user.active : true,
+        cpf: user.cpf || "",
+        rg: user.rg || "",
+        is_landlord: Boolean(user.is_landlord),
+        ...(Object.fromEntries(
+          CAMPOS_LOCADOR.map((c) => [c, (user as any)[c] || ""])
+        ) as Record<CampoLocador, string>),
       });
     } else {
       setFormData({
@@ -99,6 +125,10 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         phone: "",
         role: "",
         active: true, // Ativado por padrão
+        cpf: "",
+        rg: "",
+        is_landlord: false,
+        ...LOCADOR_VAZIO,
       });
     }
     setEmailError("");
@@ -144,6 +174,21 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
     }
   };
 
+  // Telefone, CPF, RG e locador (issue #125). Os dados de locador só vão
+  // quando a caixa está marcada -- desmarcar não apaga o que já estava salvo.
+  const camposExtras = () => {
+    const extras: Record<string, any> = {
+      phone: formData.phone,
+      cpf: formData.cpf,
+      rg: formData.rg,
+      is_landlord: formData.is_landlord,
+    };
+    if (formData.is_landlord) {
+      for (const c of CAMPOS_LOCADOR) extras[c] = formData[c];
+    }
+    return extras;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -169,6 +214,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           email: formData.email,
           role: formData.role,
           status: formData.active ? "active" : "inactive",
+          ...camposExtras(),
         });
       } else {
         // Criar novo usuário - createUser aceita: name, email, role, password, temporary_password
@@ -180,6 +226,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
           role: formData.role,
           password: temporaryPassword,
           temporary_password: true,
+          ...camposExtras(),
         });
       }
 
@@ -319,6 +366,66 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cpf">CPF</Label>
+                <Input
+                  id="cpf"
+                  value={formData.cpf}
+                  onChange={(e) => setFormData({ ...formData, cpf: applyCpfMask(e.target.value) })}
+                  disabled={isSubmitting}
+                  placeholder="000.000.000-00"
+                  className="h-11"
+                  maxLength={14}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rg">RG</Label>
+                <Input
+                  id="rg"
+                  value={formData.rg}
+                  onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
+                  disabled={isSubmitting}
+                  className="h-11"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="is_landlord"
+                  checked={formData.is_landlord}
+                  onCheckedChange={(v) => setFormData({ ...formData, is_landlord: v === true })}
+                  disabled={isSubmitting}
+                />
+                <Label htmlFor="is_landlord" className="cursor-pointer">Também é locador</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Marque se esta pessoa aparece como LOCADOR nos contratos de locação. Os dados abaixo vão no contrato.
+              </p>
+              {formData.is_landlord && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {CAMPOS_LOCADOR.map((campo) => {
+                    const info = ROTULOS_LOCADOR[campo];
+                    return (
+                      <div key={campo} className={`space-y-1 ${info.largo ? "sm:col-span-2" : ""}`}>
+                        <Label htmlFor={campo}>{info.rotulo}</Label>
+                        <Input
+                          id={campo}
+                          value={formData[campo]}
+                          onChange={(e) => setFormData({ ...formData, [campo]: e.target.value })}
+                          disabled={isSubmitting}
+                          className="h-11"
+                        />
+                        {info.dica && <p className="text-xs text-muted-foreground">{info.dica}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

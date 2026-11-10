@@ -3,6 +3,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { SystemUser } from "@/types";
 import { createUser, updateUser, deleteUser, unblockLogin } from "@/services/systemUserService";
 import { useAlert } from "@/contexts/AlertContext";
+import { CAMPOS_LOCADOR } from "@/types";
+
+/**
+ * Telefone, CPF, RG e dados de locador (issue #125) vindos da tela de
+ * usuário. Só entra o que a tela mandou -- campo ausente não é apagado.
+ */
+function dadosDeLocador(userData: any): Record<string, any> {
+  const campos = [
+    "phone", "cpf", "rg", "is_landlord",
+    ...CAMPOS_LOCADOR,
+  ];
+  const resultado: Record<string, any> = {};
+  for (const campo of campos) {
+    if (userData?.[campo] !== undefined) resultado[campo] = userData[campo];
+  }
+  return resultado;
+}
 
 export function useUsers() {
   const [users, setUsers] = useState<SystemUser[]>([]);
@@ -92,6 +109,13 @@ export function useUsers() {
         password: userData.password || "mudar123",
         temporary_password: true,
       });
+
+      // Telefone, CPF, RG e dados de locador (issue #125) não cabem no
+      // cadastro inicial: grava logo em seguida, no usuário recém-criado.
+      const extras = dadosDeLocador(userData);
+      if (newUser?.id && Object.keys(extras).length > 0) {
+        await updateUser(newUser.id, extras);
+      }
       
       showAlert({
         title: "Sucesso",
@@ -184,6 +208,7 @@ export function useUsers() {
         email: userData.email,
         role: userData.role,
         status: userData.active ? "active" : "inactive",
+        ...dadosDeLocador(userData),
       });
       
       console.log("✅ updateUser concluído com sucesso");
