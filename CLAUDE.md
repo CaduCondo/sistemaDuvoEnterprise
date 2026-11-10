@@ -62,6 +62,19 @@ Project, Actions). Não precisa perguntar de novo. Continua valendo o bom
 senso: em PROD, preferir sempre o caminho de menor risco (transação, conferir
 o registro antes de mudar, script que pode rodar duas vezes sem estragar).
 
+### Só mexer em dado que o próprio Claude criou (regra do Cadu, 09/nov/2026 — vale sempre)
+
+Em QUALQUER banco (PROD ou DEV) e por QUALQUER caminho (SQL, tela, script,
+teste, rotina automática): o Claude só altera ou apaga um registro (imóvel,
+inquilino, locação, recebimento, usuário, configuração...) se tiver certeza
+absoluta de que foi ele mesmo que criou aquele registro. Dado criado pelo
+Cadu, pela família ou copiado de produção não se altera — nem para
+"mascarar", nem para "arrumar". Se for preciso mudar um dado que não é do
+Claude, explicar e pedir para o Cadu antes.
+
+Por que existe: a cópia semanal do DEV trocava o e-mail dos usuários do
+sistema por e-mails falsos, e o Cadu ficou dias sem conseguir entrar no DEV.
+
 ### Testes automáticos: o que é cada rodada e como evidenciar
 
 - **`@smoke`** = validação RÁPIDA do caminho E2E mais importante, do começo
