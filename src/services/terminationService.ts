@@ -23,6 +23,168 @@ export interface TerminationData {
   discount?: number;
 }
 
+/** Dia de vencimento dentro de um mês (dia 31 em mês curto vira o último dia). */
+function dataDeVencimento(ano: number, mes: number, dia: number): string {
+  const ultimo = new Date(ano, mes, 0).getDate();
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(Math.min(dia, ultimo)).padStart(2, "0")}`;
+}
+
+const ehLinhaDaRescisao = (descricao: string) =>
+  descricao.startsWith("Aluguel Proporcional") ||
+  descricao.startsWith("Garagem Proporcional") ||
+  descricao.startsWith("Multa Rescisória");
+
+/**
+ * ⚠️ 14/nov/2026 — bug de produção (LEMOS APTO 22). Quando o corretor trocava
+ * a data de uma rescisão já feita, o sistema rodava a rescisão de novo SEM
+ * reconhecer a anterior: os recebimentos da rescisão antiga ficavam, e nascia
+ * outro conjunto para a data nova (3 rescisões e parcelas fantasmas).
+ *
+ * Esta função DESFAZ a rescisão anterior da locação, se houver:
+ *   - apaga o Recebimento de Rescisão (caução) e os recebimentos de aluguel
+ *     criados só pela rescisão (proporcional/multa sem número de parcela);
+ *   - devolve a parcela que a rescisão tinha alterado ao que era: tira as
+ *     linhas de proporcional e multa e volta o vencimento ao dia normal.
+ * Se algum recebimento da rescisão antiga já tem pagamento, NÃO desfaz: devolve
+ * erro, porque apagar dinheiro já recebido seria perder registro financeiro.
+ * Devolve quantos recebimentos foram apagados (0 = não havia rescisão anterior).
+ */
+export async function desfazerRescisaoAnterior(
+  rentalId: string,
+  paymentDay: number,
+  monthlyRent: number,
+  garageValue: number
+): Promise<number> {
+  const { data: marcados, error } = await (supabase as any)
+    .from("payments")
+    .select("*")
+    .eq("rental_id", rentalId)
+    .not("termination_group_id", "is", null);
+  if (error) throw error;
+
+  // Fim de contrato programado (contract_end) tem outra rotina; não é rescisão.
+  const daRescisao = (marcados || []).filter((p: any) => !p.contract_end);
+  if (daRescisao.length === 0) return 0;
+
+  const criadosPelaRescisao = daRescisao.filter(
+    (p: any) => p.payment_kind === "termination" || p.installment === null || p.installment === undefined
+  );
+  const parcelasAlteradas = daRescisao.filter((p: any) => !criadosPelaRescisao.includes(p));
+
+  const comPagamento = criadosPelaRescisao.filter(
+    (p: any) => p.status === "paid" || p.status === "partial" || Number(p.paid_amount || 0) > 0
+  );
+  if (comPagamento.length > 0) {
+    throw new Error(
+      "Esta locação já tem uma rescisão com recebimento pago. Não dá para refazer a rescisão " +
+        "sem perder o registro do pagamento — desfaça o pagamento primeiro."
+    );
+  }
+
+  const ids = criadosPelaRescisao.map((p: any) => p.id);
+  if (ids.length > 0) {
+    const { error: erroApagar } = await (supabase as any).from("payments").delete().in("id", ids);
+    if (erroApagar) throw erroApagar;
+  }
+
+  for (const parcela of parcelasAlteradas) {
+    const atuais: any[] = Array.isArray(parcela.breakdown) ? parcela.breakdown : [];
+    const linhas = atuais.filter((l: any) => !ehLinhaDaRescisao(String(l?.description || "")));
+    const temAluguelCheio = linhas.some((l: any) => /^Aluguel/.test(String(l?.description || "")));
+    if (!temAluguelCheio) {
+      linhas.unshift(
+        ...(garageValue > 0
+          ? [
+              { description: "Aluguel", amount: monthlyRent, type: "addition" },
+              { description: "Garagem", amount: garageValue, type: "addition" },
+            ]
+          : [{ description: "Aluguel", amount: monthlyRent, type: "addition" }])
+      );
+    }
+    const total = Math.round(linhas.reduce((soma: number, l: any) => soma + Number(l?.amount || 0), 0) * 100) / 100;
+    const notas = String(parcela.notes || "");
+
+    const { error: erroRestaurar } = await (supabase as any)
+      .from("payments")
+      .update({
+        due_date: dataDeVencimento(Number(parcela.reference_year), Number(parcela.reference_month), paymentDay),
+        expected_amount: total,
+        breakdown: linhas,
+        termination_group_id: null,
+        notes: notas.startsWith("Rescisão de Contrato") ? null : parcela.notes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", parcela.id);
+    if (erroRestaurar) throw erroRestaurar;
+  }
+
+  return ids.length;
+}
+
+/**
+ * A rescisão anterior apagou as parcelas dos meses seguintes. Se a data nova é
+ * MAIS TARDE, esses meses precisam voltar a existir (como parcelas normais,
+ * pendentes) até o mês da nova rescisão. A numeração é refeita no fim.
+ */
+async function recriarParcelasAteOMes(
+  rentalId: string,
+  paymentDay: number,
+  monthlyRent: number,
+  garageValue: number,
+  ano: number,
+  mes: number
+): Promise<void> {
+  const { data: regulares, error } = await (supabase as any)
+    .from("payments")
+    .select("due_date, payment_kind, contract_end, termination_group_id")
+    .eq("rental_id", rentalId)
+    .order("due_date", { ascending: true });
+  if (error) throw error;
+
+  const parcelas = (regulares || []).filter(
+    (p: any) => (p.payment_kind || "rent") === "rent" && !p.contract_end && !p.termination_group_id
+  );
+  if (parcelas.length === 0) return;
+
+  const ultima = String(parcelas[parcelas.length - 1].due_date);
+  let a = Number(ultima.slice(0, 4));
+  let m = Number(ultima.slice(5, 7));
+
+  const novas: any[] = [];
+  for (;;) {
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      a += 1;
+    }
+    if (a > ano || (a === ano && m > mes)) break;
+    const linhas =
+      garageValue > 0
+        ? [
+            { description: "Aluguel", amount: monthlyRent, type: "addition" },
+            { description: "Garagem", amount: garageValue, type: "addition" },
+          ]
+        : [{ description: "Aluguel", amount: monthlyRent, type: "addition" }];
+    novas.push({
+      rental_id: rentalId,
+      due_date: dataDeVencimento(a, m, paymentDay),
+      expected_amount: monthlyRent + garageValue,
+      reference_month: String(m).padStart(2, "0"),
+      reference_year: String(a),
+      status: "pending",
+      installment: 9999, // numerado de verdade no PASSO 8
+      payment_kind: "rent",
+      contract_end: false,
+      breakdown: linhas,
+    });
+  }
+
+  if (novas.length > 0) {
+    const { error: erroInserir } = await (supabase as any).from("payments").insert(novas);
+    if (erroInserir) throw erroInserir;
+  }
+}
+
 /**
  * Processa a rescisão de contrato - NOVA VERSÃO COM REGRAS DE VENCIMENTO
  * 
@@ -68,6 +230,17 @@ export async function processContractTermination(data: TerminationData): Promise
   }
 
   // ==========================================
+  // PASSO 0B: Se a locação já foi rescindida, desfazer a rescisão anterior
+  // (o corretor trocou a data) e refazer tudo com a data nova.
+  // ==========================================
+  const rescisaoAnteriorDesfeita = await desfazerRescisaoAnterior(rentalId, paymentDay, monthlyRent, garageValue);
+  if (rescisaoAnteriorDesfeita > 0) {
+    console.log(`  ♻️ Rescisão anterior desfeita (${rescisaoAnteriorDesfeita} recebimentos apagados). Refazendo com a data nova.`);
+    const dataNova = parseISO(terminationDate);
+    await recriarParcelasAteOMes(rentalId, paymentDay, monthlyRent, garageValue, getYear(dataNova), getMonth(dataNova) + 1);
+  }
+
+  // ==========================================
   // PASSO 1: Determinar o mês da rescisão
   // ==========================================
   console.log("\n📅 PASSO 1: Determinar mês da rescisão");
@@ -87,7 +260,11 @@ export async function processContractTermination(data: TerminationData): Promise
   // ==========================================
   console.log("\n🔍 PASSO 2: Determinar relação com vencimento");
   
-  const isAfterDueDate = terminationDay >= paymentDay;
+  // ⚠️ 14/nov/2026 (regra do Cadu): são TRÊS situações, não duas. No PRÓPRIO dia
+  // do vencimento não há proporcional nenhum (antes isso era tratado como
+  // "depois" e cobrava 1 dia a mais).
+  const isOnDueDay = terminationDay === paymentDay;
+  const isAfterDueDate = terminationDay > paymentDay;
   
   if (isAfterDueDate) {
     console.log("  ✅ RESCISÃO POSTERIOR AO VENCIMENTO");
@@ -152,6 +329,15 @@ export async function processContractTermination(data: TerminationData): Promise
     console.log(`  Proporcional do aluguel: R$ ${proportionalRentOnly.toFixed(2)}`);
     console.log(`  Proporcional da garagem: R$ ${proportionalGarage.toFixed(2)}`);
     console.log(`  Valor proporcional total: R$ ${proportionalRent.toFixed(2)}`);
+  }
+
+  if (isOnDueDay) {
+    // Rescisão no dia do vencimento: a parcela do mês vale cheia, sem proporcional.
+    proportionalRentOnly = 0;
+    proportionalGarage = 0;
+    proportionalRent = 0;
+    daysUsed = 0;
+    lastPaymentDate = terminationDateObj;
   }
 
   // ==========================================
@@ -373,12 +559,40 @@ export async function processContractTermination(data: TerminationData): Promise
         ]
       : [{ description: "Aluguel", amount: fullMonthRent, type: "addition" }];
 
-  if (recebimentoDoMes && !jaPago) {
-    // ---------- CASOS 2, 3, 5 e 6: PARCIAL ou PENDENTE -> soma nele ----------
+  // ⚠️ 14/nov/2026 (regra do Cadu): quando o recebimento do mês está PENDENTE,
+  // o que a rescisão faz depende da data escolhida em relação ao vencimento:
+  //   ANTES do vencimento  -> a própria parcela vira PROPORCIONAL + multa;
+  //   NO dia do vencimento -> a parcela continua cheia e a multa entra nela;
+  //   DEPOIS do vencimento -> a parcela continua CHEIA e nasce uma linha nova
+  //                           (sem número de parcela) com proporcional + multa.
+  // Pago ou parcial seguem a regra anterior (ver o bloco acima).
+  const pendente = recebimentoDoMes?.status === "pending";
+  const pendenteEDepois = !!recebimentoDoMes && pendente && isAfterDueDate;
+
+  if (recebimentoDoMes && !jaPago && !pendenteEDepois) {
+    // ---------- PARCIAL ou PENDENTE (antes / no dia) -> a própria parcela é atualizada ----------
     const atuais: any[] = Array.isArray(recebimentoDoMes.breakdown) && recebimentoDoMes.breakdown.length > 0
       ? recebimentoDoMes.breakdown
       : [{ description: "Aluguel", amount: Number(recebimentoDoMes.expected_amount) || fullMonthRent, type: "addition" }];
-    const novasLinhas = juntarLinhas(atuais);
+
+    let novasLinhas: any[];
+    if (pendente && !isOnDueDay) {
+      // ANTES do vencimento: troca o aluguel cheio pelo proporcional (do último
+      // vencimento até a saída) e soma a multa. Outras linhas (ex.: reforma) ficam.
+      const legenda = `* Proporcional de ${String(daysUsed).padStart(2, "0")} ${daysUsed === 1 ? "dia" : "dias"} - de ${lastPaymentDate.toISOString().split("T")[0]} até ${terminationDate}`;
+      const outras = atuais.filter((l: any) => {
+        const d = String(l?.description || "");
+        return !/^(Aluguel|Garagem)/.test(d) && !d.startsWith("Multa Rescisória");
+      });
+      novasLinhas = [
+        ...(proportionalRentOnly > 0 ? [{ description: "Aluguel Proporcional *", nota: legenda, amount: proportionalRentOnly, type: "addition" }] : []),
+        ...(proportionalGarage > 0 ? [{ description: "Garagem Proporcional *", nota: legenda, amount: proportionalGarage, type: "addition" }] : []),
+        ...outras,
+        ...linhaMulta,
+      ];
+    } else {
+      novasLinhas = juntarLinhas(atuais);
+    }
     const total = somar(novasLinhas);
 
     console.log(`  🔵 ${recebimentoDoMes.status.toUpperCase()}: parcela ${recebimentoDoMes.installment} passa a cobrar R$ ${total.toFixed(2)}, vencendo em ${terminationDate}`);
@@ -398,8 +612,10 @@ export async function processContractTermination(data: TerminationData): Promise
       console.error("  ❌ Erro ao atualizar o recebimento do mês:", error);
       throw error;
     }
-  } else if (jaPago) {
-    // ---------- CASOS 1 e 4: PAGO -> recebimento novo, sem número de parcela ----------
+  } else if (jaPago || pendenteEDepois) {
+    // ---------- PAGO, ou PENDENTE com rescisão DEPOIS do vencimento ----------
+    // -> a parcela do mês não é mexida; nasce um recebimento novo, sem número
+    // de parcela, com o proporcional (se depois do vencimento) + a multa.
     const linhas = [...linhasProporcional, ...linhaMulta];
     const total = somar(linhas);
 
@@ -718,7 +934,7 @@ export async function processContractTermination(data: TerminationData): Promise
   console.log("🎉 RESUMO DA RESCISÃO");
   console.log("═".repeat(80));
   
-  console.log(`✅ Recebimento do mês: ${recebimentoDoMes ? (jaPago ? "já pago (não mexido)" : `${recebimentoDoMes.status} (cobrança da rescisão somada nele)`) : "não existia"}`);
+  console.log(`✅ Recebimento do mês: ${recebimentoDoMes ? (jaPago ? "já pago (não mexido)" : pendenteEDepois ? "pendente (parcela cheia mantida; proporcional + multa em recebimento novo)" : `${recebimentoDoMes.status} (cobrança da rescisão somada nele)`) : "não existia"}`);
   console.log(`✅ Recebimento de Rescisão (${terminationDate}): R$ ${totalRescisao.toFixed(2)} (aba Cauções)`);
   
   console.log(`✅ Dias proporcionais cobrados: ${daysUsed} dias`);
