@@ -2218,40 +2218,41 @@ Toda rescisão gera **dois** registros ligados entre si por
 
 ### O que acontece com o recebimento do mês da rescisão
 
-> Regra do Cadu de **05/out/2026** (bug de produção na LEMOS APTO 05: o
-> recebimento do mês já estava pago e a rescisão criou outro cobrando o
-> aluguel cheio do mesmo mês).
+> Regra do Cadu de **05/out/2026** (bug de produção na LEMOS APTO 05),
+> **refeita em 14/nov/2026** (bug de produção na LEMOS APTO 22).
 
 O sistema olha o recebimento **regular** de aluguel do mês escolhido na
-rescisão, e se a data da rescisão é **antes** ou **depois** do dia de
-vencimento.
+rescisão e compara o **dia da rescisão com o dia de vencimento**. São três
+situações (antes, no dia, depois). Exemplo: vencimento dia 15.
 
-**Rescisão ANTES do dia de vencimento** — não há proporcional: o próximo
-aluguel nem começou a correr.
+**Com o recebimento do mês PENDENTE**
 
-| Caso | Recebimento do mês | O que acontece |
-|---|---|---|
-| 1 | **Pago** | Não é mexido. Nasce um recebimento novo só com a **multa**. |
-| 2 | **Parcial** | A **multa** é somada nele. |
-| 3 | **Pendente** | A **multa** é somada nele. |
+| Data da rescisão | O que acontece |
+|---|---|
+| **Antes** do dia 15 (ex.: 09/11) | A própria parcela do mês **vira proporcional + multa** (o aluguel cheio sai, entra o proporcional desde o último vencimento até a saída). Passa a vencer na data da rescisão. |
+| **No dia** 15 | A parcela **continua cheia** e a **multa** é somada nela. Não há proporcional. |
+| **Depois** do dia 15 (ex.: 20/11) | A parcela **continua cheia**, no vencimento de sempre. Logo abaixo **nasce uma linha nova** (sem número de parcela) com o **proporcional** + a **multa**, vencendo na data da rescisão. |
 
-**Rescisão DEPOIS do dia de vencimento** (ou no próprio dia):
+**Com o recebimento do mês PAGO**: não é mexido. Antes ou no dia: nasce um
+recebimento novo só com a **multa**. Depois: nasce um recebimento novo com o
+**proporcional** + a **multa**.
 
-| Caso | Recebimento do mês | O que acontece |
-|---|---|---|
-| 4 | **Pago** | Não é mexido. Nasce um recebimento novo com o **proporcional** + a **multa**. |
-| 5 | **Parcial** | O **proporcional** + a **multa** são somados nele. |
-| 6 | **Pendente** | O **proporcional** + a **multa** são somados nele. |
+**Com o recebimento do mês PARCIAL**: não é mexido o que já foi pago. Antes ou
+no dia: a **multa** é somada nele. Depois: o **proporcional** + a **multa** são
+somados nele.
 
 Em **todos** os casos:
 
-- o recebimento criado ou atualizado passa a **vencer na data da rescisão**;
+- o recebimento criado ou atualizado passa a **vencer na data da rescisão**
+  (exceção: a parcela cheia dos casos "no dia" e "depois", que mantém o vencimento);
 - nasce o **Recebimento de Rescisão** (devolução do caução), também vencendo
   na data da rescisão — **sempre**, mesmo sem caução pago (linha da devolução
   zerada), para poder lançar despesas ou desconto;
-- o recebimento **criado** (casos 1 e 4) e o de Rescisão **não são parcelas**
-  (aparecem com parcela "-"); o recebimento **atualizado** (casos 2, 3, 5 e 6)
-  continua sendo a última parcela.
+- o recebimento **criado** e o de Rescisão **não são parcelas** (aparecem com
+  parcela "-"); o recebimento **atualizado** continua sendo a última parcela;
+- **todas as parcelas dos meses seguintes são apagadas**;
+- só os recebimentos de **aluguel** entram na base das taxas de administração e
+  gerenciamento; o Recebimento de Rescisão (caução) **nunca** entra.
 
 **Numeração depois da rescisão:** só as parcelas de aluguel são renumeradas, e
 o total passa a ser a quantidade delas. Exemplo: rescindido depois da 10ª
@@ -2260,7 +2261,30 @@ parcela, já paga → **1/10 a 10/10**.
 Se não existir recebimento regular no mês (dado antigo), o sistema cria um com
 o aluguel do mês + a cobrança da rescisão, como se estivesse pendente.
 
-Parcelas com vencimento **posterior** ao mês da rescisão são apagadas.
+### Trocar a data de uma rescisão já feita
+
+> Novo em **14/nov/2026** (bug de produção LEMOS APTO 22: trocar a data duas
+> vezes deixou 3 rescisões e parcelas erradas).
+
+Passo a passo para o corretor: em **Locações**, mude o filtro para **Todos**,
+ache a locação rescindida e clique de novo em **Rescisão de Contrato**,
+escolhendo a data nova.
+
+O sistema **desfaz a rescisão anterior por inteiro** e refaz tudo com a data
+nova, usando as mesmas regras acima:
+
+- apaga o Recebimento de Rescisão antigo e os recebimentos que só a rescisão
+  antiga tinha criado (proporcional e multa);
+- devolve a parcela que a rescisão antiga tinha alterado ao que era (tira o
+  proporcional e a multa, volta o vencimento ao dia normal);
+- se a data nova é **mais tarde**, recria as parcelas dos meses que a rescisão
+  antiga tinha apagado, até o mês da data nova;
+- no fim fica **uma rescisão só**, com a data nova.
+
+**Proteção:** se a rescisão antiga já tem algum recebimento **pago ou parcial**,
+o sistema **não refaz** e mostra um aviso, para não apagar dinheiro já
+recebido. O caução devolvido e as parcelas de caução canceladas pela rescisão
+antiga não são recalculados sozinhos.
 
 ### Devolução do caução
 
