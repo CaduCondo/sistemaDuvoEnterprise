@@ -20,6 +20,8 @@
   - **O kanban interno do sistema (`duvoenterprise.com.br/kanban`) foi descontinuado em 10/set/2026** — Cadu avisou para parar de usar. Não criar, atualizar nem consultar mais cards ali. Ele existia por baixo do capô como duas tabelas no Supabase de produção (`kanban_cards`/`kanban_card_tasks`) — a tela em si continua no ar (é uma funcionalidade do próprio sistema), só não é mais o backlog de trabalho do Claude.
 - Pasta do projeto conectada diretamente (21/ago/2026): o Claude consegue ler e escrever os arquivos locais do Cadu (a mesma pasta aberta no VS Code) sem precisar passar por Git. Isso significa que o código já aparece atualizado no VS Code do Cadu assim que o Claude termina de mexer — ele não precisa dar `git pull`. `git commit`/`git push` continuam sendo só para levar a mudança para o GitHub/produção (Vercel), e continuam exigindo autorização do Cadu como sempre.
 
+- **DEV online no ar (15/nov/2026):** `https://dev.duvoenterprise.com.br` (branch `develop`) abre com a faixa amarela "AMBIENTE DE TESTE" e título "[TESTE]", e só fala com o banco de DEV (conferido: todas as chamadas vão para `yrknfweilbuwrhzzwnrr.supabase.co`). Produção continua só na `main`.
+
 ## Regras de trabalho
 
 - Sempre explicar o que vai ser mudado ANTES de mudar, e depois explicar o que foi feito, em linguagem simples (o usuário não programa).
