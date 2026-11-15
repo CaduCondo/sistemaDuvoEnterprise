@@ -2270,6 +2270,10 @@ Passo a passo para o corretor: em **Locações**, mude o filtro para **Todos**,
 ache a locação rescindida e clique de novo em **Rescisão de Contrato**,
 escolhendo a data nova.
 
+A multa "proporcional ao tempo restante" é sempre calculada sobre a **data fim original do contrato**,
+guardada na primeira rescisão (coluna `rentals.original_end_date`). Sem isso, ao trocar a data a multa
+saía zerada, porque a data fim da locação já tinha virado a data da saída anterior.
+
 O sistema **desfaz a rescisão anterior por inteiro** e refaz tudo com a data
 nova, usando as mesmas regras acima:
 

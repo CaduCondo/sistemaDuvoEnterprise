@@ -332,6 +332,7 @@ CREATE TABLE rentals (
 | `tenant_id` | UUID | Inquilino | FK → tenants(id), NOT NULL |
 | `start_date` | DATE | Data de início | NOT NULL |
 | `end_date` | DATE | Data de término | - |
+| `original_end_date` | DATE | Data fim do contrato antes da 1ª rescisão (nulo se nunca rescindida) | - |
 | `rent_due_day` | INTEGER | Dia de vencimento do aluguel | rótulo na UI: "Dia vencimento" |
 | `rent_value` | NUMERIC | Valor do aluguel | rótulo na UI: "Aluguel" |
 | `security_deposit` | NUMERIC | Valor total do caução | usado como total ao gerar as parcelas |
