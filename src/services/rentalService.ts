@@ -32,6 +32,7 @@ const mapRentalData = (data: any): Rental => {
     startDate: data.start_date,
     endDate: data.end_date,
     originalEndDate: data.original_end_date ?? null,
+    landlordUserId: data.landlord_user_id ?? null,
     paymentDay: data.rent_due_day,
     value: Number(data.rent_value || 0),
     monthlyRent: Number(data.rent_value || 0),
@@ -163,6 +164,7 @@ export const rentalService = {
         start_date,
         end_date,
         original_end_date,
+        landlord_user_id,
         rent_value,
         rent_due_day,
         deposit_value,
@@ -268,11 +270,12 @@ export const rentalService = {
       garage_value: rental.garageValue,
       has_partner_broker: rental.hasPartnerBroker,
       deposit_installments: rental.depositInstallments,
+      landlord_user_id: rental.landlordUserId || null,
     };
 
     const { data, error } = await supabase
       .from("rentals")
-      .insert([dbData])
+      .insert([dbData as any])
       .select()
       .single();
 
@@ -459,6 +462,7 @@ export const rentalService = {
     if (rental.garageValue !== undefined) dbData.garage_value = rental.garageValue;
     if (rental.hasPartnerBroker !== undefined) dbData.has_partner_broker = rental.hasPartnerBroker;
     if (rental.depositInstallments !== undefined) dbData.deposit_installments = rental.depositInstallments;
+    if (rental.landlordUserId !== undefined) dbData.landlord_user_id = rental.landlordUserId || null;
 
     const { data, error } = await supabase
       .from("rentals")

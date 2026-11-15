@@ -226,6 +226,8 @@ export interface Rental {
   end_date?: string | null; // Compatibility
   /** Data fim que o contrato tinha antes da primeira rescisão (nulo se nunca rescindida). */
   originalEndDate?: string | null;
+  /** LOCADOR desta locação (usuário com "Também é locador"). Vazio nas locações antigas (issue #125). */
+  landlordUserId?: string | null;
   value: number;
   monthlyRent: number;
   monthly_rent?: number; // Compatibility

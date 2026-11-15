@@ -24,6 +24,7 @@ import { RentalContract } from "@/components/RentalContract";
 import { DepositPaymentDialog } from "@/components/rentals/DepositPaymentDialog";
 import { useRentalForm } from "@/hooks/useRentalForm";
 import { supabase } from "@/integrations/supabase/client";
+import { getSystemUsers } from "@/services/systemUserService";
 
 interface RentalFormDialogProps {
   open: boolean;
@@ -69,6 +70,27 @@ export const RentalFormDialog = memo(function RentalFormDialog({
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedInstallmentNumber, setSelectedInstallmentNumber] = useState<number | null>(null);
   const [loadedInstallment, setLoadedInstallment] = useState<any>(null);
+
+  // Locadores (usuários marcados "Também é locador") para o combo "Quem é o locador?" (issue #125)
+  const [locadores, setLocadores] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    let cancelado = false;
+    getSystemUsers()
+      .then((lista) => {
+        if (cancelado) return;
+        setLocadores(
+          lista
+            .filter((u) => u.is_landlord)
+            .map((u) => ({ id: u.id, name: u.name }))
+            .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }))
+        );
+      })
+      .catch((err) => console.error("Erro ao carregar locadores:", err));
+    return () => {
+      cancelado = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     const loadDepositInstallments = async () => {
@@ -139,6 +161,8 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     setSelectedPropertyId,
     selectedTenantId,
     setSelectedTenantId,
+    landlordUserId,
+    setLandlordUserId,
     startDate,
     setStartDate,
     endDate,
@@ -195,6 +219,14 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     tenants: tenants.length > 0 ? tenants : availableTenants,
     locations,
   });
+
+  // Locação nova com um único locador cadastrado: já vem escolhido.
+  useEffect(() => {
+    if (open && !rental && !landlordUserId && locadores.length === 1) {
+      setLandlordUserId(locadores[0].id);
+    }
+  }, [open, rental, landlordUserId, locadores, setLandlordUserId]);
+
 
   useEffect(() => {
     if (locationsFromProps.length > 0) {
@@ -382,6 +414,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         hasGarage: hasGarage,
         garageValue: hasGarage && garageValue ? parseCurrencyToNumber(garageValue) : undefined,
         hasPartnerBroker: hasPartnerBroker,
+        landlordUserId: landlordUserId || null,
       };
 
       console.log("🔍 [RentalFormDialog] ANTES de salvar:");
@@ -679,6 +712,32 @@ export const RentalFormDialog = memo(function RentalFormDialog({
                         {tenant.name}
                       </SelectItem>
                     ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="rental-landlord">Quem é o locador?</Label>
+              <Select
+                value={landlordUserId}
+                onValueChange={setLandlordUserId}
+                disabled={isFieldDisabled}
+              >
+                <SelectTrigger id="rental-landlord">
+                  <SelectValue
+                    placeholder={
+                      locadores.length === 0
+                        ? "Nenhum locador cadastrado (Configurações → Usuários → Também é locador)"
+                        : "Selecione o locador"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {locadores.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

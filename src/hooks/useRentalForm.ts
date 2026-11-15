@@ -33,6 +33,7 @@ export function useRentalForm({
   // Estados principais
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [selectedTenantId, setSelectedTenantId] = useState("");
+  const [landlordUserId, setLandlordUserId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [paymentDay, setPaymentDay] = useState("");
@@ -110,6 +111,7 @@ export function useRentalForm({
     console.log("🔄 [useRentalForm] Resetando formulário");
     setSelectedPropertyId("");
     setSelectedTenantId("");
+    setLandlordUserId("");
     setStartDate("");
     setEndDate("");
     setPaymentDay("");
@@ -141,6 +143,7 @@ export function useRentalForm({
     
     setSelectedPropertyId(rentalData.propertyId || "");
     setSelectedTenantId(rentalData.tenantId || "");
+    setLandlordUserId(rentalData.landlordUserId || "");
     
     console.log("🏠 [useRentalForm] PropertyId:", rentalData.propertyId);
     console.log("👤 [useRentalForm] TenantId:", rentalData.tenantId);
@@ -362,6 +365,8 @@ export function useRentalForm({
     setSelectedPropertyId,
     selectedTenantId,
     setSelectedTenantId,
+    landlordUserId,
+    setLandlordUserId,
     startDate,
     setStartDate,
     endDate,
