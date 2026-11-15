@@ -260,7 +260,7 @@ toda vez:
 - **Tag de página** — uma por arquivo `.feature`, no topo (`@autenticacao`,
   `@imoveis`, `@inquilinos`, `@locacoes`, `@pagamentos`, `@caucoes`,
   `@rescisao`, `@anuncioPublico`, `@permissoesAdmin`,
-  `@permissoesFinanceiro`, `@permissoesGestao`, `@regressaoVisual`,
+  `@permissoesFinanceiro`, `@permissoesGestao`, `@regressaoVisual`, `@contrato`,
   `@fundacao`). Todo cenário do arquivo herda ela — não precisa repetir
   por cenário. Serve para rodar só uma tela: `--tags "@rescisao"`.
 - Tags que existem e não são do BDD: `@security`, `@performance`,

@@ -1618,6 +1618,44 @@ decidir o que fazer. Isso foi corrigido:
 
 ---
 
+### 📄 Contrato de locação (gerado pelo sistema)
+
+> Novo em **15/nov/2026** (issue #125). Por enquanto só existe o modelo de
+> contrato **residencial**, para inquilino **pessoa física** (CPF). O combo
+> "tipo de uso do imóvel" foi descartado: o cadastro do imóvel já tem o
+> "Tipo de anúncio".
+
+**O que o contrato usa e onde cadastrar (uma vez só):**
+
+1. **Locador** — é um usuário do sistema. Em **Configurações → Usuários**, abra o
+   usuário, marque **"Também é locador"** e preencha CPF, RG, endereço, cidade da
+   assinatura, dados bancários e/ou chave PIX e WhatsApp. Esses dados ficam só
+   no banco de dados, nunca no código do sistema.
+2. **Inquilino** — no cadastro, preencha **Sexo** (o texto muda para
+   locatário/locatária), estado civil, profissão, RG, CPF e endereço completo.
+3. **Imóvel e Local** — o endereço vem do Local (ou do endereço manual do imóvel,
+   quando o local é "Outros"). Regras específicas do prédio/condomínio ficam em
+   `locations.contract_clauses` (ainda não existe tela para cadastrar).
+4. **Locação** — ao criar a locação, escolha **"Quem é o locador?"**. Se existir
+   só um locador cadastrado, ele já vem escolhido. Locações antigas ficam sem
+   locador até alguém escolher (o sistema não preenche sozinho).
+
+**Passo a passo para gerar:**
+
+1. Abra **Locações** e ache a locação.
+2. Clique no botão verde **"Gerar contrato"** (ícone de documento com rolo).
+3. Se faltar algum dado, aparece um quadro amarelo **"Falta preencher no sistema"**
+   com a lista do que falta (ex.: "Inquilino: sexo"). Nenhum contrato é gerado
+   até completar o cadastro.
+4. Com tudo preenchido, o contrato aparece na tela. Use **Baixar PDF** para
+   salvar no computador ou **Guardar nos anexos** para guardar o PDF nos Anexos
+   da locação (categoria Contrato).
+
+**Observações:**
+- Se a locação já foi rescindida, o contrato usa a data fim **original**
+  (`original_end_date`), não a data da rescisão.
+- A data da assinatura é a do dia em que o contrato é gerado.
+
 ## 💰 Pagamentos/Recebimentos
 
 ### Objetivo
