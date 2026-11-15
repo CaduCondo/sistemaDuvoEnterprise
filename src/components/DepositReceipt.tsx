@@ -1,3 +1,4 @@
+import { useAssinaturaDoUsuario } from "@/hooks/useAssinaturaDoUsuario";
 import { useRef, useState } from "react";
 import { X, Printer, Download, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export function DepositReceipt({
   location,
   onClose,
 }: DepositReceiptProps) {
+  const assinatura = useAssinaturaDoUsuario();
   const printRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
@@ -152,7 +154,7 @@ export function DepositReceipt({
         margin: 1,
         filename: `recibo-caucao-${tenant.name.replace(/\s+/g, '-')}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
       };
 
@@ -268,15 +270,16 @@ export function DepositReceipt({
             <div className="pt-4"></div>
             
             <img 
-              src="/signature.png" 
-              alt="Assinatura Carlos Aparecido D'Uvo" 
+              src={assinatura.assinaturaUrl}
+              crossOrigin="anonymous" 
+              alt={`Assinatura ${assinatura.nome}`} 
               className="w-24 h-auto mx-auto mb-1"
             />
             
             <div className="w-48 border-t border-gray-400 mx-auto mb-1"></div>
             
             <p className="text-[9pt] text-gray-600 font-medium">
-              Carlos Aparecido D'Uvo
+              {assinatura.nome}
             </p>
           </div>
         </div>
