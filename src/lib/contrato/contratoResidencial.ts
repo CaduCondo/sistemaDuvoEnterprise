@@ -3,7 +3,7 @@
 // Texto baseado no modelo "Instrumento Particular de Contrato de Locação de
 // Imóvel Residencial" enviado pelo Cadu em 02/nov/2026, adaptado para:
 //   - LOCADOR sempre no masculino (Carlos Aparecido D'Uvo, dados vindos de
-//     Configurações -> Dados do Locador; nunca do código, o repositório é
+//     Configurações -> Usuários -> Também é locador; nunca do código, o repositório é
 //     público);
 //   - UM locatário, com o texto no masculino ou feminino conforme o campo
 //     Sexo do inquilino (o modelo original tinha dois locatários, no plural);
@@ -143,13 +143,13 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   const I = d.imovel;
   const C = d.locacao;
 
-  if (vazio(L.nome)) faltando.push("Locador: nome (Configurações → Dados do Locador)");
-  if (vazio(L.cpf)) faltando.push("Locador: CPF (Configurações → Dados do Locador)");
-  if (vazio(L.rg)) faltando.push("Locador: RG (Configurações → Dados do Locador)");
-  if (vazio(L.endereco)) faltando.push("Locador: endereço (Configurações → Dados do Locador)");
-  if (vazio(L.cidade)) faltando.push("Locador: cidade da assinatura (Configurações → Dados do Locador)");
+  if (vazio(L.nome)) faltando.push("Locador: nome (escolha \"Quem é o locador?\" na locação; o usuário precisa estar marcado \"Também é locador\")");
+  if (vazio(L.cpf)) faltando.push("Locador: CPF (Configurações → Usuários → Também é locador)");
+  if (vazio(L.rg)) faltando.push("Locador: RG (Configurações → Usuários → Também é locador)");
+  if (vazio(L.endereco)) faltando.push("Locador: endereço (Configurações → Usuários → Também é locador)");
+  if (vazio(L.cidade)) faltando.push("Locador: cidade da assinatura (Configurações → Usuários → Também é locador)");
   if (vazio(L.pix) && (vazio(L.banco) || vazio(L.agencia) || vazio(L.conta)))
-    faltando.push("Locador: dados bancários ou chave PIX (Configurações → Dados do Locador)");
+    faltando.push("Locador: dados bancários ou chave PIX (Configurações → Usuários → Também é locador)");
 
   if (vazio(T.nome)) faltando.push("Inquilino: nome");
   if (T.sexo !== "M" && T.sexo !== "F") faltando.push("Inquilino: sexo");
