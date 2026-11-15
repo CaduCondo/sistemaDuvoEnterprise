@@ -345,9 +345,10 @@ export async function processContractTermination(data: TerminationData): Promise
   // ==========================================
   console.log("\n💰 PASSO 4: Calcular caução corrigido pelo IGPM");
   
-  const rentalStartDate = await supabase
+  // `(supabase as any)`: os tipos gerados ainda não conhecem original_end_date.
+  const rentalStartDate: { data: any } = await (supabase as any)
     .from("rentals")
-    .select("start_date, property_id")
+    .select("start_date, property_id, end_date, original_end_date")
     .eq("id", rentalId)
     .single();
 
@@ -788,6 +789,9 @@ export async function processContractTermination(data: TerminationData): Promise
     .update({
       status: "ended",
       end_date: terminationDate,
+      // Guarda a data fim que o contrato tinha antes da PRIMEIRA rescisão: a
+      // multa de uma nova rescisão (troca de data) é calculada sobre ela.
+      original_end_date: rentalStartDate.data?.original_end_date ?? rentalStartDate.data?.end_date ?? null,
       returned_deposit_amount: correctedDeposit, // ✅ Salvar valor devolvido
       updated_at: new Date().toISOString()
     })
