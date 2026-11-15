@@ -203,11 +203,20 @@ export function useUsers() {
         }
       }
 
+      // BUG corrigido em 15/nov/2026: a tela manda `status` ("active"/"inactive"),
+      // mas aqui só se lia `active` (sempre vazio) -- todo usuário editado
+      // pela tela virava "Inativo", mesmo com "Ativo" escolhido. Agora vale o
+      // que a tela mandou; se nenhum dos dois veio, o status não é mexido.
+      const ativo =
+        (userData as any).status !== undefined
+          ? (userData as any).status === "active"
+          : userData.active;
+
       await updateUser(id, {
         name: userData.name,
         email: userData.email,
         role: userData.role,
-        status: userData.active ? "active" : "inactive",
+        ...(ativo !== undefined ? { status: ativo ? "active" : "inactive" } : {}),
         ...dadosDeLocador(userData),
       });
       
