@@ -56,6 +56,7 @@ function toDatabase(data: Partial<Tenant>): any {
   if (data.occupation !== undefined) dbData.occupation = data.occupation || null;
   if (data.marital_status !== undefined) dbData.marital_status = data.marital_status || null;
   else if (data.maritalStatus !== undefined) dbData.marital_status = data.maritalStatus || null;
+  if (data.gender !== undefined) dbData.gender = data.gender === "M" || data.gender === "F" ? data.gender : null;
   if (data.document_type !== undefined) dbData.document_type = data.document_type || "cpf";
   else if (data.documentType !== undefined) dbData.document_type = data.documentType || "cpf";
   if (data.cep !== undefined) dbData.zip_code = data.cep || null;

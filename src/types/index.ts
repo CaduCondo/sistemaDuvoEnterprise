@@ -198,6 +198,8 @@ export interface Tenant {
   occupation?: string;
   maritalStatus?: string;
   marital_status?: string;
+  /** Sexo para o texto do contrato: M ou F (issue #125). */
+  gender?: "M" | "F" | null;
   monthlyIncome?: number | null;
   monthly_income?: number | null;
   cep?: string;

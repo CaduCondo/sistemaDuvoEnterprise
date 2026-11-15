@@ -27,6 +27,7 @@ interface FormState {
   rg: string;
   occupation: string;
   maritalStatus: string;
+  gender: string;
   monthlyIncome: string;
   cep: string;
   street: string;
@@ -48,6 +49,7 @@ const INITIAL_FORM_STATE: FormState = {
   rg: "",
   occupation: "",
   maritalStatus: "",
+  gender: "",
   monthlyIncome: "",
   cep: "",
   street: "",
@@ -229,6 +231,23 @@ const PersonalDataSection = memo(function PersonalDataSection({
               <SelectItem value="divorciado">Divorciado(a)</SelectItem>
               <SelectItem value="viuvo">Viúvo(a)</SelectItem>
               <SelectItem value="uniao_estavel">União Estável</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="tenant-gender" className="text-sm font-medium">Sexo (usado no contrato)</Label>
+          <Select
+            value={formData.gender}
+            onValueChange={(value) => onFieldChange("gender", value)}
+            disabled={!isEditing}
+          >
+            <SelectTrigger id="tenant-gender" className="h-11 sm:h-10">
+              <SelectValue placeholder="Selecione..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="M">Masculino</SelectItem>
+              <SelectItem value="F">Feminino</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -436,6 +455,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
         rg: tenant.rg || "",
         occupation: tenant.occupation || "",
         maritalStatus: tenant.marital_status || tenant.maritalStatus || "",
+        gender: tenant.gender || "",
         monthlyIncome: tenant.monthly_income 
           ? formatMoneyForDisplay(tenant.monthly_income)
           : (tenant.monthlyIncome 
@@ -646,6 +666,7 @@ export const TenantFormDialog = memo(function TenantFormDialog({
       rg: formData.rg,
       occupation: formData.occupation,
       marital_status: formData.maritalStatus,
+      gender: formData.gender === "M" || formData.gender === "F" ? formData.gender : null,
       monthly_income: formData.monthlyIncome ? parseMoneyMaskToNumber(formData.monthlyIncome) : null,
       document_type: documentType,
       cep: formData.cep,
