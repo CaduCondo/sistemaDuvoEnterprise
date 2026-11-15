@@ -26,6 +26,8 @@ import { applyPhoneMask, applyCpfMask } from "@/lib/masks";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CAMPOS_LOCADOR, CampoLocador } from "@/types";
 import { isEmailEnabled } from "@/services/emailSettingsService";
+import { BancoCombo } from "@/components/settings/BancoCombo";
+import { uploadAttachment } from "@/lib/uploadAttachment";
 
 // Função para gerar senha temporária aleatória
 function generateTemporaryPassword(): string {
@@ -59,9 +61,10 @@ const ROTULOS_LOCADOR: Record<CampoLocador, { rotulo: string; dica?: string; lar
   landlord_address: { rotulo: "Endereço completo", dica: "Rua, número, complemento, bairro, cidade/UF e CEP — como deve sair no contrato", largo: true },
   landlord_city: { rotulo: "Cidade da assinatura", dica: "Ex.: São Paulo" },
   landlord_whatsapp: { rotulo: "WhatsApp para comprovantes", dica: "Número que recebe os comprovantes de pagamento" },
-  landlord_bank_name: { rotulo: "Banco" },
+  landlord_bank_name: { rotulo: "Banco", dica: "Escolha pelo número ou pelo nome. Aparece no contrato como \"0341 - Itaú Unibanco\"", largo: true },
   landlord_bank_agency: { rotulo: "Agência" },
   landlord_bank_operation: { rotulo: "Operação", dica: "Se o banco não usa, deixe em branco" },
+  landlord_bank_savings: { rotulo: "Poupança", dica: "Se a conta for poupança, informe aqui; senão deixe em branco" },
   landlord_bank_account: { rotulo: "Conta" },
   landlord_pix_key: { rotulo: "Chave PIX", largo: true },
 };
@@ -97,8 +100,10 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
     cpf: "",
     rg: "",
     is_landlord: false,
+    signature_url: "",
     ...LOCADOR_VAZIO,
   });
+  const [enviandoAssinatura, setEnviandoAssinatura] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
@@ -114,6 +119,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         cpf: user.cpf || "",
         rg: user.rg || "",
         is_landlord: Boolean(user.is_landlord),
+        signature_url: user.signature_url || "",
         ...(Object.fromEntries(
           CAMPOS_LOCADOR.map((c) => [c, (user as any)[c] || ""])
         ) as Record<CampoLocador, string>),
@@ -128,6 +134,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         cpf: "",
         rg: "",
         is_landlord: false,
+        signature_url: "",
         ...LOCADOR_VAZIO,
       });
     }
@@ -182,6 +189,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
       cpf: formData.cpf,
       rg: formData.rg,
       is_landlord: formData.is_landlord,
+      signature_url: formData.signature_url || null,
     };
     if (formData.is_landlord) {
       for (const c of CAMPOS_LOCADOR) extras[c] = formData[c];
@@ -413,17 +421,79 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                     return (
                       <div key={campo} className={`space-y-1 ${info.largo ? "sm:col-span-2" : ""}`}>
                         <Label htmlFor={campo}>{info.rotulo}</Label>
-                        <Input
-                          id={campo}
-                          value={formData[campo]}
-                          onChange={(e) => setFormData({ ...formData, [campo]: e.target.value })}
-                          disabled={isSubmitting}
-                          className="h-11"
-                        />
+                        {campo === "landlord_bank_name" ? (
+                          <BancoCombo
+                            id={campo}
+                            value={formData[campo]}
+                            onChange={(v) => setFormData({ ...formData, [campo]: v })}
+                            disabled={isSubmitting}
+                          />
+                        ) : (
+                          <Input
+                            id={campo}
+                            value={formData[campo]}
+                            onChange={(e) => setFormData({ ...formData, [campo]: e.target.value })}
+                            disabled={isSubmitting}
+                            className="h-11"
+                          />
+                        )}
                         {info.dica && <p className="text-xs text-muted-foreground">{info.dica}</p>}
                       </div>
                     );
                   })}
+
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="signature-file">Assinatura (imagem)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      É a assinatura que sai no contrato e nos recibos que esta pessoa emitir. Use uma imagem PNG ou JPG com fundo branco ou transparente.
+                    </p>
+                    {formData.signature_url && (
+                      <div className="flex items-center gap-3">
+                        <img
+                          id="signature-preview"
+                          src={formData.signature_url}
+                          alt="Assinatura"
+                          className="h-16 w-auto border rounded bg-white p-1"
+                        />
+                        <Button
+                          id="signature-remove"
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isSubmitting || enviandoAssinatura}
+                          onClick={() => setFormData({ ...formData, signature_url: "" })}
+                        >
+                          Remover
+                        </Button>
+                      </div>
+                    )}
+                    <Input
+                      id="signature-file"
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      disabled={isSubmitting || enviandoAssinatura}
+                      className="h-11"
+                      onChange={async (e) => {
+                        const arquivo = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!arquivo) return;
+                        setEnviandoAssinatura(true);
+                        try {
+                          const url = await uploadAttachment(arquivo, "user-signatures");
+                          setFormData((f) => ({ ...f, signature_url: url }));
+                        } catch (err: any) {
+                          toast({
+                            title: "Erro",
+                            description: err?.message || "Não foi possível enviar a assinatura.",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setEnviandoAssinatura(false);
+                        }
+                      }}
+                    />
+                    {enviandoAssinatura && <p className="text-xs text-muted-foreground">Enviando...</p>}
+                  </div>
                 </div>
               )}
             </div>

@@ -127,6 +127,7 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
             banco: locador?.landlord_bank_name,
             agencia: locador?.landlord_bank_agency,
             operacao: locador?.landlord_bank_operation,
+            poupanca: locador?.landlord_bank_savings,
             conta: locador?.landlord_bank_account,
             pix: locador?.landlord_pix_key,
             whatsapp: locador?.landlord_whatsapp || locador?.phone,

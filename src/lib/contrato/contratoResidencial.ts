@@ -33,7 +33,8 @@ export interface DadosLocador {
   cidade?: string | null; // cidade da assinatura
   banco?: string | null;
   agencia?: string | null;
-  operacao?: string | null; // ex.: "poupança 1288"
+  operacao?: string | null; // ex.: "013"
+  poupanca?: string | null; // poupança, se houver (depois da operação)
   conta?: string | null;
   pix?: string | null;
   whatsapp?: string | null;
@@ -221,7 +222,7 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   const pagamento: string[] = [];
   if (!vazio(L.banco) && !vazio(L.agencia) && !vazio(L.conta)) {
     pagamento.push(
-      `PIX/DEPÓSITO/TED em nome do ADMINISTRADOR ${esc(L.nome)}, no Banco ${esc(L.banco)}, <b>agência ${esc(L.agencia)}</b>${vazio(L.operacao) ? "" : `, operação <b>${esc(L.operacao)}</b>`}, conta <b>${esc(L.conta)}</b>`
+      `PIX/DEPÓSITO/TED em nome do ADMINISTRADOR ${esc(L.nome)}, no Banco ${esc(L.banco)}, <b>agência ${esc(L.agencia)}</b>${vazio(L.operacao) ? "" : `, operação <b>${esc(L.operacao)}</b>`}${vazio(L.poupanca) ? "" : `, poupança <b>${esc(L.poupanca)}</b>`}, conta <b>${esc(L.conta)}</b>`
     );
   }
   if (!vazio(L.pix)) pagamento.push(`na <b><u>chave PIX ${esc(L.pix)}</u></b>; em nome do LOCADOR`);
