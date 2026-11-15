@@ -48,6 +48,15 @@ interface RentalTerminationDialogProps {
   }) => Promise<void>;
 }
 
+/**
+ * Data fim do contrato para o cálculo da multa. Numa locação JÁ rescindida
+ * (troca de data da rescisão), `endDate` é a data da saída anterior; a data fim
+ * de verdade é a original, guardada na primeira rescisão (14/nov/2026).
+ */
+function dataFimDoContrato(rental: { isActive: boolean; endDate: string | null; originalEndDate?: string | null }): string {
+  return (!rental.isActive && rental.originalEndDate ? rental.originalEndDate : rental.endDate) as string;
+}
+
 export function RentalTerminationDialog({
   open,
   onOpenChange,
@@ -107,7 +116,7 @@ export function RentalTerminationDialog({
     }
 
     const startDate = parseISO(rental.startDate);
-    const endDate = parseISO(rental.endDate);
+    const endDate = parseISO(dataFimDoContrato(rental));
     const today = new Date();
 
     const total = differenceInMonths(endDate, startDate) + 1;
@@ -217,7 +226,7 @@ export function RentalTerminationDialog({
     try {
       const termDate = parseISO(terminationDate);
       const startDate = parseISO(rental.startDate);
-      const endDate = parseISO(rental.endDate);
+      const endDate = parseISO(dataFimDoContrato(rental));
       
       const currentMonthFromDate = differenceInMonths(termDate, startDate) + 1;
       const remaining = Math.max(0, differenceInMonths(endDate, termDate));

@@ -591,7 +591,16 @@ async function abrirDialogoDeRescisao(world: CustomWorld) {
   await page.locator('#rentals-search-input').fill(world.tenantName!);
   await page.waitForTimeout(1000);
 
-  await page.locator(`#rentals-terminate-${world.rentalId}`).click();
+  const botao = page.locator(`#rentals-terminate-${world.rentalId}`);
+  if (!(await botao.isVisible().catch(() => false))) {
+    // Locação já rescindida some do filtro "Ativo" (trocar a data de uma
+    // rescisão que já foi feita): muda o filtro para "Todos".
+    await page.locator('#rentals-status-filter').click();
+    await page.getByRole('option', { name: 'Todos' }).click();
+    await page.waitForTimeout(1000);
+  }
+
+  await botao.click();
   await expect(page.locator('#termination-date')).toBeVisible({ timeout: 15000 });
 }
 
@@ -1584,4 +1593,69 @@ Then('a parcela de caução paga deve continuar paga', async function (this: Cus
 
   expect(parcelaPaga, 'parcela 1 de caução não existe na locação de teste').toBeTruthy();
   expect(parcelaPaga.status, 'a rescisão mexeu numa parcela de caução que já estava paga').toBe('paid');
+});
+
+// ============================================================================
+// Regras de 14/nov/2026 (LEMOS APTO 22): três situações de data e trocar a
+// data de uma rescisão já feita.
+// ============================================================================
+
+Then('o recebimento de aluguel da rescisão não deve ter a linha de aluguel cheio', async function (this: CustomWorld) {
+  const recebimento = await recebimentoDeAluguelDaRescisao(this);
+  const linhas = linhasDoBreakdown(recebimento.breakdown).map((l: any) => String(l.description || ''));
+  const cheias = linhas.filter((l: string) => /^(Aluguel|Garagem)(?! Proporcional)/.test(l));
+  expect(cheias, `a parcela devia ter virado proporcional, mas ainda tem: [${cheias.join(' | ')}]`).toHaveLength(0);
+});
+
+Then('a parcela cheia do mês deve continuar pendente, sem nenhuma cobrança da rescisão', async function (
+  this: CustomWorld
+) {
+  const antigo = this.testData.recebimentoDoMes;
+  expect(antigo, 'o cenário não criou o recebimento do mês').toBeTruthy();
+  const todos = await pagamentosDaLocacao(this);
+  const atual = todos.find((p: any) => p.id === antigo.id);
+  expect(atual, 'a parcela do mês sumiu').toBeTruthy();
+  expect(atual.status).toBe('pending');
+  expect(Number(atual.expected_amount)).toBeCloseTo(Number(antigo.expected_amount), 2);
+  expect(String(atual.due_date), 'o vencimento da parcela cheia não pode mudar').toBe(String(antigo.due_date));
+  expect(atual.termination_group_id, 'a parcela cheia não pode ficar ligada à rescisão').toBeNull();
+  const linhas = linhasDoBreakdown(atual.breakdown).map((l: any) => String(l.description || ''));
+  expect(linhas.some((l: string) => /Proporcional|Multa/.test(l)), `linhas: ${linhas.join(' | ')}`).toBe(false);
+});
+
+When(
+  /^eu registrar de novo a rescisão em "([^"]+)" com a cláusula "([^"]+)"$/,
+  async function (this: CustomWorld, dataSaidaBR: string, clausula: string) {
+    // Locação já rescindida: reabre o diálogo (o filtro "Ativo" não a mostra).
+    await abrirDialogoDeRescisao(this);
+    await preencherEClicarConfirmar(this, dataSaidaBR, clausula);
+
+    const aviso = this.page.locator('#termination-deposit-warning-dialog');
+    if (await aviso.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await this.page.locator('#termination-deposit-warning-yes').click();
+    }
+    await expect(this.page.locator('#termination-date')).toBeHidden({ timeout: 45000 });
+    await this.page.waitForTimeout(2000);
+  }
+);
+
+Then('só deve existir a rescisão da data {string}', async function (this: CustomWorld, dataBR: string) {
+  const iso = paraISO(dataBR);
+  const todos = await pagamentosDaLocacao(this);
+  const daRescisao = todos.filter((p: any) => !!p.termination_group_id && !p.contract_end);
+  const grupos = new Set(daRescisao.map((p: any) => p.termination_group_id));
+  expect(
+    grupos.size,
+    `sobrou rescisão antiga: grupos=${grupos.size} [${daRescisao.map((p: any) => `${p.due_date} ${p.payment_kind} R$ ${p.expected_amount}`).join(', ')}]`
+  ).toBe(1);
+
+  const rescisoes = todos.filter((p: any) => p.payment_kind === 'termination' && !p.contract_end);
+  expect(rescisoes.length, 'deve existir 1 Recebimento de Rescisão só').toBe(1);
+  expect(String(rescisoes[0].due_date)).toBe(iso);
+});
+
+Then('o recebimento de aluguel da rescisão deve ser o próprio recebimento do mês', async function (this: CustomWorld) {
+  const antigo = this.testData.recebimentoDoMes;
+  const aluguel = await recebimentoDeAluguelDaRescisao(this);
+  expect(aluguel.id, 'devia ter atualizado a parcela do mês, não criado outra').toBe(antigo.id);
 });

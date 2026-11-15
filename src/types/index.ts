@@ -222,6 +222,8 @@ export interface Rental {
   start_date?: string; // Compatibility
   endDate: string | null;
   end_date?: string | null; // Compatibility
+  /** Data fim que o contrato tinha antes da primeira rescisão (nulo se nunca rescindida). */
+  originalEndDate?: string | null;
   value: number;
   monthlyRent: number;
   monthly_rent?: number; // Compatibility

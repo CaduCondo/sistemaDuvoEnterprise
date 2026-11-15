@@ -62,6 +62,17 @@ Project, Actions). Não precisa perguntar de novo. Continua valendo o bom
 senso: em PROD, preferir sempre o caminho de menor risco (transação, conferir
 o registro antes de mudar, script que pode rodar duas vezes sem estragar).
 
+### Duas branches: `develop` (DEV online) e `main` (produção) — regra do Cadu, 11/nov/2026
+
+- **`develop`** é onde o Claude trabalha e onde o Cadu dá push no dia a dia. Cada push
+  publica em **https://dev.duvoenterprise.com.br** (Vercel, ambiente Preview, banco de DEV),
+  com faixa amarela "AMBIENTE DE TESTE" e [TESTE] no título da aba.
+- **`main`** é produção (https://duvoenterprise.com.br, banco de PROD). Só recebe código
+  que já passou por `develop`: o Cadu testa no DEV online e, se estiver bom, leva
+  `develop` para `main` (merge/pull request no GitHub). Nunca commitar direto na `main`.
+- Os testes automáticos (`smoke.yml`) rodam em pushes nas duas branches.
+- Antes de qualquer commit, conferir `git branch --show-current` — tem que ser `develop`.
+
 ### Só mexer em dado que o próprio Claude criou (regra do Cadu, 09/nov/2026 — vale sempre)
 
 Em QUALQUER banco (PROD ou DEV) e por QUALQUER caminho (SQL, tela, script,
