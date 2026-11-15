@@ -124,6 +124,8 @@ export async function updateUser(
     landlord_bank_name?: string;
     landlord_bank_agency?: string;
     landlord_bank_operation?: string;
+    landlord_bank_savings?: string;
+    signature_url?: string | null;
     landlord_bank_account?: string;
     landlord_pix_key?: string;
     landlord_whatsapp?: string;

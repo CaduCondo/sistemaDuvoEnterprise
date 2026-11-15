@@ -18,7 +18,8 @@ export type AttachmentFolder =
   | "rental-attachments"
   | "payment-attachments"
   | "deposit-attachments"
-  | "property-images";
+  | "property-images"
+  | "user-signatures";
 
 export async function uploadAttachment(
   file: File,

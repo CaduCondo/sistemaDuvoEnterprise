@@ -59,6 +59,9 @@ export interface SystemUser {
   landlord_bank_account?: string | null;
   landlord_pix_key?: string | null;
   landlord_whatsapp?: string | null;
+  landlord_bank_savings?: string | null;
+  /** Imagem da assinatura do usuário (recibos e contrato). */
+  signature_url?: string | null;
 }
 
 /** Campos de locador que a tela de usuário edita (issue #125). */
@@ -68,6 +71,7 @@ export const CAMPOS_LOCADOR = [
   "landlord_bank_name",
   "landlord_bank_agency",
   "landlord_bank_operation",
+  "landlord_bank_savings",
   "landlord_bank_account",
   "landlord_pix_key",
   "landlord_whatsapp",

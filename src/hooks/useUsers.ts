@@ -11,7 +11,7 @@ import { CAMPOS_LOCADOR } from "@/types";
  */
 function dadosDeLocador(userData: any): Record<string, any> {
   const campos = [
-    "phone", "cpf", "rg", "is_landlord",
+    "phone", "cpf", "rg", "is_landlord", "signature_url",
     ...CAMPOS_LOCADOR,
   ];
   const resultado: Record<string, any> = {};

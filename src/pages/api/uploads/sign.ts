@@ -62,6 +62,7 @@ const PASTAS_PERMITIDAS = [
   "payment-attachments",
   "deposit-attachments",
   "property-images",
+  "user-signatures",
 ] as const;
 type PastaPermitida = (typeof PASTAS_PERMITIDAS)[number];
 

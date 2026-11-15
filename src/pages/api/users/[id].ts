@@ -19,7 +19,7 @@ const CHAVE_SECRETA = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const CAMPOS_PUBLICOS =
   "id, email, name, username, role, active, phone, cpf, rg, photo, theme, created_at, requires_password_change, temporary_password, " +
-  "is_landlord, landlord_address, landlord_city, landlord_bank_name, landlord_bank_agency, landlord_bank_operation, landlord_bank_account, landlord_pix_key, landlord_whatsapp";
+  "is_landlord, landlord_address, landlord_city, landlord_bank_name, landlord_bank_agency, landlord_bank_operation, landlord_bank_account, landlord_pix_key, landlord_whatsapp, landlord_bank_savings, signature_url";
 
 /** Dados de locador (issue #125): o próprio usuário ou um admin podem editar. */
 const CAMPOS_LOCADOR = [
@@ -28,6 +28,7 @@ const CAMPOS_LOCADOR = [
   "landlord_bank_name",
   "landlord_bank_agency",
   "landlord_bank_operation",
+  "landlord_bank_savings",
   "landlord_bank_account",
   "landlord_pix_key",
   "landlord_whatsapp",
@@ -51,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const supabase = servidorSupabase();
 
   if (req.method === "PATCH") {
-    const { name, email, phone, cpf, rg, photo, role, status, is_landlord } = req.body ?? {};
+    const { name, email, phone, cpf, rg, photo, role, status, is_landlord, signature_url } = req.body ?? {};
 
     // Marcar/desmarcar "Também é locador" também é coisa de admin.
     const mudaRoleOuStatus = role !== undefined || status !== undefined || is_landlord !== undefined;
@@ -86,6 +87,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (role !== undefined) atualizacoes.role = role;
     if (status !== undefined) atualizacoes.active = status === "active" || status === "ativo";
     if (is_landlord !== undefined) atualizacoes.is_landlord = Boolean(is_landlord);
+    if (signature_url !== undefined) {
+      const link = signature_url ? String(signature_url) : "";
+      // Só aceita link https (Storage) ou arquivo do próprio site (ex.: /signature.png).
+      if (link && !link.startsWith("https://") && !(link.startsWith("/") && !link.startsWith("//"))) {
+        return res.status(400).json({ error: "Link da assinatura inválido." });
+      }
+      atualizacoes.signature_url = link || null;
+    }
     for (const campo of CAMPOS_LOCADOR) {
       const valor = req.body?.[campo];
       if (valor !== undefined) {
