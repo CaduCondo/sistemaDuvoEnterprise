@@ -25,7 +25,7 @@ export default async function handler(
   }
 
   // Só administrador logado (ou o próprio servidor) pode mandar e-mail por aqui.
-  if (!chamadaInternaValida(req) && !exigirAdmin(req, res)) return;
+  if (!chamadaInternaValida(req) && !(await exigirAdmin(req, res))) return;
 
   try {
     const { email, userId, name, temporaryPassword, isReset } = req.body;

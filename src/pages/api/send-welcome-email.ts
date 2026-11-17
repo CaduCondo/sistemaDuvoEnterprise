@@ -22,7 +22,7 @@ export default async function handler(
   }
 
   // Só administrador logado pode mandar e-mail por aqui.
-  if (!exigirAdmin(req, res)) return;
+  if (!await exigirAdmin(req, res)) return;
 
   try {
     const { email, name, temporaryPassword } = req.body;

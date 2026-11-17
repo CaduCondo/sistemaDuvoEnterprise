@@ -60,8 +60,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Editar o próprio perfil: liberado. Mudar role/status: só admin, mesmo
     // que seja o próprio usuário mudando o próprio -- ver comentário acima.
     const sessao = mudaRoleOuStatus
-      ? exigirAdmin(req, res)
-      : exigirDonoOuAdmin(req, res, id);
+      ? await exigirAdmin(req, res)
+      : await exigirDonoOuAdmin(req, res, id);
     if (!sessao) return;
 
     if (email) {
@@ -122,7 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === "DELETE") {
-    const sessao = exigirAdmin(req, res);
+    const sessao = await exigirAdmin(req, res);
     if (!sessao) return;
 
     const { error } = await supabase.from("system_users").delete().eq("id", id);

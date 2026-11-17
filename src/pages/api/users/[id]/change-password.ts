@@ -31,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "Id do usuário não informado" });
   }
 
-  const sessao = exigirDonoOuAdmin(req, res, id);
+  const sessao = await exigirDonoOuAdmin(req, res, id);
   if (!sessao) return;
 
   const { newPassword } = req.body ?? {};
