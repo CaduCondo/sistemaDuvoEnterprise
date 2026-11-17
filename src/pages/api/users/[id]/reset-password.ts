@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { criarClienteSupabaseAdmin } from "@/lib/supabaseServidor";
 import { exigirAdmin } from "@/lib/apiAuth";
 import { gerarHashDeSenha } from "@/lib/passwordHash";
+import { gerarSenhaTemporariaSegura } from "@/lib/senhaTemporaria";
 
 /**
  * Admin reseta a senha de um usuário para o padrão -- agora no servidor,
@@ -18,7 +19,7 @@ import { gerarHashDeSenha } from "@/lib/passwordHash";
 
 const URL_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const CHAVE_SECRETA = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const SENHA_PADRAO = "mudar123";
+// Senha temporária aleatória a cada reset (antes era fixa, "mudar123").
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -38,12 +39,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: "Id do usuário não informado" });
   }
 
+  const senhaTemporaria = gerarSenhaTemporariaSegura();
   const supabase = criarClienteSupabaseAdmin();
 
   const { error } = await supabase
     .from("system_users")
     .update({
-      password_hash: gerarHashDeSenha(SENHA_PADRAO),
+      password_hash: gerarHashDeSenha(senhaTemporaria),
       temporary_password: true,
       requires_password_change: true,
       login_attempts: 0,
@@ -56,5 +58,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "Não foi possível resetar a senha." });
   }
 
-  return res.status(200).json({ success: true, temporaryPassword: SENHA_PADRAO });
+  return res.status(200).json({ success: true, temporaryPassword: senhaTemporaria });
 }

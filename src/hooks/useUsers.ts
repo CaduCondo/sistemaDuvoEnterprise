@@ -6,6 +6,13 @@ import { createUser, updateUser, deleteUser, unblockLogin } from "@/services/sys
 import { useAlert } from "@/contexts/AlertContext";
 import { CAMPOS_LOCADOR } from "@/types";
 
+// Senha temporária aleatória (navegador) — usada só se a tela não mandar uma.
+function gerarSenhaTemporaria(): string {
+  const letras = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint32Array(9));
+  return Array.from(bytes, (b) => letras[b % letras.length]).join("") + "#";
+}
+
 /**
  * Telefone, CPF, RG e dados de locador (issue #125) vindos da tela de
  * usuário. Só entra o que a tela mandou -- campo ausente não é apagado.
@@ -107,7 +114,7 @@ export function useUsers() {
         name: userData.name,
         email: userData.email,
         role: userData.role,
-        password: userData.password || "mudar123",
+        password: userData.password || gerarSenhaTemporaria(),
         temporary_password: true,
       });
 
