@@ -174,6 +174,11 @@ Requisitos exibidos abaixo do campo de senha:
 7. Reseta tentativas de login e remove bloqueio
 8. Marca `requires_password_change = true`
 
+**Trava contra abuso (nov/2026):** se a pessoa já recebeu uma senha temporária
+e ainda não a trocou, o sistema **não gera outra** (a tela responde igual,
+para ninguém descobrir quais e-mails existem). Quem perdeu o e-mail pede ao
+administrador para resetar a senha.
+
 **Email de recuperação contém:**
 - Saudação com nome do usuário
 - Link: www.duvoenterprise.com.br
@@ -239,7 +244,24 @@ Requisitos exibidos abaixo do campo de senha:
 - E-mail / Usuário
 - Telefone
 - Perfil
-- Status (Ativado/Desativado)
+- Status (Ativado/Desativado) — o que você escolhe é o que fica salvo
+- "Também é locador" (dados que saem no contrato): endereço, cidade da
+  assinatura, WhatsApp, **Banco** (combo com código + nome, ex.: "0341 - Itaú
+  Unibanco"), Agência, Operação, Poupança (só se a conta for poupança), Conta,
+  **Chave PIX** (na mesma linha da Conta) e **Assinatura (imagem)**
+
+**Como cadastrar a assinatura (passo a passo):**
+1. Abra o usuário e marque "Também é locador".
+2. Role até "Assinatura (imagem)" e clique em "Escolher arquivo".
+3. Escolha uma imagem PNG ou JPG da assinatura (fundo branco ou transparente).
+4. Confira a miniatura e clique em Salvar. Para trocar, use "Remover" e envie outra.
+5. Essa assinatura sai no contrato e nos recibos emitidos por essa pessoa.
+
+**Locador na locação:** em "Nova Locação" o campo "Quem é o locador?" lista os
+usuários marcados como "Também é locador".
+
+**Segurança do acesso (nov/2026):** quem é desativado ou muda de perfil perde
+o acesso na hora, sem esperar o login vencer (24 h).
 
 **Não é possível editar:**
 - Senha (use "Resetar Senha" para isso)
@@ -251,7 +273,8 @@ Requisitos exibidos abaixo do campo de senha:
 **Processo:**
 
 1. Admin clica no ícone de resetar senha
-2. Sistema gera senha temporária automaticamente
+2. Sistema gera uma senha temporária **aleatória** (10 caracteres; antes era
+   sempre "mudar123")
 3. Atualiza banco de dados:
    - Nova senha
    - `requires_password_change = true`
