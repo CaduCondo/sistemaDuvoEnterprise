@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { verificarSessao, tokenDoCabecalho, type SessaoAssinada } from "./sessionToken";
 
@@ -72,4 +73,21 @@ export function exigirDonoOuAdmin(
   }
 
   return sessao;
+}
+
+/**
+ * Chamada de uma rota do servidor para outra (ex.: "esqueci minha senha"
+ * pedindo o envio do e-mail). Quem chama manda o cabeçalho `x-chamada-interna`,
+ * que só o servidor sabe calcular (usa a chave secreta). De fora, não dá.
+ */
+export function assinaturaInterna(): string {
+  const chave = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  return crypto.createHmac("sha256", chave).update("chamada-interna-email").digest("hex");
+}
+
+export function chamadaInternaValida(req: NextApiRequest): boolean {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return false;
+  const recebida = Buffer.from(String(req.headers["x-chamada-interna"] ?? ""));
+  const esperada = Buffer.from(assinaturaInterna());
+  return recebida.length === esperada.length && crypto.timingSafeEqual(recebida, esperada);
 }

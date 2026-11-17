@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { criarClienteSupabaseAdmin } from "@/lib/supabaseServidor";
 import { gerarHashDeSenha } from "@/lib/passwordHash";
+import { assinaturaInterna } from "@/lib/apiAuth";
 
 /**
  * "Esqueci minha senha" — agora no servidor (31/ago/2026).
@@ -121,7 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       await fetch(`${baseUrl}/api/send-password-recovery`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-chamada-interna": assinaturaInterna() },
         body: JSON.stringify({
           email: usuario.email,
           userId: usuario.id,

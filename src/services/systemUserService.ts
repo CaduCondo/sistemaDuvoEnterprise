@@ -90,9 +90,8 @@ export async function createUser(userData: {
   // não pode impedir o admin de saber que a criação funcionou.
   if (userData.temporary_password) {
     try {
-      await fetch("/api/send-welcome-email", {
+      await chamarApi("/api/send-welcome-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: data.email,
           name: data.name,
@@ -251,9 +250,8 @@ export async function resetPassword(userId: string): Promise<{ email: string; te
   );
 
   try {
-    await fetch("/api/send-password-recovery", {
+    await chamarApi("/api/send-password-recovery", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: usuario.email,
         userId,
