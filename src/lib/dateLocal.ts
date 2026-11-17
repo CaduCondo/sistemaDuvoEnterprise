@@ -13,3 +13,15 @@ export function dataLocalISO(data: Date = new Date()): string {
   const dia = String(data.getDate()).padStart(2, "0");
   return `${ano}-${mes}-${dia}`;
 }
+
+/**
+ * Transforma "AAAA-MM-DD" (como vem do banco) em uma data à meia-noite do
+ * horário local. `new Date("2026-11-16")` vira meia-noite de LONDRES, que no
+ * Brasil é 21h do dia anterior -- por isso uma locação que termina hoje
+ * aparecia como "vencida" um dia antes do certo.
+ */
+export function dataDoBanco(texto: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
+  if (!m) return new Date(texto);
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
