@@ -666,9 +666,11 @@ export function generateExpectedPayments(params: {
   
   // ✅ CORREÇÃO CRÍTICA: Extrair reference_month/year DA DUE_DATE final
   // Isso garante 100% de sincronia entre filtro e vencimento
-  const dueDateObj = new Date(firstPaymentDueDate);
-  const referenceMonth = dueDateObj.getMonth() + 1; // getMonth() retorna 0-11
-  const referenceYear = dueDateObj.getFullYear();
+  // (16/nov/2026) Lê o mês/ano direto do texto "AAAA-MM-DD". Antes usava
+  // new Date(texto), que é meia-noite de Londres: no Brasil vira 21h do dia
+  // anterior e, com vencimento dia 1, a parcela caía no mês anterior.
+  const referenceMonth = Number(firstPaymentDueDate.slice(5, 7));
+  const referenceYear = Number(firstPaymentDueDate.slice(0, 4));
   
   console.log("✅ Reference extraído da due_date:", {
     due_date: firstPaymentDueDate,
