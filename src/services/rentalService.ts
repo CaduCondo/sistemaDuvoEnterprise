@@ -4,6 +4,7 @@ import { deleteDepositInstallmentsByRental, createDepositInstallments, planDepos
 import { getAllLocations } from "./locationService";
 import { createPaymentsForRental, generateExpectedPayments } from "./paymentService";
 import { logAudit } from "./auditService";
+import { dataLocalISO } from "@/lib/dateLocal";
 
 let rentalsCache: { data: Rental[] | null; timestamp: number } = {
   data: null,
@@ -424,7 +425,7 @@ export const rentalService = {
       paymentDay: oldRental.paymentDay,
     });
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = dataLocalISO();
     const isReactivating = 
       oldRental.status === "ended" && 
       rental.endDate && 
@@ -564,7 +565,7 @@ export const rentalService = {
             oldRental.depositPaymentDate ??
             rental.startDate ??
             oldRental.startDate ??
-            new Date().toISOString().split("T")[0],
+            dataLocalISO(),
           pix_code: rental.depositInstallment1PixCode ?? rental.depositPixCode ?? oldRental.depositInstallment1PixCode ?? oldRental.depositPixCode ?? null,
         };
 
@@ -573,7 +574,7 @@ export const rentalService = {
           if (installment2Amount > 0) {
             desired[2] = {
               amount: installment2Amount,
-              due_date: rental.depositInstallment2DueDate ?? oldRental.depositInstallment2DueDate ?? new Date().toISOString().split("T")[0],
+              due_date: rental.depositInstallment2DueDate ?? oldRental.depositInstallment2DueDate ?? dataLocalISO(),
               pix_code: rental.depositInstallment2PixCode ?? oldRental.depositInstallment2PixCode ?? null,
             };
           }
@@ -584,7 +585,7 @@ export const rentalService = {
           if (installment3Amount > 0) {
             desired[3] = {
               amount: installment3Amount,
-              due_date: rental.depositInstallment3DueDate ?? oldRental.depositInstallment3DueDate ?? new Date().toISOString().split("T")[0],
+              due_date: rental.depositInstallment3DueDate ?? oldRental.depositInstallment3DueDate ?? dataLocalISO(),
               pix_code: rental.depositInstallment3PixCode ?? oldRental.depositInstallment3PixCode ?? null,
             };
           }

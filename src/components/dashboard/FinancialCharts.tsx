@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { dataLocalISO } from "@/lib/dateLocal";
 
 interface FinancialChartsProps {
   selectedMonth: number;
@@ -142,8 +143,8 @@ export function FinancialCharts({ selectedMonth, selectedYear, userId, userRole 
             .from("rentals")
             .select("id", { count: "exact", head: true })
             .eq("status", "active")
-            .gte("end_date", today.toISOString().split('T')[0])
-            .lte("end_date", next30Days.toISOString().split('T')[0]);
+            .gte("end_date", dataLocalISO(today))
+            .lte("end_date", dataLocalISO(next30Days));
 
           if (isFinancialUser && allowedLocations && allowedLocations.length > 0) {
             const propertiesInLocations = await supabase.from("properties").select("id").in("location_id", allowedLocations);
@@ -316,7 +317,7 @@ export function FinancialCharts({ selectedMonth, selectedYear, userId, userRole 
               .in("status", ["pending", "partial"])
               .eq("reference_month", month)
               .eq("reference_year", year)
-              .lt("due_date", new Date().toISOString().split('T')[0]);
+              .lt("due_date", dataLocalISO());
 
             if (isFinancialUser && allowedLocations && allowedLocations.length > 0) {
               const { data: propertiesData, error: propertiesError } = await supabase

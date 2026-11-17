@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { DepositInstallment } from "@/types";
+import { dataLocalISO } from "@/lib/dateLocal";
 
 /**
  * Configuração desejada (o que o formulário de locação quer que uma parcela
@@ -497,7 +498,7 @@ export async function registerDepositInstallmentPayment(
  * Atualizar status de parcelas vencidas
  */
 export async function updateOverdueDepositInstallments(): Promise<void> {
-  const today = new Date().toISOString().split("T")[0];
+  const today = dataLocalISO();
 
   const { error } = await supabase
     .from("deposit_installments")

@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Rental } from "@/types";
 import { diasProporcionalFimContrato } from "@/lib/contractEnd";
 import { calcularProporcionalAluguelEGaragem } from "@/lib/rentalCalculations";
+import { dataLocalISO } from "@/lib/dateLocal";
 
 /**
  * Service para gerenciar atualizações de recebimentos quando uma locação é editada
@@ -491,7 +492,7 @@ export const rentalUpdateService = {
 
       if (valueChanged && !startDateChanged && !endDateChanged) {
         const newRent = newChanges.monthlyRent ?? oldRental.monthlyRent;
-        await adjustRentalValue(rentalId, oldRental.monthlyRent, newRent, new Date().toISOString().split('T')[0]);
+        await adjustRentalValue(rentalId, oldRental.monthlyRent, newRent, dataLocalISO());
       }
 
       // ⚠️ Bug corrigido em 16/set/2026 (regra confirmada pelo Cadu): quando

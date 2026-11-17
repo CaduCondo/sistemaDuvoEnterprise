@@ -5,6 +5,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { logAudit } from "./auditService";
 import { vencimentoValido, diasEntre } from "@/lib/contractEnd";
 import { calcularProporcionalAluguelEGaragem } from "@/lib/rentalCalculations";
+import { dataLocalISO } from "@/lib/dateLocal";
 
 type PaymentResponse = Tables<"payments"> & {
   rental: (Tables<"rentals"> & {
@@ -273,7 +274,7 @@ export const create = async (payment: Partial<Payment>): Promise<Payment> => {
     tenantId: "",
     referenceMonth: Number(data.reference_month) || 1,
     referenceYear: Number(data.reference_year) || new Date().getFullYear(),
-    dueDate: data.due_date || new Date().toISOString().split('T')[0],
+    dueDate: data.due_date || dataLocalISO(),
     expectedAmount: data.expected_amount,
     paidAmount: data.paid_amount,
     status: data.status as "paid" | "pending" | "overdue" | "partial",
@@ -993,7 +994,7 @@ export const updateFuturePaymentsOnPaymentDayChange = async (
 ): Promise<void> => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = dataLocalISO(today);
 
   console.log("🔄 [updateFuturePaymentsOnPaymentDayChange] Atualizando datas...");
   console.log("📅 Data de corte:", todayStr);

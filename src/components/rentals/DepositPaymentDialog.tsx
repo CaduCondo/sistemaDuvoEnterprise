@@ -43,6 +43,7 @@ import { PaymentInfoCards } from "@/components/payments/PaymentInfoCards";
 import { validateAttachmentFile } from "@/lib/attachmentValidation";
 import { forceDialogCleanup } from "@/lib/forceCleanup";
 import { DepositReceipt } from "@/components/rentals/DepositReceipt";
+import { dataLocalISO } from "@/lib/dateLocal";
 
 interface DepositPaymentDialogProps {
   open: boolean;
@@ -221,7 +222,7 @@ export function DepositPaymentDialog({
   const resetFieldsFromInstallment = useCallback(() => {
     const alreadyPaid = installment.status === "paid";
 
-    setPaymentDate(installment.payment_date || new Date().toISOString().split("T")[0]);
+    setPaymentDate(installment.payment_date || dataLocalISO());
 
     // Horário já registrado, se houver. Parcelas anteriores a 28/ago/2026 não
     // têm horário gravado e abrem com os campos vazios.
