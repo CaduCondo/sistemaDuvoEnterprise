@@ -57,17 +57,30 @@ function generateTemporaryPassword(): string {
 }
 
 // Campos do bloco "Também é locador" (issue #125), na ordem da tela.
-const ROTULOS_LOCADOR: Record<CampoLocador, { rotulo: string; dica?: string; largo?: boolean }> = {
-  landlord_address: { rotulo: "Endereço completo", dica: "Rua, número, complemento, bairro, cidade/UF e CEP — como deve sair no contrato", largo: true },
-  landlord_city: { rotulo: "Cidade da assinatura", dica: "Ex.: São Paulo" },
-  landlord_whatsapp: { rotulo: "WhatsApp para comprovantes", dica: "Número que recebe os comprovantes de pagamento" },
-  landlord_bank_name: { rotulo: "Banco", dica: "Escolha pelo número ou pelo nome. Aparece no contrato como \"0341 - Itaú Unibanco\"", largo: true },
-  landlord_bank_agency: { rotulo: "Agência" },
-  landlord_bank_operation: { rotulo: "Operação", dica: "Se o banco não usa, deixe em branco" },
-  landlord_bank_savings: { rotulo: "Poupança", dica: "Se a conta for poupança, informe aqui; senão deixe em branco" },
-  landlord_bank_account: { rotulo: "Conta" },
-  landlord_pix_key: { rotulo: "Chave PIX", largo: true },
+const ROTULOS_LOCADOR: Record<CampoLocador, { rotulo: string; dica?: string; colunas: string }> = {
+  landlord_address: { rotulo: "Endereço completo", dica: "Rua, número, complemento, bairro, cidade/UF e CEP — como deve sair no contrato", colunas: "sm:col-span-6" },
+  landlord_city: { rotulo: "Cidade da assinatura", dica: "Ex.: São Paulo", colunas: "sm:col-span-3" },
+  landlord_whatsapp: { rotulo: "WhatsApp para comprovantes", dica: "Número que recebe os comprovantes de pagamento", colunas: "sm:col-span-3" },
+  landlord_bank_name: { rotulo: "Banco", dica: "Escolha pelo número ou pelo nome. Aparece no contrato como \"0341 - Itaú Unibanco\"", colunas: "sm:col-span-6" },
+  landlord_bank_agency: { rotulo: "Agência", colunas: "sm:col-span-2" },
+  landlord_bank_operation: { rotulo: "Operação", dica: "Se o banco não usa, deixe em branco", colunas: "sm:col-span-2" },
+  landlord_bank_savings: { rotulo: "Poupança", dica: "Só se a conta for poupança", colunas: "sm:col-span-2" },
+  landlord_bank_account: { rotulo: "Conta", colunas: "sm:col-span-3" },
+  landlord_pix_key: { rotulo: "Chave PIX", colunas: "sm:col-span-3" },
 };
+
+// Ordem em que os campos aparecem na tela (Chave PIX fica na linha da Conta).
+const ORDEM_TELA_LOCADOR: CampoLocador[] = [
+  "landlord_address",
+  "landlord_city",
+  "landlord_whatsapp",
+  "landlord_bank_name",
+  "landlord_bank_agency",
+  "landlord_bank_operation",
+  "landlord_bank_savings",
+  "landlord_bank_account",
+  "landlord_pix_key",
+];
 
 const LOCADOR_VAZIO = Object.fromEntries(CAMPOS_LOCADOR.map((c) => [c, ""])) as Record<CampoLocador, string>;
 
@@ -415,11 +428,11 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                 Marque se esta pessoa aparece como LOCADOR nos contratos de locação. Os dados abaixo vão no contrato.
               </p>
               {formData.is_landlord && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {CAMPOS_LOCADOR.map((campo) => {
+                <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
+                  {ORDEM_TELA_LOCADOR.map((campo) => {
                     const info = ROTULOS_LOCADOR[campo];
                     return (
-                      <div key={campo} className={`space-y-1 ${info.largo ? "sm:col-span-2" : ""}`}>
+                      <div key={campo} className={`space-y-1 ${info.colunas}`}>
                         <Label htmlFor={campo}>{info.rotulo}</Label>
                         {campo === "landlord_bank_name" ? (
                           <BancoCombo
@@ -442,7 +455,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                     );
                   })}
 
-                  <div className="space-y-2 sm:col-span-2">
+                  <div className="space-y-2 sm:col-span-6">
                     <Label htmlFor="signature-file">Assinatura (imagem)</Label>
                     <p className="text-xs text-muted-foreground">
                       É a assinatura que sai no contrato e nos recibos que esta pessoa emitir. Use uma imagem PNG ou JPG com fundo branco ou transparente.
