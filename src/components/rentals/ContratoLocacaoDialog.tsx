@@ -5,6 +5,7 @@
 //   - se faltar algum dado, mostra a lista do que falta, em português simples;
 //   - se estiver completo, mostra o contrato, deixa baixar em PDF e guardar
 //     o PDF nos Anexos da locação (Supabase Storage, categoria "Contrato").
+import { COLUNAS_USUARIO } from "@/lib/usuariosColunas";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -78,7 +79,7 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
           db.from("properties").select("*, locations(*)").eq("id", loc.property_id).single(),
           db.from("tenants").select("*").eq("id", loc.tenant_id).single(),
           loc.landlord_user_id
-            ? db.from("system_users").select("*").eq("id", loc.landlord_user_id).single()
+            ? db.from("system_users").select(COLUNAS_USUARIO).eq("id", loc.landlord_user_id).single()
             : Promise.resolve({ data: null }),
           db
             .from("payments")

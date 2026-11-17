@@ -55,7 +55,6 @@ export default async function handler(
         console.log("📧 ========================================");
         console.log("📧 Para:", email);
         console.log("📧 Nome:", name || "N/A");
-        console.log("📧 Senha:", temporaryPassword);
         console.log("📧 ========================================");
       }
 

@@ -1,12 +1,5 @@
 import { SystemUser } from "@/types";
-import {
-  getAll as fetchAll,
-  getSingle,
-  createSingle,
-  updateSingle,
-  deleteSingle,
-  getByField
-} from "@/lib/supabaseHelpers";
+import { COLUNAS_USUARIO } from "@/lib/usuariosColunas";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "./auditService";
 import { getSessionToken } from "./authService";
@@ -44,17 +37,30 @@ async function chamarApi<T = any>(caminho: string, opcoes: RequestInit = {}): Pr
 }
 
 export async function getSystemUsers(): Promise<SystemUser[]> {
-  return fetchAll<SystemUser>(TABLE);
+  const { data, error } = await (supabase as any).from(TABLE).select(COLUNAS_USUARIO);
+  if (error) throw error;
+  return (data || []) as SystemUser[];
 }
 
 export async function getUserById(id: string): Promise<SystemUser> {
-  const user = await getSingle<SystemUser>(TABLE, id);
+  const { data: user, error } = await (supabase as any)
+    .from(TABLE)
+    .select(COLUNAS_USUARIO)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
   if (!user) throw new Error("Usuário não encontrado");
-  return user;
+  return user as SystemUser;
 }
 
 export async function getUserByEmail(email: string): Promise<SystemUser | null> {
-  return getByField<SystemUser>(TABLE, "email", email);
+  const { data, error } = await (supabase as any)
+    .from(TABLE)
+    .select(COLUNAS_USUARIO)
+    .eq("email", email)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as SystemUser) ?? null;
 }
 
 export async function createUser(userData: {

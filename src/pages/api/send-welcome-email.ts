@@ -64,7 +64,6 @@ export default async function handler(
       console.log("📧 ========================================");
       console.log("📧 Para:", email);
       console.log("📧 Nome:", name);
-      console.log("📧 Senha Temporária:", temporaryPassword || "N/A");
       console.log("📧 ========================================");
     }
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { COLUNAS_USUARIO } from "@/lib/usuariosColunas";
 import { supabase } from "@/integrations/supabase/client";
 import { SystemUser } from "@/types";
 import { createUser, updateUser, deleteUser, unblockLogin } from "@/services/systemUserService";
@@ -29,14 +30,14 @@ export function useUsers() {
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("system_users")
-        .select("*")
+        .select(COLUNAS_USUARIO)
         .order("name");
 
       if (error) throw error;
       
-      const typedUsers: SystemUser[] = (data || []).map((user) => ({
+      const typedUsers: SystemUser[] = (data || []).map((user: any) => ({
         ...user,
         active: !!user.active,
         status: user.active ? "active" : "inactive",
@@ -164,8 +165,6 @@ export function useUsers() {
       console.log("🔐 ========== UPDATE USER DEBUG ==========");
       console.log("🆔 User ID:", id);
       console.log("📋 userData recebido:", userData);
-      console.log("🔑 password field:", (userData as any).password);
-      console.log("🔑 password_hash field:", userData.password_hash);
       
       if (userData.email) {
         const { data: existingUser } = await supabase
