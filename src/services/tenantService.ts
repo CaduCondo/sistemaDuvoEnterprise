@@ -122,7 +122,7 @@ export async function getAllTenants(): Promise<Tenant[]> {
   
   const { data: rentalsData, error: rentalsError } = await supabase
     .from("rentals")
-    .select("tenant_id, status") as any;
+    .select("tenant_id, second_tenant_id, status") as any;
   
   if (rentalsError) {
     console.error("❌ [tenantService] Erro ao buscar locações:", rentalsError);
@@ -136,6 +136,11 @@ export async function getAllTenants(): Promise<Tenant[]> {
       rentalsMap.set(rental.tenant_id, []);
     }
     rentalsMap.get(rental.tenant_id)!.push(rental.status);
+    // O 2º inquilino de uma locação também fica ocupado enquanto ela estiver ativa.
+    if (rental.second_tenant_id) {
+      if (!rentalsMap.has(rental.second_tenant_id)) rentalsMap.set(rental.second_tenant_id, []);
+      rentalsMap.get(rental.second_tenant_id)!.push(rental.status);
+    }
   });
   
   console.log(`📊 [tenantService] Mapa de locações criado com ${rentalsMap.size} inquilinos`);
@@ -619,7 +624,7 @@ export async function getActive(): Promise<Tenant[]> {
 
   const { data: rentalsData, error: rentalsError } = await supabase
     .from("rentals")
-    .select("tenant_id, status") as any;
+    .select("tenant_id, second_tenant_id, status") as any;
 
   if (rentalsError) {
     console.error("❌ [tenantService.getActive] Erro ao buscar locações:", rentalsError);
@@ -631,6 +636,11 @@ export async function getActive(): Promise<Tenant[]> {
       rentalsMap.set(rental.tenant_id, []);
     }
     rentalsMap.get(rental.tenant_id)!.push(rental.status);
+    // O 2º inquilino de uma locação também fica ocupado enquanto ela estiver ativa.
+    if (rental.second_tenant_id) {
+      if (!rentalsMap.has(rental.second_tenant_id)) rentalsMap.set(rental.second_tenant_id, []);
+      rentalsMap.get(rental.second_tenant_id)!.push(rental.status);
+    }
   });
 
   // ✅ CORRIGIDO (bug crítico, ago/2026): antes esta função só retornava

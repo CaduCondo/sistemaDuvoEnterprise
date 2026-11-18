@@ -232,6 +232,8 @@ export interface Rental {
   originalEndDate?: string | null;
   /** LOCADOR desta locação (usuário com "Também é locador"). Vazio nas locações antigas (issue #125). */
   landlordUserId?: string | null;
+  /** 2º inquilino, quando a locação é feita com 2 inquilinos. */
+  secondTenantId?: string | null;
   value: number;
   monthlyRent: number;
   monthly_rent?: number; // Compatibility

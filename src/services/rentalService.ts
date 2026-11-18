@@ -34,6 +34,7 @@ const mapRentalData = (data: any): Rental => {
     endDate: data.end_date,
     originalEndDate: data.original_end_date ?? null,
     landlordUserId: data.landlord_user_id ?? null,
+    secondTenantId: data.second_tenant_id ?? null,
     paymentDay: data.rent_due_day,
     value: Number(data.rent_value || 0),
     monthlyRent: Number(data.rent_value || 0),
@@ -272,6 +273,7 @@ export const rentalService = {
       has_partner_broker: rental.hasPartnerBroker,
       deposit_installments: rental.depositInstallments,
       landlord_user_id: rental.landlordUserId || null,
+      second_tenant_id: rental.secondTenantId || null,
     };
 
     const { data, error } = await supabase

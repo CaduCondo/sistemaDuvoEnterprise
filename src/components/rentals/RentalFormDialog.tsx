@@ -320,6 +320,23 @@ export const RentalFormDialog = memo(function RentalFormDialog({
 
     // Locador só é obrigatório ao CRIAR (o contrato é feito na criação). Locações
     // antigas, sem locador, continuam podendo ser editadas.
+    if (!rental && hasTwoTenants && !secondTenantId) {
+      showAlert({
+        title: "Erro",
+        description: "Escolha o 2º inquilino ou desmarque \"Locação com 2 inquilinos\".",
+        type: "error",
+      });
+      return;
+    }
+    if (!rental && hasTwoTenants && secondTenantId === selectedTenantId) {
+      showAlert({
+        title: "Erro",
+        description: "O 2º inquilino precisa ser uma pessoa diferente do 1º inquilino.",
+        type: "error",
+      });
+      return;
+    }
+
     if (!rental && !landlordUserId) {
       showAlert({
         title: "Erro",
@@ -427,6 +444,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         garageValue: hasGarage && garageValue ? parseCurrencyToNumber(garageValue) : undefined,
         hasPartnerBroker: hasPartnerBroker,
         landlordUserId: landlordUserId || null,
+        secondTenantId: !rental && hasTwoTenants ? secondTenantId || null : null,
       };
 
       console.log("🔍 [RentalFormDialog] ANTES de salvar:");
@@ -440,6 +458,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         // o que é e a locação NÃO é criada (regra do Cadu, 18/nov/2026).
         const { resultado: previa } = await montarContrato(supabase as any, {
           tenantId,
+          tenant2Id: hasTwoTenants ? secondTenantId : null,
           propertyId,
           landlordUserId,
           temGaragem: hasGarage,
@@ -467,6 +486,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         
         await updateProperty(propertyId, { status: "occupied" });
         await updateTenant(tenantId, { status: "rented" });
+        if (hasTwoTenants && secondTenantId) await updateTenant(secondTenantId, { status: "rented" });
 
         const mappedRental: Rental = {
           ...createdRental,
@@ -610,6 +630,16 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     }
     return baseList;
   }, [rental, properties, availableProperties]);
+
+  // Locação com 2 inquilinos (opcional): caixinha + combo do 2º inquilino.
+  const [hasTwoTenants, setHasTwoTenants] = useState(false);
+  const [secondTenantId, setSecondTenantId] = useState("");
+  useEffect(() => {
+    if (!open) {
+      setHasTwoTenants(false);
+      setSecondTenantId("");
+    }
+  }, [open]);
 
   const tenantsToDisplay = useMemo(() => {
     const baseList = rental ? tenants : availableTenants;
@@ -756,6 +786,44 @@ export const RentalFormDialog = memo(function RentalFormDialog({
               </Select>
             </div>
           </div>
+
+          {!rental && (
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="rental-two-tenants"
+                  checked={hasTwoTenants}
+                  onCheckedChange={(v) => {
+                    setHasTwoTenants(v === true);
+                    if (v !== true) setSecondTenantId("");
+                  }}
+                  disabled={isFieldDisabled}
+                />
+                <Label htmlFor="rental-two-tenants" className="text-sm">Locação com 2 inquilinos</Label>
+              </div>
+              {hasTwoTenants && (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="rental-tenant2" className="text-sm whitespace-nowrap">2º Inquilino *</Label>
+                  <Select value={secondTenantId} onValueChange={setSecondTenantId} disabled={isFieldDisabled}>
+                    <SelectTrigger id="rental-tenant2" className="w-72">
+                      <SelectValue placeholder="Selecione o 2º inquilino" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tenantsToDisplay
+                        .filter((t) => t.id !== selectedTenantId)
+                        .slice()
+                        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }))
+                        .map((tenant) => (
+                          <SelectItem key={tenant.id} value={tenant.id}>
+                            {tenant.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Dados do Contrato */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
