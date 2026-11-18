@@ -31,10 +31,11 @@ const ESTILO = `
   .contrato p { margin: 0 0 6px; }
   .contrato .resumo { border: 1px solid #000; padding: 8px 10px; margin-bottom: 12px; }
   .contrato .data-assinatura { margin-top: 18px; text-align: right; }
-  .contrato .assinaturas { display: flex; gap: 40px; margin-top: 36px; }
+  .contrato .assinaturas { display: flex; gap: 40px; margin-top: 36px; align-items: flex-end; }
   .contrato .assinatura { flex: 1; text-align: center; font-size: 11pt; }
   .contrato .linha { border-top: 1px solid #000; margin-bottom: 4px; }
   .contrato .testemunhas { margin-top: 18px; }
+  .contrato .testemunhas .assinaturas { margin-top: 64px; }
 `;
 
 export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
