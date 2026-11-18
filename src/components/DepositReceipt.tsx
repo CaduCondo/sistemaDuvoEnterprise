@@ -269,12 +269,15 @@ export function DepositReceipt({
             
             <div className="pt-4"></div>
             
-            <img 
-              src={assinatura.assinaturaUrl}
-              crossOrigin="anonymous" 
-              alt={`Assinatura ${assinatura.nome}`} 
-              className="w-24 h-auto mx-auto mb-1"
-            />
+            {assinatura.assinaturaUrl && (
+              <img
+                src={assinatura.assinaturaUrl}
+                crossOrigin="anonymous" 
+                alt={`Assinatura ${assinatura.nome}`} 
+                className="w-24 h-auto mx-auto mb-1"
+              
+              />
+            )}
             
             <div className="w-48 border-t border-gray-400 mx-auto mb-1"></div>
             

@@ -1,35 +1,38 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Assinatura e nome de quem está LOGADO (quem fez o recebimento), para os
- * recibos (15/nov/2026). Se o usuário não tem assinatura cadastrada, volta o
- * padrão antigo (assinatura do Carlos), como era antes.
+ * Nome e assinatura que saem nos recibos.
+ *
+ * POR ENQUANTO (regra do Cadu, 18/nov/2026) é sempre a do locador cadastrado
+ * (Configurações → Usuários → "Também é locador" + Assinatura). No futuro
+ * será a do corretor que estiver logado e fazendo o recebimento -- aí é só
+ * trocar a busca abaixo pelo usuário logado.
+ *
+ * Nada de assinatura "fixa" no código: se ninguém tiver assinatura
+ * cadastrada, o recibo sai sem a imagem (só com a linha).
  */
-const PADRAO = { nome: "Carlos Aparecido D'Uvo", assinaturaUrl: "/signature.png" };
-
 export function useAssinaturaDoUsuario(): { nome: string; assinaturaUrl: string } {
-  const { user } = useAuth();
-  const [dados, setDados] = useState(PADRAO);
+  const [dados, setDados] = useState({ nome: "", assinaturaUrl: "" });
 
   useEffect(() => {
-    if (!user?.id) return;
     let vivo = true;
     (supabase as any)
       .from("system_users")
       .select("name, signature_url")
-      .eq("id", user.id)
-      .maybeSingle()
+      .eq("is_landlord", true)
+      .eq("active", true)
+      .not("signature_url", "is", null)
+      .order("created_at", { ascending: true })
+      .limit(1)
       .then(({ data }: any) => {
-        if (vivo && data?.signature_url) {
-          setDados({ nome: data.name || PADRAO.nome, assinaturaUrl: data.signature_url });
-        }
+        const u = data?.[0];
+        if (vivo && u?.signature_url) setDados({ nome: u.name || "", assinaturaUrl: u.signature_url });
       });
     return () => {
       vivo = false;
     };
-  }, [user?.id]);
+  }, []);
 
   return dados;
 }
