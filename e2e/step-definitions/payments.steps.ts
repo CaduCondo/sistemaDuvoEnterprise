@@ -332,6 +332,8 @@ Given('que existe uma locação com:', async function(this: import('../support/w
   // Caução: obrigatório preencher a Data Pagamento (o valor pode ficar 0,
   // o formulário não valida isso -- ver "Criar locação - Caução
   // integral", 7-locacoes-regras.feature).
+  // O contrato exige caução (valor > 0): sem ela a locação não é criada.
+  await this.page.locator('#rental-deposit-amount').fill('150000');
   await this.page.locator('#rental-deposit-date').fill('2026-01-01');
 
   await garantirLocadorEscolhido(this.page);

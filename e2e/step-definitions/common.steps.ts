@@ -2,6 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import { createAuthHelper } from '../helpers/auth.helper';
 import { CustomWorld } from '../support/world';
+import DatabaseHelper from '../helpers/database.helper';
 
 /**
  * Steps genéricos e reutilizáveis em todas as features:
@@ -974,14 +975,35 @@ Then('devo ver todos os imóveis', async function (this: CustomWorld) {
  * lista carregada quando o diálogo abriu (loadAdditionalData) e um
  * imóvel/inquilino criado depois disso não apareceria.
  */
-When('preencho todos os campos obrigatórios', async function (this: CustomWorld) {
-  await this.page.locator('#rental-property').click();
-  await this.page.waitForTimeout(300);
-  await this.page.locator('[role="option"]').first().click();
+/**
+ * Cria um imóvel e um inquilino COM todos os dados que o contrato exige
+ * (18/nov/2026: a locação só é criada se o contrato puder ser montado) e abre
+ * de novo o formulário "Nova Locação" para a lista já mostrar os dois.
+ * Antes pegava "a primeira opção" da lista, que no DEV compartilhado podia ser
+ * um inquilino sem RG/endereço -- e a locação passou a ser bloqueada.
+ */
+async function escolherImovelEInquilinoCompletos(world: CustomWorld) {
+  const sufixo = Date.now();
+  const complemento = `Obrig ${sufixo}`;
+  await DatabaseHelper.createProperty({ complement: complemento, value: 1500, status: 'available' });
+  const inquilino = await DatabaseHelper.createTenant({ name: `Obrigatorios E2E ${sufixo}` });
+  world.tenantName = inquilino.name;
+  world.testData = { ...world.testData, inquilinoId: inquilino.id };
 
-  await this.page.locator('#rental-tenant').click();
-  await this.page.waitForTimeout(300);
-  await this.page.locator('[role="option"]').first().click();
+  await world.page.keyboard.press('Escape');
+  await world.page.goto('/rentals');
+  await world.page.waitForLoadState('domcontentloaded');
+  await world.page.getByRole('button', { name: /nova locação/i }).click();
+  await world.page.waitForTimeout(500);
+
+  await world.page.locator('#rental-property').click();
+  await world.page.getByRole('option', { name: new RegExp(complemento) }).click();
+  await world.page.locator('#rental-tenant').click();
+  await world.page.getByRole('option', { name: new RegExp(inquilino.name) }).click();
+}
+
+When('preencho todos os campos obrigatórios', async function (this: CustomWorld) {
+  await escolherImovelEInquilinoCompletos(this);
 
   await this.page.locator('#rental-start-date').fill('2026-01-01');
   await this.page.locator('#rental-end-date').fill('2026-12-31');
@@ -1001,13 +1023,7 @@ When('preencho todos os campos obrigatórios', async function (this: CustomWorld
  * confere que a tela realmente bloqueia salvar sem ela.
  */
 When('preencho todos os campos obrigatórios, exceto a data fim', async function (this: CustomWorld) {
-  await this.page.locator('#rental-property').click();
-  await this.page.waitForTimeout(300);
-  await this.page.locator('[role="option"]').first().click();
-
-  await this.page.locator('#rental-tenant').click();
-  await this.page.waitForTimeout(300);
-  await this.page.locator('[role="option"]').first().click();
+  await escolherImovelEInquilinoCompletos(this);
 
   await this.page.locator('#rental-start-date').fill('2026-01-01');
 
