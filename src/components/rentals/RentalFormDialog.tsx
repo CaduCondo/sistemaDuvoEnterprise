@@ -318,7 +318,9 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       return;
     }
 
-    if (!landlordUserId) {
+    // Locador só é obrigatório ao CRIAR (o contrato é feito na criação). Locações
+    // antigas, sem locador, continuam podendo ser editadas.
+    if (!rental && !landlordUserId) {
       showAlert({
         title: "Erro",
         description: "Escolha quem é o locador. Se a lista estiver vazia, marque \"Também é locador\" no cadastro do usuário (Configurações → Usuários).",
