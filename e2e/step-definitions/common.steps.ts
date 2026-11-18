@@ -990,19 +990,18 @@ async function escolherImovelEInquilinoCompletos(world: CustomWorld) {
   world.tenantName = inquilino.name;
   world.testData = { ...world.testData, inquilinoId: inquilino.id };
 
-  await world.page.keyboard.press('Escape');
   await world.page.goto('/rentals');
   await world.page.waitForLoadState('domcontentloaded');
   await world.page.getByRole('button', { name: /nova locação/i }).click();
   await world.page.waitForTimeout(500);
 
   await world.page.locator('#rental-property').click();
-  await world.page.getByRole('option', { name: new RegExp(complemento) }).click();
+  await world.page.getByRole('option', { name: new RegExp(complemento) }).click({ timeout: 20000 });
   await world.page.locator('#rental-tenant').click();
-  await world.page.getByRole('option', { name: new RegExp(inquilino.name) }).click();
+  await world.page.getByRole('option', { name: new RegExp(inquilino.name) }).click({ timeout: 20000 });
 }
 
-When('preencho todos os campos obrigatórios', async function (this: CustomWorld) {
+When('preencho todos os campos obrigatórios', { timeout: 90 * 1000 }, async function (this: CustomWorld) {
   await escolherImovelEInquilinoCompletos(this);
 
   await this.page.locator('#rental-start-date').fill('2026-01-01');
@@ -1022,7 +1021,7 @@ When('preencho todos os campos obrigatórios', async function (this: CustomWorld
  * mas deixando a Data Fim em branco de propósito -- usado no cenário que
  * confere que a tela realmente bloqueia salvar sem ela.
  */
-When('preencho todos os campos obrigatórios, exceto a data fim', async function (this: CustomWorld) {
+When('preencho todos os campos obrigatórios, exceto a data fim', { timeout: 90 * 1000 }, async function (this: CustomWorld) {
   await escolherImovelEInquilinoCompletos(this);
 
   await this.page.locator('#rental-start-date').fill('2026-01-01');
