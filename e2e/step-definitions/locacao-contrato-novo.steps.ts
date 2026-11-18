@@ -311,3 +311,76 @@ Then('a lista de locações não deve ter botão de gerar contrato', async funct
   await expect(this.page.locator('[id^="rentals-contract-"]')).toHaveCount(0);
   await expect(this.page.locator('button[title="Gerar contrato"]')).toHaveCount(0);
 });
+
+// ---------------------------------------------------------------- 2 inquilinos
+
+async function criarSegundoInquilino(world: CustomWorld, opcoes: Parameters<typeof DatabaseHelper.createTenant>[0]) {
+  const sufixo = Date.now() + 1;
+  const inquilino2 = await DatabaseHelper.createTenant({ name: `Segundo Inquilino E2E ${sufixo}`, ...opcoes });
+  world.testData = { ...world.testData, inquilino2Id: inquilino2.id, inquilino2Nome: inquilino2.name };
+}
+
+Given('um segundo inquilino de teste COM todos os dados do contrato', async function (this: CustomWorld) {
+  await criarSegundoInquilino(this, {});
+});
+
+Given('um segundo inquilino de teste SEM apenas o RG', async function (this: CustomWorld) {
+  await criarSegundoInquilino(this, { rg: '' });
+});
+
+When('marco "Locação com 2 inquilinos" e escolho o 2º inquilino', async function (this: CustomWorld) {
+  await this.page.locator('#rental-two-tenants').click();
+  await this.page.locator('#rental-tenant2').click();
+  await this.page
+    .getByRole('option', { name: new RegExp(escapar(this.testData.inquilino2Nome), 'i') })
+    .click({ timeout: 20000 });
+});
+
+When('marco "Locação com 2 inquilinos" sem escolher o 2º inquilino', async function (this: CustomWorld) {
+  await this.page.locator('#rental-two-tenants').click();
+  await expect(this.page.locator('#rental-tenant2')).toBeVisible({ timeout: 5000 });
+});
+
+Then('o contrato deve citar os dois inquilinos como LOCATÁRIOS', async function (this: CustomWorld) {
+  const documento = this.page.locator('#contrato-documento');
+  await expect(documento).toContainText(this.tenantName!);
+  await expect(documento).toContainText(this.testData.inquilino2Nome);
+  await expect(documento).toContainText('LOCATÁRIOS');
+});
+
+Then('as assinaturas dos dois inquilinos devem ficar na mesma linha', async function (this: CustomWorld) {
+  const documento = this.page.locator('#contrato-documento');
+  const a = await documento.locator('.assinatura', { hasText: this.tenantName! }).last().boundingBox();
+  const b = await documento.locator('.assinatura', { hasText: this.testData.inquilino2Nome }).last().boundingBox();
+  expect(a && b, 'não achei as duas assinaturas dos inquilinos').toBeTruthy();
+  expect(Math.abs(a!.y - b!.y), 'as assinaturas dos inquilinos não estão na mesma linha').toBeLessThan(6);
+  expect(Math.abs(a!.x - b!.x), 'as duas assinaturas estão uma em cima da outra').toBeGreaterThan(100);
+});
+
+Then('o contrato deve começar com a capa, o logotipo, o site e os dados do escritório', async function (this: CustomWorld) {
+  const capa = this.page.locator('#contrato-documento .capa');
+  await expect(capa, 'o contrato não tem capa').toBeVisible({ timeout: 15000 });
+  await expect(capa).toContainText('CONTRATO DE LOCAÇÃO');
+  await expect(capa).toContainText('duvoenterprise.com.br');
+  await expect(capa).toContainText('Consultor:');
+  const logo = capa.locator('img.capa-logo');
+  await expect(logo, 'o logotipo não apareceu na capa').toBeVisible();
+  const carregou = await logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0);
+  expect(carregou, 'a imagem do logotipo não carregou').toBe(true);
+});
+
+Then('a locação deve ter o 2º inquilino gravado', async function (this: CustomWorld) {
+  await expect
+    .poll(
+      async () => {
+        const { data } = await supabaseAdmin
+          .from('rentals')
+          .select('second_tenant_id')
+          .eq('tenant_id', this.testData.inquilinoId)
+          .maybeSingle();
+        return data?.second_tenant_id ?? null;
+      },
+      { timeout: 20000, message: 'o 2º inquilino não foi gravado na locação' }
+    )
+    .toBe(this.testData.inquilino2Id);
+});

@@ -76,6 +76,39 @@ Funcionalidade: Locação nova só é criada com todos os dados do contrato (reg
     Então a lista de locações não deve ter botão de gerar contrato
 
   @sistemaCompleto
+  Cenário: Locação com 2 inquilinos - contrato com os dois nomes, assinaturas na mesma linha e capa
+    Dado um imóvel disponível e um inquilino de teste COM todos os dados do contrato
+    E um segundo inquilino de teste COM todos os dados do contrato
+    Quando preencho uma nova locação para esse imóvel e esse inquilino
+    E marco "Locação com 2 inquilinos" e escolho o 2º inquilino
+    E clico em criar locação
+    Então o contrato deve abrir com o nome do inquilino e o texto do locador
+    E o contrato deve citar os dois inquilinos como LOCATÁRIOS
+    E as assinaturas dos dois inquilinos devem ficar na mesma linha
+    E o contrato deve começar com a capa, o logotipo, o site e os dados do escritório
+    E a locação deve ter o 2º inquilino gravado
+
+  @sistemaCompleto
+  Cenário: Marcou 2 inquilinos e não escolheu o segundo - a locação NÃO é criada
+    Dado um imóvel disponível e um inquilino de teste COM todos os dados do contrato
+    Quando preencho uma nova locação para esse imóvel e esse inquilino
+    E marco "Locação com 2 inquilinos" sem escolher o 2º inquilino
+    E clico em criar locação
+    Então devo ver o aviso "Erro" listando "Escolha o 2º inquilino"
+    E nenhuma locação deve existir para esse inquilino
+
+  @sistemaCompleto
+  Cenário: 2º inquilino sem o RG - o aviso cita o 2º inquilino e a locação NÃO é criada
+    Dado um imóvel disponível e um inquilino de teste COM todos os dados do contrato
+    E um segundo inquilino de teste SEM apenas o RG
+    Quando preencho uma nova locação para esse imóvel e esse inquilino
+    E marco "Locação com 2 inquilinos" e escolho o 2º inquilino
+    E clico em criar locação
+    Então devo ver o aviso "Locação NÃO criada" listando "2º inquilino: RG"
+    E o aviso NÃO deve listar "1º inquilino"
+    E nenhuma locação deve existir para esse inquilino
+
+  @sistemaCompleto
   Cenário: Lista de usuários mostra a coluna Locador? com V verde e X vermelho
     Quando acesso "/settings"
     E clico na aba "Usuários"
