@@ -1096,6 +1096,10 @@ Observações (18/nov/2026): o locador só é obrigatório ao **criar** a locaç
 
 Assinatura: cada usuário locador anexa a imagem da sua assinatura no próprio cadastro (**Escolher Arquivo**; para tirar, passe o mouse na miniatura e clique no X vermelho). Contrato e recibos usam a assinatura do primeiro locador ativo que tiver uma anexada.
 
+**Locação com 2 inquilinos (18/nov/2026):** na tela da locação, marque **Locação com 2 inquilinos**. Aparece um combo com os inquilinos disponíveis para escolher o **2º inquilino** (obrigatório ao marcar; não pode ser o mesmo do 1º). O 2º inquilino também precisa ter todos os dados do contrato; se faltar algo, o aviso diz "2º inquilino: ..." e a locação não é criada. O contrato é igual ao de 1 inquilino, mas cita os dois como LOCATÁRIOS (texto no plural) e, no rodapé, as assinaturas dos dois ficam na mesma linha, lado a lado. Os dois inquilinos ficam como "alugado" enquanto a locação existir.
+
+**Capa do contrato (18/nov/2026):** o contrato começa com uma capa com o logotipo (`public/contrato-logo.png`), o endereço do site e os dados do escritório (consultor, e-mail, WhatsApp, telefone, PIX e endereço, tirados do cadastro do locador). Todas as páginas do PDF são numeradas ("Página X de Y").
+
 Lista de usuários: a coluna **Locador?** mostra V verde (é locador) ou X vermelho (não é).
 
 Imagem de compartilhamento do site (`public/og-image.png`): é a que aparece quando o link do sistema é enviado por WhatsApp e redes sociais.

@@ -301,6 +301,7 @@ CREATE TABLE rentals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID NOT NULL REFERENCES properties(id),
   tenant_id UUID NOT NULL REFERENCES tenants(id),
+  second_tenant_id UUID REFERENCES tenants(id), -- 2º inquilino (opcional, locação com 2 inquilinos; migration 20261118120000)
   start_date DATE NOT NULL,
   end_date DATE,
   rent_due_day INTEGER,
