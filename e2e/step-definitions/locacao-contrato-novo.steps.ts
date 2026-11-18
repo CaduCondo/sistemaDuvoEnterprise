@@ -267,3 +267,47 @@ When('removo a assinatura pelo X vermelho', async function (this: CustomWorld) {
 Then('a miniatura da assinatura não deve aparecer', async function (this: CustomWorld) {
   await expect(this.page.locator('#signature-preview')).toHaveCount(0);
 });
+
+// ---------------------------------------------------------------- contrato guardado sozinho
+
+Then('o rodapé do contrato deve ter só os botões {string} e {string}', async function (this: CustomWorld, a: string, b: string) {
+  const dialogo = this.page.locator('#contrato-locacao-dialog');
+  await expect(dialogo.getByRole('button', { name: a })).toBeVisible({ timeout: 30000 });
+  await expect(dialogo.getByRole('button', { name: b, exact: true })).toBeVisible();
+  await expect(dialogo.getByRole('button', { name: /guardar nos anexos/i })).toHaveCount(0);
+  await expect(dialogo.locator('#contrato-guardar')).toHaveCount(0);
+});
+
+async function contratosNosAnexos(world: CustomWorld): Promise<any[]> {
+  const { data, error } = await supabaseAdmin
+    .from('rentals')
+    .select('attachments')
+    .eq('tenant_id', world.testData.inquilinoId)
+    .single();
+  if (error) throw new Error(`Falha ao ler os anexos da locação: ${error.message}`);
+  const lista = Array.isArray(data?.attachments) ? data!.attachments : [];
+  return lista.filter((a: any) => a?.category === 'contract');
+}
+
+Then('o contrato deve ser guardado sozinho nos anexos da locação em {int} arquivo PDF', async function (this: CustomWorld, qtd: number) {
+  await expect
+    .poll(async () => (await contratosNosAnexos(this)).length, {
+      timeout: 60000,
+      message: 'o contrato não foi guardado automaticamente nos anexos',
+    })
+    .toBe(qtd);
+  const [contrato] = await contratosNosAnexos(this);
+  expect(contrato.type).toBe('application/pdf');
+  expect(String(contrato.url).startsWith('http'), 'o anexo deve apontar para o Storage, não para disco local').toBe(true);
+});
+
+Then('a locação deve continuar com {int} só contrato nos anexos', async function (this: CustomWorld, qtd: number) {
+  await this.page.waitForTimeout(2000);
+  expect((await contratosNosAnexos(this)).length, 'o contrato foi duplicado nos anexos').toBe(qtd);
+});
+
+Then('a lista de locações não deve ter botão de gerar contrato', async function (this: CustomWorld) {
+  await this.page.waitForLoadState('domcontentloaded');
+  await expect(this.page.locator('[id^="rentals-contract-"]')).toHaveCount(0);
+  await expect(this.page.locator('button[title="Gerar contrato"]')).toHaveCount(0);
+});

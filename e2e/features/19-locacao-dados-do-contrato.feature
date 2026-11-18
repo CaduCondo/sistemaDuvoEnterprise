@@ -60,6 +60,22 @@ Funcionalidade: Locação nova só é criada com todos os dados do contrato (reg
     Então o arquivo baixado deve ser um PDF chamado com o nome do inquilino
 
   @sistemaCompleto
+  Cenário: O contrato é guardado sozinho nos anexos, uma única vez, e o rodapé só tem Baixar PDF e Fechar
+    Dado um imóvel disponível e um inquilino de teste COM todos os dados do contrato
+    Quando preencho uma nova locação para esse imóvel e esse inquilino
+    E clico em criar locação
+    Então o contrato deve abrir com o nome do inquilino e o texto do locador
+    E o rodapé do contrato deve ter só os botões "Baixar PDF" e "Fechar"
+    E o contrato deve ser guardado sozinho nos anexos da locação em 1 arquivo PDF
+    Quando clico em "Baixar PDF" no contrato
+    Então a locação deve continuar com 1 só contrato nos anexos
+
+  @sistemaCompleto
+  Cenário: A lista de locações não tem botão de gerar contrato
+    Quando acesso "/rentals"
+    Então a lista de locações não deve ter botão de gerar contrato
+
+  @sistemaCompleto
   Cenário: Lista de usuários mostra a coluna Locador? com V verde e X vermelho
     Quando acesso "/settings"
     E clico na aba "Usuários"
