@@ -1090,7 +1090,7 @@ Passo a passo para quem usa o sistema:
 3. Clique em **Criar locação**. Antes de criar, o sistema confere se o inquilino, o imóvel e o locador têm todos os dados que o contrato usa.
 4. **Se faltar algum dado:** aparece o aviso "Locação NÃO criada: faltam dados do contrato", listando o que falta. Ao fechar o aviso, **nada foi criado** (a locação não existe e o imóvel continua disponível). Complete o cadastro e tente de novo.
 5. **Se estiver tudo certo:** a locação é criada e o **contrato** abre na tela, já preenchido e com a assinatura do locador.
-6. Em **Baixar PDF**, o arquivo contém só o contrato (nome: "Contrato - Nome do Inquilino").
+6. O PDF é guardado sozinho nos anexos da locação; **Baixar PDF** é só para salvar uma cópia no computador. O arquivo contém só o contrato (nome: "Contrato - Nome do Inquilino").
 
 Assinatura: cada usuário locador anexa a imagem da sua assinatura no próprio cadastro (**Escolher Arquivo**; para tirar, passe o mouse na miniatura e clique no X vermelho). Contrato e recibos usam a assinatura do primeiro locador ativo que tiver uma anexada.
 
@@ -1682,16 +1682,18 @@ decidir o que fazer. Isso foi corrigido:
    só um locador cadastrado, ele já vem escolhido. Locações antigas ficam sem
    locador até alguém escolher (o sistema não preenche sozinho).
 
-**Passo a passo para gerar:**
+**Como o contrato é gerado (atualizado em 18/nov/2026):**
 
-1. Abra **Locações** e ache a locação.
-2. Clique no botão verde **"Gerar contrato"** (ícone de documento com rolo).
-3. Se faltar algum dado, aparece um quadro amarelo **"Falta preencher no sistema"**
-   com a lista do que falta (ex.: "Inquilino: sexo"). Nenhum contrato é gerado
-   até completar o cadastro.
-4. Com tudo preenchido, o contrato aparece na tela. Use **Baixar PDF** para
-   salvar no computador ou **Guardar nos anexos** para guardar o PDF nos Anexos
-   da locação (categoria Contrato).
+1. O contrato é criado **uma única vez**, no momento em que a locação é criada
+   (ver "Criar uma locação: o contrato" abaixo). Não existe botão para gerar
+   contrato na lista de Locações.
+2. Se faltar algum dado, a locação **não é criada** e o aviso lista o que falta
+   (ex.: "Inquilino: sexo").
+3. Com tudo preenchido, o contrato aparece na tela e o sistema **guarda o PDF
+   sozinho** nos Anexos da locação (categoria Contrato). Na tela só há **Baixar
+   PDF** e **Fechar**.
+4. O sistema nunca gera nem guarda um segundo contrato para a mesma locação. Para
+   rever o contrato depois, abra o anexo na própria locação.
 
 **Observações:**
 - Se a locação já foi rescindida, o contrato usa a data fim **original**
