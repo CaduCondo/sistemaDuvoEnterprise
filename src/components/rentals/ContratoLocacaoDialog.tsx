@@ -37,6 +37,12 @@ const ESTILO = `
   .contrato .assinatura { flex: 1; text-align: center; font-size: 11pt; }
   .contrato .linha { border-top: 1px solid #000; margin-bottom: 4px; }
   .contrato .testemunhas { margin-top: 18px; }
+  .contrato .capa { display: flex; flex-direction: column; justify-content: space-between; align-items: center; aspect-ratio: 180 / 255; text-align: center; page-break-after: always; break-after: page; }
+  .contrato .capa-titulo { font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 15pt; }
+  .contrato .capa-meio { display: flex; flex-direction: column; align-items: center; gap: 28px; }
+  .contrato .capa-logo { width: 75%; max-width: 520px; height: auto; }
+  .contrato .capa-site { font-family: Arial, Helvetica, sans-serif; font-size: 22pt; color: #1f2f6b; }
+  .contrato .capa-rodape { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.5; text-align: center; }
   .contrato .testemunhas .assinaturas { margin-top: 64px; }
 `;
 
@@ -72,6 +78,7 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
 
         const { resultado: r, nomeInquilino } = await montarContrato(db, {
           tenantId: loc.tenant_id,
+          tenant2Id: loc.second_tenant_id ?? null,
           propertyId: loc.property_id,
           landlordUserId: loc.landlord_user_id,
           temGaragem: !!loc.has_garage,
@@ -113,7 +120,18 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       pagebreak: { mode: ["css", "legacy"] },
     };
-    return (await html2pdf().set(opt).from(el).outputPdf("blob")) as Blob;
+    // A capa é a página 1 e não leva número; as demais vão de "Página 1 de N".
+    const pdf: any = await html2pdf().set(opt).from(el).toPdf().get("pdf");
+    const total = pdf.internal.getNumberOfPages();
+    const largura = pdf.internal.pageSize.getWidth();
+    const altura = pdf.internal.pageSize.getHeight();
+    pdf.setFont("times", "normal");
+    pdf.setFontSize(9);
+    for (let i = 2; i <= total; i++) {
+      pdf.setPage(i);
+      pdf.text(`Página ${i - 1} de ${total - 1}`, largura / 2, altura - 7, { align: "center" });
+    }
+    return pdf.output("blob") as Blob;
   }
 
   async function baixar() {

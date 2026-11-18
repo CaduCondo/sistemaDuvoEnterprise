@@ -39,6 +39,8 @@ export interface DadosLocador {
   conta?: string | null;
   pix?: string | null;
   whatsapp?: string | null;
+  email?: string | null;
+  telefone?: string | null;
 }
 
 export interface DadosLocatario {
@@ -83,9 +85,15 @@ export interface DadosLocacao {
 export interface DadosContrato {
   locador: DadosLocador;
   locatario: DadosLocatario;
+  /** Segundo inquilino, quando a locação é feita com 2 (opcional). */
+  locatario2?: DadosLocatario | null;
   imovel: DadosImovel;
   locacao: DadosLocacao;
   dataAssinatura: string; // ISO
+  /** Endereço do site, impresso na capa. */
+  site?: string | null;
+  /** Logotipo da capa (URL). Sem ele a capa mostra só o texto. */
+  logoUrl?: string | null;
 }
 
 export interface ResultadoContrato {
@@ -142,6 +150,8 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   const faltando: string[] = [];
   const L = d.locador;
   const T = d.locatario;
+  const T2 = d.locatario2 ?? null;
+  const dual = !!T2;
   const I = d.imovel;
   const C = d.locacao;
 
@@ -153,13 +163,21 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   if (vazio(L.pix) && (vazio(L.banco) || vazio(L.agencia) || vazio(L.conta)))
     faltando.push("Locador: dados bancários ou chave PIX (Configurações → Usuários → Também é locador)");
 
-  if (vazio(T.nome)) faltando.push("Inquilino: nome");
-  if (T.sexo !== "M" && T.sexo !== "F") faltando.push("Inquilino: sexo");
-  if (vazio(T.estadoCivil) || !ESTADO_CIVIL[String(T.estadoCivil)]) faltando.push("Inquilino: estado civil");
-  if (vazio(T.profissao)) faltando.push("Inquilino: profissão");
-  if (vazio(T.rg)) faltando.push("Inquilino: RG");
-  if (vazio(T.cpf)) faltando.push("Inquilino: CPF");
-  if (vazio(T.endereco)) faltando.push("Inquilino: endereço completo");
+  const conferirInquilino = (X: DadosLocatario, rotulo: string) => {
+    if (vazio(X.nome)) faltando.push(`${rotulo}: nome`);
+    if (X.sexo !== "M" && X.sexo !== "F") faltando.push(`${rotulo}: sexo`);
+    if (vazio(X.estadoCivil) || !ESTADO_CIVIL[String(X.estadoCivil)]) faltando.push(`${rotulo}: estado civil`);
+    if (vazio(X.profissao)) faltando.push(`${rotulo}: profissão`);
+    if (vazio(X.rg)) faltando.push(`${rotulo}: RG`);
+    if (vazio(X.cpf)) faltando.push(`${rotulo}: CPF`);
+    if (vazio(X.endereco)) faltando.push(`${rotulo}: endereço completo`);
+  };
+  conferirInquilino(T, dual ? "1º inquilino" : "Inquilino");
+  if (T2) {
+    if ((T2.tipoDocumento || "").toLowerCase() === "cnpj")
+      faltando.push("2º inquilino: é uma empresa (CNPJ); o modelo atual é só para pessoa física");
+    conferirInquilino(T2, "2º inquilino");
+  }
 
   if (vazio(I.endereco)) faltando.push("Imóvel: endereço (cadastro do Local, ou endereço manual se o local for \"Outros\")");
 
@@ -172,14 +190,31 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   if (faltando.length > 0) return { html: "", faltando };
 
   // ---------------------------------------------------------------- textos
-  const fem = T.sexo === "F";
-  const g = (m: string, f: string) => (fem ? f : m);
-  const oLocatario = g("o LOCATÁRIO", "a LOCATÁRIA");
-  const OLocatario = g("O LOCATÁRIO", "A LOCATÁRIA");
-  const doLocatario = g("do LOCATÁRIO", "da LOCATÁRIA");
-  const aoLocatario = g("ao LOCATÁRIO", "à LOCATÁRIA");
-  const peloLocatario = g("pelo LOCATÁRIO", "pela LOCATÁRIA");
-  const LOCATARIO = g("LOCATÁRIO", "LOCATÁRIA");
+  // Com 2 inquilinos o texto vai para o plural (feminino só se os dois forem mulheres).
+  const fem = dual ? T.sexo === "F" && T2!.sexo === "F" : T.sexo === "F";
+  const PLURAL_ESPECIAL: Record<string, string> = {
+    o: "os", a: "as", qual: "quais", ele: "eles", ela: "elas", "responsável": "responsáveis",
+  };
+  const plural = (txt: string) =>
+    txt
+      .split(" ")
+      .map((w) => PLURAL_ESPECIAL[w] ?? (w.endsWith("s") ? w : w + "s"))
+      .join(" ");
+  const g = (m: string, f: string) => {
+    const t = fem ? f : m;
+    return dual ? plural(t) : t;
+  };
+  // Verbo: singular com 1 inquilino, plural com 2.
+  const vb = (singular: string, plur: string) => (dual ? plur : singular);
+  const oLocatario = dual ? (fem ? "as LOCATÁRIAS" : "os LOCATÁRIOS") : g("o LOCATÁRIO", "a LOCATÁRIA");
+  const OLocatario = dual ? (fem ? "AS LOCATÁRIAS" : "OS LOCATÁRIOS") : g("O LOCATÁRIO", "A LOCATÁRIA");
+  const doLocatario = dual ? (fem ? "das LOCATÁRIAS" : "dos LOCATÁRIOS") : g("do LOCATÁRIO", "da LOCATÁRIA");
+  const aoLocatario = dual ? (fem ? "às LOCATÁRIAS" : "aos LOCATÁRIOS") : g("ao LOCATÁRIO", "à LOCATÁRIA");
+  const peloLocatario = dual ? (fem ? "pelas LOCATÁRIAS" : "pelos LOCATÁRIOS") : g("pelo LOCATÁRIO", "pela LOCATÁRIA");
+  const LOCATARIO = dual ? (fem ? "LOCATÁRIAS" : "LOCATÁRIOS") : g("LOCATÁRIO", "LOCATÁRIA");
+  const seuNome = dual ? "seus nomes" : "seu nome";
+  const estadoCivil = ESTADO_CIVIL[String(T.estadoCivil)][T.sexo === "F" ? 1 : 0];
+  const estadoCivil2 = T2 ? ESTADO_CIVIL[String(T2.estadoCivil)][T2.sexo === "F" ? 1 : 0] : "";
 
   const aluguel = Number(C.aluguel);
   const garagem = Number(C.garagem || 0);
@@ -189,7 +224,6 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   const meses = mesesEntre(C.inicio!, C.termino!);
   const dia = Number(C.diaVencimento);
   const diaTxt = `${dia} (${inteiroPorExtenso(dia).toUpperCase()})`;
-  const estadoCivil = ESTADO_CIVIL[String(T.estadoCivil)][fem ? 1 : 0];
 
   const valorTxt = (v: number) => `<b>${moeda(v)}</b> (${reaisPorExtenso(v)})`;
   const composicao =
@@ -229,7 +263,7 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   if (!vazio(L.pix)) pagamento.push(`na <b><u>chave PIX ${esc(L.pix)}</u></b>; em nome do LOCADOR`);
   const whatsapp = vazio(L.whatsapp)
     ? ""
-    : `, sendo que ${oLocatario} se compromete a enviar o <u>comprovante de pagamento pelo WhatsApp no nº ${esc(L.whatsapp)}</u> e o LOCADOR, por sua vez, se compromete a enviar o contrarrecibo ${aoLocatario} pelo mesmo meio de comunicação`;
+    : `, sendo que ${oLocatario} ${vb("se compromete", "se comprometem")} a enviar o <u>comprovante de pagamento pelo WhatsApp no nº ${esc(L.whatsapp)}</u> e o LOCADOR, por sua vez, se compromete a enviar o contrarrecibo ${aoLocatario} pelo mesmo meio de comunicação`;
 
   const primeiro = C.primeiroVencimento
     ? `, vencendo o primeiro no dia <b>${dataPorExtenso(C.primeiroVencimento)}</b> e os demais`
@@ -252,10 +286,28 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
 
   const partes: string[] = [];
 
+  // Capa: título, logotipo, site e dados do escritório (rodapé da capa).
+  const linhaEscritorio = [
+    !vazio(L.nome) ? `Consultor: ${esc(L.nome)}` : "",
+    !vazio(L.email) ? `E-mail: ${esc(L.email)}` : "",
+    !vazio(L.whatsapp) ? `WhatsApp: <b>${esc(L.whatsapp)}</b>` : "",
+    !vazio(L.telefone) ? `Telefone: <b>${esc(L.telefone)}</b>` : "",
+    !vazio(L.pix) ? `Chave PIX: <b>${esc(L.pix)}</b>` : "",
+    !vazio(L.endereco) ? `End.: ${esc(L.endereco)}` : "",
+  ].filter(Boolean);
+  partes.push(`<div class="capa">
+<div class="capa-titulo">CONTRATO DE LOCAÇÃO</div>
+<div class="capa-meio">
+${d.logoUrl ? `<img class="capa-logo" src="${esc(d.logoUrl)}" alt="Logotipo" crossorigin="anonymous" />` : ""}
+${vazio(d.site) ? "" : `<div class="capa-site">${esc(d.site)}</div>`}
+</div>
+<div class="capa-rodape">${linhaEscritorio.join(" &nbsp;•&nbsp; ")}</div>
+</div>`);
+
   partes.push(`<h1>INSTRUMENTO PARTICULAR DE CONTRATO DE LOCAÇÃO DE IMÓVEL RESIDENCIAL</h1>`);
   partes.push(`<div class="resumo">
 <p><b>Locador</b>: ${esc(L.nome)}</p>
-<p><b>${g("Locatário", "Locatária")}</b>: ${esc(T.nome)}</p>
+<p><b>${dual ? (fem ? "Locatárias" : "Locatários") : g("Locatário", "Locatária")}</b>: ${dual ? `${esc(T.nome)} &amp; ${esc(T2!.nome)}` : esc(T.nome)}</p>
 <p><b>Garantia locatícia</b>: modalidade CAUÇÃO.</p>
 <p><b>Imóvel</b>: ${esc(I.endereco)}.</p>
 <p><b>Prazo</b>: ${meses} meses - <b>Início:</b> ${dataCurta(C.inicio!)} <b>Término:</b> ${dataCurta(C.termino!)}.</p>
@@ -273,11 +325,27 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
       `Na qualidade de LOCADOR/ADMINISTRADOR LEGAL; <b>${esc(L.nome)}</b>, CPF: ${esc(L.cpf)}, RG nº ${esc(L.rg)}, com endereço na ${esc(L.endereco)}, doravante pura e simplesmente assim designado chamado de <b>LOCADOR</b>;`
     )
   );
-  partes.push(
-    p(
-      `Na qualidade de ${g("PROPONENTE LOCATÁRIO", "PROPONENTE LOCATÁRIA")}; <b>${esc(T.nome)}</b>, ${estadoCivil}, ${esc(T.profissao)}, ${g("portador", "portadora")} da Cédula de Identidade ‘RG’ nº ${esc(T.rg)}, ${g("cadastrado", "cadastrada")} com seu CPF-MF sob o nº ${esc(T.cpf)}, com endereço referencial na ${esc(T.endereco)}, doravante pura e simplesmente assim ${g("designado chamado", "designada chamada")} de <b>${LOCATARIO}</b>;`
-    )
-  );
+  const qualificacao = (X: DadosLocatario, ec: string, fechamento: string) => {
+    const f = X.sexo === "F";
+    const gg = (m: string, fe: string) => (f ? fe : m);
+    return p(
+      `Na qualidade de ${gg("PROPONENTE LOCATÁRIO", "PROPONENTE LOCATÁRIA")}; <b>${esc(X.nome)}</b>, ${ec}, ${esc(X.profissao)}, ${gg("portador", "portadora")} da Cédula de Identidade ‘RG’ nº ${esc(X.rg)}, ${gg("cadastrado", "cadastrada")} com seu CPF-MF sob o nº ${esc(X.cpf)}, com endereço referencial na ${esc(X.endereco)}, ${fechamento}`
+    );
+  };
+  if (!dual) {
+    partes.push(
+      qualificacao(T, estadoCivil, `doravante pura e simplesmente assim ${g("designado chamado", "designada chamada")} de <b>${LOCATARIO}</b>;`)
+    );
+  } else {
+    partes.push(qualificacao(T, estadoCivil, "e"));
+    partes.push(
+      qualificacao(
+        T2!,
+        estadoCivil2,
+        `doravante pura e simplesmente assim ${g("designados chamados", "designadas chamadas")}, em conjunto, de <b>${LOCATARIO}</b>, respondendo ambos por todas as obrigações deste contrato;`
+      )
+    );
+  }
 
   partes.push(clausula("OBJETO DA LOCAÇÃO"));
   partes.push(
@@ -289,12 +357,12 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   partes.push(clausula("GARANTIA LOCATÍCIA"));
   partes.push(
     p(
-      `Para a garantia dessa locação, ${oLocatario} entrega ao LOCADOR ${formaCaucao}, ficando esse depósito sob guarda e responsabilidade do LOCADOR para ser restituído ${aoLocatario} ao final da locação, devidamente corrigido pelo índice de correção da caderneta de poupança do período, nos termos da Lei 8.245/91.`
+      `Para a garantia dessa locação, ${oLocatario} ${vb("entrega", "entregam")} ao LOCADOR ${formaCaucao}, ficando esse depósito sob guarda e responsabilidade do LOCADOR para ser restituído ${aoLocatario} ao final da locação, devidamente corrigido pelo índice de correção da caderneta de poupança do período, nos termos da Lei 8.245/91.`
     )
   );
   partes.push(
     p(
-      `<b>§ 1º</b> - A presente garantia responderá por todo e qualquer prejuízo futuro se houver no imóvel locado, caso ${oLocatario} não cumpra com sua responsabilidade de acordo com as cláusulas e seus parágrafos deste instrumento.`
+      `<b>§ 1º</b> - A presente garantia responderá por todo e qualquer prejuízo futuro se houver no imóvel locado, caso ${oLocatario} ${vb("não cumpra", "não cumpram")} com sua responsabilidade de acordo com as cláusulas e seus parágrafos deste instrumento.`
     )
   );
   partes.push(
@@ -322,7 +390,7 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>§ 3º</b> - O pagamento em conta após a data do vencimento não exime o pagamento dos encargos, e até o pagamento destes valores, permanecerá ${oLocatario} ${g("inadimplente", "inadimplente")} até o período da total quitação dos débitos. Além do valor do aluguel é de responsabilidade ${doLocatario} a conta de luz, internet e outros, sendo que as contas de consumo deverão ser pagas nos seus respectivos vencimentos, devendo ser enviados os comprovantes de pagamento sempre que for solicitado pelo LOCADOR.`
+      `<b>§ 3º</b> - O pagamento em conta após a data do vencimento não exime o pagamento dos encargos, e até o pagamento destes valores, ${vb("permanecerá", "permanecerão")} ${oLocatario} ${g("inadimplente", "inadimplente")} até o período da total quitação dos débitos. Além do valor do aluguel é de responsabilidade ${doLocatario} a conta de luz, internet e outros, sendo que as contas de consumo deverão ser pagas nos seus respectivos vencimentos, devendo ser enviados os comprovantes de pagamento sempre que for solicitado pelo LOCADOR.`
     )
   );
   partes.push(
@@ -351,17 +419,17 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>§ 2º</b> - Os comprovantes de pagamento de taxas e demais encargos acima mencionados, que ${oLocatario} porventura pagar diretamente às concessionárias dos serviços públicos, deverão ser apresentados ao LOCADOR, sempre que este solicitar. No caso de inadimplência, se o LOCADOR for obrigado a efetuar tais pagamentos, o valor pago será cobrado ${doLocatario} com os acréscimos estabelecidos neste contrato.`
+      `<b>§ 2º</b> - Os comprovantes de pagamento de taxas e demais encargos acima mencionados, que ${oLocatario} porventura ${vb("pagar", "pagarem")} diretamente às concessionárias dos serviços públicos, deverão ser apresentados ao LOCADOR, sempre que este solicitar. No caso de inadimplência, se o LOCADOR for obrigado a efetuar tais pagamentos, o valor pago será cobrado ${doLocatario} com os acréscimos estabelecidos neste contrato.`
     )
   );
   partes.push(
     p(
-      `<b>§ 3º</b> - ${OLocatario} ${g("obriga-se", "obriga-se")}, se houver necessidade, a providenciar, às suas expensas, a religação dos serviços de luz diretamente à Enel e outros.`
+      `<b>§ 3º</b> - ${OLocatario} ${vb("obriga-se", "obrigam-se")}, se houver necessidade, a providenciar, às suas expensas, a religação dos serviços de luz diretamente à Enel e outros.`
     )
   );
   partes.push(
     p(
-      `<b>§ 4º</b> - É DE INTEIRA RESPONSABILIDADE E OBRIGAÇÃO ${g("DO LOCATÁRIO", "DA LOCATÁRIA")} A TRANSFERÊNCIA DE TITULARIDADE das contas de luz e outras, no prazo de 15 dias do início deste contrato. Caso não o faça, o LOCADOR poderá pedir às concessionárias o desligamento do fornecimento desses serviços.`
+      `<b>§ 4º</b> - É DE INTEIRA RESPONSABILIDADE E OBRIGAÇÃO ${doLocatario.toUpperCase()} A TRANSFERÊNCIA DE TITULARIDADE das contas de luz e outras, no prazo de 15 dias do início deste contrato. Caso não o faça, o LOCADOR poderá pedir às concessionárias o desligamento do fornecimento desses serviços.`
     )
   );
 
@@ -418,19 +486,19 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>§ Único</b> - O contrato de locação é configurado como título executivo para a SERASA e para o SPC - Serviço de Proteção ao Crédito, conforme consta em seu Regimento Interno, cláusula 9ª, § 2º. Dessa forma, esses órgãos permitem a inclusão dos inadimplentes dos contratos de locação nos cadastros do SCPC e da SERASA, e eventual mora ${doLocatario} será comunicada a essas entidades. E neste caso, ${oLocatario} renuncia a quaisquer direitos de obtenção de liminares no Poder Judiciário, visando impedir os lançamentos de seu nome como mau pagador nos aludidos serviços de proteção ao crédito.`
+      `<b>§ Único</b> - O contrato de locação é configurado como título executivo para a SERASA e para o SPC - Serviço de Proteção ao Crédito, conforme consta em seu Regimento Interno, cláusula 9ª, § 2º. Dessa forma, esses órgãos permitem a inclusão dos inadimplentes dos contratos de locação nos cadastros do SCPC e da SERASA, e eventual mora ${doLocatario} será comunicada a essas entidades. E neste caso, ${oLocatario} ${vb("renuncia", "renunciam")} a quaisquer direitos de obtenção de liminares no Poder Judiciário, visando impedir os lançamentos de ${seuNome} como mau pagador nos aludidos serviços de proteção ao crédito.`
     )
   );
 
   partes.push(clausula("MULTA POR INFRAÇÃO CONTRATUAL OU RESCISÃO ANTECIPADA"));
   partes.push(
     p(
-      `<b>§ 1º</b> - A parte que infringir este contrato incorrerá na multa correspondente a <b>três vezes</b> o valor do aluguel mensal, vigente à época da infração contratual, independentemente de qualquer aviso ou interpelação, inclusive na hipótese de ${oLocatario} não conservar o imóvel devidamente.`
+      `<b>§ 1º</b> - A parte que infringir este contrato incorrerá na multa correspondente a <b>três vezes</b> o valor do aluguel mensal, vigente à época da infração contratual, independentemente de qualquer aviso ou interpelação, inclusive na hipótese de ${oLocatario} ${vb("não conservar", "não conservarem")} o imóvel devidamente.`
     )
   );
   partes.push(
     p(
-      `<b>§ 2º</b> - No caso de ${oLocatario} vir a desocupar o imóvel antes do término do prazo contratual, mesmo que seja em decorrência de ação de despejo por falta de pagamento, ou qualquer outra infração contratual, deverá pagar a multa do parágrafo anterior, proporcionalmente ao tempo a vencer da locação, na forma dos termos do artigo 4º da Lei 8.245/91 complementada pela Lei 12.112/09 e artigo 413 do Código Civil.`
+      `<b>§ 2º</b> - No caso de ${oLocatario} ${vb("vir", "virem")} a desocupar o imóvel antes do término do prazo contratual, mesmo que seja em decorrência de ação de despejo por falta de pagamento, ou qualquer outra infração contratual, ${vb("deverá", "deverão")} pagar a multa do parágrafo anterior, proporcionalmente ao tempo a vencer da locação, na forma dos termos do artigo 4º da Lei 8.245/91 complementada pela Lei 12.112/09 e artigo 413 do Código Civil.`
     )
   );
   partes.push(
@@ -440,7 +508,7 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>§ 4º</b> - Considera-se também infração contratual passível de rescisão e sujeita às penalidades constantes deste contrato o desrespeito ou descumprimento do regulamento interno do condomínio, que desde já ${oLocatario} se obriga a tomar conhecimento de seu inteiro teor junto à Administração e se compromete a cumpri-lo.`
+      `<b>§ 4º</b> - Considera-se também infração contratual passível de rescisão e sujeita às penalidades constantes deste contrato o desrespeito ou descumprimento do regulamento interno do condomínio, que desde já ${oLocatario} ${vb("se obriga", "se obrigam")} a tomar conhecimento de seu inteiro teor junto à Administração e ${vb("se compromete", "se comprometem")} a cumpri-lo.`
     )
   );
   partes.push(
@@ -452,16 +520,16 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   partes.push(clausula("VISTORIA NO IMÓVEL – ENTRADA, ROTINA E SAÍDA"));
   partes.push(
     p(
-      `<b>ENTRADA:</b> As partes assinam, nesta data, laudo de vistoria do imóvel, que ficará fazendo parte integrante deste contrato. ${OLocatario} deverá se manifestar, por escrito, no prazo de <b>10 (dez) dias</b> contados do início deste contrato, sobre qualquer divergência em relação ao laudo de vistoria. Caso não o faça dentro desse prazo, será considerada a sua concordância, nos termos ali descritos, obrigando-se a devolver o imóvel EXATAMENTE no estado descrito no laudo.`
+      `<b>ENTRADA:</b> As partes assinam, nesta data, laudo de vistoria do imóvel, que ficará fazendo parte integrante deste contrato. ${OLocatario} ${vb("deverá", "deverão")} se manifestar, por escrito, no prazo de <b>10 (dez) dias</b> contados do início deste contrato, sobre qualquer divergência em relação ao laudo de vistoria. Caso não o faça dentro desse prazo, será considerada a sua concordância, nos termos ali descritos, obrigando-se a devolver o imóvel EXATAMENTE no estado descrito no laudo.`
     )
   );
   partes.push(
     p(
-      `<b>ROTINA</b>: ${OLocatario}, desde já, se responsabiliza durante a locação a fazer as manutenções necessárias de uso do imóvel, como ar-condicionado caso haja, fechaduras, hidráulica, elétrica, portões, entre outras, e faculta ao LOCADOR examinar ou vistoriar o imóvel, quando este entender conveniente, em data previamente agendada.`
+      `<b>ROTINA</b>: ${OLocatario}, desde já, ${vb("se responsabiliza", "se responsabilizam")} durante a locação a fazer as manutenções necessárias de uso do imóvel, como ar-condicionado caso haja, fechaduras, hidráulica, elétrica, portões, entre outras, e faculta ao LOCADOR examinar ou vistoriar o imóvel, quando este entender conveniente, em data previamente agendada.`
     )
   );
   partes.push(
-    p(`<b>SAÍDA</b>: ${OLocatario} deverá devolver o imóvel inteiramente desocupado, e de acordo como o recebeu;`)
+    p(`<b>SAÍDA</b>: ${OLocatario} ${vb("deverá", "deverão")} devolver o imóvel inteiramente desocupado, e de acordo como o recebeu;`)
   );
   partes.push(
     p(
@@ -475,7 +543,7 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>§ 3º</b> - A devolução do imóvel deverá ser formalizada por escrito, com o interesse em desocupar o imóvel, com antecedência de 30 dias e ser precedida de vistoria solicitada ${peloLocatario} com antecedência de no mínimo uma semana. Se forem constatados danos, ${oLocatario} deverá executar às suas expensas os reparos e reposições devidos, e agendar nova vistoria, ficando ${g("obrigado", "obrigada")} a pagar os aluguéis e encargos pro rata, até que o imóvel seja restituído de acordo com o parágrafo anterior.`
+      `<b>§ 3º</b> - A devolução do imóvel deverá ser formalizada por escrito, com o interesse em desocupar o imóvel, com antecedência de 30 dias e ser precedida de vistoria solicitada ${peloLocatario} com antecedência de no mínimo uma semana. Se forem constatados danos, ${oLocatario} ${vb("deverá", "deverão")} executar às suas expensas os reparos e reposições devidos, e agendar nova vistoria, ficando ${g("obrigado", "obrigada")} a pagar os aluguéis e encargos pro rata, até que o imóvel seja restituído de acordo com o parágrafo anterior.`
     )
   );
   partes.push(
@@ -490,17 +558,17 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>§ 6º</b> - Da mesma forma ocorrerá para eventuais BENFEITORIAS executadas ${peloLocatario} sem autorização do LOCADOR, por exemplo: substituição de torneiras ou registros, e outras que impossibilitem o imóvel de ser relocado; ${oLocatario} estará ${g("sujeito", "sujeita")} à COBRANÇA DAS DESPESAS pela REPOSIÇÃO DO IMÓVEL NO ESTADO ORIGINAL e DOS ALUGUÉIS E ENCARGOS até a finalização dessas obras.`
+      `<b>§ 6º</b> - Da mesma forma ocorrerá para eventuais BENFEITORIAS executadas ${peloLocatario} sem autorização do LOCADOR, por exemplo: substituição de torneiras ou registros, e outras que impossibilitem o imóvel de ser relocado; ${oLocatario} ${vb("estará", "estarão")} ${g("sujeito", "sujeita")} à COBRANÇA DAS DESPESAS pela REPOSIÇÃO DO IMÓVEL NO ESTADO ORIGINAL e DOS ALUGUÉIS E ENCARGOS até a finalização dessas obras.`
     )
   );
   partes.push(
     p(
-      `<b>§ 7º</b> - ${OLocatario} se responsabiliza pela <b>exclusão de seu nome</b> da titularidade nas contas de luz e outras desta natureza, o que deverá fazer após a vistoria de saída e o aceite do imóvel pelo LOCADOR. Em caso de não o fazer, ${oLocatario} estará de acordo e ${g("ciente", "ciente")} de que o LOCADOR <b>não se responsabilizará por eventuais problemas</b> que isso venha a acarretar, como por exemplo, a inserção de seu nome no Serasa, por inadimplência futura à data da rescisão da locação.`
+      `<b>§ 7º</b> - ${OLocatario} ${vb("se responsabiliza", "se responsabilizam")} pela <b>exclusão de ${seuNome}</b> da titularidade nas contas de luz e outras desta natureza, o que ${vb("deverá", "deverão")} fazer após a vistoria de saída e o aceite do imóvel pelo LOCADOR. Em caso de não o fazer, ${oLocatario} ${vb("estará", "estarão")} de acordo e ${g("ciente", "ciente")} de que o LOCADOR <b>não se responsabilizará por eventuais problemas</b> que isso venha a acarretar, como por exemplo, a inserção de ${seuNome} no Serasa, por inadimplência futura à data da rescisão da locação.`
     )
   );
   partes.push(
     p(
-      `<b>§ 8º</b> - No caso de abandono do imóvel, fica facultado ao LOCADOR imitir-se imediatamente na posse do imóvel, independente de determinação judicial, sem qualquer responsabilidade por objetos deixados no local, não desonerando ${oLocatario} dos pagamentos dos aluguéis e demais encargos da locação em atraso; fica ainda ${g("ciente", "ciente")} que tal cobrança, comprovada com o termo de vistoria devidamente assinado por 2 testemunhas à sua revelia pelo abandono, com o total dos valores devidamente orçado e somado aos aluguéis, será emitida em boleto bancário de cobrança e enviada a todos os canais (WhatsApp e e-mail) ${g("a ele", "a ela")} e às pessoas descritas em seu cadastro de avaliação.`
+      `<b>§ 8º</b> - No caso de abandono do imóvel, fica facultado ao LOCADOR imitir-se imediatamente na posse do imóvel, independente de determinação judicial, sem qualquer responsabilidade por objetos deixados no local, não desonerando ${oLocatario} dos pagamentos dos aluguéis e demais encargos da locação em atraso; ${vb("fica","ficam")} ainda ${g("ciente", "ciente")} que tal cobrança, comprovada com o termo de vistoria devidamente assinado por 2 testemunhas à sua revelia pelo abandono, com o total dos valores devidamente orçado e somado aos aluguéis, será emitida em boleto bancário de cobrança e enviada a todos os canais (WhatsApp e e-mail) ${g("a ele", "a ela")} e às pessoas descritas em seu cadastro de avaliação.`
     )
   );
 
@@ -512,7 +580,7 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>§ 1º</b> - ${OLocatario} compromete-se a manter o imóvel em bom estado de conservação, higiene e limpeza; e a zelar pelo bom funcionamento de portões, instalações elétricas, hidráulicas, sanitárias, e outras que existirem, e pelo imóvel no seu todo, devendo também providenciar periodicamente a manutenção dos aparelhos de ar-condicionado e portões, se houver.`
+      `<b>§ 1º</b> - ${OLocatario} ${vb("compromete-se", "comprometem-se")} a manter o imóvel em bom estado de conservação, higiene e limpeza; e a zelar pelo bom funcionamento de portões, instalações elétricas, hidráulicas, sanitárias, e outras que existirem, e pelo imóvel no seu todo, devendo também providenciar periodicamente a manutenção dos aparelhos de ar-condicionado e portões, se houver.`
     )
   );
   partes.push(
@@ -527,7 +595,7 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>§ 4º</b> - Caso seja detectado algum problema no imóvel, relativo <b>à estrutura e segurança</b>, não causado pelo uso do mesmo, que seja de responsabilidade do LOCADOR, ${oLocatario} deverá comunicar o fato imediatamente, por escrito, juntamente com um orçamento, detalhando o problema, as causas, o valor estimado de mão de obra e material. A falta de comunicação do problema sujeitará ${oLocatario} a ser ${g("responsabilizado", "responsabilizada")} por eventuais consequências danosas ao imóvel ou a terceiros. ${OLocatario} em nenhuma hipótese poderá, sem prévia autorização do LOCADOR, mandar executar o serviço e exigir o reembolso do conserto, sob pena de arcar ${g("sozinho", "sozinha")} com os reparos.`
+      `<b>§ 4º</b> - Caso seja detectado algum problema no imóvel, relativo <b>à estrutura e segurança</b>, não causado pelo uso do mesmo, que seja de responsabilidade do LOCADOR, ${oLocatario} ${vb("deverá", "deverão")} comunicar o fato imediatamente, por escrito, juntamente com um orçamento, detalhando o problema, as causas, o valor estimado de mão de obra e material. A falta de comunicação do problema sujeitará ${oLocatario} a ser ${g("responsabilizado", "responsabilizada")} por eventuais consequências danosas ao imóvel ou a terceiros. ${OLocatario} em nenhuma hipótese ${vb("poderá", "poderão")}, sem prévia autorização do LOCADOR, mandar executar o serviço e exigir o reembolso do conserto, sob pena de arcar ${g("sozinho", "sozinha")} com os reparos.`
     )
   );
   partes.push(
@@ -537,12 +605,12 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>§ 1º</b> - Poderá o LOCADOR, finda a locação, exigir que as benfeitorias ou modificações introduzidas sem o seu consentimento sejam retiradas às custas ${doLocatario}, ${g("o qual", "a qual")} fica ${g("obrigado", "obrigada")} a pagar os aluguéis devidos, até que o imóvel seja restituído sem as mesmas, tal como lhe foi entregue pelo LOCADOR.`
+      `<b>§ 1º</b> - Poderá o LOCADOR, finda a locação, exigir que as benfeitorias ou modificações introduzidas sem o seu consentimento sejam retiradas às custas ${doLocatario}, ${g("o qual", "a qual")} ${vb("fica","ficam")} ${g("obrigado", "obrigada")} a pagar os aluguéis devidos, até que o imóvel seja restituído sem as mesmas, tal como lhe foi entregue pelo LOCADOR.`
     )
   );
   partes.push(
     p(
-      `<b>§ 2º</b> - ${OLocatario} fica ${g("obrigado", "obrigada")}, no curso da locação, a satisfazer todas as intimações dos poderes públicos a que der causa. Essas intimações não motivarão a rescisão do presente contrato.`
+      `<b>§ 2º</b> - ${OLocatario} ${vb("fica", "ficam")} ${g("obrigado", "obrigada")}, no curso da locação, a satisfazer todas as intimações dos poderes públicos a que der causa. Essas intimações não motivarão a rescisão do presente contrato.`
     )
   );
 
@@ -571,7 +639,7 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>Venda</b>: No caso de o imóvel locado ser posto à venda, o LOCADOR deve dar preferência para compra do imóvel ${aoLocatario}, em cumprimento ao previsto no Art. 27 da Lei 8.245/91. ${OLocatario} permitirá visitas, previamente agendadas, dos interessados na compra, acompanhados sempre do LOCADOR ou do seu representante, caso não venha a adquirir o imóvel.`
+      `<b>Venda</b>: No caso de o imóvel locado ser posto à venda, o LOCADOR deve dar preferência para compra do imóvel ${aoLocatario}, em cumprimento ao previsto no Art. 27 da Lei 8.245/91. ${OLocatario} ${vb("permitirá", "permitirão")} visitas, previamente agendadas, dos interessados na compra, acompanhados sempre do LOCADOR ou do seu representante, caso não venha a adquirir o imóvel.`
     )
   );
   partes.push(
@@ -581,14 +649,14 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>Incêndio</b>: Em caso de incêndio, ou de acidentes, que obriguem a reconstrução do imóvel, o LOCADOR aceitará a rescisão do contrato bem como as chaves do imóvel, desde que ${oLocatario} esteja com a apólice do seguro incêndio em vigor. Caso não esteja em vigor, ${oLocatario} declara expressamente que se responsabiliza pela reconstrução do imóvel, arcando com o pagamento do aluguel e encargos até a efetiva entrega do imóvel em perfeitas condições, como o recebera, em conformidade com a lei.`
+      `<b>Incêndio</b>: Em caso de incêndio, ou de acidentes, que obriguem a reconstrução do imóvel, o LOCADOR aceitará a rescisão do contrato bem como as chaves do imóvel, desde que ${oLocatario} ${vb("esteja", "estejam")} com a apólice do seguro incêndio em vigor. Caso não esteja em vigor, ${oLocatario} ${vb("declara", "declaram")} expressamente que ${vb("se responsabiliza", "se responsabilizam")} pela reconstrução do imóvel, arcando com o pagamento do aluguel e encargos até a efetiva entrega do imóvel em perfeitas condições, como o recebera, em conformidade com a lei.`
     )
   );
 
-  partes.push(clausula(`DA RESPONSABILIDADE SOLIDÁRIA ${g("DO LOCATÁRIO", "DA LOCATÁRIA")}`));
+  partes.push(clausula(`DA RESPONSABILIDADE SOLIDÁRIA ${doLocatario.toUpperCase()}`));
   partes.push(
     p(
-      `${OLocatario} ${g("declara-se", "declara-se")} ${g("responsável", "responsável")} por todas as obrigações decorrentes deste contrato de locação, nos termos dos artigos 2º e 265 do Código Civil e do artigo 2º da Lei nº 8.245/91, respondendo pela integralidade das obrigações assumidas, independentemente de quem esteja ocupando o imóvel ou realizando os pagamentos, inclusive pelos atos das pessoas que com ${g("ele", "ela")} residirem no imóvel. A presente responsabilidade permanecerá vigente durante todo o período da locação e eventuais prorrogações, até a efetiva quitação de todas as obrigações decorrentes deste contrato.`
+      `${OLocatario} ${vb("declara-se", "declaram-se")} ${g("responsável", "responsável")} por todas as obrigações decorrentes deste contrato de locação, nos termos dos artigos 2º e 265 do Código Civil e do artigo 2º da Lei nº 8.245/91, respondendo pela integralidade das obrigações assumidas, independentemente de quem esteja ocupando o imóvel ou realizando os pagamentos, inclusive pelos atos das pessoas que com ${g("ele", "ela")} residirem no imóvel. A presente responsabilidade permanecerá vigente durante todo o período da locação e eventuais prorrogações, até a efetiva quitação de todas as obrigações decorrentes deste contrato.`
     )
   );
 
@@ -600,7 +668,7 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
   partes.push(
     p(
-      `<b>§ 1º</b> - ${OLocatario} responde civil e criminalmente pela legitimidade das assinaturas e da documentação apresentada. Havendo constatação de qualquer irregularidade ou inveracidade, o contrato poderá ser rescindido pelo LOCADOR.`
+      `<b>§ 1º</b> - ${OLocatario} ${vb("responde", "respondem")} civil e criminalmente pela legitimidade das assinaturas e da documentação apresentada. Havendo constatação de qualquer irregularidade ou inveracidade, o contrato poderá ser rescindido pelo LOCADOR.`
     )
   );
   partes.push(
@@ -610,11 +678,24 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
   );
 
   partes.push(`<p class="data-assinatura">${esc(L.cidade)}, ${dataPorExtenso(d.dataAssinatura)}.</p>`);
-  partes.push(`<div class="assinaturas">
-<div class="assinatura">${L.assinaturaUrl ? `<img src="${esc(L.assinaturaUrl)}" alt="Assinatura do locador" crossorigin="anonymous" style="max-height:105px;max-width:100%;display:block;margin:0 auto 2px;" />` : ""}<div class="linha"></div><b>LOCADOR: ${esc(L.nome)}</b></div>
+  const assinaturaLocador = `<div class="assinatura">${L.assinaturaUrl ? `<img src="${esc(L.assinaturaUrl)}" alt="Assinatura do locador" crossorigin="anonymous" style="max-height:105px;max-width:100%;display:block;margin:0 auto 2px;" />` : ""}<div class="linha"></div><b>LOCADOR: ${esc(L.nome)}</b></div>`;
+  if (!dual) {
+    partes.push(`<div class="assinaturas">
+${assinaturaLocador}
 <div class="assinatura"><div class="linha"></div><b>${LOCATARIO}: ${esc(T.nome)}</b></div>
+</div>`);
+  } else {
+    // 2 inquilinos: o locador numa linha e os dois locatários juntos na linha de baixo.
+    partes.push(`<div class="assinaturas">
+${assinaturaLocador}
+<div class="assinatura"></div>
 </div>
-<div class="testemunhas"><p><b>TESTEMUNHAS:</b></p>
+<div class="assinaturas">
+<div class="assinatura"><div class="linha"></div><b>${T.sexo === "F" ? "LOCATÁRIA" : "LOCATÁRIO"}: ${esc(T.nome)}</b></div>
+<div class="assinatura"><div class="linha"></div><b>${T2!.sexo === "F" ? "LOCATÁRIA" : "LOCATÁRIO"}: ${esc(T2!.nome)}</b></div>
+</div>`);
+  }
+  partes.push(`<div class="testemunhas"><p><b>TESTEMUNHAS:</b></p>
 <div class="assinaturas">
 <div class="assinatura"><div class="linha"></div>1) Nome / CPF</div>
 <div class="assinatura"><div class="linha"></div>2) Nome / CPF</div>
