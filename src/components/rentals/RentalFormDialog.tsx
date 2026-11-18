@@ -20,7 +20,7 @@ import {
 import type { Property, Tenant, Location, Rental } from "@/types";
 import { AttachmentViewer } from "@/components/AttachmentViewer";
 import { AttachmentUploadButton } from "@/components/attachments/AttachmentUploadButton";
-import { RentalContract } from "@/components/RentalContract";
+import { ContratoLocacaoDialog } from "@/components/rentals/ContratoLocacaoDialog";
 import { DepositPaymentDialog } from "@/components/rentals/DepositPaymentDialog";
 import { useRentalForm } from "@/hooks/useRentalForm";
 import { supabase } from "@/integrations/supabase/client";
@@ -317,6 +317,15 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       return;
     }
 
+    if (!landlordUserId) {
+      showAlert({
+        title: "Erro",
+        description: "Escolha quem é o locador. Se a lista estiver vazia, marque \"Também é locador\" no cadastro do usuário (Configurações → Usuários).",
+        type: "error",
+      });
+      return;
+    }
+
     const propertySelected = propertiesToDisplay.find((p) => p.id === selectedPropertyId);
     const selectedTenant = tenantsToDisplay.find((t) => t.id === selectedTenantId);
 
@@ -531,7 +540,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     depositInstallment2, depositInstallment3, depositAmount, endDate,
     hasPartnerBroker, attachments, depositPaymentDate, depositPixCode,
     depositInstallment2PaymentDate, depositInstallment3PaymentDate,
-    rental, isViewMode, locations, showAlert, onOpenChange, onSuccess, resetForm
+    rental, isViewMode, locations, landlordUserId, showAlert, onOpenChange, onSuccess, resetForm
   ]);
 
   const handleCloseDialog = useCallback(() => {
@@ -715,32 +724,6 @@ export const RentalFormDialog = memo(function RentalFormDialog({
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="rental-landlord">Quem é o locador?</Label>
-              <Select
-                value={landlordUserId}
-                onValueChange={setLandlordUserId}
-                disabled={isFieldDisabled}
-              >
-                <SelectTrigger id="rental-landlord">
-                  <SelectValue
-                    placeholder={
-                      locadores.length === 0
-                        ? "Nenhum locador cadastrado (Configurações → Usuários → Também é locador)"
-                        : "Selecione o locador"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {locadores.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           {/* Dados do Contrato */}
@@ -790,8 +773,8 @@ export const RentalFormDialog = memo(function RentalFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="flex items-center space-x-2 md:col-span-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="rental-has-garage"
                 checked={hasGarage}
@@ -804,18 +787,37 @@ export const RentalFormDialog = memo(function RentalFormDialog({
               <Label htmlFor="rental-has-garage" className="cursor-pointer text-sm whitespace-nowrap">
                 Vaga Garagem?
               </Label>
-            </div>
-            {hasGarage && (
-              <div className="space-y-2 md:col-span-3">
+              {hasGarage && (
                 <Input
                   id="rental-garage-value"
                   value={garageValue}
                   onChange={(e) => setGarageValue(applyMoneyMask(e.target.value))}
                   placeholder="R$ 0,00"
                   disabled={isFieldDisabled}
+                  className="h-9 w-28"
                 />
-              </div>
-            )}
+              )}
+            </div>
+
+            <div className="ml-auto flex items-center gap-2">
+              <Label htmlFor="rental-landlord" className="text-sm whitespace-nowrap">
+                Quem é o Locador? *
+              </Label>
+              <Select value={landlordUserId} onValueChange={setLandlordUserId} disabled={isFieldDisabled}>
+                <SelectTrigger id="rental-landlord" className="w-56">
+                  <SelectValue
+                    placeholder={locadores.length === 0 ? "Nenhum locador cadastrado" : "Selecione"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {locadores.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-4 p-4 border rounded-md bg-muted/20">
@@ -1249,11 +1251,8 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       )}
 
       {showContract && createdRentalData && (
-        <RentalContract
-          rental={createdRentalData.rental}
-          property={createdRentalData.property}
-          tenant={createdRentalData.tenant}
-          location={createdRentalData.location}
+        <ContratoLocacaoDialog
+          rentalId={createdRentalData.rental.id}
           onClose={() => {
             // ✅ CORREÇÃO: fechar o Contrato e o formulário de Locação no mesmo
             // instante confundia o Radix (2 Dialogs fechando juntos), deixando a

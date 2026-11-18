@@ -121,6 +121,7 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
         const r = gerarContratoResidencial({
           locador: {
             nome: locador?.name,
+            assinaturaUrl: locador?.signature_url,
             cpf: locador?.cpf,
             rg: locador?.rg,
             endereco: locador?.landlord_address,
@@ -194,7 +195,7 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
       margin: [15, 15, 15, 15],
       filename: nomeArquivo,
       image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2 },
+      html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       pagebreak: { mode: ["css", "legacy"] },
     };

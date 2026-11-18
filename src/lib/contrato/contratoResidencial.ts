@@ -27,6 +27,7 @@ import { dataCurta, dataPorExtenso, inteiroPorExtenso, mesesEntre, reaisPorExten
 
 export interface DadosLocador {
   nome?: string | null;
+  assinaturaUrl?: string | null; // imagem da assinatura (cadastro do usuário)
   cpf?: string | null;
   rg?: string | null;
   endereco?: string | null;
@@ -610,7 +611,7 @@ export function gerarContratoResidencial(d: DadosContrato): ResultadoContrato {
 
   partes.push(`<p class="data-assinatura">${esc(L.cidade)}, ${dataPorExtenso(d.dataAssinatura)}.</p>`);
   partes.push(`<div class="assinaturas">
-<div class="assinatura"><div class="linha"></div><b>LOCADOR: ${esc(L.nome)}</b></div>
+<div class="assinatura">${L.assinaturaUrl ? `<img src="${esc(L.assinaturaUrl)}" alt="Assinatura do locador" crossorigin="anonymous" style="max-height:70px;max-width:100%;display:block;margin:0 auto 2px;" />` : ""}<div class="linha"></div><b>LOCADOR: ${esc(L.nome)}</b></div>
 <div class="assinatura"><div class="linha"></div><b>${LOCATARIO}: ${esc(T.nome)}</b></div>
 </div>
 <div class="testemunhas"><p><b>TESTEMUNHAS:</b></p>
