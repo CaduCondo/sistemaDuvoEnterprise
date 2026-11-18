@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Paperclip, X } from "lucide-react";
 import { SystemUser } from "@/types";
 import {
   Dialog,
@@ -117,6 +118,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
     ...LOCADOR_VAZIO,
   });
   const [enviandoAssinatura, setEnviandoAssinatura] = useState(false);
+  const arquivoAssinatura = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
@@ -460,51 +462,68 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                     <p className="text-xs text-muted-foreground">
                       É a assinatura que sai no contrato e nos recibos que esta pessoa emitir. Use uma imagem PNG ou JPG com fundo branco ou transparente.
                     </p>
-                    {formData.signature_url && (
-                      <div className="flex items-center gap-3">
+                    {formData.signature_url ? (
+                      <div className="group relative inline-block">
                         <img
                           id="signature-preview"
                           src={formData.signature_url}
                           alt="Assinatura"
-                          className="h-16 w-auto border rounded bg-white p-1"
+                          className="h-24 w-auto rounded-lg border bg-white p-1"
+                        />
+                        {!isSubmitting && !enviandoAssinatura && (
+                          <Button
+                            id="signature-remove"
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            aria-label="Remover assinatura"
+                            onClick={() => setFormData({ ...formData, signature_url: "" })}
+                            className="absolute right-1 top-1 h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          id="signature-file"
+                          ref={arquivoAssinatura}
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const arquivo = e.target.files?.[0];
+                            e.target.value = "";
+                            if (!arquivo) return;
+                            setEnviandoAssinatura(true);
+                            try {
+                              const url = await uploadAttachment(arquivo, "user-signatures");
+                              setFormData((f) => ({ ...f, signature_url: url }));
+                            } catch (err: any) {
+                              toast({
+                                title: "Erro",
+                                description: err?.message || "Não foi possível enviar a assinatura.",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setEnviandoAssinatura(false);
+                            }
+                          }}
                         />
                         <Button
-                          id="signature-remove"
+                          id="signature-escolher"
                           type="button"
                           variant="outline"
-                          size="sm"
                           disabled={isSubmitting || enviandoAssinatura}
-                          onClick={() => setFormData({ ...formData, signature_url: "" })}
+                          onClick={() => arquivoAssinatura.current?.click()}
+                          className="h-11 w-full"
                         >
-                          Remover
+                          <Paperclip className="mr-2 h-4 w-4" />
+                          Escolher Arquivo
                         </Button>
-                      </div>
+                      </>
                     )}
-                    <Input
-                      id="signature-file"
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      disabled={isSubmitting || enviandoAssinatura}
-                      className="h-11"
-                      onChange={async (e) => {
-                        const arquivo = e.target.files?.[0];
-                        e.target.value = "";
-                        if (!arquivo) return;
-                        setEnviandoAssinatura(true);
-                        try {
-                          const url = await uploadAttachment(arquivo, "user-signatures");
-                          setFormData((f) => ({ ...f, signature_url: url }));
-                        } catch (err: any) {
-                          toast({
-                            title: "Erro",
-                            description: err?.message || "Não foi possível enviar a assinatura.",
-                            variant: "destructive",
-                          });
-                        } finally {
-                          setEnviandoAssinatura(false);
-                        }
-                      }}
-                    />
                     {enviandoAssinatura && <p className="text-xs text-muted-foreground">Enviando...</p>}
                   </div>
                 </div>
