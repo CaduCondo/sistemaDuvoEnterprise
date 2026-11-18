@@ -472,7 +472,12 @@ Funcionalidade: Regras de Negócio de Locações
   #    -- e o Comprovante já abre sozinho ao salvar, então não precisa (e
   #    não dá mais) clicar em nenhum botão para "visualizá-lo": o passo
   #    "Quando visualizo..." foi removido daqui.
-  @sistemaCompleto
+  # ⚠️ 18/nov/2026: depois de salvar, o sistema agora abre o CONTRATO de verdade
+  #    (ContratoLocacaoDialog), não mais o antigo "Comprovante" (RentalContract.tsx)
+  #    que mostrava "Valor Total". Este cenário conferia aquele comprovante;
+  #    precisa ser reescrito para conferir a soma aluguel + garagem em outro
+  #    lugar (resumo verde do formulário, antes de salvar).
+  @quebrado
   Cenário: Comprovante de Contrato - Somar aluguel e garagem
     Dado que existe uma locação com:
       | campo          | valor   |

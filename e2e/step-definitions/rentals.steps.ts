@@ -1062,7 +1062,7 @@ Then('a locação não deve ter nenhuma parcela de caução', async function (th
 });
 
 Then('a locação deve ser criada com sucesso', async function (this: import('../support/world').CustomWorld) {
-  const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
+  const comprovante = this.page.locator('#contrato-locacao-dialog');
   await expect(comprovante, 'a locação não foi criada -- o Comprovante de Contrato não abriu').toBeVisible({ timeout: 15000 });
   await comprovante.getByRole('button', { name: /fechar/i }).click();
 
