@@ -1092,6 +1092,8 @@ Passo a passo para quem usa o sistema:
 5. **Se estiver tudo certo:** a locação é criada e o **contrato** abre na tela, já preenchido e com a assinatura do locador.
 6. O PDF é guardado sozinho nos anexos da locação; **Baixar PDF** é só para salvar uma cópia no computador. O arquivo contém só o contrato (nome: "Contrato - Nome do Inquilino").
 
+Observações (18/nov/2026): o locador só é obrigatório ao **criar** a locação; locações antigas, sem locador, continuam podendo ser editadas. O **valor da caução** e a **data de término** também entram no contrato, então sem eles a locação não é criada (a regra antiga, de caução opcional, não vale mais).
+
 Assinatura: cada usuário locador anexa a imagem da sua assinatura no próprio cadastro (**Escolher Arquivo**; para tirar, passe o mouse na miniatura e clique no X vermelho). Contrato e recibos usam a assinatura do primeiro locador ativo que tiver uma anexada.
 
 Lista de usuários: a coluna **Locador?** mostra V verde (é locador) ou X vermelho (não é).
