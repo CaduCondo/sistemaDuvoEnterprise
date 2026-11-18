@@ -1,3 +1,4 @@
+import { garantirLocadorEscolhido } from '../helpers/locacao.helper';
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import DatabaseHelper from '../helpers/database.helper';
@@ -158,6 +159,7 @@ Given('que crio uma locação com:', { timeout: 60 * 1000 }, async function(data
   // primeiro (botão "Fechar"), só depois aparece o aviso "Locação criada
   // com sucesso." (OK). Sem isso os passos seguintes esbarravam num diálogo
   // ainda aberto por cima da tela.
+  await garantirLocadorEscolhido(this.page);
   await this.page.locator('#rental-form-submit').click();
 
   /**
@@ -332,6 +334,7 @@ Given('que existe uma locação com:', async function(this: import('../support/w
   // integral", 7-locacoes-regras.feature).
   await this.page.locator('#rental-deposit-date').fill('2026-01-01');
 
+  await garantirLocadorEscolhido(this.page);
   await this.page.locator('#rental-form-submit').click();
 
   const comprovante = this.page.locator('#contrato-locacao-dialog');

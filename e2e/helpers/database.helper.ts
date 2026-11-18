@@ -334,6 +334,7 @@ export class DatabaseHelper {
 
   static async createLocation(overrides: Partial<{
     name: string; city: string; state: string; neighborhood: string;
+    street: string; number: string; zip_code: string;
   }> = {}) {
     const suffix = Date.now().toString().slice(-6);
     const { data, error } = await supabaseAdmin
@@ -343,6 +344,11 @@ export class DatabaseHelper {
         city: overrides.city || 'São Paulo',
         state: overrides.state || 'SP',
         neighborhood: overrides.neighborhood || 'Centro',
+        // Endereço completo: o contrato de locação exige (sem isso a locação
+        // nova pela tela não é criada).
+        street: overrides.street || 'Rua dos Testes',
+        number: overrides.number || '100',
+        zip_code: overrides.zip_code || '01000-000',
         is_active: true,
       })
       .select()
@@ -550,15 +556,40 @@ export class DatabaseHelper {
   static async createTenant(overrides: Partial<{
     name: string; document: string; document_type: string; cpf: string;
     phone: string; email: string; status: string;
+    /**
+     * Por padrão o inquilino de teste já vem com TODOS os dados que o
+     * contrato de locação exige (sexo, estado civil, profissão, RG, endereço).
+     * `semDadosDoContrato: true` cria sem eles -- para os testes que querem
+     * ver o sistema recusar/avisar o que falta.
+     */
+    semDadosDoContrato: boolean;
+    gender: string; marital_status: string; occupation: string; rg: string;
+    street: string; number: string; neighborhood: string; city: string; state: string; zip_code: string;
   }> = {}) {
     const suffix = Date.now().toString().slice(-6);
+    const comDados = !overrides.semDadosDoContrato;
+    const dadosDoContrato = comDados
+      ? {
+          gender: overrides.gender ?? 'M',
+          marital_status: overrides.marital_status ?? 'solteiro',
+          occupation: overrides.occupation ?? 'Analista de Testes',
+          rg: overrides.rg ?? '12.345.678-9',
+          street: overrides.street ?? 'Rua dos Inquilinos',
+          number: overrides.number ?? '200',
+          neighborhood: overrides.neighborhood ?? 'Centro',
+          city: overrides.city ?? 'São Paulo',
+          state: overrides.state ?? 'SP',
+          zip_code: overrides.zip_code ?? '01001-000',
+        }
+      : {};
     const { data, error } = await supabaseAdmin
       .from('tenants')
       .insert({
         name: comMarcaDeTeste(overrides.name || `Inquilino Teste ${suffix}`),
         document: overrides.document || `${suffix}00000`,
         document_type: overrides.document_type || 'cpf',
-        cpf: overrides.cpf,
+        cpf: overrides.cpf ?? (comDados ? `${suffix.slice(0, 3)}.${suffix.slice(3, 6)}.000-00` : undefined),
+        ...dadosDoContrato,
         phone: overrides.phone || '11999990000',
         email: overrides.email || `inquilino${suffix}@teste.com`,
         status: overrides.status || 'active',
