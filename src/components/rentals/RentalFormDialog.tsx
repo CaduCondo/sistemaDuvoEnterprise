@@ -20,6 +20,7 @@ import {
 import type { Property, Tenant, Location, Rental } from "@/types";
 import { AttachmentViewer } from "@/components/AttachmentViewer";
 import { AttachmentUploadButton } from "@/components/attachments/AttachmentUploadButton";
+import { montarContrato } from "@/lib/contrato/montarContrato";
 import { ContratoLocacaoDialog } from "@/components/rentals/ContratoLocacaoDialog";
 import { DepositPaymentDialog } from "@/components/rentals/DepositPaymentDialog";
 import { useRentalForm } from "@/hooks/useRentalForm";
@@ -432,6 +433,34 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       console.log("📦 Dados completos sendo enviados:", commonData);
 
       if (!rental) {
+        // Só cria a locação se TODOS os dados que vão no contrato estiverem
+        // preenchidos (inquilino, locador, imóvel...). Se faltar algo, avisa
+        // o que é e a locação NÃO é criada (regra do Cadu, 18/nov/2026).
+        const { resultado: previa } = await montarContrato(supabase as any, {
+          tenantId,
+          propertyId,
+          landlordUserId,
+          temGaragem: hasGarage,
+          locacao: {
+            inicio: startDate,
+            termino: endDate || null,
+            aluguel: baseRent,
+            garagem: garageAmount,
+            diaVencimento: parseInt(paymentDay),
+            caucao: commonData.depositAmount,
+            parcelasCaucao: depositInstallmentsTotal,
+          },
+        });
+        if (previa.faltando.length > 0) {
+          showAlert({
+            title: "Locação NÃO criada: faltam dados do contrato",
+            description:
+              "Preencha o que falta e tente de novo:\n" + previa.faltando.map((f) => `• ${f}`).join("\n"),
+            type: "error",
+          });
+          return;
+        }
+
         const createdRental = await createRental(commonData);
         
         await updateProperty(propertyId, { status: "occupied" });

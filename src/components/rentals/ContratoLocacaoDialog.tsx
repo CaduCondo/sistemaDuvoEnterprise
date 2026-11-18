@@ -5,7 +5,6 @@
 //   - se faltar algum dado, mostra a lista do que falta, em português simples;
 //   - se estiver completo, mostra o contrato, deixa baixar em PDF e guardar
 //     o PDF nos Anexos da locação (Supabase Storage, categoria "Contrato").
-import { COLUNAS_USUARIO } from "@/lib/usuariosColunas";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -13,11 +12,8 @@ import { FileText, Download, Save, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAttachment } from "@/lib/uploadAttachment";
 import { useAlert } from "@/contexts/AlertContext";
-import {
-  gerarContratoResidencial,
-  type ClausulaLocal,
-  type ResultadoContrato,
-} from "@/lib/contrato/contratoResidencial";
+import type { ResultadoContrato } from "@/lib/contrato/contratoResidencial";
+import { montarContrato } from "@/lib/contrato/montarContrato";
 
 const db = supabase as any;
 
@@ -26,24 +22,6 @@ interface Props {
   onClose: () => void;
   /** Chamado depois de guardar o PDF nos anexos (para a tela recarregar). */
   onSaved?: () => void;
-}
-
-function juntar(partes: (string | null | undefined)[], sep = ", "): string {
-  return partes.map((p) => (p ?? "").toString().trim()).filter(Boolean).join(sep);
-}
-
-function enderecoCompleto(o: {
-  rua?: string | null;
-  numero?: string | null;
-  complemento?: string | null;
-  bairro?: string | null;
-  cidade?: string | null;
-  uf?: string | null;
-  cep?: string | null;
-}): string {
-  const ruaNumero = juntar([o.rua, o.numero], ", ");
-  const cidadeUf = juntar([o.cidade, o.uf], "/");
-  return juntar([ruaNumero, o.complemento, o.bairro, cidadeUf, o.cep ? `CEP ${o.cep}` : ""]);
 }
 
 const ESTILO = `
@@ -75,12 +53,7 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
         const { data: loc, error: e1 } = await db.from("rentals").select("*").eq("id", rentalId).single();
         if (e1 || !loc) throw new Error("Não consegui abrir a locação.");
 
-        const [imovelR, inquilinoR, locadorR, pagamentoR, caucaoR] = await Promise.all([
-          db.from("properties").select("*, locations(*)").eq("id", loc.property_id).single(),
-          db.from("tenants").select("*").eq("id", loc.tenant_id).single(),
-          loc.landlord_user_id
-            ? db.from("system_users").select(COLUNAS_USUARIO).eq("id", loc.landlord_user_id).single()
-            : Promise.resolve({ data: null }),
+        const [pagamentoR, caucaoR] = await Promise.all([
           db
             .from("payments")
             .select("due_date")
@@ -90,76 +63,13 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
             .limit(1),
           db.from("deposit_installments").select("id").eq("rental_id", rentalId),
         ]);
-
-        const imovel = imovelR.data;
-        const inquilino = inquilinoR.data;
-        const locador = locadorR.data;
-        if (!imovel || !inquilino) throw new Error("Não consegui abrir o imóvel ou o inquilino da locação.");
-        const local = imovel.locations || {};
-
-        // Local "Outros" é um coringa: o endereço está no próprio imóvel.
-        const usaManual = String(local.name || "").toLowerCase() === "outros" && !!imovel.manual_street;
-        const enderecoImovel = enderecoCompleto({
-          rua: usaManual ? imovel.manual_street : local.street,
-          numero: usaManual ? imovel.manual_number : local.number,
-          complemento: imovel.complement,
-          bairro: usaManual ? imovel.manual_neighborhood : local.neighborhood,
-          cidade: usaManual ? imovel.manual_city : local.city,
-          uf: usaManual ? imovel.manual_state : local.state,
-          cep: usaManual ? imovel.manual_zip_code : local.zip_code,
-        });
-        const cidadeUf = juntar(
-          [usaManual ? imovel.manual_city : local.city, usaManual ? imovel.manual_state : local.state],
-          "/"
-        );
-
-        const clausulas: ClausulaLocal[] = Array.isArray(local.contract_clauses) ? local.contract_clauses : [];
         const parcelasCaucao = (caucaoR.data || []).length || Number(loc.deposit_installments || 1) || 1;
-        const hoje = new Date();
-        const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
 
-        const r = gerarContratoResidencial({
-          locador: {
-            nome: locador?.name,
-            assinaturaUrl: locador?.signature_url,
-            cpf: locador?.cpf,
-            rg: locador?.rg,
-            endereco: locador?.landlord_address,
-            cidade: locador?.landlord_city,
-            banco: locador?.landlord_bank_name,
-            agencia: locador?.landlord_bank_agency,
-            operacao: locador?.landlord_bank_operation,
-            poupanca: locador?.landlord_bank_savings,
-            conta: locador?.landlord_bank_account,
-            pix: locador?.landlord_pix_key,
-            whatsapp: locador?.landlord_whatsapp || locador?.phone,
-          },
-          locatario: {
-            nome: inquilino.name,
-            sexo: inquilino.gender,
-            estadoCivil: inquilino.marital_status,
-            profissao: inquilino.occupation,
-            rg: inquilino.rg,
-            cpf: inquilino.document_type === "cnpj" ? null : inquilino.cpf || inquilino.document,
-            tipoDocumento: inquilino.document_type,
-            endereco: enderecoCompleto({
-              rua: inquilino.street,
-              numero: inquilino.number,
-              complemento: inquilino.complement,
-              bairro: inquilino.neighborhood,
-              cidade: inquilino.city,
-              uf: inquilino.state,
-              cep: inquilino.zip_code,
-            }),
-          },
-          imovel: {
-            clausulasLocal: clausulas,
-            quartos: imovel.rooms,
-            banheiros: imovel.bathrooms,
-            temGaragem: !!loc.has_garage,
-            endereco: enderecoImovel,
-            cidadeUf,
-          },
+        const { resultado: r, nomeInquilino } = await montarContrato(db, {
+          tenantId: loc.tenant_id,
+          propertyId: loc.property_id,
+          landlordUserId: loc.landlord_user_id,
+          temGaragem: !!loc.has_garage,
           locacao: {
             inicio: loc.start_date,
             termino: loc.original_end_date || loc.end_date,
@@ -170,11 +80,10 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
             caucao: Number(loc.deposit_value || 0),
             parcelasCaucao,
           },
-          dataAssinatura: hojeIso,
         });
 
         if (cancelado) return;
-        setNomeArquivo(`Contrato - ${String(inquilino.name).replace(/[\\/:*?"<>|]/g, "")}.pdf`);
+        setNomeArquivo(`Contrato - ${String(nomeInquilino).replace(/[\\/:*?"<>|]/g, "")}.pdf`);
         setResultado(r);
       } catch (e: any) {
         if (!cancelado) setErro(e?.message || "Erro ao montar o contrato.");
