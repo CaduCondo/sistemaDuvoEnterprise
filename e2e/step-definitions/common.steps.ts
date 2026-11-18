@@ -996,9 +996,9 @@ async function escolherImovelEInquilinoCompletos(world: CustomWorld) {
   await world.page.waitForTimeout(500);
 
   await world.page.locator('#rental-property').click();
-  await world.page.getByRole('option', { name: new RegExp(complemento) }).click({ timeout: 20000 });
+  await world.page.getByRole('option', { name: new RegExp(escapeRegex(complemento)) }).click({ timeout: 20000 });
   await world.page.locator('#rental-tenant').click();
-  await world.page.getByRole('option', { name: new RegExp(inquilino.name) }).click({ timeout: 20000 });
+  await world.page.getByRole('option', { name: new RegExp(escapeRegex(inquilino.name)) }).click({ timeout: 20000 });
 }
 
 When('preencho todos os campos obrigatórios', { timeout: 90 * 1000 }, async function (this: CustomWorld) {
