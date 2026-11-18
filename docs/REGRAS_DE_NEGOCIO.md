@@ -1081,6 +1081,25 @@ Gerenciar cadastro de inquilinos (pessoas físicas ou jurídicas) que podem alug
 ### Objetivo
 Gerenciar contratos de locação entre imóveis e inquilinos.
 
+### Criar uma locação: o contrato (atualizado em 18/nov/2026)
+
+Passo a passo para quem usa o sistema:
+
+1. Em **Locações**, clique em **+ Nova** e preencha imóvel, inquilino, datas, dia de vencimento e caução.
+2. Escolha **Quem é o Locador?** (campo obrigatório, ao lado de "Vaga de garagem"). A lista mostra só os usuários marcados como locador.
+3. Clique em **Criar locação**. Antes de criar, o sistema confere se o inquilino, o imóvel e o locador têm todos os dados que o contrato usa.
+4. **Se faltar algum dado:** aparece o aviso "Locação NÃO criada: faltam dados do contrato", listando o que falta. Ao fechar o aviso, **nada foi criado** (a locação não existe e o imóvel continua disponível). Complete o cadastro e tente de novo.
+5. **Se estiver tudo certo:** a locação é criada e o **contrato** abre na tela, já preenchido e com a assinatura do locador.
+6. Em **Baixar PDF**, o arquivo contém só o contrato (nome: "Contrato - Nome do Inquilino").
+
+Assinatura: cada usuário locador anexa a imagem da sua assinatura no próprio cadastro (**Escolher Arquivo**; para tirar, passe o mouse na miniatura e clique no X vermelho). Contrato e recibos usam a assinatura do primeiro locador ativo que tiver uma anexada.
+
+Lista de usuários: a coluna **Locador?** mostra V verde (é locador) ou X vermelho (não é).
+
+Imagem de compartilhamento do site (`public/og-image.png`): é a que aparece quando o link do sistema é enviado por WhatsApp e redes sociais.
+
+Testes automáticos: `e2e/features/19-locacao-dados-do-contrato.feature` cobre o bloqueio, o aviso, o contrato assinado, o PDF, a coluna Locador?, o combo de banco e a assinatura.
+
 ### Layout da Página
 
 ```
