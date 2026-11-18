@@ -1,14 +1,16 @@
-// Tela "Gerar contrato" da locação (issue #125).
+// Contrato da locação (issue #125). Aparece UMA vez, logo depois de criar a locação.
 //
 // Busca tudo direto do banco pelo id da locação (locação, imóvel, local,
 // inquilino e locador), monta o contrato com gerarContratoResidencial() e:
 //   - se faltar algum dado, mostra a lista do que falta, em português simples;
-//   - se estiver completo, mostra o contrato, deixa baixar em PDF e guardar
-//     o PDF nos Anexos da locação (Supabase Storage, categoria "Contrato").
+//   - se estiver completo, mostra o contrato, guarda SOZINHO o PDF nos Anexos
+//     da locação (Supabase Storage, categoria "contract") e deixa baixar.
+//   - o contrato é criado uma vez só: se a locação já tem o PDF guardado, o
+//     sistema não gera nem guarda outro.
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Save, Loader2 } from "lucide-react";
+import { FileText, Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAttachment } from "@/lib/uploadAttachment";
 import { useAlert } from "@/contexts/AlertContext";
@@ -45,6 +47,8 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
   const [resultado, setResultado] = useState<ResultadoContrato | null>(null);
   const [nomeArquivo, setNomeArquivo] = useState("contrato.pdf");
   const [trabalhando, setTrabalhando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const guardouRef = useRef(false);
   const docRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -129,16 +133,20 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
     }
   }
 
-  async function guardarNosAnexos() {
-    setTrabalhando(true);
+  // Guarda o contrato nos anexos da locação, automaticamente e uma única vez.
+  async function guardarAutomaticamente() {
+    if (guardouRef.current) return;
+    guardouRef.current = true;
+    setGuardando(true);
     try {
-      const blob = await gerarPdf();
-      const arquivo = new File([blob], nomeArquivo, { type: "application/pdf" });
-      const url = await uploadAttachment(arquivo, "rental-attachments");
-
       const { data: atual, error: eLer } = await db.from("rentals").select("attachments").eq("id", rentalId).single();
       if (eLer) throw eLer;
       const lista = Array.isArray(atual?.attachments) ? atual.attachments : [];
+      if (lista.some((a: any) => a?.category === "contract")) return; // já existe: nunca gera outro
+
+      const blob = await gerarPdf();
+      const arquivo = new File([blob], nomeArquivo, { type: "application/pdf" });
+      const url = await uploadAttachment(arquivo, "rental-attachments");
       const novo = {
         id: crypto.randomUUID(),
         name: nomeArquivo,
@@ -152,19 +160,27 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
         .update({ attachments: [...lista, novo] })
         .eq("id", rentalId);
       if (eGravar) throw eGravar;
-
-      showAlert({
-        title: "Contrato guardado",
-        description: "O PDF foi guardado nos Anexos da locação (categoria Contrato).",
-        type: "success",
-      });
       onSaved?.();
     } catch (e: any) {
-      showAlert({ title: "Não consegui guardar o contrato", description: e?.message || "Tente de novo.", type: "error" });
+      guardouRef.current = false;
+      showAlert({
+        title: "Contrato não foi guardado nos anexos",
+        description: (e?.message || "Erro desconhecido") + "\nUse Baixar PDF e anexe na locação manualmente.",
+        type: "error",
+      });
     } finally {
-      setTrabalhando(false);
+      setGuardando(false);
     }
   }
+
+  useEffect(() => {
+    if (resultado && resultado.html && resultado.faltando.length === 0 && !carregando) {
+      // espera o contrato aparecer na tela e a assinatura carregar
+      const t = setTimeout(() => void guardarAutomaticamente(), 800);
+      return () => clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultado, carregando]);
 
   return (
     <Dialog open={true} onOpenChange={(aberto) => !aberto && onClose()}>
@@ -203,14 +219,15 @@ export function ContratoLocacaoDialog({ rentalId, onClose, onSaved }: Props) {
               <style>{ESTILO}</style>
               <div id="contrato-documento" ref={docRef} className="contrato" dangerouslySetInnerHTML={{ __html: resultado.html }} />
             </div>
+            {guardando && (
+              <p id="contrato-guardando" className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                <Loader2 className="h-3 w-3 animate-spin" /> Guardando o contrato nos anexos...
+              </p>
+            )}
             <div className="flex flex-wrap justify-end gap-2">
-              <Button id="contrato-baixar" variant="outline" onClick={baixar} disabled={trabalhando}>
+              <Button id="contrato-baixar" variant="outline" onClick={baixar} disabled={trabalhando || guardando}>
                 <Download className="mr-2 h-4 w-4" />
                 Baixar PDF
-              </Button>
-              <Button id="contrato-guardar" onClick={guardarNosAnexos} disabled={trabalhando}>
-                <Save className="mr-2 h-4 w-4" />
-                Guardar nos anexos
               </Button>
             </div>
           </>

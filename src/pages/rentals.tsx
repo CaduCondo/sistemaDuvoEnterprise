@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAlert } from "@/contexts/AlertContext";
-import { Home, Plus, User, ChevronDown, ChevronUp, Trash2, XCircle, Grid3x3, List, AlertTriangle, RefreshCw, Ban, MapPin, Eye, FileText, Calendar, Search, Wand2, RotateCw, Pencil, HelpCircle, Handshake, ScrollText } from "lucide-react";
+import { Home, Plus, User, ChevronDown, ChevronUp, Trash2, XCircle, Grid3x3, List, AlertTriangle, RefreshCw, Ban, MapPin, Eye, FileText, Calendar, Search, Wand2, RotateCw, Pencil, HelpCircle, Handshake } from "lucide-react";
 import { getAll as getAllRentals, remove as deleteRental, terminateContract } from "@/services/rentalService";
 import { getAvailable as getAvailableProperties, update as updateProperty, getAll as getAllProperties } from "@/services/propertyService";
 import { getActive as getActiveTenants, update as updateTenant, getAll as getAllTenants } from "@/services/tenantService";
@@ -29,7 +29,6 @@ import {
 import { SortableTable } from "@/components/ui/sortable-table";
 import { calculateContractAlert, getAlertClasses, getAlertBadgeClasses } from "@/lib/contractAlerts";
 import { RentalTerminationDialog } from "@/components/rentals/RentalTerminationDialog";
-import { ContratoLocacaoDialog } from "@/components/rentals/ContratoLocacaoDialog";
 import { useContractExpiration } from "@/hooks/useContractExpiration";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -78,7 +77,6 @@ export default function RentalsPage() {
   const [rentalToEnd, setRentalToEnd] = useState<Rental | null>(null);
   // Acordo de parcelamento do débito (#119)
   const [rentalParaAcordo, setRentalParaAcordo] = useState<Rental | null>(null);
-  const [rentalParaContrato, setRentalParaContrato] = useState<Rental | null>(null);
   const [rentalToRenew, setRentalToRenew] = useState<Rental | null>(null);
   const [rentalForPaymentHistory, setRentalForPaymentHistory] = useState<Rental | null>(null);
   
@@ -978,19 +976,6 @@ export default function RentalsPage() {
             <Handshake className="h-3.5 w-3.5" />
           </Button>
           <Button
-            id={`rentals-contract-${r.id}`}
-            variant="outline"
-            size="icon"
-            className="h-7 w-7 bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
-            onClick={(e) => {
-              e.stopPropagation();
-              setRentalParaContrato(r);
-            }}
-            title="Gerar contrato"
-          >
-            <ScrollText className="h-3.5 w-3.5" />
-          </Button>
-          <Button
             id={`rentals-delete-${r.id}`}
             variant="destructive"
             size="icon"
@@ -1354,19 +1339,6 @@ export default function RentalsPage() {
                                 <Handshake className="h-4 w-4" />
                               </Button>
                               <Button
-                                id={`rentals-contract-${rental.id}`}
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRentalParaContrato(rental);
-                                }}
-                                title="Gerar contrato"
-                              >
-                                <ScrollText className="h-4 w-4" />
-                              </Button>
-                              <Button
                                 id={`rentals-delete-${rental.id}`}
                                 variant="destructive"
                                 size="icon"
@@ -1452,12 +1424,6 @@ export default function RentalsPage() {
         />
       )}
 
-      {rentalParaContrato && (
-        <ContratoLocacaoDialog
-          rentalId={rentalParaContrato.id}
-          onClose={() => setRentalParaContrato(null)}
-        />
-      )}
 
       <RentalTerminationDialog
         open={!!rentalToEnd}
