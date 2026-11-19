@@ -269,7 +269,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
               *,
               locations!inner (*)
             ),
-            tenants!inner (
+            tenants!rentals_tenant_id_fkey!inner (
               id,
               name,
               email,

@@ -166,7 +166,7 @@ export const getAll = async (): Promise<Payment[]> => {
         start_date,
         end_date,
         properties(id, property_identifier, location_id, complement),
-        tenants(id, name, cpf, email, phone)
+        tenants!rentals_tenant_id_fkey(id, name, cpf, email, phone)
       )
     `
     )
@@ -207,7 +207,7 @@ export const getById = async (id: string): Promise<Payment> => {
       rental:rentals(
         *,
         properties(id, property_identifier, location_id, complement, value, has_garage),
-        tenants(id, name, cpf, email, phone)
+        tenants!rentals_tenant_id_fkey(id, name, cpf, email, phone)
       )
     `
     )
@@ -305,7 +305,7 @@ export const update = async (
           complement,
           locations!properties_location_id_fkey(name)
         ),
-        tenants(name)
+        tenants!rentals_tenant_id_fkey(name)
       )
     `)
     .eq("id", id)
@@ -417,7 +417,7 @@ export const remove = async (id: string): Promise<void> => {
           complement,
           locations!properties_location_id_fkey(name)
         ),
-        tenants(name)
+        tenants!rentals_tenant_id_fkey(name)
       )
     `)
     .eq("id", id)

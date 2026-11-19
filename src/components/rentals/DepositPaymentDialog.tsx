@@ -192,7 +192,7 @@ export function DepositPaymentDialog({
       try {
         const { data, error } = await supabase
           .from("rentals")
-          .select("*, properties(*, locations(*)), tenants(*)")
+          .select("*, properties(*, locations(*)), tenants!rentals_tenant_id_fkey(*)")
           .eq("id", rental.id)
           .maybeSingle();
 

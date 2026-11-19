@@ -136,7 +136,7 @@ export function DepositInstallmentsTable({
             has_partner_broker,
             status,
             returned_deposit_amount,
-            tenant:tenants(name),
+            tenant:tenants!rentals_tenant_id_fkey(name),
             property:properties(
               complement,
               location:locations(name)
