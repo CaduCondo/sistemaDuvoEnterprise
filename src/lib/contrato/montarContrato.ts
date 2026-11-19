@@ -46,7 +46,7 @@ export interface EntradaContrato {
 }
 
 /** Endereço do site que aparece na capa do contrato. */
-export const SITE_DO_CONTRATO = "duvoenterprise.com.br";
+export const SITE_DO_CONTRATO = "www.duvoenterprise.com.br";
 /** Logotipo da capa (arquivo em /public). */
 export const LOGO_DO_CONTRATO = "/contrato-logo.png";
 

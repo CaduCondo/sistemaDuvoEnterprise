@@ -361,7 +361,7 @@ Then('o contrato deve começar com a capa, o logotipo, o site e os dados do escr
   const capa = this.page.locator('#contrato-documento .capa');
   await expect(capa, 'o contrato não tem capa').toBeVisible({ timeout: 15000 });
   await expect(capa).toContainText('CONTRATO DE LOCAÇÃO');
-  await expect(capa).toContainText('duvoenterprise.com.br');
+  await expect(capa).toContainText('www.duvoenterprise.com.br');
   await expect(capa).toContainText('Consultor:');
   const logo = capa.locator('img.capa-logo');
   await expect(logo, 'o logotipo não apareceu na capa').toBeVisible();
