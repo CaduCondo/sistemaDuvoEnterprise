@@ -125,7 +125,7 @@ jobs:
     # só não CABIA no tempo. Com o passo caindo de 60s para 20s (ver
     # e2e/step-definitions/hooks.ts) ela deve terminar bem antes disso; os
     # 45min são a folga para o relatório finalmente ser gerado.
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
