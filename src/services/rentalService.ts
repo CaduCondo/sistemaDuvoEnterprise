@@ -4,6 +4,7 @@ import { deleteDepositInstallmentsByRental, createDepositInstallments, planDepos
 import { getAllLocations } from "./locationService";
 import { createPaymentsForRental, generateExpectedPayments } from "./paymentService";
 import { logAudit } from "./auditService";
+import { dataLocalISO } from "@/lib/dateLocal";
 
 let rentalsCache: { data: Rental[] | null; timestamp: number } = {
   data: null,
@@ -32,6 +33,8 @@ const mapRentalData = (data: any): Rental => {
     startDate: data.start_date,
     endDate: data.end_date,
     originalEndDate: data.original_end_date ?? null,
+    landlordUserId: data.landlord_user_id ?? null,
+    secondTenantId: data.second_tenant_id ?? null,
     paymentDay: data.rent_due_day,
     value: Number(data.rent_value || 0),
     monthlyRent: Number(data.rent_value || 0),
@@ -163,6 +166,7 @@ export const rentalService = {
         start_date,
         end_date,
         original_end_date,
+        landlord_user_id,
         rent_value,
         rent_due_day,
         deposit_value,
@@ -268,11 +272,13 @@ export const rentalService = {
       garage_value: rental.garageValue,
       has_partner_broker: rental.hasPartnerBroker,
       deposit_installments: rental.depositInstallments,
+      landlord_user_id: rental.landlordUserId || null,
+      second_tenant_id: rental.secondTenantId || null,
     };
 
     const { data, error } = await supabase
       .from("rentals")
-      .insert([dbData])
+      .insert([dbData as any])
       .select()
       .single();
 
@@ -421,7 +427,7 @@ export const rentalService = {
       paymentDay: oldRental.paymentDay,
     });
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = dataLocalISO();
     const isReactivating = 
       oldRental.status === "ended" && 
       rental.endDate && 
@@ -459,6 +465,7 @@ export const rentalService = {
     if (rental.garageValue !== undefined) dbData.garage_value = rental.garageValue;
     if (rental.hasPartnerBroker !== undefined) dbData.has_partner_broker = rental.hasPartnerBroker;
     if (rental.depositInstallments !== undefined) dbData.deposit_installments = rental.depositInstallments;
+    if (rental.landlordUserId !== undefined) dbData.landlord_user_id = rental.landlordUserId || null;
 
     const { data, error } = await supabase
       .from("rentals")
@@ -560,7 +567,7 @@ export const rentalService = {
             oldRental.depositPaymentDate ??
             rental.startDate ??
             oldRental.startDate ??
-            new Date().toISOString().split("T")[0],
+            dataLocalISO(),
           pix_code: rental.depositInstallment1PixCode ?? rental.depositPixCode ?? oldRental.depositInstallment1PixCode ?? oldRental.depositPixCode ?? null,
         };
 
@@ -569,7 +576,7 @@ export const rentalService = {
           if (installment2Amount > 0) {
             desired[2] = {
               amount: installment2Amount,
-              due_date: rental.depositInstallment2DueDate ?? oldRental.depositInstallment2DueDate ?? new Date().toISOString().split("T")[0],
+              due_date: rental.depositInstallment2DueDate ?? oldRental.depositInstallment2DueDate ?? dataLocalISO(),
               pix_code: rental.depositInstallment2PixCode ?? oldRental.depositInstallment2PixCode ?? null,
             };
           }
@@ -580,7 +587,7 @@ export const rentalService = {
           if (installment3Amount > 0) {
             desired[3] = {
               amount: installment3Amount,
-              due_date: rental.depositInstallment3DueDate ?? oldRental.depositInstallment3DueDate ?? new Date().toISOString().split("T")[0],
+              due_date: rental.depositInstallment3DueDate ?? oldRental.depositInstallment3DueDate ?? dataLocalISO(),
               pix_code: rental.depositInstallment3PixCode ?? oldRental.depositInstallment3PixCode ?? null,
             };
           }

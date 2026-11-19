@@ -35,7 +35,7 @@ setDefaultTimeout(30 * 1000);
 // direto (sem passar pelo smoke.js) -- com `parallel: 2` ele roda uma vez
 // por worker, mas como o reset é idempotente isso não causa problema, só
 // reforça o mesmo valor.
-BeforeAll(async function () {
+BeforeAll({ timeout: 180 * 1000 }, async function () {
   await DatabaseHelper.ensureDefaultTestUsers();
 
   // Varre e apaga sobras de rodadas anteriores (issue #89). A limpeza do

@@ -5,6 +5,7 @@ import { parseCurrencyToFloat } from "@/lib/masks";
 import { useAlert } from "@/contexts/AlertContext";
 import { supabase } from "@/integrations/supabase/client";
 import { rentalUpdateService } from "@/services/rentalUpdateService";
+import { dataLocalISO } from "@/lib/dateLocal";
 
 interface UsePropertiesReturn {
   properties: Property[];
@@ -331,7 +332,7 @@ export function useProperties(): UsePropertiesReturn {
         rentalId,
         oldValue,
         newValue,
-        today.toISOString().split('T')[0]
+        dataLocalISO(today)
       );
 
       // 4. Recarregar dados

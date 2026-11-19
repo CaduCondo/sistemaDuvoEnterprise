@@ -29,7 +29,6 @@ export function EditProfileDialog({ open, onOpenChange, user, onSuccess }: EditP
       console.log("🔍 ===== DEBUG EDIT PROFILE DIALOG =====");
       console.log("📋 User object recebido:", user);
       console.log("📞 Phone:", user.phone);
-      console.log("🆔 CPF:", user.cpf);
       console.log("🆔 RG:", user.rg);
       console.log("🔍 ====================================");
       

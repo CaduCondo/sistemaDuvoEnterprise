@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateContractAlert } from "@/lib/contractAlerts";
+import { dataLocalISO, dataDoBanco } from "@/lib/dateLocal";
 
 interface DashboardCounts {
   totalProperties: number;
@@ -151,11 +152,11 @@ export function useDashboardData(
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const todayStr = today.toISOString().split('T')[0];
+        const todayStr = dataLocalISO(today);
 
         const twoMonthsFromNow = new Date(today);
         twoMonthsFromNow.setMonth(twoMonthsFromNow.getMonth() + 2);
-        const twoMonthsStr = twoMonthsFromNow.toISOString().split('T')[0];
+        const twoMonthsStr = dataLocalISO(twoMonthsFromNow);
 
         // Buscar dados em paralelo
         const [
@@ -341,7 +342,7 @@ export function useDashboardData(
         const expiringContracts = rentals.filter(r => {
           if (r.status !== "active" || !r.end_date) return false;
           
-          const endDate = new Date(r.end_date);
+          const endDate = dataDoBanco(r.end_date);
           const todayCheck = new Date();
           todayCheck.setHours(0, 0, 0, 0);
           

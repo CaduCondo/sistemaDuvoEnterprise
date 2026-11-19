@@ -1,4 +1,6 @@
+import crypto from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { criarClienteSupabaseAdmin } from "./supabaseServidor";
 import { verificarSessao, tokenDoCabecalho, type SessaoAssinada } from "./sessionToken";
 
 /**
@@ -23,25 +25,49 @@ export function sessaoDaRequisicao(req: NextApiRequest): SessaoAssinada | null {
   return verificarSessao(token);
 }
 
-/** Exige uma sessão válida (qualquer perfil). Responde 401 e devolve null se não houver. */
-export function exigirSessao(
+/**
+ * Exige uma sessão válida (qualquer perfil). Responde 401 e devolve null se não houver.
+ *
+ * Além de conferir o token, olha o cadastro da pessoa NA HORA: se ela foi
+ * desativada, ou se o perfil dela mudou (ex.: deixou de ser administrador),
+ * isso vale já na próxima chamada -- sem esperar as 24h do token vencerem.
+ */
+export async function exigirSessao(
   req: NextApiRequest,
   res: NextApiResponse
-): SessaoAssinada | null {
+): Promise<SessaoAssinada | null> {
   const sessao = sessaoDaRequisicao(req);
   if (!sessao) {
     res.status(401).json({ error: "Sessão inválida ou expirada. Faça login novamente." });
     return null;
   }
-  return sessao;
+
+  const { data, error } = await criarClienteSupabaseAdmin()
+    .from("system_users")
+    .select("active, role")
+    .eq("id", sessao.userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[apiAuth] Erro ao conferir o usuário da sessão:", error.message);
+    res.status(503).json({ error: "Não foi possível confirmar o seu acesso agora. Tente de novo." });
+    return null;
+  }
+  if (!data || data.active === false) {
+    res.status(401).json({ error: "Sessão inválida ou expirada. Faça login novamente." });
+    return null;
+  }
+
+  // O perfil que vale é o do cadastro de hoje, não o que estava no token.
+  return { ...sessao, role: data.role };
 }
 
 /** Como exigirSessao, mas também exige perfil admin. Responde 403 se não for. */
-export function exigirAdmin(
+export async function exigirAdmin(
   req: NextApiRequest,
   res: NextApiResponse
-): SessaoAssinada | null {
-  const sessao = exigirSessao(req, res);
+): Promise<SessaoAssinada | null> {
+  const sessao = await exigirSessao(req, res);
   if (!sessao) return null;
 
   if (sessao.role !== "admin") {
@@ -58,12 +84,12 @@ export function exigirAdmin(
  * usuário comum pode fazer para si mesmo, e um admin pode fazer para
  * qualquer um.
  */
-export function exigirDonoOuAdmin(
+export async function exigirDonoOuAdmin(
   req: NextApiRequest,
   res: NextApiResponse,
   userId: string
-): SessaoAssinada | null {
-  const sessao = exigirSessao(req, res);
+): Promise<SessaoAssinada | null> {
+  const sessao = await exigirSessao(req, res);
   if (!sessao) return null;
 
   if (sessao.userId !== userId && sessao.role !== "admin") {
@@ -72,4 +98,21 @@ export function exigirDonoOuAdmin(
   }
 
   return sessao;
+}
+
+/**
+ * Chamada de uma rota do servidor para outra (ex.: "esqueci minha senha"
+ * pedindo o envio do e-mail). Quem chama manda o cabeçalho `x-chamada-interna`,
+ * que só o servidor sabe calcular (usa a chave secreta). De fora, não dá.
+ */
+export function assinaturaInterna(): string {
+  const chave = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  return crypto.createHmac("sha256", chave).update("chamada-interna-email").digest("hex");
+}
+
+export function chamadaInternaValida(req: NextApiRequest): boolean {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return false;
+  const recebida = Buffer.from(String(req.headers["x-chamada-interna"] ?? ""));
+  const esperada = Buffer.from(assinaturaInterna());
+  return recebida.length === esperada.length && crypto.timingSafeEqual(recebida, esperada);
 }

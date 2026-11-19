@@ -186,7 +186,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
               {getIcon()}
               <AlertDialogTitle className="text-xl">{alertData.title}</AlertDialogTitle>
             </div>
-            <AlertDialogDescription className="text-base pt-2">
+            <AlertDialogDescription className="text-base pt-2 whitespace-pre-line">
               {alertData.description}
             </AlertDialogDescription>
           </AlertDialogHeader>

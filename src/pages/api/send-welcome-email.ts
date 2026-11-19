@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Resend } from "resend";
+import { exigirAdmin } from "@/lib/apiAuth";
 
 // Instanciado só dentro do handler (não aqui, no carregamento do arquivo):
 // `new Resend(undefined)` explode direto no construtor, antes de qualquer
@@ -19,6 +20,9 @@ export default async function handler(
   if (req.method !== "POST") {
     return res.status(405).json({ success: false, error: "Método não permitido" });
   }
+
+  // Só administrador logado pode mandar e-mail por aqui.
+  if (!await exigirAdmin(req, res)) return;
 
   try {
     const { email, name, temporaryPassword } = req.body;
@@ -60,7 +64,6 @@ export default async function handler(
       console.log("📧 ========================================");
       console.log("📧 Para:", email);
       console.log("📧 Nome:", name);
-      console.log("📧 Senha Temporária:", temporaryPassword || "N/A");
       console.log("📧 ========================================");
     }
 

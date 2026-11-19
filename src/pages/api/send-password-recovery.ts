@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { Resend } from "resend";
 import jwt from "jsonwebtoken";
 import { obterSegredoDeRecuperacaoDeSenha } from "@/lib/passwordResetSecret";
+import { exigirAdmin, chamadaInternaValida } from "@/lib/apiAuth";
 
 // Instanciado só dentro do handler (não aqui, no carregamento do arquivo):
 // `new Resend(undefined)` explode direto no construtor, antes de qualquer
@@ -22,6 +23,9 @@ export default async function handler(
   if (req.method !== "POST") {
     return res.status(405).json({ success: false, error: "Método não permitido" });
   }
+
+  // Só administrador logado (ou o próprio servidor) pode mandar e-mail por aqui.
+  if (!chamadaInternaValida(req) && !(await exigirAdmin(req, res))) return;
 
   try {
     const { email, userId, name, temporaryPassword, isReset } = req.body;
@@ -51,7 +55,6 @@ export default async function handler(
         console.log("📧 ========================================");
         console.log("📧 Para:", email);
         console.log("📧 Nome:", name || "N/A");
-        console.log("📧 Senha:", temporaryPassword);
         console.log("📧 ========================================");
       }
 

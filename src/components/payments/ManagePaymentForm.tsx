@@ -38,6 +38,7 @@ import { applyMoneyMask, formatMoneyForDisplay, parseMoneyMaskToNumber } from "@
 import { validateAttachmentFile } from "@/lib/attachmentValidation";
 import { PaymentReceipt } from "@/components/PaymentReceipt";
 import { forceDialogCleanup } from "@/lib/forceCleanup";
+import { dataLocalISO } from "@/lib/dateLocal";
 
 interface BreakdownItem {
   description?: string;
@@ -268,7 +269,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
               *,
               locations!inner (*)
             ),
-            tenants!inner (
+            tenants!rentals_tenant_id_fkey!inner (
               id,
               name,
               email,
@@ -492,7 +493,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       }
 
       setFormData({
-        payment_date: validatedPayment.payment_date || new Date().toISOString().split("T")[0],
+        payment_date: validatedPayment.payment_date || dataLocalISO(),
         payment_method: validatedPayment.payment_method || "pix",
         payment_time: validatedPayment.payment_time || "",
         // ✅ CORREÇÃO: "validatedPayment.paid_amount ? ..." tratava 0 como "vazio"

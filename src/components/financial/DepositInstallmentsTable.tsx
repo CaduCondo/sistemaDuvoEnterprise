@@ -24,6 +24,7 @@ import { Download, Printer, ArrowUpDown, ArrowUp, ArrowDown, FileText, Wallet, H
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { dataLocalISO } from "@/lib/dateLocal";
 
 // Interface estendida para incluir returned_deposit_amount até os tipos serem regenerados
 interface RentalWithReturnedDeposit {
@@ -135,7 +136,7 @@ export function DepositInstallmentsTable({
             has_partner_broker,
             status,
             returned_deposit_amount,
-            tenant:tenants(name),
+            tenant:tenants!rentals_tenant_id_fkey(name),
             property:properties(
               complement,
               location:locations(name)
@@ -614,7 +615,7 @@ export function DepositInstallmentsTable({
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Cauções");
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = dataLocalISO();
     XLSX.writeFile(wb, `Detalhamento_Caucoes_${today}.xlsx`);
 
     toast({

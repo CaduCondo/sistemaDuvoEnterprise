@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, Key, Ban, CheckCircle, Lock } from "lucide-react";
+import { Plus, Trash2, Key, Ban, CheckCircle, Lock, Check, X } from "lucide-react";
 import { UserDialog } from "./UserDialog";
 import {
   AlertDialog,
@@ -184,6 +184,7 @@ export function UsersTab({
                     <TableHead>Nome</TableHead>
                     <TableHead>E-mail</TableHead>
                     <TableHead>Perfil</TableHead>
+                    <TableHead className="text-center">Locador?</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-[100px] text-center">Ações</TableHead>
                   </TableRow>
@@ -203,6 +204,13 @@ export function UsersTab({
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{roleLabels[user.role]}</Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {user.is_landlord ? (
+                            <Check className="mx-auto h-5 w-5 text-green-600" aria-label="É locador" />
+                          ) : (
+                            <X className="mx-auto h-5 w-5 text-red-600" aria-label="Não é locador" />
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1">

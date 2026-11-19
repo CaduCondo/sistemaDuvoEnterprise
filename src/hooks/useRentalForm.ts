@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { calculateFirstInstallment } from "@/services/paymentService";
 import { formatCurrency } from "@/lib/masks";
-import { calculateProportionalRent, calculateDaysBetweenDates, shouldUseProportionalRent } from "@/lib/rentalCalculations";
+import { calcularProporcional, shouldUseProportionalRent } from "@/lib/rentalCalculations";
 import { getDepositInstallmentsByRental } from "@/services/depositInstallmentService";
 import { uploadAttachment } from "@/lib/uploadAttachment";
 import type { Rental, Property, Tenant, Location, Attachment } from "@/types";
@@ -33,6 +34,7 @@ export function useRentalForm({
   // Estados principais
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [selectedTenantId, setSelectedTenantId] = useState("");
+  const [landlordUserId, setLandlordUserId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [paymentDay, setPaymentDay] = useState("");
@@ -93,9 +95,13 @@ export function useRentalForm({
     const totalMonthlyRent = propertyValue + garage;
     
     const isProportional = shouldUseProportionalRent(startDate, parseInt(paymentDay));
-    const days = calculateDaysBetweenDates(startDate, parseInt(paymentDay));
-    const firstRentValue = isProportional 
-      ? calculateProportionalRent(totalMonthlyRent, startDate, parseInt(paymentDay))
+    // (16/nov/2026) Usa o MESMO cálculo que gera os recebimentos de verdade
+    // (calculateFirstInstallment). Antes a tela tinha uma conta própria que
+    // errava para início nos dias 29-31 (ex.: 31/01 com vencimento dia 5
+    // mostrava 33 dias em vez de 5).
+    const days = calculateFirstInstallment(startDate, parseInt(paymentDay)).days;
+    const firstRentValue = isProportional
+      ? calcularProporcional(totalMonthlyRent, days)
       : totalMonthlyRent;
     
     setProportionalRentInfo({
@@ -110,6 +116,7 @@ export function useRentalForm({
     console.log("🔄 [useRentalForm] Resetando formulário");
     setSelectedPropertyId("");
     setSelectedTenantId("");
+    setLandlordUserId("");
     setStartDate("");
     setEndDate("");
     setPaymentDay("");
@@ -141,6 +148,7 @@ export function useRentalForm({
     
     setSelectedPropertyId(rentalData.propertyId || "");
     setSelectedTenantId(rentalData.tenantId || "");
+    setLandlordUserId(rentalData.landlordUserId || "");
     
     console.log("🏠 [useRentalForm] PropertyId:", rentalData.propertyId);
     console.log("👤 [useRentalForm] TenantId:", rentalData.tenantId);
@@ -362,6 +370,8 @@ export function useRentalForm({
     setSelectedPropertyId,
     selectedTenantId,
     setSelectedTenantId,
+    landlordUserId,
+    setLandlordUserId,
     startDate,
     setStartDate,
     endDate,

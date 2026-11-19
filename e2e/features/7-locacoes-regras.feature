@@ -73,16 +73,17 @@ Funcionalidade: Regras de Negócio de Locações
   # é só visual, não é aplicado). Reescrito para validar a regra real (em
   # vez de só apagar a cobertura): criar uma locação sem preencher NADA de
   # caução precisa funcionar normalmente.
+  # ⚠️ Regra mudou em 18/nov/2026 (pedido do Cadu): a caução entra no contrato,
+  # então sem valor de caução a locação NÃO é criada -- o sistema mostra o aviso
+  # e cancela. (Antes, em 14/set/2026, a caução era opcional.)
   @sistemaCompleto
-  Cenário: Criar locação sem preencher a caução
+  Cenário: Criar locação sem preencher a caução - a locação NÃO é criada
     Quando clico no botão "Nova Locação"
     E preencho todos os campos obrigatórios
     E NÃO preencho o valor da caução
     E salvo a locação
-    Então a locação deve ser criada com sucesso
-    # Sem esta linha o cenário provava só que a locação nasceu -- não que
-    # ficou SEM caução, que é a regra que ele existe para guardar.
-    E a locação não deve ter nenhuma parcela de caução
+    Então devo ver o aviso "Locação NÃO criada" listando "valor da caução"
+    E nenhuma locação deve existir para esse inquilino
 
   # ✅ ATUALIZADO: Reflete nova estrutura de parcelas de caução
   @sistemaCompleto
@@ -286,6 +287,9 @@ Funcionalidade: Regras de Negócio de Locações
   Cenário: Criar locação - Corretor parceiro
     Quando clico no botão "Nova Locação"
     E preencho todos os campos obrigatórios
+    E preencho o valor da caução com "5000.00"
+    E NÃO marco a opção "Parcelar caução"
+    E preencho a "Data Pagamento" com "01/08/2026"
     E marco a opção "Corretor parceiro"
     E salvo a locação
     Então a locação deve ser criada com sucesso
@@ -472,7 +476,12 @@ Funcionalidade: Regras de Negócio de Locações
   #    -- e o Comprovante já abre sozinho ao salvar, então não precisa (e
   #    não dá mais) clicar em nenhum botão para "visualizá-lo": o passo
   #    "Quando visualizo..." foi removido daqui.
-  @sistemaCompleto
+  # ⚠️ 18/nov/2026: depois de salvar, o sistema agora abre o CONTRATO de verdade
+  #    (ContratoLocacaoDialog), não mais o antigo "Comprovante" (RentalContract.tsx)
+  #    que mostrava "Valor Total". Este cenário conferia aquele comprovante;
+  #    precisa ser reescrito para conferir a soma aluguel + garagem em outro
+  #    lugar (resumo verde do formulário, antes de salvar).
+  @quebrado
   Cenário: Comprovante de Contrato - Somar aluguel e garagem
     Dado que existe uma locação com:
       | campo          | valor   |

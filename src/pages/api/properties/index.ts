@@ -32,7 +32,7 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const sessao = exigirSessao(req, res);
+  const sessao = await exigirSessao(req, res);
   if (!sessao) return;
 
   try {
@@ -113,7 +113,8 @@ export default async function handler(
     console.log(`✅ API /properties: Returning ${properties.length} properties`);
 
     // Cache headers (1 hour)
-    res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=7200");
+    // Rota exige login: nunca pode ficar em cache público (auditoria 16/nov/2026).
+    res.setHeader("Cache-Control", "private, no-store");
 
     return res.status(200).json(properties);
   } catch (error: any) {

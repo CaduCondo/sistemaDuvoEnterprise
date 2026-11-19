@@ -1,3 +1,4 @@
+import { garantirLocadorEscolhido } from '../helpers/locacao.helper';
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import DatabaseHelper from '../helpers/database.helper';
@@ -854,6 +855,7 @@ When('NÃO preencho o valor da caução', async function() {
  * esta, que roda ANTES dela no mesmo cenário, tinha ficado pra trás.
  */
 When('tento salvar', async function(this: import('../support/world').CustomWorld) {
+  await garantirLocadorEscolhido(this.page);
   await this.page.locator('#rental-form-submit').click();
   await this.page.waitForTimeout(500);
 });
@@ -1019,6 +1021,7 @@ When('preencho a {string} com {string}', async function(fieldName: string, value
 When('salvo a locação', async function (this: import('../support/world').CustomWorld) {
   // O botão do formulário de Locação diz "Criar" (nova) ou "Atualizar"
   // (edição), nunca "Salvar" -- por isso pelo id.
+  await garantirLocadorEscolhido(this.page);
   await this.page.locator('#rental-form-submit').click();
   await this.page.waitForTimeout(2000);
 
@@ -1062,7 +1065,7 @@ Then('a locação não deve ter nenhuma parcela de caução', async function (th
 });
 
 Then('a locação deve ser criada com sucesso', async function (this: import('../support/world').CustomWorld) {
-  const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
+  const comprovante = this.page.locator('#contrato-locacao-dialog');
   await expect(comprovante, 'a locação não foi criada -- o Comprovante de Contrato não abriu').toBeVisible({ timeout: 15000 });
   await comprovante.getByRole('button', { name: /fechar/i }).click();
 

@@ -4,8 +4,8 @@
 --    (LOCATÁRIO/LOCATÁRIA, portador/portadora, casado/casada). 'M' ou 'F'.
 --    Fica opcional no banco (inquilinos antigos não têm); a TELA obriga ao
 --    salvar, e o contrato avisa quando falta.
--- 2) properties.usage_type: 'residential' (padrão) ou 'commercial'. Por
---    enquanto só existe o modelo de contrato residencial.
+-- 2) (removido em 15/nov/2026) properties.usage_type: o Cadu decidiu que não
+--    precisa -- o cadastro do imóvel já tem o combo "Tipo de anúncio".
 -- 3) system_users.is_landlord + landlord_*: o LOCADOR é um usuário do
 --    sistema marcado com "Também é locador" (decisão do Cadu, 05/nov/2026).
 --    Nome, CPF, RG e telefone já existem no usuário; aqui entram só os
@@ -30,19 +30,6 @@ END $$;
 
 COMMENT ON COLUMN tenants.gender IS
   'Sexo do inquilino para o texto do contrato: M ou F (issue #125).';
-
-ALTER TABLE properties
-  ADD COLUMN IF NOT EXISTS usage_type TEXT NOT NULL DEFAULT 'residential';
-
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'properties_usage_type_check') THEN
-    ALTER TABLE properties ADD CONSTRAINT properties_usage_type_check CHECK (usage_type IN ('residential', 'commercial'));
-  END IF;
-END $$;
-
-COMMENT ON COLUMN properties.usage_type IS
-  'Uso do imóvel: residential ou commercial. Define o modelo de contrato (issue #125).';
 
 ALTER TABLE system_users
   ADD COLUMN IF NOT EXISTS is_landlord BOOLEAN NOT NULL DEFAULT false,

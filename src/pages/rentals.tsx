@@ -42,6 +42,7 @@ import {
 import { Building2 } from "lucide-react";
 import { PaymentAgreementDialog } from "@/components/payments/PaymentAgreementDialog";
 import type React from "react";
+import { dataDoBanco, dataLocalISO } from "@/lib/dateLocal";
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
@@ -121,7 +122,7 @@ export default function RentalsPage() {
       // confirmar renovação ou desocupação.
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const isVencida = endDate && new Date(endDate) < today;
+      const isVencida = endDate && dataDoBanco(endDate) < today;
 
       if (isVencida) {
         return <Badge className="bg-amber-500 text-white hover:bg-amber-600">Vencido</Badge>;
@@ -337,8 +338,8 @@ export default function RentalsPage() {
           case "status":
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            aVal = (a.isActive && (!a.endDate || new Date(a.endDate) >= today)) ? "active" : "terminated";
-            bVal = (b.isActive && (!b.endDate || new Date(b.endDate) >= today)) ? "active" : "terminated";
+            aVal = (a.isActive && (!a.endDate || dataDoBanco(a.endDate) >= today)) ? "active" : "terminated";
+            bVal = (b.isActive && (!b.endDate || dataDoBanco(b.endDate) >= today)) ? "active" : "terminated";
             break;
         }
         if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
@@ -442,10 +443,10 @@ export default function RentalsPage() {
     if (!rentalToRenew) return;
 
     try {
-      const currentEndDate = new Date(rentalToRenew.endDate);
+      const currentEndDate = dataDoBanco(rentalToRenew.endDate);
       const newEndDate = new Date(currentEndDate);
       newEndDate.setFullYear(newEndDate.getFullYear() + 1);
-      const newEndDateStr = newEndDate.toISOString().split("T")[0];
+      const newEndDateStr = dataLocalISO(newEndDate);
 
       // ⚠️ CORREÇÃO (03/out/2026 -- bug de produção, JD. COLOMBO APTO 10):
       // a renovação passava pela sincronização genérica da EDIÇÃO de locação,
@@ -1190,7 +1191,7 @@ export default function RentalsPage() {
                   const alert = calculateContractAlert(rental.endDate);
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
-                  const isExpired = rental.endDate && new Date(rental.endDate) < today;
+                  const isExpired = rental.endDate && dataDoBanco(rental.endDate) < today;
                   // ⚠️ Corrigido em 08/set/2026 (issue #91, 2ª parte): a data
                   // fim vencida não torna a locação "encerrada" -- ela segue
                   // ativa até alguém renovar ou rescindir. A data vira só o
@@ -1368,7 +1369,7 @@ export default function RentalsPage() {
                       const alert = calculateContractAlert(r.endDate);
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
-                      const isExpired = r.endDate && new Date(r.endDate) < today;
+                      const isExpired = r.endDate && dataDoBanco(r.endDate) < today;
                       const isVisuallyActive = r.isActive && !isExpired;
                       const shouldShowAlert = r.isActive && !isExpired && (alert.level === "warning" || alert.level === "critical");
                       const alertClasses = shouldShowAlert ? getAlertClasses(alert.level) : "";
@@ -1422,6 +1423,7 @@ export default function RentalsPage() {
           rentalId={rentalParaAcordo.id}
         />
       )}
+
 
       <RentalTerminationDialog
         open={!!rentalToEnd}

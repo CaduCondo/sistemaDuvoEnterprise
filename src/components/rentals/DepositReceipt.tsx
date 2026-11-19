@@ -1,3 +1,4 @@
+import { useAssinaturaDoUsuario } from "@/hooks/useAssinaturaDoUsuario";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,7 @@ const formatDate = (dateString: string | null | undefined): string => {
 // inquilino direto do banco a partir do rental_id, então funciona
 // independente de onde for aberto (tela de Recebimentos ou tela de Locação).
 export function DepositReceipt({ installment, rental, entry, onClose }: DepositReceiptProps) {
+  const assinatura = useAssinaturaDoUsuario();
   const [propertyAddress, setPropertyAddress] = useState<string>("");
   const [tenantName, setTenantName] = useState<string>("");
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -149,7 +151,7 @@ export function DepositReceipt({ installment, rental, entry, onClose }: DepositR
           margin: 1,
           filename: `recibo-caucao-${installment.installment_number}-${installment.total_installments}.pdf`,
           image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2 },
+          html2canvas: { scale: 2, useCORS: true },
           jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
         })
         .from(element)
@@ -242,16 +244,20 @@ export function DepositReceipt({ installment, rental, entry, onClose }: DepositR
 
             <div className="pt-4"></div>
 
-            <img
-              src="/signature.png"
-              alt="Assinatura Carlos Aparecido D'Uvo"
-              className="w-24 h-auto mx-auto mb-1"
-            />
+            {assinatura.assinaturaUrl && (
+              <img
+                src={assinatura.assinaturaUrl}
+                crossOrigin="anonymous"
+                alt={`Assinatura ${assinatura.nome}`}
+                className="w-24 h-auto mx-auto mb-1"
+              
+              />
+            )}
 
             <div className="w-48 border-t border-gray-400 mx-auto mb-1"></div>
 
             <p className="text-[9pt] text-gray-600 font-medium">
-              Carlos Aparecido D'Uvo
+              {assinatura.nome}
             </p>
           </div>
         </div>

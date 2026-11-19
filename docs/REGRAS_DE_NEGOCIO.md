@@ -174,6 +174,11 @@ Requisitos exibidos abaixo do campo de senha:
 7. Reseta tentativas de login e remove bloqueio
 8. Marca `requires_password_change = true`
 
+**Trava contra abuso (nov/2026):** se a pessoa já recebeu uma senha temporária
+e ainda não a trocou, o sistema **não gera outra** (a tela responde igual,
+para ninguém descobrir quais e-mails existem). Quem perdeu o e-mail pede ao
+administrador para resetar a senha.
+
 **Email de recuperação contém:**
 - Saudação com nome do usuário
 - Link: www.duvoenterprise.com.br
@@ -239,7 +244,24 @@ Requisitos exibidos abaixo do campo de senha:
 - E-mail / Usuário
 - Telefone
 - Perfil
-- Status (Ativado/Desativado)
+- Status (Ativado/Desativado) — o que você escolhe é o que fica salvo
+- "Também é locador" (dados que saem no contrato): endereço, cidade da
+  assinatura, WhatsApp, **Banco** (combo com código + nome, ex.: "0341 - Itaú
+  Unibanco"), Agência, Operação, Poupança (só se a conta for poupança), Conta,
+  **Chave PIX** (na mesma linha da Conta) e **Assinatura (imagem)**
+
+**Como cadastrar a assinatura (passo a passo):**
+1. Abra o usuário e marque "Também é locador".
+2. Role até "Assinatura (imagem)" e clique em "Escolher arquivo".
+3. Escolha uma imagem PNG ou JPG da assinatura (fundo branco ou transparente).
+4. Confira a miniatura e clique em Salvar. Para trocar, use "Remover" e envie outra.
+5. Essa assinatura sai no contrato e nos recibos emitidos por essa pessoa.
+
+**Locador na locação:** em "Nova Locação" o campo "Quem é o locador?" lista os
+usuários marcados como "Também é locador".
+
+**Segurança do acesso (nov/2026):** quem é desativado ou muda de perfil perde
+o acesso na hora, sem esperar o login vencer (24 h).
 
 **Não é possível editar:**
 - Senha (use "Resetar Senha" para isso)
@@ -251,7 +273,8 @@ Requisitos exibidos abaixo do campo de senha:
 **Processo:**
 
 1. Admin clica no ícone de resetar senha
-2. Sistema gera senha temporária automaticamente
+2. Sistema gera uma senha temporária **aleatória** (10 caracteres; antes era
+   sempre "mudar123")
 3. Atualiza banco de dados:
    - Nova senha
    - `requires_password_change = true`
@@ -1058,6 +1081,31 @@ Gerenciar cadastro de inquilinos (pessoas físicas ou jurídicas) que podem alug
 ### Objetivo
 Gerenciar contratos de locação entre imóveis e inquilinos.
 
+### Criar uma locação: o contrato (atualizado em 18/nov/2026)
+
+Passo a passo para quem usa o sistema:
+
+1. Em **Locações**, clique em **+ Nova** e preencha imóvel, inquilino, datas, dia de vencimento e caução.
+2. Escolha **Quem é o Locador?** (campo obrigatório, ao lado de "Vaga de garagem"). A lista mostra só os usuários marcados como locador.
+3. Clique em **Criar locação**. Antes de criar, o sistema confere se o inquilino, o imóvel e o locador têm todos os dados que o contrato usa.
+4. **Se faltar algum dado:** aparece o aviso "Locação NÃO criada: faltam dados do contrato", listando o que falta. Ao fechar o aviso, **nada foi criado** (a locação não existe e o imóvel continua disponível). Complete o cadastro e tente de novo.
+5. **Se estiver tudo certo:** a locação é criada e o **contrato** abre na tela, já preenchido e com a assinatura do locador.
+6. O PDF é guardado sozinho nos anexos da locação; **Baixar PDF** é só para salvar uma cópia no computador. O arquivo contém só o contrato (nome: "Contrato - Nome do Inquilino").
+
+Observações (18/nov/2026): o locador só é obrigatório ao **criar** a locação; locações antigas, sem locador, continuam podendo ser editadas. O **valor da caução** e a **data de término** também entram no contrato, então sem eles a locação não é criada (a regra antiga, de caução opcional, não vale mais).
+
+Assinatura: cada usuário locador anexa a imagem da sua assinatura no próprio cadastro (**Escolher Arquivo**; para tirar, passe o mouse na miniatura e clique no X vermelho). Contrato e recibos usam a assinatura do primeiro locador ativo que tiver uma anexada.
+
+**Locação com 2 inquilinos (18/nov/2026):** na tela da locação, marque **Locação com 2 inquilinos**. Aparece um combo com os inquilinos disponíveis para escolher o **2º inquilino** (obrigatório ao marcar; não pode ser o mesmo do 1º). O 2º inquilino também precisa ter todos os dados do contrato; se faltar algo, o aviso diz "2º inquilino: ..." e a locação não é criada. O contrato é igual ao de 1 inquilino, mas cita os dois como LOCATÁRIOS (texto no plural) e, no rodapé, as assinaturas dos dois ficam na mesma linha, lado a lado. Os dois inquilinos ficam como "alugado" enquanto a locação existir.
+
+**Capa do contrato (18/nov/2026):** o contrato começa com uma capa com o logotipo (`public/contrato-logo.png`), o endereço do site e os dados do escritório (consultor, e-mail, WhatsApp, telefone, PIX e endereço, tirados do cadastro do locador). Todas as páginas do PDF são numeradas ("Página X de Y").
+
+Lista de usuários: a coluna **Locador?** mostra V verde (é locador) ou X vermelho (não é).
+
+Imagem de compartilhamento do site (`public/og-image.png`): é a que aparece quando o link do sistema é enviado por WhatsApp e redes sociais.
+
+Testes automáticos: `e2e/features/19-locacao-dados-do-contrato.feature` cobre o bloqueio, o aviso, o contrato assinado, o PDF, a coluna Locador?, o combo de banco e a assinatura.
+
 ### Layout da Página
 
 ```
@@ -1617,6 +1665,46 @@ decidir o que fazer. Isso foi corrigido:
 - Botões para editar e rescindir (se Admin/Broker)
 
 ---
+
+### 📄 Contrato de locação (gerado pelo sistema)
+
+> Novo em **15/nov/2026** (issue #125). Por enquanto só existe o modelo de
+> contrato **residencial**, para inquilino **pessoa física** (CPF). O combo
+> "tipo de uso do imóvel" foi descartado: o cadastro do imóvel já tem o
+> "Tipo de anúncio".
+
+**O que o contrato usa e onde cadastrar (uma vez só):**
+
+1. **Locador** — é um usuário do sistema. Em **Configurações → Usuários**, abra o
+   usuário, marque **"Também é locador"** e preencha CPF, RG, endereço, cidade da
+   assinatura, dados bancários e/ou chave PIX e WhatsApp. Esses dados ficam só
+   no banco de dados, nunca no código do sistema.
+2. **Inquilino** — no cadastro, preencha **Sexo** (o texto muda para
+   locatário/locatária), estado civil, profissão, RG, CPF e endereço completo.
+3. **Imóvel e Local** — o endereço vem do Local (ou do endereço manual do imóvel,
+   quando o local é "Outros"). Regras específicas do prédio/condomínio ficam em
+   `locations.contract_clauses` (ainda não existe tela para cadastrar).
+4. **Locação** — ao criar a locação, escolha **"Quem é o locador?"**. Se existir
+   só um locador cadastrado, ele já vem escolhido. Locações antigas ficam sem
+   locador até alguém escolher (o sistema não preenche sozinho).
+
+**Como o contrato é gerado (atualizado em 18/nov/2026):**
+
+1. O contrato é criado **uma única vez**, no momento em que a locação é criada
+   (ver "Criar uma locação: o contrato" abaixo). Não existe botão para gerar
+   contrato na lista de Locações.
+2. Se faltar algum dado, a locação **não é criada** e o aviso lista o que falta
+   (ex.: "Inquilino: sexo").
+3. Com tudo preenchido, o contrato aparece na tela e o sistema **guarda o PDF
+   sozinho** nos Anexos da locação (categoria Contrato). Na tela só há **Baixar
+   PDF** e **Fechar**.
+4. O sistema nunca gera nem guarda um segundo contrato para a mesma locação. Para
+   rever o contrato depois, abra o anexo na própria locação.
+
+**Observações:**
+- Se a locação já foi rescindida, o contrato usa a data fim **original**
+  (`original_end_date`), não a data da rescisão.
+- A data da assinatura é a do dia em que o contrato é gerado.
 
 ## 💰 Pagamentos/Recebimentos
 
@@ -2269,6 +2357,10 @@ o aluguel do mês + a cobrança da rescisão, como se estivesse pendente.
 Passo a passo para o corretor: em **Locações**, mude o filtro para **Todos**,
 ache a locação rescindida e clique de novo em **Rescisão de Contrato**,
 escolhendo a data nova.
+
+A multa "proporcional ao tempo restante" é sempre calculada sobre a **data fim original do contrato**,
+guardada na primeira rescisão (coluna `rentals.original_end_date`). Sem isso, ao trocar a data a multa
+saía zerada, porque a data fim da locação já tinha virado a data da saída anterior.
 
 O sistema **desfaz a rescisão anterior por inteiro** e refaz tudo com a data
 nova, usando as mesmas regras acima:

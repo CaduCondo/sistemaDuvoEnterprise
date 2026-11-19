@@ -59,6 +59,9 @@ export interface SystemUser {
   landlord_bank_account?: string | null;
   landlord_pix_key?: string | null;
   landlord_whatsapp?: string | null;
+  landlord_bank_savings?: string | null;
+  /** Imagem da assinatura do usuário (recibos e contrato). */
+  signature_url?: string | null;
 }
 
 /** Campos de locador que a tela de usuário edita (issue #125). */
@@ -68,6 +71,7 @@ export const CAMPOS_LOCADOR = [
   "landlord_bank_name",
   "landlord_bank_agency",
   "landlord_bank_operation",
+  "landlord_bank_savings",
   "landlord_bank_account",
   "landlord_pix_key",
   "landlord_whatsapp",
@@ -198,6 +202,8 @@ export interface Tenant {
   occupation?: string;
   maritalStatus?: string;
   marital_status?: string;
+  /** Sexo para o texto do contrato: M ou F (issue #125). */
+  gender?: "M" | "F" | null;
   monthlyIncome?: number | null;
   monthly_income?: number | null;
   cep?: string;
@@ -224,6 +230,10 @@ export interface Rental {
   end_date?: string | null; // Compatibility
   /** Data fim que o contrato tinha antes da primeira rescisão (nulo se nunca rescindida). */
   originalEndDate?: string | null;
+  /** LOCADOR desta locação (usuário com "Também é locador"). Vazio nas locações antigas (issue #125). */
+  landlordUserId?: string | null;
+  /** 2º inquilino, quando a locação é feita com 2 inquilinos. */
+  secondTenantId?: string | null;
   value: number;
   monthlyRent: number;
   monthly_rent?: number; // Compatibility

@@ -69,7 +69,7 @@ async function montarLocacao(world: CustomWorld) {
     value: 1490,
     status: 'available',
   } as any);
-  const tenant = await world.createTenant({ name: `Acordo E2E ${sufixo}` });
+  const tenant = await world.createTenant({ name: `Acordo E2E ${sufixo}`, semDadosDoContrato: true });
   const rental = await world.createRental({
     property_id: property.id,
     tenant_id: tenant.id,

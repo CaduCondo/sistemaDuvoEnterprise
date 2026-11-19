@@ -1,3 +1,4 @@
+import { garantirLocadorEscolhido } from '../helpers/locacao.helper';
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import DatabaseHelper from '../helpers/database.helper';
@@ -158,6 +159,7 @@ Given('que crio uma locação com:', { timeout: 60 * 1000 }, async function(data
   // primeiro (botão "Fechar"), só depois aparece o aviso "Locação criada
   // com sucesso." (OK). Sem isso os passos seguintes esbarravam num diálogo
   // ainda aberto por cima da tela.
+  await garantirLocadorEscolhido(this.page);
   await this.page.locator('#rental-form-submit').click();
 
   /**
@@ -186,7 +188,7 @@ Given('que crio uma locação com:', { timeout: 60 * 1000 }, async function(data
    * mensagem clara, em vez de sabotar o passo seguinte. O passo inteiro
    * tem 60s de orçamento, então ainda sobra folga.
    */
-  const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
+  const comprovante = this.page.locator('#contrato-locacao-dialog');
   await expect(
     comprovante,
     'o Comprovante de Contrato não abriu depois de salvar a locação'
@@ -330,11 +332,14 @@ Given('que existe uma locação com:', async function(this: import('../support/w
   // Caução: obrigatório preencher a Data Pagamento (o valor pode ficar 0,
   // o formulário não valida isso -- ver "Criar locação - Caução
   // integral", 7-locacoes-regras.feature).
+  // O contrato exige caução (valor > 0): sem ela a locação não é criada.
+  await this.page.locator('#rental-deposit-amount').fill('150000');
   await this.page.locator('#rental-deposit-date').fill('2026-01-01');
 
+  await garantirLocadorEscolhido(this.page);
   await this.page.locator('#rental-form-submit').click();
 
-  const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
+  const comprovante = this.page.locator('#contrato-locacao-dialog');
   await expect(
     comprovante,
     'o Comprovante de Contrato não abriu depois de salvar a locação'
@@ -611,7 +616,7 @@ When('vou para a página de Recebimentos', async function() {
  * recebimento de ALUGUEL dele (ignora a parcela de caução).
  */
 When('visualizo o detalhamento do pagamento', async function(this: import('../support/world').CustomWorld) {
-  const comprovante = this.page.getByRole('dialog').filter({ hasText: 'Comprovante de Contrato' });
+  const comprovante = this.page.locator('#contrato-locacao-dialog');
   if (await comprovante.isVisible().catch(() => false)) {
     await comprovante.getByRole('button', { name: /fechar/i }).click();
     await this.page.waitForTimeout(300);

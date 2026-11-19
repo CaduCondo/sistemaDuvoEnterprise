@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { criarClienteSupabaseAdmin } from "@/lib/supabaseServidor";
 import { gerarHashDeSenha } from "@/lib/passwordHash";
+import { assinaturaInterna } from "@/lib/apiAuth";
+import { gerarSenhaTemporariaSegura } from "@/lib/senhaTemporaria";
 
 /**
  * "Esqueci minha senha" — agora no servidor (31/ago/2026).
@@ -25,29 +27,6 @@ import { gerarHashDeSenha } from "@/lib/passwordHash";
 
 const URL_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const CHAVE_SECRETA = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-function gerarSenhaTemporaria(): string {
-  const maiusculas = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const minusculas = "abcdefghijklmnopqrstuvwxyz";
-  const numeros = "0123456789";
-  const especiais = "!@#$%&*";
-
-  let senha = "";
-  senha += maiusculas[Math.floor(Math.random() * maiusculas.length)];
-  senha += minusculas[Math.floor(Math.random() * minusculas.length)];
-  senha += numeros[Math.floor(Math.random() * numeros.length)];
-  senha += especiais[Math.floor(Math.random() * especiais.length)];
-
-  const todos = maiusculas + minusculas + numeros + especiais;
-  for (let i = 4; i < 10; i++) {
-    senha += todos[Math.floor(Math.random() * todos.length)];
-  }
-
-  return senha
-    .split("")
-    .sort(() => Math.random() - 0.5)
-    .join("");
-}
 
 /** Resposta idêntica exista ou não o e-mail -- ver comentário no topo do arquivo. */
 const RESPOSTA_GENERICA = {
@@ -76,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { data: usuario, error: erroBusca } = await supabase
       .from("system_users")
-      .select("id, name, email")
+      .select("id, name, email, temporary_password, requires_password_change")
       .eq("email", email)
       .eq("active", true)
       .maybeSingle();
@@ -92,7 +71,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json(RESPOSTA_GENERICA);
     }
 
-    const senhaTemporaria = gerarSenhaTemporaria();
+    // Trava contra abuso: se a pessoa já está com uma senha temporária que
+    // ainda não foi trocada, não gera outra. Assim ninguém de fora consegue
+    // ficar derrubando a senha de alguém (nem lotando a caixa de e-mail)
+    // repetindo o pedido. Quem perdeu o e-mail pede ao administrador.
+    if (usuario.temporary_password && usuario.requires_password_change) {
+      return res.status(200).json(RESPOSTA_GENERICA);
+    }
+
+    const senhaTemporaria = gerarSenhaTemporariaSegura();
 
     const { error: erroAtualizar } = await supabase
       .from("system_users")
@@ -121,7 +108,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       await fetch(`${baseUrl}/api/send-password-recovery`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-chamada-interna": assinaturaInterna() },
         body: JSON.stringify({
           email: usuario.email,
           userId: usuario.id,

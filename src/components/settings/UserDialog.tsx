@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Paperclip, X } from "lucide-react";
 import { SystemUser } from "@/types";
 import {
   Dialog,
@@ -26,6 +27,8 @@ import { applyPhoneMask, applyCpfMask } from "@/lib/masks";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CAMPOS_LOCADOR, CampoLocador } from "@/types";
 import { isEmailEnabled } from "@/services/emailSettingsService";
+import { BancoCombo } from "@/components/settings/BancoCombo";
+import { uploadAttachment } from "@/lib/uploadAttachment";
 
 // Função para gerar senha temporária aleatória
 function generateTemporaryPassword(): string {
@@ -55,16 +58,30 @@ function generateTemporaryPassword(): string {
 }
 
 // Campos do bloco "Também é locador" (issue #125), na ordem da tela.
-const ROTULOS_LOCADOR: Record<CampoLocador, { rotulo: string; dica?: string; largo?: boolean }> = {
-  landlord_address: { rotulo: "Endereço completo", dica: "Rua, número, complemento, bairro, cidade/UF e CEP — como deve sair no contrato", largo: true },
-  landlord_city: { rotulo: "Cidade da assinatura", dica: "Ex.: São Paulo" },
-  landlord_whatsapp: { rotulo: "WhatsApp para comprovantes", dica: "Número que recebe os comprovantes de pagamento" },
-  landlord_bank_name: { rotulo: "Banco" },
-  landlord_bank_agency: { rotulo: "Agência" },
-  landlord_bank_operation: { rotulo: "Operação", dica: "Se o banco não usa, deixe em branco" },
-  landlord_bank_account: { rotulo: "Conta" },
-  landlord_pix_key: { rotulo: "Chave PIX", largo: true },
+const ROTULOS_LOCADOR: Record<CampoLocador, { rotulo: string; dica?: string; colunas: string }> = {
+  landlord_address: { rotulo: "Endereço completo", dica: "Rua, número, complemento, bairro, cidade/UF e CEP — como deve sair no contrato", colunas: "sm:col-span-6" },
+  landlord_city: { rotulo: "Cidade da assinatura", dica: "Ex.: São Paulo", colunas: "sm:col-span-3" },
+  landlord_whatsapp: { rotulo: "WhatsApp para comprovantes", dica: "Número que recebe os comprovantes de pagamento", colunas: "sm:col-span-3" },
+  landlord_bank_name: { rotulo: "Banco", dica: "Escolha pelo número ou pelo nome. Aparece no contrato como \"0341 - Itaú Unibanco\"", colunas: "sm:col-span-6" },
+  landlord_bank_agency: { rotulo: "Agência", colunas: "sm:col-span-2" },
+  landlord_bank_operation: { rotulo: "Operação", dica: "Se o banco não usa, deixe em branco", colunas: "sm:col-span-2" },
+  landlord_bank_savings: { rotulo: "Poupança", dica: "Só se a conta for poupança", colunas: "sm:col-span-2" },
+  landlord_bank_account: { rotulo: "Conta", colunas: "sm:col-span-3" },
+  landlord_pix_key: { rotulo: "Chave PIX", colunas: "sm:col-span-3" },
 };
+
+// Ordem em que os campos aparecem na tela (Chave PIX fica na linha da Conta).
+const ORDEM_TELA_LOCADOR: CampoLocador[] = [
+  "landlord_address",
+  "landlord_city",
+  "landlord_whatsapp",
+  "landlord_bank_name",
+  "landlord_bank_agency",
+  "landlord_bank_operation",
+  "landlord_bank_savings",
+  "landlord_bank_account",
+  "landlord_pix_key",
+];
 
 const LOCADOR_VAZIO = Object.fromEntries(CAMPOS_LOCADOR.map((c) => [c, ""])) as Record<CampoLocador, string>;
 
@@ -97,8 +114,11 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
     cpf: "",
     rg: "",
     is_landlord: false,
+    signature_url: "",
     ...LOCADOR_VAZIO,
   });
+  const [enviandoAssinatura, setEnviandoAssinatura] = useState(false);
+  const arquivoAssinatura = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
@@ -114,6 +134,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         cpf: user.cpf || "",
         rg: user.rg || "",
         is_landlord: Boolean(user.is_landlord),
+        signature_url: user.signature_url || "",
         ...(Object.fromEntries(
           CAMPOS_LOCADOR.map((c) => [c, (user as any)[c] || ""])
         ) as Record<CampoLocador, string>),
@@ -128,6 +149,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
         cpf: "",
         rg: "",
         is_landlord: false,
+        signature_url: "",
         ...LOCADOR_VAZIO,
       });
     }
@@ -182,6 +204,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
       cpf: formData.cpf,
       rg: formData.rg,
       is_landlord: formData.is_landlord,
+      signature_url: formData.signature_url || null,
     };
     if (formData.is_landlord) {
       for (const c of CAMPOS_LOCADOR) extras[c] = formData[c];
@@ -407,23 +430,102 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
                 Marque se esta pessoa aparece como LOCADOR nos contratos de locação. Os dados abaixo vão no contrato.
               </p>
               {formData.is_landlord && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {CAMPOS_LOCADOR.map((campo) => {
+                <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
+                  {ORDEM_TELA_LOCADOR.map((campo) => {
                     const info = ROTULOS_LOCADOR[campo];
                     return (
-                      <div key={campo} className={`space-y-1 ${info.largo ? "sm:col-span-2" : ""}`}>
+                      <div key={campo} className={`space-y-1 ${info.colunas}`}>
                         <Label htmlFor={campo}>{info.rotulo}</Label>
-                        <Input
-                          id={campo}
-                          value={formData[campo]}
-                          onChange={(e) => setFormData({ ...formData, [campo]: e.target.value })}
-                          disabled={isSubmitting}
-                          className="h-11"
-                        />
+                        {campo === "landlord_bank_name" ? (
+                          <BancoCombo
+                            id={campo}
+                            value={formData[campo]}
+                            onChange={(v) => setFormData({ ...formData, [campo]: v })}
+                            disabled={isSubmitting}
+                          />
+                        ) : (
+                          <Input
+                            id={campo}
+                            value={formData[campo]}
+                            onChange={(e) => setFormData({ ...formData, [campo]: e.target.value })}
+                            disabled={isSubmitting}
+                            className="h-11"
+                          />
+                        )}
                         {info.dica && <p className="text-xs text-muted-foreground">{info.dica}</p>}
                       </div>
                     );
                   })}
+
+                  <div className="space-y-2 sm:col-span-6">
+                    <Label htmlFor="signature-file">Assinatura (imagem)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      É a assinatura que sai no contrato e nos recibos que esta pessoa emitir. Use uma imagem PNG ou JPG com fundo branco ou transparente.
+                    </p>
+                    {formData.signature_url ? (
+                      <div className="group relative inline-block">
+                        <img
+                          id="signature-preview"
+                          src={formData.signature_url}
+                          alt="Assinatura"
+                          className="h-24 w-auto rounded-lg border bg-white p-1"
+                        />
+                        {!isSubmitting && !enviandoAssinatura && (
+                          <Button
+                            id="signature-remove"
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            aria-label="Remover assinatura"
+                            onClick={() => setFormData({ ...formData, signature_url: "" })}
+                            className="absolute right-1 top-1 h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          id="signature-file"
+                          ref={arquivoAssinatura}
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const arquivo = e.target.files?.[0];
+                            e.target.value = "";
+                            if (!arquivo) return;
+                            setEnviandoAssinatura(true);
+                            try {
+                              const url = await uploadAttachment(arquivo, "user-signatures");
+                              setFormData((f) => ({ ...f, signature_url: url }));
+                            } catch (err: any) {
+                              toast({
+                                title: "Erro",
+                                description: err?.message || "Não foi possível enviar a assinatura.",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setEnviandoAssinatura(false);
+                            }
+                          }}
+                        />
+                        <Button
+                          id="signature-escolher"
+                          type="button"
+                          variant="outline"
+                          disabled={isSubmitting || enviandoAssinatura}
+                          onClick={() => arquivoAssinatura.current?.click()}
+                          className="h-11 w-full"
+                        >
+                          <Paperclip className="mr-2 h-4 w-4" />
+                          Escolher Arquivo
+                        </Button>
+                      </>
+                    )}
+                    {enviandoAssinatura && <p className="text-xs text-muted-foreground">Enviando...</p>}
+                  </div>
                 </div>
               )}
             </div>

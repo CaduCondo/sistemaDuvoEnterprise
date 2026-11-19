@@ -1,9 +1,17 @@
 import { useState, useEffect } from "react";
+import { COLUNAS_USUARIO } from "@/lib/usuariosColunas";
 import { supabase } from "@/integrations/supabase/client";
 import { SystemUser } from "@/types";
 import { createUser, updateUser, deleteUser, unblockLogin } from "@/services/systemUserService";
 import { useAlert } from "@/contexts/AlertContext";
 import { CAMPOS_LOCADOR } from "@/types";
+
+// Senha temporária aleatória (navegador) — usada só se a tela não mandar uma.
+function gerarSenhaTemporaria(): string {
+  const letras = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint32Array(9));
+  return Array.from(bytes, (b) => letras[b % letras.length]).join("") + "#";
+}
 
 /**
  * Telefone, CPF, RG e dados de locador (issue #125) vindos da tela de
@@ -11,7 +19,7 @@ import { CAMPOS_LOCADOR } from "@/types";
  */
 function dadosDeLocador(userData: any): Record<string, any> {
   const campos = [
-    "phone", "cpf", "rg", "is_landlord",
+    "phone", "cpf", "rg", "is_landlord", "signature_url",
     ...CAMPOS_LOCADOR,
   ];
   const resultado: Record<string, any> = {};
@@ -29,14 +37,14 @@ export function useUsers() {
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("system_users")
-        .select("*")
+        .select(COLUNAS_USUARIO)
         .order("name");
 
       if (error) throw error;
       
-      const typedUsers: SystemUser[] = (data || []).map((user) => ({
+      const typedUsers: SystemUser[] = (data || []).map((user: any) => ({
         ...user,
         active: !!user.active,
         status: user.active ? "active" : "inactive",
@@ -106,7 +114,7 @@ export function useUsers() {
         name: userData.name,
         email: userData.email,
         role: userData.role,
-        password: userData.password || "mudar123",
+        password: userData.password || gerarSenhaTemporaria(),
         temporary_password: true,
       });
 
@@ -164,8 +172,6 @@ export function useUsers() {
       console.log("🔐 ========== UPDATE USER DEBUG ==========");
       console.log("🆔 User ID:", id);
       console.log("📋 userData recebido:", userData);
-      console.log("🔑 password field:", (userData as any).password);
-      console.log("🔑 password_hash field:", userData.password_hash);
       
       if (userData.email) {
         const { data: existingUser } = await supabase
@@ -203,11 +209,20 @@ export function useUsers() {
         }
       }
 
+      // BUG corrigido em 15/nov/2026: a tela manda `status` ("active"/"inactive"),
+      // mas aqui só se lia `active` (sempre vazio) -- todo usuário editado
+      // pela tela virava "Inativo", mesmo com "Ativo" escolhido. Agora vale o
+      // que a tela mandou; se nenhum dos dois veio, o status não é mexido.
+      const ativo =
+        (userData as any).status !== undefined
+          ? (userData as any).status === "active"
+          : userData.active;
+
       await updateUser(id, {
         name: userData.name,
         email: userData.email,
         role: userData.role,
-        status: userData.active ? "active" : "inactive",
+        ...(ativo !== undefined ? { status: ativo ? "active" : "inactive" } : {}),
         ...dadosDeLocador(userData),
       });
       

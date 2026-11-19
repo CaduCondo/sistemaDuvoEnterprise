@@ -38,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "Servidor mal configurado" });
   }
 
-  const sessao = exigirAdmin(req, res);
+  const sessao = await exigirAdmin(req, res);
   if (!sessao) return;
 
   const { name, email, username, role, password, temporary_password } = req.body ?? {};

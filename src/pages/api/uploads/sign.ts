@@ -62,6 +62,7 @@ const PASTAS_PERMITIDAS = [
   "payment-attachments",
   "deposit-attachments",
   "property-images",
+  "user-signatures",
 ] as const;
 type PastaPermitida = (typeof PASTAS_PERMITIDAS)[number];
 
@@ -87,7 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Qualquer usuário logado pode anexar arquivo -- não é uma ação de admin.
-  const sessao = exigirSessao(req, res);
+  const sessao = await exigirSessao(req, res);
   if (!sessao) return;
 
   const { folder, fileName, fileSize } = req.body ?? {};

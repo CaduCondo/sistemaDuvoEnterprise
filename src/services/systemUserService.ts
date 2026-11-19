@@ -1,12 +1,5 @@
 import { SystemUser } from "@/types";
-import {
-  getAll as fetchAll,
-  getSingle,
-  createSingle,
-  updateSingle,
-  deleteSingle,
-  getByField
-} from "@/lib/supabaseHelpers";
+import { COLUNAS_USUARIO } from "@/lib/usuariosColunas";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "./auditService";
 import { getSessionToken } from "./authService";
@@ -44,17 +37,30 @@ async function chamarApi<T = any>(caminho: string, opcoes: RequestInit = {}): Pr
 }
 
 export async function getSystemUsers(): Promise<SystemUser[]> {
-  return fetchAll<SystemUser>(TABLE);
+  const { data, error } = await (supabase as any).from(TABLE).select(COLUNAS_USUARIO);
+  if (error) throw error;
+  return (data || []) as SystemUser[];
 }
 
 export async function getUserById(id: string): Promise<SystemUser> {
-  const user = await getSingle<SystemUser>(TABLE, id);
+  const { data: user, error } = await (supabase as any)
+    .from(TABLE)
+    .select(COLUNAS_USUARIO)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
   if (!user) throw new Error("Usuário não encontrado");
-  return user;
+  return user as SystemUser;
 }
 
 export async function getUserByEmail(email: string): Promise<SystemUser | null> {
-  return getByField<SystemUser>(TABLE, "email", email);
+  const { data, error } = await (supabase as any)
+    .from(TABLE)
+    .select(COLUNAS_USUARIO)
+    .eq("email", email)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as SystemUser) ?? null;
 }
 
 export async function createUser(userData: {
@@ -90,9 +96,8 @@ export async function createUser(userData: {
   // não pode impedir o admin de saber que a criação funcionou.
   if (userData.temporary_password) {
     try {
-      await fetch("/api/send-welcome-email", {
+      await chamarApi("/api/send-welcome-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: data.email,
           name: data.name,
@@ -124,6 +129,8 @@ export async function updateUser(
     landlord_bank_name?: string;
     landlord_bank_agency?: string;
     landlord_bank_operation?: string;
+    landlord_bank_savings?: string;
+    signature_url?: string | null;
     landlord_bank_account?: string;
     landlord_pix_key?: string;
     landlord_whatsapp?: string;
@@ -249,9 +256,8 @@ export async function resetPassword(userId: string): Promise<{ email: string; te
   );
 
   try {
-    await fetch("/api/send-password-recovery", {
+    await chamarApi("/api/send-password-recovery", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: usuario.email,
         userId,

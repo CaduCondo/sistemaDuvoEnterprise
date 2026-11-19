@@ -20,10 +20,12 @@ import {
 import type { Property, Tenant, Location, Rental } from "@/types";
 import { AttachmentViewer } from "@/components/AttachmentViewer";
 import { AttachmentUploadButton } from "@/components/attachments/AttachmentUploadButton";
-import { RentalContract } from "@/components/RentalContract";
+import { montarContrato } from "@/lib/contrato/montarContrato";
+import { ContratoLocacaoDialog } from "@/components/rentals/ContratoLocacaoDialog";
 import { DepositPaymentDialog } from "@/components/rentals/DepositPaymentDialog";
 import { useRentalForm } from "@/hooks/useRentalForm";
 import { supabase } from "@/integrations/supabase/client";
+import { getSystemUsers } from "@/services/systemUserService";
 
 interface RentalFormDialogProps {
   open: boolean;
@@ -69,6 +71,27 @@ export const RentalFormDialog = memo(function RentalFormDialog({
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedInstallmentNumber, setSelectedInstallmentNumber] = useState<number | null>(null);
   const [loadedInstallment, setLoadedInstallment] = useState<any>(null);
+
+  // Locadores (usuários marcados "Também é locador") para o combo "Quem é o locador?" (issue #125)
+  const [locadores, setLocadores] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    let cancelado = false;
+    getSystemUsers()
+      .then((lista) => {
+        if (cancelado) return;
+        setLocadores(
+          lista
+            .filter((u) => u.is_landlord)
+            .map((u) => ({ id: u.id, name: u.name }))
+            .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }))
+        );
+      })
+      .catch((err) => console.error("Erro ao carregar locadores:", err));
+    return () => {
+      cancelado = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     const loadDepositInstallments = async () => {
@@ -139,6 +162,8 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     setSelectedPropertyId,
     selectedTenantId,
     setSelectedTenantId,
+    landlordUserId,
+    setLandlordUserId,
     startDate,
     setStartDate,
     endDate,
@@ -195,6 +220,14 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     tenants: tenants.length > 0 ? tenants : availableTenants,
     locations,
   });
+
+  // Locação nova com um único locador cadastrado: já vem escolhido.
+  useEffect(() => {
+    if (open && !rental && !landlordUserId && locadores.length === 1) {
+      setLandlordUserId(locadores[0].id);
+    }
+  }, [open, rental, landlordUserId, locadores, setLandlordUserId]);
+
 
   useEffect(() => {
     if (locationsFromProps.length > 0) {
@@ -280,6 +313,34 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       showAlert({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios.",
+        type: "error",
+      });
+      return;
+    }
+
+    // Locador só é obrigatório ao CRIAR (o contrato é feito na criação). Locações
+    // antigas, sem locador, continuam podendo ser editadas.
+    if (!rental && hasTwoTenants && !secondTenantId) {
+      showAlert({
+        title: "Erro",
+        description: "Escolha o 2º inquilino ou desmarque \"Locação com 2 inquilinos\".",
+        type: "error",
+      });
+      return;
+    }
+    if (!rental && hasTwoTenants && secondTenantId === selectedTenantId) {
+      showAlert({
+        title: "Erro",
+        description: "O 2º inquilino precisa ser uma pessoa diferente do 1º inquilino.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (!rental && !landlordUserId) {
+      showAlert({
+        title: "Erro",
+        description: "Escolha quem é o locador. Se a lista estiver vazia, marque \"Também é locador\" no cadastro do usuário (Configurações → Usuários).",
         type: "error",
       });
       return;
@@ -382,6 +443,8 @@ export const RentalFormDialog = memo(function RentalFormDialog({
         hasGarage: hasGarage,
         garageValue: hasGarage && garageValue ? parseCurrencyToNumber(garageValue) : undefined,
         hasPartnerBroker: hasPartnerBroker,
+        landlordUserId: landlordUserId || null,
+        secondTenantId: !rental && hasTwoTenants ? secondTenantId || null : null,
       };
 
       console.log("🔍 [RentalFormDialog] ANTES de salvar:");
@@ -390,10 +453,40 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       console.log("📦 Dados completos sendo enviados:", commonData);
 
       if (!rental) {
+        // Só cria a locação se TODOS os dados que vão no contrato estiverem
+        // preenchidos (inquilino, locador, imóvel...). Se faltar algo, avisa
+        // o que é e a locação NÃO é criada (regra do Cadu, 18/nov/2026).
+        const { resultado: previa } = await montarContrato(supabase as any, {
+          tenantId,
+          tenant2Id: hasTwoTenants ? secondTenantId : null,
+          propertyId,
+          landlordUserId,
+          temGaragem: hasGarage,
+          locacao: {
+            inicio: startDate,
+            termino: endDate || null,
+            aluguel: baseRent,
+            garagem: garageAmount,
+            diaVencimento: parseInt(paymentDay),
+            caucao: commonData.depositAmount,
+            parcelasCaucao: depositInstallmentsTotal,
+          },
+        });
+        if (previa.faltando.length > 0) {
+          showAlert({
+            title: "Locação NÃO criada: faltam dados do contrato",
+            description:
+              "Preencha o que falta e tente de novo:\n" + previa.faltando.map((f) => `• ${f}`).join("\n"),
+            type: "error",
+          });
+          return;
+        }
+
         const createdRental = await createRental(commonData);
         
         await updateProperty(propertyId, { status: "occupied" });
         await updateTenant(tenantId, { status: "rented" });
+        if (hasTwoTenants && secondTenantId) await updateTenant(secondTenantId, { status: "rented" });
 
         const mappedRental: Rental = {
           ...createdRental,
@@ -498,7 +591,7 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     depositInstallment2, depositInstallment3, depositAmount, endDate,
     hasPartnerBroker, attachments, depositPaymentDate, depositPixCode,
     depositInstallment2PaymentDate, depositInstallment3PaymentDate,
-    rental, isViewMode, locations, showAlert, onOpenChange, onSuccess, resetForm
+    rental, isViewMode, locations, landlordUserId, showAlert, onOpenChange, onSuccess, resetForm
   ]);
 
   const handleCloseDialog = useCallback(() => {
@@ -537,6 +630,16 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     }
     return baseList;
   }, [rental, properties, availableProperties]);
+
+  // Locação com 2 inquilinos (opcional): caixinha + combo do 2º inquilino.
+  const [hasTwoTenants, setHasTwoTenants] = useState(false);
+  const [secondTenantId, setSecondTenantId] = useState("");
+  useEffect(() => {
+    if (!open) {
+      setHasTwoTenants(false);
+      setSecondTenantId("");
+    }
+  }, [open]);
 
   const tenantsToDisplay = useMemo(() => {
     const baseList = rental ? tenants : availableTenants;
@@ -684,6 +787,44 @@ export const RentalFormDialog = memo(function RentalFormDialog({
             </div>
           </div>
 
+          {!rental && (
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="rental-two-tenants"
+                  checked={hasTwoTenants}
+                  onCheckedChange={(v) => {
+                    setHasTwoTenants(v === true);
+                    if (v !== true) setSecondTenantId("");
+                  }}
+                  disabled={isFieldDisabled}
+                />
+                <Label htmlFor="rental-two-tenants" className="text-sm">Locação com 2 inquilinos</Label>
+              </div>
+              {hasTwoTenants && (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="rental-tenant2" className="text-sm whitespace-nowrap">2º Inquilino *</Label>
+                  <Select value={secondTenantId} onValueChange={setSecondTenantId} disabled={isFieldDisabled}>
+                    <SelectTrigger id="rental-tenant2" className="w-72">
+                      <SelectValue placeholder="Selecione o 2º inquilino" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tenantsToDisplay
+                        .filter((t) => t.id !== selectedTenantId)
+                        .slice()
+                        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }))
+                        .map((tenant) => (
+                          <SelectItem key={tenant.id} value={tenant.id}>
+                            {tenant.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Dados do Contrato */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
@@ -731,8 +872,8 @@ export const RentalFormDialog = memo(function RentalFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="flex items-center space-x-2 md:col-span-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="rental-has-garage"
                 checked={hasGarage}
@@ -745,18 +886,37 @@ export const RentalFormDialog = memo(function RentalFormDialog({
               <Label htmlFor="rental-has-garage" className="cursor-pointer text-sm whitespace-nowrap">
                 Vaga Garagem?
               </Label>
-            </div>
-            {hasGarage && (
-              <div className="space-y-2 md:col-span-3">
+              {hasGarage && (
                 <Input
                   id="rental-garage-value"
                   value={garageValue}
                   onChange={(e) => setGarageValue(applyMoneyMask(e.target.value))}
                   placeholder="R$ 0,00"
                   disabled={isFieldDisabled}
+                  className="h-9 w-28"
                 />
-              </div>
-            )}
+              )}
+            </div>
+
+            <div className="ml-auto flex items-center gap-2">
+              <Label htmlFor="rental-landlord" className="text-sm whitespace-nowrap">
+                Quem é o Locador? *
+              </Label>
+              <Select value={landlordUserId} onValueChange={setLandlordUserId} disabled={isFieldDisabled}>
+                <SelectTrigger id="rental-landlord" className="w-56">
+                  <SelectValue
+                    placeholder={locadores.length === 0 ? "Nenhum locador cadastrado" : "Selecione"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {locadores.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-4 p-4 border rounded-md bg-muted/20">
@@ -1190,11 +1350,8 @@ export const RentalFormDialog = memo(function RentalFormDialog({
       )}
 
       {showContract && createdRentalData && (
-        <RentalContract
-          rental={createdRentalData.rental}
-          property={createdRentalData.property}
-          tenant={createdRentalData.tenant}
-          location={createdRentalData.location}
+        <ContratoLocacaoDialog
+          rentalId={createdRentalData.rental.id}
           onClose={() => {
             // ✅ CORREÇÃO: fechar o Contrato e o formulário de Locação no mesmo
             // instante confundia o Radix (2 Dialogs fechando juntos), deixando a
