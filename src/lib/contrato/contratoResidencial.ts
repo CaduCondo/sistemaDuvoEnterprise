@@ -690,7 +690,7 @@ ${assinaturaLocador}
 ${assinaturaLocador}
 <div class="assinatura"></div>
 </div>
-<div class="assinaturas">
+<div class="assinaturas topo">
 <div class="assinatura"><div class="linha"></div><b>${T.sexo === "F" ? "LOCATÁRIA" : "LOCATÁRIO"}: ${esc(T.nome)}</b></div>
 <div class="assinatura"><div class="linha"></div><b>${T2!.sexo === "F" ? "LOCATÁRIA" : "LOCATÁRIO"}: ${esc(T2!.nome)}</b></div>
 </div>`);

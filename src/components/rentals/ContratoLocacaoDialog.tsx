@@ -34,6 +34,7 @@ const ESTILO = `
   .contrato .resumo { border: 1px solid #000; padding: 8px 10px; margin-bottom: 12px; }
   .contrato .data-assinatura { margin-top: 18px; text-align: right; }
   .contrato .assinaturas { display: flex; gap: 40px; margin-top: 36px; align-items: flex-end; }
+  .contrato .assinaturas.topo { align-items: flex-start; }
   .contrato .assinatura { flex: 1; text-align: center; font-size: 11pt; }
   .contrato .linha { border-top: 1px solid #000; margin-bottom: 4px; }
   .contrato .testemunhas { margin-top: 18px; }
