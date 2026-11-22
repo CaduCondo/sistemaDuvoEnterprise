@@ -298,15 +298,15 @@ export default function DemonstrativosPage() {
 
             <TabsContent value="dre">
               <TabelaDemonstrativo titulo="Demonstração do Resultado (DRE)" linhas={linhasDRE(periodos)} periodos={periodos}
-                linhaDoTempo={visao === "mensal"} testId="tabela-dre" />
+                linhaDoTempo={visao === "mensal"} mesBase={String(dados.premissas.base_date).slice(0, 7)} testId="tabela-dre" />
             </TabsContent>
             <TabsContent value="balanco">
               <TabelaDemonstrativo titulo="Balanço Patrimonial" linhas={linhasBalanco()} periodos={periodos}
-                linhaDoTempo={visao === "mensal"} testId="tabela-balanco" />
+                linhaDoTempo={visao === "mensal"} mesBase={String(dados.premissas.base_date).slice(0, 7)} testId="tabela-balanco" />
             </TabsContent>
             <TabsContent value="dfc">
               <TabelaDemonstrativo titulo="Demonstração do Fluxo de Caixa (método indireto)" linhas={linhasDFC()} periodos={periodos}
-                linhaDoTempo={visao === "mensal"} testId="tabela-dfc" />
+                linhaDoTempo={visao === "mensal"} mesBase={String(dados.premissas.base_date).slice(0, 7)} testId="tabela-dfc" />
             </TabsContent>
 
             <TabsContent value="predios">

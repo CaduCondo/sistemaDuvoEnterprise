@@ -55,8 +55,10 @@ function CampoNumero({ valor, onChange, testId, passo = "0.01", largura }: {
   );
 }
 
-function TabelaPorAno({ titulo, anos, valores, onChange, testId }: {
+function TabelaPorAno({ titulo, anos, valores, onChange, testId, fator }: {
   titulo: string; anos: number[]; valores: Record<string, number>; onChange: (ano: number, v: number) => void; testId?: string;
+  /** Tabela de fator (0 a 1), não de taxa: sem "% a.a."/"% a.m.". */
+  fator?: boolean;
 }) {
   const cab: CSSProperties = { background: COR.begeEscuro, color: COR.vinhoEscuro, fontWeight: 700, padding: "3px 8px", border: `1px solid ${COR.taupe}` };
   const cel: CSSProperties = { border: `1px solid ${COR.taupe}`, textAlign: "center", padding: 2 };
@@ -70,21 +72,21 @@ function TabelaPorAno({ titulo, anos, valores, onChange, testId }: {
       </thead>
       <tbody>
         <tr>
-          <td style={{ ...estiloRotulo, minWidth: 0 }}>% a.a.</td>
+          <td style={{ ...estiloRotulo, minWidth: 0 }}>{fator ? "Parcela" : "% a.a."}</td>
           {anos.map((a) => (
             <td key={a} style={cel}>
               <CampoNumero valor={valores[String(a)] ?? 0} onChange={(v) => onChange(a, v)} largura={70} />
             </td>
           ))}
         </tr>
-        <tr>
+        {!fator && <tr>
           <td style={{ ...estiloRotulo, minWidth: 0 }}>% a.m.</td>
           {anos.map((a) => (
             <td key={a} style={{ ...cel, color: COR.formula }}>
               {fmtPct(taxaMensal(Number(valores[String(a)] ?? 0)))}
             </td>
           ))}
-        </tr>
+        </tr>}
       </tbody>
     </table>
   );
@@ -211,9 +213,9 @@ export function AbaPremissas({
           <Par rotulo="... e mais de (imóveis)"><CampoNumero valor={tp.pf.ibs_cbs_limite_imoveis} passo="1" onChange={(v) => setTax("pf", "ibs_cbs_limite_imoveis", v)} /></Par>
         </div>
       </div>
-      <TabelaPorAno titulo="Parcela da CBS cobrada (1 = 100%)" anos={anos} valores={tp.ibs_cbs.cbs_fator_por_ano}
+      <TabelaPorAno titulo="Parcela da CBS cobrada (1 = 100%)" anos={anos} valores={tp.ibs_cbs.cbs_fator_por_ano} fator
         onChange={(a, v) => setTax("ibs_cbs", "cbs_fator_por_ano", { ...tp.ibs_cbs.cbs_fator_por_ano, [a]: v })} />
-      <TabelaPorAno titulo="Parcela do IBS cobrada (1 = 100%)" anos={anos} valores={tp.ibs_cbs.ibs_fator_por_ano}
+      <TabelaPorAno titulo="Parcela do IBS cobrada (1 = 100%)" anos={anos} valores={tp.ibs_cbs.ibs_fator_por_ano} fator
         onChange={(a, v) => setTax("ibs_cbs", "ibs_fator_por_ano", { ...tp.ibs_cbs.ibs_fator_por_ano, [a]: v })} />
       <Button onClick={salvarGerais} disabled={salvando} data-testid="salvar-premissas"
         style={{ background: COR.vinhoEscuro, color: "#fff" }}>

@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Periodo } from "@/lib/demonstrativos/tipos";
+import { diferencaEmMeses } from "@/lib/demonstrativos/datas";
 import { COR, FONTE_CORPO, fmtPct, fmtPeriodo, fmtR } from "./estilo";
 
 /**
@@ -23,13 +24,15 @@ export interface LinhaDaTabela {
 const borda = `1px solid ${COR.vinhoEscuro}`;
 
 export function TabelaDemonstrativo({
-  titulo, linhas, periodos, linhaDoTempo, testId,
+  titulo, linhas, periodos, linhaDoTempo, mesBase, testId,
 }: {
   titulo: string;
   linhas: LinhaDaTabela[];
   periodos: Periodo[];
   /** Série mensal: mostra a faixa "Linha do tempo", o índice e as datas. */
   linhaDoTempo?: boolean;
+  /** Mês de abertura ("AAAA-MM"): o índice do período conta a partir dele. */
+  mesBase?: string;
   testId?: string;
 }) {
   const base = (p: Periodo) => p.dre.receitaBruta;
@@ -55,7 +58,9 @@ export function TabelaDemonstrativo({
             <tr style={{ background: COR.bege, color: COR.vinhoEscuro, fontWeight: 700 }}>
               <th style={{ ...rotulo, background: COR.bege }}>Período</th>
               {periodos.map((p, i) => (
-                <th key={p.chave} colSpan={2} style={{ ...celula, borderLeft: borda }}>{i}</th>
+                <th key={p.chave} colSpan={2} style={{ ...celula, borderLeft: borda }}>
+                  {mesBase ? diferencaEmMeses(mesBase, p.chave) : i}
+                </th>
               ))}
             </tr>
           )}
