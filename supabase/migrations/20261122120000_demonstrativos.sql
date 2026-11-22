@@ -73,7 +73,7 @@ values (
       ],
       "redutor_ate": 5000.00, "redutor_max": 312.89,
       "redutor_faixa_ate": 7350.00, "redutor_a": 978.62, "redutor_b": 0.133145,
-      "deduz_taxas": true,
+      "deduz_taxas": true, "desconto_simplificado_mensal": 607.20,
       "ibs_cbs_limite_receita_anual": 240000, "ibs_cbs_limite_imoveis": 3
     },
     "holding": {
