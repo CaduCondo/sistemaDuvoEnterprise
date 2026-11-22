@@ -33,7 +33,9 @@
 | Vercel | time d-uvo-enterprise, projeto sistema-duvo-enterprise | Autorizado; conector precisa enxergar o projeto |
 | Site de produção / DEV online | duvoenterprise.com.br / dev.duvoenterprise.com.br | Autorizado |
 
-- **Branches:** só existem `main` (produção) e `develop` (desenvolvimento). Qualquer outra branch deve ser apagada (autorizado pelo Cadu em 20/nov/2026).
+- **Branches:** `main` (produção), `develop` (desenvolvimento) e, desde 22/nov/2026, **`demonstrativos`** (a página Demonstrativos, issue #128, guardada à parte porque ainda precisa de muita análise antes de ir para produção — **não apagar**). Qualquer outra branch deve ser apagada (autorizado pelo Cadu em 20/nov/2026).
+  - A `develop` foi recriada a partir da `main` em 22/nov/2026; todo o trabalho dos Demonstrativos (página, motor, Excel, testes, docs, migration `20261122120000_demonstrativos.sql`) está só na `demonstrativos`. Para voltar a ela: `git switch demonstrativos` + `npm install`. As tabelas novas do banco de DEV somem no reset de domingo; reaplicar a migration no DEV antes de testar.
+  - A `demonstrativos` não publica no DEV online (que é sempre a `develop`).
 - Se um acesso falhar, avisar o Cadu em uma linha dizendo qual conector/permissão falta, sem tentar contornar.
 
 ## Regras de trabalho
