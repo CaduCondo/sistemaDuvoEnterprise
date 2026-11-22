@@ -596,11 +596,12 @@ export async function gerarWorkbookDosDemonstrativos(p: ParametrosDoExcel): Prom
     p.periodos.forEach((per, i) => {
       const c0 = PRIMEIRA_COL + i * 2;
       const { de, ate } = colunasDe(per);
+      // Período (data com formato mmm-yy, ou o ano) + marca A/P ao lado.
+      // Sem TEXT(): o código de formato dentro de TEXT muda com o idioma do Excel.
       const cel = ws.getCell(lPer, c0);
-      cel.value = per.chave.length === 4
-        ? { formula: `${calc}!${ate}${lAno}&" "&${calc}!${ate}${lTipo}` }
-        : { formula: `TEXT(${calc}!${de}${lData},"mmm-yy")&" "&${calc}!${de}${lTipo}` };
-      ws.mergeCells(lPer, c0, lPer, c0 + 1);
+      cel.value = per.chave.length === 4 ? { formula: `${calc}!${ate}${lAno}` } : { formula: `${calc}!${de}${lData}` };
+      if (per.chave.length !== 4) cel.numFmt = FMT_DATA;
+      ws.getCell(lPer, c0 + 1).value = { formula: `${calc}!${ate}${lTipo}` };
       ws.getCell(lSub, c0).value = "R$";
       ws.getCell(lSub, c0 + 1).value = "%";
     });
@@ -608,6 +609,8 @@ export async function gerarWorkbookDosDemonstrativos(p: ParametrosDoExcel): Prom
       estilizarLinha(ws, x, largura, "total");
       for (let c = PRIMEIRA_COL; c <= largura; c++) ws.getCell(x, c).alignment = centro;
     }
+    // Datas e ano vêm de outra aba: verde.
+    for (let i = 0; i < p.periodos.length; i++) ws.getCell(lPer, PRIMEIRA_COL + i * 2).font = fonte({ bold: true, color: { argb: C.vinculo } });
     const lRB = l + defs.length + 1; // linha de apoio: receita bruta do período (base do %)
     for (const d of defs) {
       ws.getCell(l, 3).value = d.rotulo;
