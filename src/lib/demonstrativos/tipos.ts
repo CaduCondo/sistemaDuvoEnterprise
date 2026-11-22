@@ -249,6 +249,8 @@ export interface Periodo {
   balanco: LinhasBalanco;
   dfc: LinhasDFC;
   indicadores: Indicadores;
+  /** Quantos meses o período junta (1 no mensal). */
+  meses?: number;
 }
 
 export interface ResultadoDoLocal {

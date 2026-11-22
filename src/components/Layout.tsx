@@ -19,7 +19,8 @@ import {
   X,
   Moon,
   Sun,
-  ClipboardList
+  ClipboardList,
+  FileSpreadsheet,
 } from "lucide-react";
 import { logout } from "@/lib/auth";
 import {
@@ -67,6 +68,7 @@ const MAPA_DE_MENUS: Record<string, string> = {
   "/rentals": "rentals",
   "/payments": "payments",
   "/financial": "financial",
+  "/demonstrativos": "demonstrativos",
   "/settings": "settings",
 };
 
@@ -334,6 +336,13 @@ export function Layout({ children }: LayoutProps) {
       path: "/financial", 
       icon: TrendingUp,
       permission: "canViewFinancial" 
+    },
+    {
+      // Só Admin por padrão; liberável em Configurações > Permissões (#128).
+      name: "Demonstrativos",
+      path: "/demonstrativos",
+      icon: FileSpreadsheet,
+      permission: "canViewFinancial"
     },
     {
       name: "Configurações",

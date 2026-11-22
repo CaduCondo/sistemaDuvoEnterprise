@@ -58,10 +58,11 @@ const menuLabels: Record<string, string> = {
   rentals: "Locações",
   payments: "Recebimentos",
   financial: "Financeiro",
+  demonstrativos: "Demonstrativos",
   settings: "Configurações",
 };
 
-const menuItems = ["dashboard", "properties", "tenants", "rentals", "payments", "financial", "settings"];
+const menuItems = ["dashboard", "properties", "tenants", "rentals", "payments", "financial", "demonstrativos", "settings"];
 const roles = ["admin", "broker", "financial"];
 
 export function PermissionsTab({
