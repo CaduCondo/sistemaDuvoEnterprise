@@ -1846,7 +1846,7 @@ export default function Financial() {
                       <FileText className="h-5 w-5 text-red-500 card-icon" />
                       <p className="text-sm font-medium text-muted-foreground card-title">Contas do Mês</p>
                     </div>
-                    <h3 className="text-2xl font-bold text-red-500 card-value">
+                    <h3 data-testid="kpi-contas" className="text-2xl font-bold text-red-500 card-value">
                       {new Intl.NumberFormat("pt-BR", {
                         style: "currency",
                         currency: "BRL",

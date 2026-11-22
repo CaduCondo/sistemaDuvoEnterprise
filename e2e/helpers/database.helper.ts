@@ -738,6 +738,36 @@ export class DatabaseHelper {
     return data;
   }
 
+  /** Conta do Local (despesa). Some junto com o Local de teste (FK em cascata). */
+  static async createLocationExpense(overrides: {
+    location_id: string; amount: number; reference_month: number; reference_year: number;
+    expense_type?: string; description?: string; is_capex?: boolean;
+  }) {
+    const { data, error } = await supabaseAdmin
+      .from('location_expenses')
+      .insert({
+        location_id: overrides.location_id,
+        amount: overrides.amount,
+        reference_month: overrides.reference_month,
+        reference_year: overrides.reference_year,
+        expense_type: overrides.expense_type || 'water',
+        description: comMarcaDeTeste(overrides.description || 'Conta de teste'),
+        is_capex: overrides.is_capex ?? false,
+      })
+      .select()
+      .single();
+    if (error) throw new Error(`Falha ao criar conta do local: ${error.message}`);
+    return data;
+  }
+
+  /** Regime do dono do Local (Demonstrativos, #128). Some junto com o Local de teste. */
+  static async setLocationRegime(locationId: string, regime: 'pf' | 'holding') {
+    const { error } = await supabaseAdmin
+      .from('location_assets')
+      .upsert({ location_id: locationId, owner_regime: regime }, { onConflict: 'location_id' });
+    if (error) throw new Error(`Falha ao gravar o regime do local: ${error.message}`);
+  }
+
   static async getDepositInstallments(rentalId: string) {
     const { data, error } = await supabaseAdmin
       .from('deposit_installments')
