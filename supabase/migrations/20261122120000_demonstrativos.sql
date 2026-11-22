@@ -122,3 +122,10 @@ alter table public.role_menu_permissions add constraint role_menu_permissions_me
 insert into public.role_menu_permissions (role, menu_item, can_access)
 values ('admin', 'demonstrativos', true)
 on conflict (role, menu_item) do nothing;
+
+-- 7) Regime do proprietário (decisão do Cadu, 22/nov/2026): só o JD. COLOMBO
+-- é de empresa (Holding); os demais Locais ficam como pessoa física (padrão).
+-- Valores de terreno/edificação começam zerados: o Cadu preenche na tela.
+insert into public.location_assets (location_id, owner_regime)
+select id, 'holding' from public.locations where upper(name) like 'JD%COLOMBO%'
+on conflict (location_id) do nothing;
