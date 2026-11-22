@@ -80,6 +80,7 @@ import { useAlert } from "@/contexts/AlertContext";
 import * as XLSX from "xlsx";
 import { Payment, Property, Rental, Tenant } from "@/types";
 import { formatCurrency } from "@/lib/masks";
+import { calcularCardsDoFinanceiro, expandirParciais, valorEsperadoDaLinha } from "@/lib/financeiro/calculos";
 import { HelpDialog } from "@/components/HelpDialog";
 
 type SortField = "parc" | "local" | "complement" | "tenant" | "period" | "status" | "dueDate" | "paymentDate" | "expectedAmount" | "paidAmount";
@@ -779,84 +780,9 @@ export default function Financial() {
           tenantId: tenant?.id || "",
         } as any;
 
-        // ✅ CORREÇÃO: um recebimento pago em mais de uma vez (parcial) ficava
-        // sendo mostrado como 1 linha só, com o valor esperado do boleto
-        // inteiro — perdendo o registro de cada pagamento e mostrando um
-        // "valor esperado" que não bateu com nenhum dos pagamentos reais.
-        // Expande em 1 linha por pagamento realmente feito (partial_payments),
-        // usando o valor esperado que era válido NAQUELE momento (guardado em
-        // cada entrada desde a correção do histórico), e mantém uma linha
-        // extra para o saldo ainda em aberto quando o boleto não está 100% pago.
-        const history = Array.isArray(payment.partial_payments) ? payment.partial_payments : [];
-        if (history.length === 0) {
-          return [base];
-        }
-
-        // Renegociado: a base é o valor original do boleto (para repartir o
-        // histórico), mas o saldo em aberto não vira linha (ver abaixo).
-        const totalExpectedBase = Math.abs((renegociado ? payment.expected_amount : base.expectedAmount) || 0);
-        let cumulativePaid = 0;
-        const rows = history.map((entry: any, index: number) => {
-          const paidAmount = Number(entry.amount || 0);
-          const expectedAmount = entry.expected_amount != null
-            ? Math.abs(Number(entry.expected_amount))
-            : Math.max(totalExpectedBase - cumulativePaid, Math.abs(paidAmount));
-          cumulativePaid += Math.abs(paidAmount);
-
-          return {
-            ...base,
-            _rowKey: `${base.id}-${index}`,
-            // Valor esperado desse boleto como um todo (o mais atual, já
-            // com multa/juros do último pagamento) — usado para somar os
-            // totais 1 vez por boleto, não 1 vez por linha exibida.
-            _billExpectedAmount: totalExpectedBase,
-            paidAmount,
-            expectedAmount,
-            // ✅ Zerar breakdown/lateFee/interest nas linhas expandidas: a
-            // função getExpectedAmount() re-soma esses campos a partir do
-            // breakdown do boleto INTEIRO — como todas as linhas copiam o
-            // mesmo breakdown da linha original, isso contava o valor
-            // esperado várias vezes nos totais. Cada linha usa só seu
-            // próprio `expectedAmount`, já calculado corretamente acima.
-            breakdown: null,
-            lateFee: 0,
-            interest: 0,
-            paymentDate: entry.payment_date || null,
-            paymentTime: entry.payment_time || null,
-            paymentMethod: entry.payment_method || null,
-            attachments: Array.isArray(entry.attachments)
-              ? entry.attachments.map((a: any) => (typeof a === "string" ? a : a?.url)).filter(Boolean)
-              : [],
-            status: "paid",
-          };
-        });
-
-        // Renegociado: deste boleto só é "esperado" o que foi pago de fato;
-        // o resto é esperado nas parcelas do acordo (#119).
-        if (renegociado) {
-          for (const row of rows) row._billExpectedAmount = cumulativePaid;
-        }
-
-        const remaining = totalExpectedBase - cumulativePaid;
-        // Renegociado: o saldo foi para o acordo -- não sobra linha em aberto.
-        if (base.status !== "paid" && !renegociado && remaining > 0.01) {
-          rows.push({
-            ...base,
-            _rowKey: `${base.id}-remaining`,
-            _billExpectedAmount: totalExpectedBase,
-            paidAmount: 0,
-            expectedAmount: remaining,
-            breakdown: null,
-            lateFee: 0,
-            interest: 0,
-            paymentDate: null,
-            paymentTime: null,
-            paymentMethod: null,
-            attachments: [],
-          });
-        }
-
-        return rows;
+        // Boleto pago em várias vezes vira 1 linha por pagamento + 1 do saldo
+        // em aberto. A conta mora em src/lib/financeiro/calculos.ts (#128).
+        return expandirParciais(payment, base);
       }) as Payment[];
 
       // Buscar configurações, isenções e permissões
@@ -1028,39 +954,11 @@ export default function Financial() {
   }, []);
 
   // Função para calcular valor esperado total (breakdown + late_fee + interest)
-  const getExpectedAmount = useCallback((payment: Payment): number => {
-    let baseTotal = 0;
-    
-    // Somar items do breakdown (aluguel, garagem, etc.)
-    if (payment.breakdown) {
-      try {
-        const breakdownData = typeof payment.breakdown === 'string' 
-          ? JSON.parse(payment.breakdown) 
-          : payment.breakdown;
-
-        if (Array.isArray(breakdownData) && breakdownData.length > 0) {
-          baseTotal = breakdownData.reduce((sum: number, item: any) => {
-            const value = Number(item.value || item.amount || 0);
-            return sum + value;
-          }, 0);
-        }
-      } catch (error) {
-        console.error("Erro ao processar breakdown:", error);
-        baseTotal = payment.expectedAmount;
-      }
-    } else {
-      // Se não houver breakdown, usar expected_amount como base
-      baseTotal = payment.expectedAmount;
-    }
-    
-    // Adicionar late_fee e interest (que estão em campos separados)
-    const lateFee = Number(payment.lateFee || 0);
-    const interest = Number(payment.interest || 0);
-    
-    const total = baseTotal + lateFee + interest;
-    
-    return total;
-  }, []);
+  // Itens do breakdown (ou valor esperado) + multa + juros (#128).
+  const getExpectedAmount = useCallback(
+    (payment: Payment): number => valorEsperadoDaLinha(payment as any),
+    [],
+  );
 
   const handleSort = useCallback((field: SortField) => {
     if (sortField === field) {
@@ -1704,87 +1602,30 @@ export default function Financial() {
      * rescisões antigas continuam contaminadas até a migração de dados
      * (issue #51) — o relatório da #50 é que vai medir o tamanho disso.
      */
-    const paymentsToCalculate = locationFilteredPayments.filter(
-      (p: any) => p.paymentKind !== "termination"
-    );
-    
-    // ✅ CORREÇÃO: Filtrar despesas considerando permissões do usuário financeiro
     let filteredExpenses = locationExpensesData;
-    
     if (selectedLocationIds.length === 0) {
-      // Quando nenhum local selecionado, para financeiros filtrar pelos permitidos
+      // Nenhum local escolhido: o financeiro só vê os locais permitidos a ele.
       if (isFinancial && allowedLocationIds.length > 0) {
-        filteredExpenses = locationExpensesData.filter(expense => 
+        filteredExpenses = locationExpensesData.filter(expense =>
           allowedLocationIds.includes(expense.location_id)
         );
       }
-      // Para admin/broker, usa todos
     } else {
-      // Locais específicos selecionados
-      filteredExpenses = locationExpensesData.filter(expense => 
+      filteredExpenses = locationExpensesData.filter(expense =>
         selectedLocationIds.includes(expense.location_id)
       );
     }
-    
-    const totalLocationExpenses = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    
-    // ✅ CORREÇÃO: um boleto pago em várias parcelas vira várias linhas na
-    // lista (ver formattedPayments), mas o "valor esperado" é do BOLETO,
-    // não de cada linha — soma só 1 vez por boleto (id real), senão o
-    // total ficava maior do que o valor de fato devido.
-    const seenExpectedIds = new Set<string>();
-    const totalExpected = paymentsToCalculate.reduce((sum, p: any) => {
-      if (seenExpectedIds.has(p.id)) return sum;
-      seenExpectedIds.add(p.id);
-      return sum + (p._billExpectedAmount != null ? p._billExpectedAmount : getExpectedAmount(p));
-    }, 0);
-    
-    // "renegotiated" entra só com o que dele foi pago DE FATO (#119).
-    const totalReceived = paymentsToCalculate
-      .filter((p) => p.status === "paid" || p.status === "partial" || p.status === "renegotiated")
-      .reduce((sum, p) => sum + (p.paidAmount || 0), 0);
-    
-    const feePercentage = config?.admin_fee_percentage ?? 5;
-    const feeRate = feePercentage / 100;
-    
-    // ✅ CORREÇÃO: Excluir valores negativos do cálculo de Taxa Adm
-    const adminFee = paymentsToCalculate
-      .filter((p) => (p.status === "paid" || p.status === "partial" || p.status === "renegotiated") && (p.paidAmount || 0) > 0)
-      .reduce((sum, p) => {
-        const property = p.property;
-        const isExempt = property && exemptLocationIds.includes(property.locationId);
-        const fee = isExempt ? 0 : ((p.paidAmount || 0) * feeRate);
-        return sum + fee;
-      }, 0);
 
-    const mgmtPercentage = config?.management_fee_percentage ?? 3;
-    const mgmtRate = mgmtPercentage / 100;
-    
-    // ✅ CORREÇÃO: Excluir valores negativos do cálculo de Taxa Ger
-    const managementFee = paymentsToCalculate
-      .filter((p) => (p.status === "paid" || p.status === "partial" || p.status === "renegotiated") && (p.paidAmount || 0) > 0)
-      .reduce((sum, p) => {
-        const property = p.property;
-        const isManagementFeeExempt = property && managementFeeExemptLocationIds.includes(property.locationId);
-        const fee = isManagementFeeExempt ? 0 : ((p.paidAmount || 0) * mgmtRate);
-        return sum + fee;
-      }, 0);
-
-    const netRevenue = totalReceived - adminFee - managementFee - totalLocationExpenses;
-    
-    const totalPaid = paymentsToCalculate
-      .filter(p => p.status === "paid" || p.status === "partial" || p.status === "renegotiated")
-      .reduce((sum, p) => sum + (p.paidAmount || 0), 0);
-
-    return {
-      totalExpected,
-      totalReceived,
-      adminFee,
-      managementFee,
-      netRevenue,
-      totalPaid,
-      locationExpenses: totalLocationExpenses,
-    };
+    // A conta mora em src/lib/financeiro/calculos.ts para que os
+    // Demonstrativos usem exatamente a mesma (#128).
+    return calcularCardsDoFinanceiro({
+      linhas: locationFilteredPayments as any,
+      despesas: filteredExpenses,
+      percentualTaxaAdm: config?.admin_fee_percentage,
+      percentualTaxaGer: config?.management_fee_percentage,
+      locaisIsentosAdm: exemptLocationIds,
+      locaisIsentosGer: managementFeeExemptLocationIds,
+    });
   }, [locationFilteredPayments, config, exemptLocationIds, managementFeeExemptLocationIds, locationExpensesData, selectedLocationIds, getExpectedAmount, isFinancial, allowedLocationIds]);
 
   const filteredPayments = getSortedPayments;
