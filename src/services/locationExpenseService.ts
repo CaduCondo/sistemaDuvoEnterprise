@@ -18,6 +18,7 @@ export const locationExpenseService = {
       id: item.id,
       locationId: item.location_id,
       expenseType: item.expense_type,
+      isCapex: !!item.is_capex,
       description: item.description,
       amount: item.amount,
       referenceMonth: item.reference_month,
@@ -45,6 +46,7 @@ export const locationExpenseService = {
       id: item.id,
       locationId: item.location_id,
       expenseType: item.expense_type,
+      isCapex: !!item.is_capex,
       description: item.description,
       amount: item.amount,
       referenceMonth: item.reference_month,
@@ -71,6 +73,7 @@ export const locationExpenseService = {
       id: item.id,
       locationId: item.location_id,
       expenseType: item.expense_type,
+      isCapex: !!item.is_capex,
       description: item.description,
       amount: item.amount,
       referenceMonth: item.reference_month,
@@ -99,6 +102,8 @@ export const locationExpenseService = {
         status: expense.status || "pending",
         notes: expense.notes,
         attachments: expense.attachments || [],
+        // Só quando marcada (bancos sem a coluna is_capex continuam aceitando).
+        ...(expense.isCapex ? { is_capex: true } : {}),
       })
       .select()
       .single();
@@ -118,6 +123,7 @@ export const locationExpenseService = {
       referenceMonth: data.reference_month,
       referenceYear: data.reference_year,
       expenseType: data.expense_type,
+      isCapex: !!data.is_capex,
       attachments: data.attachments || [],
     };
   },
@@ -134,6 +140,7 @@ export const locationExpenseService = {
     if (expense.status) updateData.status = expense.status;
     if (expense.notes !== undefined) updateData.notes = expense.notes;
     if (expense.attachments) updateData.attachments = expense.attachments;
+    if (expense.isCapex !== undefined) updateData.is_capex = expense.isCapex;
     updateData.updated_at = new Date().toISOString();
 
     const { error } = await db

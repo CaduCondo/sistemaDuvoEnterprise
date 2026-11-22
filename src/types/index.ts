@@ -397,6 +397,8 @@ export interface LocationExpense {
   status: "pending" | "paid" | "overdue";
   notes?: string;
   attachments: string[];
+  /** Investimento/reforma: vai para o Ativo nos Demonstrativos, não para a DRE (#128). */
+  isCapex?: boolean;
   updatedAt?: string;
   updated_at?: string; // Compatibility
   category?: string; // For compatibility

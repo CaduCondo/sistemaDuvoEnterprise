@@ -146,6 +146,8 @@ export function LocationExpensesDialog({ open, onOpenChange, location }: Locatio
   const [amount, setAmount] = useState("R$ 0,00");
   const [referenceMonth, setReferenceMonth] = useState(new Date().getMonth() + 1);
   const [referenceYear, setReferenceYear] = useState(new Date().getFullYear());
+  // Investimento/reforma (capex): nos Demonstrativos vai para o Ativo, não para a DRE (#128).
+  const [isCapex, setIsCapex] = useState(false);
 
   useEffect(() => {
     if (open && location?.id) {
@@ -268,6 +270,9 @@ export function LocationExpensesDialog({ open, onOpenChange, location }: Locatio
         referenceMonth: referenceMonth,
         referenceYear: referenceYear,
         status: "pending" as LocationExpense["status"],
+        // Só manda o campo quando ele importa: assim a tela continua
+        // funcionando num banco que ainda não tem a coluna is_capex.
+        ...(isCapex || editingExpense?.isCapex ? { isCapex } : {}),
       };
 
       if (editingExpense) {
@@ -324,6 +329,7 @@ export function LocationExpensesDialog({ open, onOpenChange, location }: Locatio
     setAmount(formatCurrency(expense.amount));
     setReferenceMonth(expense.referenceMonth);
     setReferenceYear(expense.referenceYear);
+    setIsCapex(!!expense.isCapex);
     setIsEditing(false);
     setIsFormOpen(true);
   };
@@ -337,6 +343,7 @@ export function LocationExpensesDialog({ open, onOpenChange, location }: Locatio
     setAmount("R$ 0,00");
     setReferenceMonth(new Date().getMonth() + 1);
     setReferenceYear(new Date().getFullYear());
+    setIsCapex(false);
   };
 
   const handleNewExpense = () => {
@@ -642,6 +649,22 @@ export function LocationExpensesDialog({ open, onOpenChange, location }: Locatio
                 className="h-9"
               />
             </div>
+
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                id="expense-is-capex"
+                data-testid="expense-is-capex"
+                checked={isCapex}
+                onChange={(e) => setIsCapex(e.target.checked)}
+                disabled={!isEditing && !!editingExpense}
+                className="mt-1"
+              />
+              <span>
+                <b>É investimento/reforma</b> (ex.: reforma grande, obra). Nos Demonstrativos vai para o
+                patrimônio do prédio, e não para as despesas do mês.
+              </span>
+            </label>
           </div>
 
           <DialogFooter>
