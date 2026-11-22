@@ -59,6 +59,8 @@ export default function DemonstrativosPage() {
   const [regime, setRegime] = useState<FiltroRegime>("todos");
   const [visao, setVisao] = useState<Visao>("anual");
   const [anoMensal, setAnoMensal] = useState<number>(new Date().getFullYear());
+  /** Visão mensal: o Resumo e o "Por Prédio" podem olhar um mês só (0 = ano inteiro). */
+  const [mesResumo, setMesResumo] = useState<number>(0);
   const [anoDe_, setAnoDe] = useState<number>(0);
   const [anoAte, setAnoAte] = useState<number>(0);
   const [aba, setAba] = useState("resumo");
@@ -116,14 +118,17 @@ export default function DemonstrativosPage() {
   /** Período inteiro escolhido, para o Resumo e o "Por Prédio". */
   const mesesDoIntervalo = (lista: Periodo[]) =>
     visao === "mensal"
-      ? lista.filter((m) => anoDe(m.chave) === anoMensal)
+      ? lista.filter((m) => anoDe(m.chave) === anoMensal && (!mesResumo || Number(m.chave.slice(5)) === mesResumo))
       : lista.filter((m) => anoDe(m.chave) >= anoDe_ && anoDe(m.chave) <= anoAte);
-  const textoPeriodo = visao === "mensal" ? `jan-${String(anoMensal).slice(2)} a dez-${String(anoMensal).slice(2)}` : `${anoDe_} a ${anoAte}`;
+  const aa = String(anoMensal).slice(2);
+  const textoPeriodo = visao === "anual"
+    ? `${anoDe_} a ${anoAte}`
+    : mesResumo ? fmtPeriodo(`${anoMensal}-${String(mesResumo).padStart(2, "0")}`) : `jan-${aa} a dez-${aa}`;
   const total = useMemo(() => {
     const lista = mesesDoIntervalo(mesesFiltrados);
     return lista.length ? juntarPeriodos(lista, textoPeriodo) : null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mesesFiltrados, visao, anoMensal, anoDe_, anoAte]);
+  }, [mesesFiltrados, visao, anoMensal, mesResumo, anoDe_, anoAte]);
   const balancoFechadoEmTudo = mesesFiltrados.every((m) => Math.abs(m.balanco.diferenca) < 0.01);
 
   const nomeDoLocal = localId === "todos"
@@ -174,7 +179,7 @@ export default function DemonstrativosPage() {
       })
       .filter((x): x is NonNullable<typeof x> => !!x && (x.p.dre.receitaBruta !== 0 || x.p.balanco.totalAtivo !== 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resultado, regime, visao, anoMensal, anoDe_, anoAte]);
+  }, [resultado, regime, visao, anoMensal, mesResumo, anoDe_, anoAte]);
 
   const thR: CSSProperties = { background: COR.bege, color: COR.vinhoEscuro, fontWeight: 700, padding: "3px 10px", borderTop: `1px solid ${COR.vinhoEscuro}`, borderBottom: `1px solid ${COR.vinhoEscuro}`, textAlign: "center" };
   const tdR: CSSProperties = { padding: "3px 10px", textAlign: "center", fontSize: 13, borderBottom: "1px solid #eee" };
@@ -221,6 +226,16 @@ export default function DemonstrativosPage() {
             <label className="flex flex-col gap-1"><b>Ano</b>
               <select value={anoMensal} onChange={(e) => setAnoMensal(Number(e.target.value))} style={estiloSelect} data-testid="filtro-ano">
                 {anosDisponiveis.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </label>
+          ) : null}
+          {visao === "mensal" ? (
+            <label className="flex flex-col gap-1"><b>Mês do Resumo</b>
+              <select value={mesResumo} onChange={(e) => setMesResumo(Number(e.target.value))} style={estiloSelect} data-testid="filtro-mes-resumo">
+                <option value={0}>Ano inteiro</option>
+                {["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"].map((m, i) => (
+                  <option key={m} value={i + 1}>{m}</option>
+                ))}
               </select>
             </label>
           ) : (

@@ -60,7 +60,7 @@ export function linhasBalanco(): Linha[] {
     { rotulo: "Total do Ativo", tipo: "total", valor: (p) => p.balanco.totalAtivo },
     { rotulo: "Passivo", tipo: "grupo" },
     { rotulo: "Despesas a pagar", tipo: "detalhe", valor: (p) => p.balanco.despesasAPagar },
-    { rotulo: "Cauções de inquilinos", tipo: "detalhe", valor: (p) => p.balanco.caucoesInquilinos },
+    { rotulo: "Cauções de inquilinos", tipo: "detalhe", valor: (p) => p.balanco.caucoesInquilinos, testId: "bal-caucoes" },
     { rotulo: "Financiamentos", tipo: "detalhe", valor: (p) => p.balanco.financiamentos },
     { rotulo: "Total do Passivo", tipo: "total", valor: (p) => p.balanco.totalPassivo },
     { rotulo: "Patrimônio líquido", tipo: "grupo" },
