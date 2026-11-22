@@ -275,7 +275,7 @@ toda vez:
   `@imoveis`, `@inquilinos`, `@locacoes`, `@pagamentos`, `@caucoes`,
   `@rescisao`, `@anuncioPublico`, `@permissoesAdmin`,
   `@permissoesFinanceiro`, `@permissoesGestao`, `@regressaoVisual`, `@contrato`,
-  `@fundacao`). Todo cenário do arquivo herda ela — não precisa repetir
+  `@financeiro`, `@demonstrativos`, `@fundacao`). Todo cenário do arquivo herda ela — não precisa repetir
   por cenário. Serve para rodar só uma tela: `--tags "@rescisao"`.
 - Tags que existem e não são do BDD: `@security`, `@performance`,
   `@stress`, `@permissions`, `@api-tests`, `@regression` são **projetos do

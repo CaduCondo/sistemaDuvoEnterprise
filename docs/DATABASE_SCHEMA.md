@@ -625,27 +625,72 @@ CREATE UNIQUE INDEX idx_exemptions_tenant ON admin_fee_exemptions(tenant_id);
 
 ### 10. location_expenses (Despesas de Localização)
 
-**Descrição:** Despesas operacionais por localização
+**Descrição:** Contas de cada Local (água, luz, manutenção...). **Despesa lançada = despesa paga** (decisão do Cadu, 22/nov/2026): o mês de referência é o mês em que o dinheiro saiu.
+
+> Corrigido em 22/nov/2026: esta seção descrevia colunas (`expense_date`, `category`, `notes`) que não existem no banco. Abaixo, o schema real (conferido em DEV e PROD).
 
 ```sql
 CREATE TABLE location_expenses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
   description TEXT NOT NULL,
-  amount DECIMAL(10,2) NOT NULL CHECK (amount >= 0),
-  expense_date DATE NOT NULL,
-  category TEXT,
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  amount NUMERIC NOT NULL,
+  reference_month INTEGER NOT NULL,
+  reference_year INTEGER NOT NULL,
+  expense_type TEXT DEFAULT 'other',   -- water, electricity, gas, maintenance, other...
+  status TEXT DEFAULT 'pending',       -- não usado nas contas (despesa lançada = paga)
+  paid BOOLEAN DEFAULT false,          -- idem
+  payment_date DATE,
+  attachments TEXT[] DEFAULT '{}',
+  is_capex BOOLEAN NOT NULL DEFAULT false, -- #128: investimento/reforma (vai para o Ativo, não para a DRE)
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
--- Índices
-CREATE INDEX idx_expenses_location ON location_expenses(location_id);
-CREATE INDEX idx_expenses_date ON location_expenses(expense_date);
 ```
 
 ---
+
+### 11. location_assets (Patrimônio do Local) — novo em 22/nov/2026 (#128)
+
+Um registro por Local, usado no Balanço dos Demonstrativos.
+
+| Coluna | Tipo | O que é |
+|---|---|---|
+| location_id | uuid, único, FK locations (cascade) | o Local |
+| owner_regime | text `pf` / `holding` | dono para fins de imposto (padrão `pf`; JD. COLOMBO = `holding`) |
+| acquisition_date | date | data de aquisição (a depreciação começa aqui) |
+| land_value | numeric | terreno (não deprecia) |
+| building_value | numeric | edificação |
+| building_useful_life_years | numeric, padrão 25 | vida útil (25 anos = 4% a.a., IN RFB 1.700/2017) |
+| notes | text | observações |
+
+### 12. location_financings (Financiamentos) — novo em 22/nov/2026 (#128)
+
+| Coluna | Tipo | O que é |
+|---|---|---|
+| location_id | uuid, FK locations (cascade) | o Local |
+| description | text | nome do financiamento |
+| start_date | date | data do dinheiro recebido (1ª parcela no mês seguinte) |
+| principal | numeric | saldo na data de início |
+| annual_rate_pct | numeric | juros (% ao ano) |
+| term_months | integer | prazo em meses |
+| amortization_system | text `SAC` / `PRICE` | sistema de amortização |
+
+### 13. demonstrativos_premissas (Premissas dos Demonstrativos) — novo em 22/nov/2026 (#128)
+
+Uma linha só (`singleton = true`). Tudo editável na aba **Premissas** da página Demonstrativos.
+
+| Coluna | O que é |
+|---|---|
+| base_date | mês de abertura do Balanço (padrão 01/01/2026) |
+| opening_cash | caixa da carteira na abertura (repartido entre os Locais pelo nº de unidades) |
+| owner_distribution_pct | % do caixa gerado no mês repassado ao proprietário |
+| projected_vacancy_pct / projected_default_pct | vacância (após o fim de cada contrato) e inadimplência projetadas |
+| projection_years | anos de projeção (padrão 5) |
+| rent_index_by_year / expense_index_by_year | índices por ano (% a.a.), JSON `{"2027": 4.0, ...}` |
+| tax_params | JSON com as regras de imposto (IRPF/carnê-leão, lucro presumido, IBS/CBS) |
+
+Também nesta entrega: `role_menu_permissions.menu_item` passou a aceitar `demonstrativos` (linha criada só para `admin`).
 
 ## 🔗 Relacionamentos
 

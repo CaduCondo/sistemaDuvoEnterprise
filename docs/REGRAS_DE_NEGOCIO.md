@@ -11,10 +11,11 @@
 7. [Locações](#locações)
 8. [Pagamentos/Recebimentos](#pagamentosrecebimentos)
 9. [Financeiro](#financeiro)
-10. [Configurações](#configurações)
-11. [Página Pública de Imóveis](#página-pública-de-imóveis)
-12. [Fluxos Completos](#fluxos-completos)
-13. [Estrutura do Banco de Dados](#estrutura-do-banco-de-dados)
+10. [Demonstrativos](#-demonstrativos)
+11. [Configurações](#configurações)
+12. [Página Pública de Imóveis](#página-pública-de-imóveis)
+13. [Fluxos Completos](#fluxos-completos)
+14. [Estrutura do Banco de Dados](#estrutura-do-banco-de-dados)
 
 ---
 
@@ -2862,6 +2863,146 @@ SENÃO:
 - **Locações**: Acesso completo
 - **Cauções**: Acesso completo
 - **Edição**: Pode editar comissões e códigos PIX
+
+---
+
+## 📑 Demonstrativos
+
+> Novo em **22/nov/2026** (issue #128). Página **Demonstrativos** no menu:
+> DRE, Balanço Patrimonial e Fluxo de Caixa de cada prédio (Local) e da
+> carteira inteira, com o que já aconteceu (**A** = realizado) e a projeção
+> dos próximos 5 anos (**P** = projetado).
+
+### Quem vê
+
+Por padrão, **só o Admin**. Para liberar para outro perfil: **Configurações →
+Permissões**, linha **Demonstrativos**. O perfil Financeiro, se liberado, vê só
+os Locais permitidos a ele.
+
+### Passo a passo
+
+1. Clique em **Demonstrativos** no menu.
+2. Escolha os filtros:
+   - **Local**: um prédio, ou **Todos – Consolidado**;
+   - **Proprietário**: **Todos**, **Holding** (hoje só o JD. COLOMBO) ou **Pessoa física**;
+   - **Visão**: **Anual** (escolha **De** e **Até**) ou **Mensal** (escolha o **Ano**; o
+     campo **Mês do Resumo** faz o Resumo e o "Por Prédio" olharem um mês só).
+3. Navegue pelas abas: **Resumo**, **DRE**, **Balanço**, **Fluxo de Caixa**,
+   **Por Prédio** e **Premissas**.
+4. **Exportar para Excel** baixa a planilha com o mesmo filtro (ver abaixo).
+
+Cada coluna mostra a marca **A** (fundo vinho, realizado), **P** (contorno
+tracejado, projetado) ou **A+P** (ano com os dois). Realizado vai até o mês de hoje.
+
+### Cadastrar o patrimônio, os financiamentos e as premissas
+
+Tudo fica na aba **Premissas** da própria página:
+
+1. **Premissas gerais**: mês de abertura do Balanço (padrão jan/2026), caixa
+   inicial da carteira, % do caixa repassado ao proprietário, vacância e
+   inadimplência projetadas, anos de projeção. Clique em **Salvar premissas**.
+2. **Índices por ano**: reajuste dos aluguéis e das despesas, em % ao ano (o %
+   ao mês é calculado sozinho: (1 + a.a.)^(1/12) − 1).
+3. **Impostos**: alíquotas da holding (lucro presumido), do carnê-leão (pessoa
+   física) e da reforma tributária (IBS/CBS). Todas editáveis — **confirmar com
+   o contador**.
+4. **Patrimônio de cada Local**: proprietário (Pessoa física / Holding), data de
+   aquisição, valor do terreno, valor da edificação e vida útil. Clique em
+   **Salvar** na linha do Local. Sem esses valores, o Balanço mostra terreno e
+   edificação zerados e o "Yield sobre custo" fica em branco ("-").
+5. **Financiamentos**: **+ Novo financiamento** → Local, data, saldo, juros ao
+   ano, prazo e sistema (SAC ou Price) → **Salvar**.
+
+### De onde vem cada número
+
+| Linha | Origem no sistema |
+|---|---|
+| Aluguel e Garagem (receita bruta) | Valor esperado dos recebimentos de aluguel, pelo **mês de referência**; a garagem é lida dos itens do recebimento |
+| Descontos | Recebimento pago a menos que o esperado (a diferença) ou o desconto lançado nos ainda em aberto |
+| Outras receitas | Multa e juros **pagos** (os perdoados não contam) + despesas adicionais − desconto do Recebimento de Rescisão |
+| Taxa de administração e de gerenciamento | **Mesma conta do Financeiro** (% de Configurações sobre o valor recebido, com as isenções por Local). São despesa do proprietário |
+| Despesas por tipo | Contas do Local, pelo mês de referência. **Despesa lançada = despesa paga** |
+| Depreciação | Edificação ÷ vida útil (o terreno não deprecia) |
+| Juros e amortização | Cronograma do financiamento cadastrado (SAC ou Price) |
+| Impostos | Calculados pelas Premissas (ver abaixo) |
+| Aluguéis a receber (Ativo) | O que era devido e ainda não foi pago |
+| Cauções de inquilinos (Passivo) | Caução recebida − caução devolvida/abatida em acordo. **Caução nunca é receita** |
+| Correção do caução devolvido | Diferença entre o caução devolvido corrigido pela poupança e o valor recebido |
+| Investimentos e reformas | Conta do Local marcada como investimento (`is_capex`): vai para o Ativo e deprecia junto com a edificação |
+
+**Acordos e renegociados (#119):** o recebimento renegociado conta só o que
+dele foi pago; o restante entra pelas parcelas do acordo, nos meses delas
+(igual ao Financeiro). O caução abatido no acordo sai do passivo sem passar pelo caixa.
+
+**Regra de ouro:** "Receita Bruta (recebido)", "Taxa de administração", "Taxa
+de gerenciamento" e "Contas do Mês" do **Resumo** usam a **mesma conta** do
+Financeiro (`src/lib/financeiro/calculos.ts`). Para o mesmo Local e mês, os
+números das duas telas são iguais — há teste automático para isso.
+
+### Como os três demonstrativos se amarram
+
+- **Lucros acumulados** = anterior + lucro líquido − repasses ao proprietário.
+- **Caixa final do Fluxo de Caixa** = caixa do Balanço (sem "ajuste").
+- **Ativo − Passivo − Patrimônio líquido = 0** em todos os meses e anos. O
+  Resumo mostra **"Balanço fechado ✓"** ou, se algo não fechar, um alerta vermelho.
+- **Capital** = o que sobra no mês de abertura (Ativo − Passivo naquele mês).
+
+### Projeção (P)
+
+- Parte dos **contratos ativos** (aluguel + garagem), com **reajuste no mês de
+  aniversário** de cada contrato pelo índice do ano.
+- **Depois do fim do contrato**: considera renovação, com a **vacância projetada**.
+- Imóvel cuja locação já terminou fica **vago** (sem receita).
+- Recebido = devido × (1 − **inadimplência projetada**); o que não entra fica em "a receber".
+- **Despesas**: média dos últimos 12 meses de cada tipo, reajustada pelo índice de despesas.
+
+### Impostos (premissas assumidas — confirmar com o contador)
+
+Valores iniciais conferidos em 22/nov/2026; todos editáveis na aba Premissas.
+
+| Item | Valor inicial | Fonte |
+|---|---|---|
+| Carnê-leão (pessoa física) | Tabela progressiva mensal: até R$ 2.428,80 isento; 7,5% / 15% / 22,5% / 27,5% (deduções 182,16 / 394,16 / 675,49 / 908,73); desconto simplificado R$ 607,20 | Receita Federal |
+| Redutor da Lei 15.270/2025 | Rendimento até R$ 5.000/mês: imposto zerado (redução até R$ 312,89); de R$ 5.000 a R$ 7.350: redução = 978,62 − 0,133145 × rendimento | Lei 15.270/2025 |
+| Dedução no carnê-leão | Taxas de administração e gerenciamento (usa a maior entre elas e o desconto simplificado) | — |
+| Holding (lucro presumido) | Presunção 32%; IRPJ 15% + adicional 10% acima de R$ 20.000/mês de base; CSLL 9%; PIS 0,65% + COFINS 3% (cumulativo) | Receita Federal |
+| LC 224/2025 (presunção +10%) | Não aplicada: só vale para receita acima de R$ 5 milhões/ano | LC 224/2025 |
+| IBS/CBS (reforma) | Redução de 70% para locação; redutor social R$ 600/unidade/mês; CBS de referência 8,8% e IBS 17,7% (**estimativas — a alíquota oficial ainda não foi fixada**); CBS a partir de 2027; IBS 10% em 2029, 20% em 2030, 30% em 2031, 40% em 2032, 100% em 2033; PIS/COFINS da holding até 2026 | LC 214/2025 |
+| Pessoa física e IBS/CBS | Só paga se, no ano, a receita de aluguel passar de R$ 240 mil **e** tiver mais de 3 imóveis | LC 214/2025 |
+
+Simplificações assumidas: imposto calculado sobre o que foi **recebido** no
+mês e pago no próprio mês (não há "impostos a pagar"); pessoa física = **um**
+proprietário (carnê-leão de uma pessoa, somando todos os Locais PF e repartido
+entre eles); IRPJ/CSLL da holding calculados mês a mês (a apuração real é trimestral).
+
+### Outras premissas assumidas (valores iniciais, todos editáveis)
+
+- Mês de abertura: **jan/2026**; dados anteriores serão incluídos depois (basta
+  mudar o mês de abertura; o motor já lê os anos anteriores).
+- Caixa inicial da carteira: **R$ 0** (repartido entre os Locais pelo nº de unidades).
+- Repasse ao proprietário: **0%** do caixa do mês.
+- Vacância **5%**, inadimplência **2%**, reajuste de aluguéis e de despesas **4% ao ano**.
+- Vida útil da edificação: **25 anos**.
+- Pagamento parcial: a multa/juros só conta quando o recebimento é quitado.
+
+### Exportar para Excel
+
+O arquivo tem 8 abas, na ordem: **Resumo**, **Premissas**, **Dados do sistema**,
+**Cálculos**, **DRE**, **Balanço**, **Fluxo de Caixa**, **Por Prédio**.
+
+- **Premissas** e **Dados do sistema** são as únicas com números digitados (azul).
+- As outras só têm fórmulas: preto = conta da própria aba; verde = valor puxado de outra aba.
+- Subtotais, Balanço, Fluxo de Caixa, % e conferências são **fórmulas vivas**.
+- A projeção e os impostos chegam prontos em **Dados do sistema** (calculados
+  com as premissas do sistema na hora da exportação): para mudar uma premissa,
+  mude na página e exporte de novo.
+
+### Pontos de atenção conhecidos
+
+- No **DEV**, os Locais de teste automático (nome com **[E2E]**) entram no
+  consolidado e inflam a projeção. Em produção eles não existem.
+- LEMOS APTO 05 (out/2026): o "valor pago" diverge da soma dos pagamentos
+  registrados — issue #130. Os Demonstrativos mostram o mesmo número do Financeiro.
 
 ---
 
