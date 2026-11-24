@@ -22,6 +22,22 @@
 
 - **DEV online no ar (15/nov/2026):** `https://dev.duvoenterprise.com.br` (branch `develop`) abre com a faixa amarela "AMBIENTE DE TESTE" e título "[TESTE]", e só fala com o banco de DEV (conferido: todas as chamadas vão para `yrknfweilbuwrhzzwnrr.supabase.co`). Produção continua só na `main`.
 
+## Acessos do Claude (conferidos em 20/nov/2026)
+
+| Onde | Link / identificador | Situação |
+|---|---|---|
+| GitHub (código, issues, Actions) | CaduCondo/sistemaDuvoEnterprise | Leitura e commit OK. Push e apagar branch dependem da política do ambiente (ver abaixo) |
+| GitHub Project | github.com/users/CaduCondo/projects/4 | Autorizado a criar/atualizar/fechar/apagar. Sem ferramenta direta; usar issues |
+| Supabase PROD | alvghyfbzrpjwhckmkwx | OK pelo conector |
+| Supabase DEV | yrknfweilbuwrhzzwnrr | Autorizado; conector precisa enxergar a organização onde ele está |
+| Vercel | time d-uvo-enterprise, projeto sistema-duvo-enterprise | Autorizado; conector precisa enxergar o projeto |
+| Site de produção / DEV online | duvoenterprise.com.br / dev.duvoenterprise.com.br | Autorizado |
+
+- **Branches:** `main` (produção), `develop` (desenvolvimento) e, desde 22/nov/2026, **`demonstrativos`** (a página Demonstrativos, issue #128, guardada à parte porque ainda precisa de muita análise antes de ir para produção — **não apagar**). Qualquer outra branch deve ser apagada (autorizado pelo Cadu em 20/nov/2026).
+  - A `develop` foi recriada a partir da `main` em 22/nov/2026; todo o trabalho dos Demonstrativos (página, motor, Excel, testes, docs, migration `20261122120000_demonstrativos.sql`) está só na `demonstrativos`. Para voltar a ela: `git switch demonstrativos` + `npm install`. As tabelas novas do banco de DEV somem no reset de domingo; reaplicar a migration no DEV antes de testar.
+  - A `demonstrativos` não publica no DEV online (que é sempre a `develop`).
+- Se um acesso falhar, avisar o Cadu em uma linha dizendo qual conector/permissão falta, sem tentar contornar.
+
 ## Regras de trabalho
 
 - Sempre explicar o que vai ser mudado ANTES de mudar, e depois explicar o que foi feito, em linguagem simples (o usuário não programa).

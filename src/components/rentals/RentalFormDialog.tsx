@@ -281,6 +281,40 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     showAlert({ title: "Arquivo não permitido", description: message, type: "error" });
   }, [showAlert]);
 
+  // ⚠️ Corrigido em 24/nov/2026 (issue #131): estes valores ficavam DEPOIS
+  // do handleSubmit e fora da lista de dependências dele. O botão "Criar
+  // Locação" usava uma cópia antiga deles: marcar "Locação com 2 inquilinos"
+  // depois de preencher o resto criava a locação só com o 1º inquilino, sem
+  // aviso. Agora vêm antes e estão na lista de dependências.
+  const propertiesToDisplay = useMemo(() => {
+    const baseList = rental ? properties : availableProperties;
+    if (rental && rental.property && !baseList.find(p => p.id === rental.propertyId)) {
+      return [...baseList, rental.property as Property];
+    }
+    return baseList;
+  }, [rental, properties, availableProperties]);
+
+  // Locação com 2 inquilinos (opcional): caixinha + combo do 2º inquilino.
+  const [hasTwoTenants, setHasTwoTenants] = useState(false);
+  const [secondTenantId, setSecondTenantId] = useState("");
+  useEffect(() => {
+    if (!open) {
+      setHasTwoTenants(false);
+      setSecondTenantId("");
+    }
+  }, [open]);
+
+  const tenantsToDisplay = useMemo(() => {
+    const baseList = rental ? tenants : availableTenants;
+    if (rental && rental.tenant && !baseList.find(t => t.id === rental.tenantId)) {
+      return [...baseList, rental.tenant as Tenant];
+    }
+    return baseList;
+  }, [rental, tenants, availableTenants]);
+
+  // ✅ CORREÇÃO: Mover selectedProperty para ANTES do useEffect
+  const selectedProperty = propertiesToDisplay.find(p => p.id === selectedPropertyId);
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -591,7 +625,8 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     depositInstallment2, depositInstallment3, depositAmount, endDate,
     hasPartnerBroker, attachments, depositPaymentDate, depositPixCode,
     depositInstallment2PaymentDate, depositInstallment3PaymentDate,
-    rental, isViewMode, locations, landlordUserId, showAlert, onOpenChange, onSuccess, resetForm
+    rental, isViewMode, locations, landlordUserId, showAlert, onOpenChange, onSuccess, resetForm,
+    hasTwoTenants, secondTenantId, propertiesToDisplay, tenantsToDisplay, selectedProperty,
   ]);
 
   const handleCloseDialog = useCallback(() => {
@@ -623,34 +658,6 @@ export const RentalFormDialog = memo(function RentalFormDialog({
     return total;
   }, [depositAmount, isDepositInstallment, depositInstallmentCount, depositInstallment2, depositInstallment3]);
 
-  const propertiesToDisplay = useMemo(() => {
-    const baseList = rental ? properties : availableProperties;
-    if (rental && rental.property && !baseList.find(p => p.id === rental.propertyId)) {
-      return [...baseList, rental.property as Property];
-    }
-    return baseList;
-  }, [rental, properties, availableProperties]);
-
-  // Locação com 2 inquilinos (opcional): caixinha + combo do 2º inquilino.
-  const [hasTwoTenants, setHasTwoTenants] = useState(false);
-  const [secondTenantId, setSecondTenantId] = useState("");
-  useEffect(() => {
-    if (!open) {
-      setHasTwoTenants(false);
-      setSecondTenantId("");
-    }
-  }, [open]);
-
-  const tenantsToDisplay = useMemo(() => {
-    const baseList = rental ? tenants : availableTenants;
-    if (rental && rental.tenant && !baseList.find(t => t.id === rental.tenantId)) {
-      return [...baseList, rental.tenant as Tenant];
-    }
-    return baseList;
-  }, [rental, tenants, availableTenants]);
-
-  // ✅ CORREÇÃO: Mover selectedProperty para ANTES do useEffect
-  const selectedProperty = propertiesToDisplay.find(p => p.id === selectedPropertyId);
   const isFieldDisabled = isViewMode && !isEditing;
   
   // Verificar se já existe locação ativa para este imóvel

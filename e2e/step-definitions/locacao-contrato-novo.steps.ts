@@ -1,9 +1,20 @@
 import { Given, When, Then } from '@cucumber/cucumber';
-import { expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import fs from 'fs';
 import DatabaseHelper, { supabaseAdmin } from '../helpers/database.helper';
 import { garantirLocadorEscolhido } from '../helpers/locacao.helper';
 import type { CustomWorld } from '../support/world';
+
+
+/**
+ * O contrato da janela aberta. Ao abrir, o sistema gera o PDF para os anexos
+ * e o gerador de PDF cria por um instante uma CÓPIA escondida do contrato
+ * (mesmo id): olhar só a janela evita pegar a cópia (issue #131).
+ */
+function contratoNaTela(page: Page, filho = '') {
+  const doc = page.getByRole('dialog').locator('#contrato-documento');
+  return filho.trim() ? doc.locator(filho.trim()) : doc;
+}
 
 /**
  * Locação nova só é criada com todos os dados do contrato (18/nov/2026).
@@ -116,7 +127,7 @@ Then('o imóvel de teste deve continuar {string}', async function (this: CustomW
 
 Then('o contrato deve abrir com o nome do inquilino e o texto do locador', async function (this: CustomWorld) {
   await expect(this.page.locator('#contrato-locacao-dialog')).toBeVisible({ timeout: 30000 });
-  const documento = this.page.locator('#contrato-documento');
+  const documento = contratoNaTela(this.page, '');
   await expect(documento, 'o contrato não foi montado (faltou algum dado?)').toBeVisible({ timeout: 30000 });
   await expect(documento).toContainText(this.tenantName!.replace(/ \[E2E\]$/, ''));
   await expect(documento).toContainText('LOCADOR:');
@@ -125,14 +136,14 @@ Then('o contrato deve abrir com o nome do inquilino e o texto do locador', async
 });
 
 Then('a assinatura do locador deve aparecer no contrato', async function (this: CustomWorld) {
-  const assinatura = this.page.locator('#contrato-documento img[alt="Assinatura do locador"]');
+  const assinatura = contratoNaTela(this.page, ' img[alt="Assinatura do locador"]');
   await expect(assinatura, 'a assinatura do locador não saiu no contrato').toBeVisible({ timeout: 15000 });
   const carregou = await assinatura.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0);
   expect(carregou, 'a imagem da assinatura não carregou').toBe(true);
 });
 
 When('clico em {string} no contrato', { timeout: 60 * 1000 }, async function (this: CustomWorld, rotulo: string) {
-  await expect(this.page.locator('#contrato-documento')).toBeVisible({ timeout: 30000 });
+  await expect(contratoNaTela(this.page, '')).toBeVisible({ timeout: 30000 });
   const [download] = await Promise.all([
     this.page.waitForEvent('download', { timeout: 45000 }),
     this.page.getByRole('button', { name: rotulo }).click(),
@@ -329,6 +340,10 @@ Given('um segundo inquilino de teste SEM apenas o RG', async function (this: Cus
 });
 
 When('marco "Locação com 2 inquilinos" e escolho o 2º inquilino', async function (this: CustomWorld) {
+  // O locador é escolhido ANTES de marcar os 2 inquilinos, como faz quem usa
+  // a tela (com 1 locador ele já vem preenchido). Até 24/nov/2026 o teste o
+  // escolhia por último, e essa troca escondia o defeito da issue #131.
+  await garantirLocadorEscolhido(this.page);
   await this.page.locator('#rental-two-tenants').click();
   await this.page.locator('#rental-tenant2').click();
   await this.page
@@ -337,19 +352,23 @@ When('marco "Locação com 2 inquilinos" e escolho o 2º inquilino', async funct
 });
 
 When('marco "Locação com 2 inquilinos" sem escolher o 2º inquilino', async function (this: CustomWorld) {
+  // O locador é escolhido ANTES de marcar os 2 inquilinos, como faz quem usa
+  // a tela (com 1 locador ele já vem preenchido). Até 24/nov/2026 o teste o
+  // escolhia por último, e essa troca escondia o defeito da issue #131.
+  await garantirLocadorEscolhido(this.page);
   await this.page.locator('#rental-two-tenants').click();
   await expect(this.page.locator('#rental-tenant2')).toBeVisible({ timeout: 5000 });
 });
 
 Then('o contrato deve citar os dois inquilinos como LOCATÁRIOS', async function (this: CustomWorld) {
-  const documento = this.page.locator('#contrato-documento');
+  const documento = contratoNaTela(this.page, '');
   await expect(documento).toContainText(this.tenantName!);
   await expect(documento).toContainText(this.testData.inquilino2Nome);
   await expect(documento).toContainText('LOCATÁRIOS');
 });
 
 Then('as assinaturas dos dois inquilinos devem ficar na mesma linha', async function (this: CustomWorld) {
-  const documento = this.page.locator('#contrato-documento');
+  const documento = contratoNaTela(this.page, '');
   const a = await documento.locator('.assinatura', { hasText: this.tenantName! }).last().boundingBox();
   const b = await documento.locator('.assinatura', { hasText: this.testData.inquilino2Nome }).last().boundingBox();
   expect(a && b, 'não achei as duas assinaturas dos inquilinos').toBeTruthy();
@@ -358,7 +377,7 @@ Then('as assinaturas dos dois inquilinos devem ficar na mesma linha', async func
 });
 
 Then('o contrato deve começar com a capa, o logotipo, o site e os dados do escritório', async function (this: CustomWorld) {
-  const capa = this.page.locator('#contrato-documento .capa');
+  const capa = contratoNaTela(this.page, ' .capa');
   await expect(capa, 'o contrato não tem capa').toBeVisible({ timeout: 15000 });
   await expect(capa).toContainText('CONTRATO DE LOCAÇÃO');
   await expect(capa).toContainText('www.duvoenterprise.com.br');
