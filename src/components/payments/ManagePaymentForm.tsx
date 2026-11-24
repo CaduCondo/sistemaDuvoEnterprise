@@ -1,3 +1,4 @@
+import { calcularValorPagoAposNovoPagamento, somarHistoricoPagamentos } from "@/lib/paymentHistory";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { atualizarFimDeContrato } from "@/services/contractEndService";
 import { useRouter } from "next/router";
@@ -821,7 +822,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       const currentHistory = Array.isArray(payment.partial_payments) ? payment.partial_payments : [];
       const updatedHistory = currentHistory.filter((_: any, i: number) => i !== entryIndexToDelete);
 
-      const newPaidAmount = updatedHistory.reduce((sum: number, entry: any) => sum + Math.abs(entry.amount || 0), 0);
+      const newPaidAmount = somarHistoricoPagamentos(updatedHistory);
       const expected = Math.abs(payment.expected_amount || 0);
 
       let newStatus: string;
@@ -1127,14 +1128,13 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
         finalPaidAmount = payment?.paid_amount || 0;
         paymentStatus = payment?.status || "pending";
       } else {
-        const previousPaid = payment?.paid_amount || 0;
-        const previousStatus = payment?.status || "pending";
-        
-        if (previousStatus === "partial" && previousPaid > 0) {
-          finalPaidAmount = previousPaid + userInputAmount;
-        } else {
-          finalPaidAmount = userInputAmount;
-        }
+        // #130: valor pago = soma do histórico + este pagamento (não depende do status).
+        finalPaidAmount = calcularValorPagoAposNovoPagamento({
+          historicoAnterior: payment?.partial_payments,
+          valorPagoAnterior: payment?.paid_amount,
+          statusAnterior: payment?.status,
+          novoPagamento: userInputAmount,
+        });
         
         const totalExpected = Math.abs(expectedTotal);
         const totalPaid = Math.abs(finalPaidAmount);
