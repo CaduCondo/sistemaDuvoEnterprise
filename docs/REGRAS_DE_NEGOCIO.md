@@ -1983,6 +1983,8 @@ refletir o novo valor:
 | **Parcelado em 2x** | Caução dividido em 2 parcelas (1º e 2º mês) |
 | **Parcelado em 3x** | Caução dividido em 3 parcelas (1º, 2º e 3º mês) |
 
+> 🔒 **Toda parcela de caução tem data de vencimento** (issue #112, 25/nov/2026). O sistema não deixa salvar uma parcela sem vencimento: a tela avisa qual parcela está sem data, e o banco de dados também barra (nunca mais aparece "/NaN" na coluna Período). Existe 1 parcela antiga em produção, anterior à trava, que ficou sem vencimento — ela aparece com "-" no Período.
+
 > ✅ **Corrigido** (02/set/2026): dois bugs relacionados ao parcelamento do
 > caução foram corrigidos no código (commits `f9d2eb5d` e `0414ca4b`) e já
 > estão em produção — [issue #13](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/13)

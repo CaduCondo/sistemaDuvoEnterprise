@@ -1,11 +1,5 @@
-import { planDepositInstallmentsSync, buildInitialDepositInstallments } from "../depositInstallmentService";
+import { planDepositInstallmentsSync, buildInitialDepositInstallments, exigirVencimentoNasParcelas } from "../depositInstallmentService";
 
-// ⚠️ Assim como paymentService.test.ts, este arquivo ainda não roda
-// automaticamente - o projeto não tem jest/vitest configurado (não há
-// script "test" nem config no package.json). Ele documenta o
-// comportamento esperado e já fica pronto para rodar assim que um runner
-// for configurado. Enquanto isso, dá pra conferir manualmente com
-// `npx tsx` (ver notas do ticket "Bug: parcelamento do caução...").
 describe("planDepositInstallmentsSync", () => {
   test("Cenário 1: aumentar de 1 para 3 parcelas cria as que faltam e atualiza a 1ª", () => {
     const existing = [
@@ -198,5 +192,32 @@ describe("buildInitialDepositInstallments", () => {
     });
 
     expect(installments.map((i) => i.installment_number)).toEqual([1]);
+  });
+});
+
+describe("exigirVencimentoNasParcelas (#112)", () => {
+  test("aceita parcelas com vencimento AAAA-MM-DD", () => {
+    expect(() =>
+      exigirVencimentoNasParcelas([
+        { installment_number: 1, due_date: "2026-08-01" },
+        { installment_number: 2, due_date: "2026-09-01" },
+      ])
+    ).not.toThrow();
+  });
+
+  test.each([undefined, null, "", "01/08/2026", "2026-8-1", "abc"])(
+    "barra vencimento inválido (%s) com mensagem que diz qual parcela",
+    (ruim) => {
+      expect(() =>
+        exigirVencimentoNasParcelas([
+          { installment_number: 1, due_date: "2026-08-01" },
+          { installment_number: 2, due_date: ruim as any },
+        ])
+      ).toThrow(/parcela 2/);
+    }
+  );
+
+  test("lista vazia não dá erro", () => {
+    expect(() => exigirVencimentoNasParcelas([])).not.toThrow();
   });
 });
