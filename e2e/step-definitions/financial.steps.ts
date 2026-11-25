@@ -317,7 +317,10 @@ When(
 );
 
 When('clico em {string} no filtro de meses', async function (this: CustomWorld, rotulo: string) {
-  await this.page.locator('#period-selector-month').click();
+  // Abre o combo só se estiver fechado (um passo anterior pode tê-lo deixado aberto;
+  // clicar de novo no botão do combo fecharia e o item nunca apareceria).
+  const aberto = await this.page.locator('#period-month-toggle-all').isVisible().catch(() => false);
+  if (!aberto) await this.page.locator('#period-selector-month').click();
   await this.page.getByRole('button', { name: rotulo, exact: true }).click();
   await this.page.waitForTimeout(500);
 });

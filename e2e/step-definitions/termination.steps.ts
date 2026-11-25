@@ -1,3 +1,4 @@
+import { escolherMesesNoSeletor } from '../helpers/periodo.helper';
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect, Locator, Page } from '@playwright/test';
 import { CustomWorld } from '../support/world';
@@ -175,12 +176,6 @@ const LINHAS_CONHECIDAS = [
  * combobox pelo próprio conteúdo (um nome de mês ou "Todos os meses"), que é
  * mais estável do que contar comboboxes na página.
  */
-function seletorDeMes(page: Page): Locator {
-  return page
-    .getByRole('combobox')
-    .filter({ hasText: new RegExp(`Todos os meses|${MESES_PT.join('|')}`, 'i') })
-    .first();
-}
 
 function seletorDeAno(page: Page): Locator {
   return page.getByRole('combobox').filter({ hasText: /^\s*(20\d{2}|Todos os anos)\s*$/ }).first();
@@ -190,8 +185,8 @@ function seletorDeAno(page: Page): Locator {
 export async function selecionarPeriodo(page: Page, mes: string, ano: string) {
   const nomeDoMes = MESES_PT[Number(mes) - 1];
 
-  await seletorDeMes(page).click();
-  await page.getByRole('option', { name: new RegExp(`^${escapeRegex(nomeDoMes)}$`, 'i') }).click();
+  // #137: no Financeiro o mês virou combo de checkboxes; a ajuda atende os dois formatos.
+  await escolherMesesNoSeletor(page, [nomeDoMes]);
   await page.waitForTimeout(600);
 
   await seletorDeAno(page).click();
