@@ -1,3 +1,4 @@
+import { formatarPeriodo } from "@/lib/periodo";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
@@ -770,7 +771,7 @@ export default function Payments() {
       console.log(`🔎 [render complement] Payment ${p.id}:`, p.property?.complement);
       return p.property?.complement || "-";
     }},
-    { key: "period", label: "Período", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => `${getMonthName(p.referenceMonth)}/${p.referenceYear}` },
+    { key: "period", label: "Período", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => formatarPeriodo(getMonthName(p.referenceMonth), p.referenceYear) },
     { key: "installment", label: "Parcela", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[80px]", render: (p: Payment) => getPaymentInstallment(p) },
     { key: "status", label: "Status", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => {
         const config = {
@@ -847,7 +848,7 @@ export default function Payments() {
       console.log(`🔎 [render complement PAGO] Payment ${p.id}:`, p.property?.complement);
       return p.property?.complement || "-";
     }},
-    { key: "period", label: "Período", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => `${getMonthName(p.referenceMonth)}/${p.referenceYear}` },
+    { key: "period", label: "Período", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => formatarPeriodo(getMonthName(p.referenceMonth), p.referenceYear) },
     { key: "attachments", label: "Anexo", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[80px]", render: (p: Payment) => (p.attachments && (Array.isArray(p.attachments) ? p.attachments.length > 0 : Object.keys(p.attachments).length > 0)) ? <Badge className="bg-blue-100 text-blue-800">Sim</Badge> : <Badge variant="outline">Não</Badge> },
     { key: "installment", label: "Parcela", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[80px]", render: (p: Payment) => getPaymentInstallment(p) },
     { key: "status", label: "Status", sortable: false, headerClassName: "text-center", cellClassName: "text-center px-2", className: "w-[100px]", render: (p: Payment) => (
