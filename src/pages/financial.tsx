@@ -601,7 +601,7 @@ export default function Financial() {
       abortControllerRef.current = new AbortController();
       
       // QUERY OTIMIZADA: já filtra por location_id quando necessário
-      const paymentsQuery: any = supabase
+      const montarConsultaDePagamentos = (): any => supabase
         .from("payments")
         .select(`
           id,
@@ -657,13 +657,29 @@ export default function Financial() {
         `)
         .in("reference_month", filterMonths.map((m) => String(m).padStart(2, '0')))
         .eq("reference_year", String(filterYear))
-        .order("due_date", { ascending: true });
+        .order("due_date", { ascending: true })
+        .order("id", { ascending: true });
 
-      if (abortControllerRef.current) {
-        paymentsQuery.abortSignal(abortControllerRef.current.signal);
+      // ⚠️ #137: o banco devolve no MÁXIMO 1.000 linhas por consulta. Com vários
+      // meses (ou o ano inteiro) passa disso (1.329 recebimentos em 2026 no DEV)
+      // e o total saía menor sem avisar. Busca em páginas de 1.000 até acabar;
+      // a ordem inclui o id para as páginas nunca repetirem nem pularem linha.
+      const TAMANHO_PAGINA = 1000;
+      const paymentsData: any[] = [];
+      let paymentsError: any = null;
+      for (let inicio = 0; ; inicio += TAMANHO_PAGINA) {
+        const consulta = montarConsultaDePagamentos().range(inicio, inicio + TAMANHO_PAGINA - 1);
+        if (abortControllerRef.current) {
+          consulta.abortSignal(abortControllerRef.current.signal);
+        }
+        const { data: pagina, error: erroDaPagina } = await consulta;
+        if (erroDaPagina) {
+          paymentsError = erroDaPagina;
+          break;
+        }
+        paymentsData.push(...(pagina || []));
+        if (!pagina || pagina.length < TAMANHO_PAGINA) break;
       }
-
-      const { data: paymentsData, error: paymentsError } = await paymentsQuery;
 
       if (paymentsError) throw paymentsError;
 
