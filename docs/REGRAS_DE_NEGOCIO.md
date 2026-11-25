@@ -2566,6 +2566,18 @@ Apresentar relatórios financeiros consolidados com foco em receitas, despesas e
 - Disponível para: Admin, Broker, Financial
 - Exibe KPIs e tabela de pagamentos
 - Financial vê apenas locais permitidos
+- **Filtro de mês com vários meses** (pedido do Cadu, 25/nov/2026, issue #137):
+  o combo de mês tem uma caixinha (checkbox) por mês. O primeiro item é
+  **"Marcar todos"** e, quando os 12 estão marcados, vira **"Desmarcar todos"**.
+  Passo a passo: abra o Financeiro → escolha o **ano** → abra o combo de mês →
+  marque os meses que quer (ou "Marcar todos" para o **ano completo**). Os
+  cards e a tabela mostram a **soma dos meses marcados**. As regras de cálculo
+  são as mesmas de sempre; só o filtro mudou. Com um mês só, o resultado é o
+  mesmo de antes. Sem nenhum mês marcado, a tela mostra zeros. O Excel e os
+  títulos descrevem o período (ex.: "janeiro a dezembro 2026"). Só o
+  Financeiro tem esse combo; Recebimentos e Painel continuam com um mês só.
+  A tela busca os recebimentos em blocos de 1.000 (o banco entrega no máximo
+  1.000 linhas por vez; sem isso o ano inteiro saía menor).
 
 **1.2 Aba "Detalhamento de Cauções"**
 - Disponível apenas para: Admin, Broker
@@ -3915,8 +3927,8 @@ CREATE TABLE location_expenses (
 ### Responsividade
 - Mobile First: Design otimizado para smartphones
 - Breakpoints: sm (640px), md (768px), lg (1024px), xl (1280px)
-- Tabelas: Scroll horizontal em telas pequenas
-- Cards: Stack vertical em mobile, grid em desktop
+- Tabelas: Scroll horizontal em telas pequenas — **a própria tabela rola para o lado** (a página não ganha rolagem lateral); corrigido em 25/nov/2026 (#134)
+- Cards: Stack vertical em mobile, grid em desktop. Card de locação (Grade): "Valor do Aluguel" e o valor ficam em uma linha só, com os botões de ação **abaixo** do valor (#135). Em Locações, "Imóveis Vagos", "Inquilinos Disponíveis" e "Nova Locação" ficam **um embaixo do outro** no celular (#136)
 
 ### Performance
 - **Paginação**: Tabelas longas (>100 itens)
