@@ -1,11 +1,11 @@
 // Teste da regra do #130: valor pago = soma dos pagamentos registrados.
-// Rodar: npm run test:unit
-import test from "node:test";
+// Rodar: npm test
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import {
   calcularValorPagoAposNovoPagamento as calc,
   somarHistoricoPagamentos as soma,
-} from "../paymentHistory.ts";
+} from "../paymentHistory";
 
 test("soma o histórico em valor absoluto e arredonda centavos", () => {
   assert.equal(soma([{ amount: 500 }, { amount: "300" }, { amount: -0.1 }, { amount: 0.2 }]), 800.3);
@@ -37,7 +37,7 @@ test("recebimento antigo sem histórico: soma só se estava parcial", () => {
 });
 
 test("sempre bate com a soma do histórico depois de salvar (invariante)", () => {
-  let hist = [];
+  let hist: { amount: number }[] = [];
   let pago = 0;
   let status = "pending";
   for (const v of [10.1, 20.2, 0.3, 999.99, 5]) {
