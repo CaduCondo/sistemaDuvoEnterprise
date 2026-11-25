@@ -70,8 +70,11 @@ const POUPANCA_DATABASE: PoupancaData[] = [
   { month: "07", year: "2026", value: 0.6738 },
   { month: "08", year: "2026", value: 0.6701 },
   { month: "09", year: "2026", value: 0.6698 },
-  // Outubro/2026 ainda não fechou (buscado em 16/out/2026) -- não entra
-  // enquanto o mês não terminar, para não gravar um índice provisório.
+  // Outubro/2026 fechou: valor do dia 01/10/2026 na série 195 (conferido em
+  // 25/nov/2026; a convenção do dia 01 bate com jan a set/2026 acima).
+  { month: "10", year: "2026", value: 0.6624 },
+  // Novembro/2026 ainda não fechou (em 25/nov) -- só entra depois que o mês
+  // terminar, para não gravar um índice provisório.
 
   // Próximos meses: valor do dia 01 do mês em
   // https://api.bcb.gov.br/dados/serie/bcdata.sgs.195/dados/ultimos/5?formato=json

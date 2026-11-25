@@ -2402,7 +2402,10 @@ antiga não são recalculados sozinhos.
   na Rescisão quanto no recebimento de Fim de Contrato. Ver se o mês mais
   recente fechou e, se sim, cadastrar o índice é tarefa de manutenção
   mensal (ainda manual; buscar automaticamente pela API do Banco Central é
-  ideia futura, não decidida).
+  ideia futura, não decidida). **Lembrete automático (25/nov/2026):** um teste
+  (`igpmService.test.ts`) fica **vermelho** no GitHub Actions quando um mês
+  fechou há mais de 5 dias e a tabela ainda não tem o índice dele — a mensagem
+  do erro diz exatamente o que fazer. Tabela atualizada até **outubro/2026**.
 
 ### Sinais no Recebimento de Rescisão
 
