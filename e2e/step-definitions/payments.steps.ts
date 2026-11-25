@@ -1,3 +1,4 @@
+import { escolherMesesNoSeletor } from '../helpers/periodo.helper';
 import { garantirLocadorEscolhido } from '../helpers/locacao.helper';
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
@@ -523,9 +524,8 @@ When('seleciono o período de teste no filtro de mês e ano', async function (th
 
   const monthSelect = this.page.locator('#period-selector-month');
   await monthSelect.waitFor({ state: 'visible', timeout: 15000 });
-  await monthSelect.click();
-  await this.page.waitForTimeout(300);
-  await this.page.getByRole('option', { name: new RegExp(monthName, 'i') }).click();
+  // Funciona nos dois formatos de seletor (lista de um mês e checkboxes do Financeiro, #137).
+  await escolherMesesNoSeletor(this.page, [monthName]);
   await this.page.waitForTimeout(300);
 
   const yearSelect = this.page.locator('#period-selector-year');

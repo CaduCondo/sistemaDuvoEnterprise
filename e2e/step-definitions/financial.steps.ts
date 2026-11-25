@@ -1,6 +1,7 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import { CustomWorld } from '../support/world';
+import { escolherMesesNoSeletor } from '../helpers/periodo.helper';
 
 /**
  * Passos da tela Financeiro (aba Locações) -- criados em 25/set/2026 pela
@@ -123,7 +124,8 @@ Given(
 export async function abrirFinanceiroFiltrado(
   world: CustomWorld,
   periodoBR: string,
-  dados: { locationId: string; locationName: string }
+  dados: { locationId: string; locationName: string },
+  nomesDosMeses?: string[]
 ) {
   const { nomeDoMes, ano } = lerPeriodo(periodoBR);
   const self = world;
@@ -137,8 +139,8 @@ export async function abrirFinanceiroFiltrado(
     ).toBeVisible({ timeout: 20000 });
 
     // Período (PeriodSelector, o mesmo usado em Recebimentos e no Painel).
-    await self.page.locator('#period-selector-month').click();
-    await self.page.getByRole('option', { name: new RegExp(`^${nomeDoMes}$`, 'i') }).click();
+    // No Financeiro o mês é um combo de checkboxes (#137); a ajuda escolhe os meses pedidos.
+    await escolherMesesNoSeletor(self.page, nomesDosMeses ?? [nomeDoMes]);
     await self.page.waitForTimeout(300);
 
     await self.page.locator('#period-selector-year').click();
@@ -261,3 +263,80 @@ When(
     await this.page.waitForTimeout(500);
   }
 );
+
+
+/** =================== Filtro de vários meses (#137) =================== */
+
+Given(
+  'que existe um local com recebimentos PAGOS de {string} em {string} e de {string} em {string}',
+  { timeout: 60 * 1000 },
+  async function (this: CustomWorld, valorA: string, periodoA: string, valorB: string, periodoB: string) {
+    const DatabaseHelper = (await import('../helpers/database.helper')).default;
+    const a = lerPeriodo(periodoA);
+    const b = lerPeriodo(periodoB);
+    const sufixo = Date.now();
+    await DatabaseHelper.setFeePercentages(5, 3);
+
+    const location = await this.createLocation({ name: `Meses E2E ${sufixo}` });
+    const property = await this.createProperty({
+      location_id: location.id, complement: `Meses E2E ${sufixo}`, value: parseFloat(valorA), status: 'available',
+    });
+    const tenant = await this.createTenant({ name: `Meses E2E ${sufixo}` });
+    const primeiro = a.ano * 100 + a.mes <= b.ano * 100 + b.mes ? a : b;
+    const rental = await this.createRental({
+      property_id: property.id, tenant_id: tenant.id,
+      start_date: `${primeiro.ano}-${String(primeiro.mes).padStart(2, '0')}-01`,
+      end_date: `${Math.max(a.ano, b.ano)}-12-31`,
+      rent_due_day: 10, rent_value: parseFloat(valorA), security_deposit: 0, deposit_installments: 0,
+    });
+
+    for (const [valor, p] of [[valorA, a], [valorB, b]] as const) {
+      const mm = String(p.mes).padStart(2, '0');
+      await DatabaseHelper.upsertPayment({
+        rental_id: rental.id,
+        reference_month: mm, reference_year: String(p.ano),
+        due_date: `${p.ano}-${mm}-10`,
+        expected_amount: parseFloat(valor), status: 'paid', paid_amount: parseFloat(valor),
+        payment_date: `${p.ano}-${mm}-10`,
+        breakdown: [{ description: 'Aluguel', amount: parseFloat(valor), type: 'addition' }],
+      });
+    }
+    this.testData = { ...this.testData, isencao: { locationId: location.id, locationName: location.name, valor: parseFloat(valorA) } };
+  }
+);
+
+When(
+  'abro o Financeiro de {string} com os meses {string} filtrado por esse local',
+  { timeout: 90 * 1000 },
+  async function (this: CustomWorld, ano: string, meses: string) {
+    const dados = this.testData.isencao;
+    if (!dados) throw new Error('Nenhum local foi montado antes deste passo.');
+    const nomes = meses.split(',').map((m) => m.trim()).filter(Boolean);
+    await abrirFinanceiroFiltrado(this, `${nomes[0]}/${ano}`, dados, nomes);
+  }
+);
+
+When('clico em {string} no filtro de meses', async function (this: CustomWorld, rotulo: string) {
+  await this.page.locator('#period-selector-month').click();
+  await this.page.getByRole('button', { name: rotulo, exact: true }).click();
+  await this.page.waitForTimeout(500);
+});
+
+Then('o filtro de meses deve oferecer {string}', async function (this: CustomWorld, rotulo: string) {
+  const aberto = await this.page.locator('#period-month-toggle-all').isVisible().catch(() => false);
+  if (!aberto) await this.page.locator('#period-selector-month').click();
+  await expect(
+    this.page.locator('#period-month-toggle-all'),
+    `o primeiro item do filtro de meses deveria ser "${rotulo}"`
+  ).toHaveText(rotulo, { timeout: 5000 });
+});
+
+Then('os {int} meses devem estar marcados no filtro', async function (this: CustomWorld, quantos: number) {
+  const aberto = await this.page.locator('#period-month-toggle-all').isVisible().catch(() => false);
+  if (!aberto) await this.page.locator('#period-selector-month').click();
+  let marcados = 0;
+  for (let mes = 1; mes <= 12; mes++) {
+    if (await this.page.locator(`#period-month-${mes}`).isChecked()) marcados++;
+  }
+  expect(marcados, 'quantidade de meses marcados no filtro').toBe(quantos);
+});

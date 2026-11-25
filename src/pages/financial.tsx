@@ -80,6 +80,7 @@ import { useAlert } from "@/contexts/AlertContext";
 import * as XLSX from "xlsx";
 import { Payment, Property, Rental, Tenant } from "@/types";
 import { formatCurrency } from "@/lib/masks";
+import { tituloDoPeriodo } from "@/lib/mesesFinanceiro";
 import { HelpDialog } from "@/components/HelpDialog";
 
 type SortField = "parc" | "local" | "complement" | "tenant" | "period" | "status" | "dueDate" | "paymentDate" | "expectedAmount" | "paidAmount";
@@ -511,9 +512,9 @@ export default function Financial() {
 
   // Date State
   const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
-  const [filterMonth, setFilterMonth] = useState<number>(now.getMonth() + 1);
+  // #137: o filtro de mês aceita vários meses (padrão: o mês atual, como antes).
+  const [filterMonths, setFilterMonths] = useState<number[]>([now.getMonth() + 1]);
   const [filterYear, setFilterYear] = useState<number>(now.getFullYear());
   const [locationExpenses, setLocationExpenses] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<string>("rentals");
@@ -559,7 +560,7 @@ export default function Financial() {
     if (user) {
       loadData();
     }
-  }, [user, filterMonth, filterYear]);
+  }, [user, filterMonths, filterYear]);
 
   const loadData = async () => {
     // ⚠️ 06/out/2026 (achado pelos testes de isenção, CI #93): aqui havia um
@@ -577,7 +578,7 @@ export default function Financial() {
     }
 
     // Verificar cache
-    const cacheKey = `${filterMonth}-${filterYear}-${user?.id}`;
+    const cacheKey = `${filterMonths.join(",")}-${filterYear}-${user?.id}`;
     const now = Date.now();
     
     if (
@@ -654,7 +655,7 @@ export default function Financial() {
             )
           )
         `)
-        .eq("reference_month", String(filterMonth).padStart(2, '0'))
+        .in("reference_month", filterMonths.map((m) => String(m).padStart(2, '0')))
         .eq("reference_year", String(filterYear))
         .order("due_date", { ascending: true });
 
@@ -868,7 +869,7 @@ export default function Financial() {
       const expensesQuery: any = supabase
         .from("location_expenses")
         .select("id, amount, location_id, description, reference_month, reference_year")
-        .eq("reference_month", filterMonth)
+        .in("reference_month", filterMonths)
         .eq("reference_year", filterYear);
 
       const exemptionsResult: any = await exemptionsQuery;
@@ -1259,7 +1260,7 @@ export default function Financial() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Despesas");
 
-    XLSX.writeFile(wb, `despesas_${selectedMonth}_${selectedYear}.xlsx`);
+    XLSX.writeFile(wb, `despesas_${tituloDoPeriodo(filterMonths, filterYear).replace(/[ ,]+/g, "_")}.xlsx`);
 
     showAlert({
       title: "Exportado com sucesso!",
@@ -1277,8 +1278,8 @@ export default function Financial() {
           *,
           location:locations(name)
         `)
-        .eq("reference_month", selectedMonth)
-        .eq("reference_year", selectedYear);
+        .in("reference_month", filterMonths)
+        .eq("reference_year", filterYear);
 
       // Se nenhum local selecionado
       if (locationIds.length === 0) {
@@ -1315,7 +1316,7 @@ export default function Financial() {
       const locationName = locationIds.length === 0 ? "Todos os Locais" : 
                           locationIds.length === 1 ? (expenses[0]?.location_name || "Local") :
                           `${locationIds.length} Locais`;
-      const monthName = months[selectedMonth - 1];
+      const monthName = tituloDoPeriodo(filterMonths, filterYear);
       const total = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
       // Criar conteúdo HTML para o pop-up
@@ -1441,7 +1442,7 @@ export default function Financial() {
             <div class="subtitle">Controle de despesas mensais por localização</div>
             
             <div class="period-row">
-              <div class="period">Período: ${monthName}/${selectedYear}</div>
+              <div class="period">Período: ${monthName}</div>
               
               <button onclick="window.print()" class="print-button">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1472,7 +1473,7 @@ export default function Financial() {
               </tbody>
               <tfoot>
                 <tr class="total-row">
-                  <td colspan="2" class="text-right">Total de Contas (${monthName}/${selectedYear}):</td>
+                  <td colspan="2" class="text-right">Total de Contas (${monthName}):</td>
                   <td class="text-right total-value">${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}</td>
                 </tr>
               </tfoot>
@@ -1642,7 +1643,7 @@ export default function Financial() {
 
   const handleExport = useCallback(() => {
     const sortedPayments = getSortedPayments;
-    const monthName = format(new Date(filterYear, filterMonth - 1), "MMMM", { locale: ptBR });
+    const monthName = tituloDoPeriodo(filterMonths, filterYear);
 
     const excelData = sortedPayments.map(payment => {
       const details = getPaymentDetails(payment);
@@ -1653,7 +1654,7 @@ export default function Financial() {
         "Local": details.local,
         "Complemento": details.complemento,
         "Inquilino": details.tenantName,
-        "Período": format(new Date(filterYear, filterMonth - 1), "MMM/yyyy", { locale: ptBR }),
+        "Período": format(new Date(payment.referenceYear, payment.referenceMonth - 1), "MMM/yyyy", { locale: ptBR }),
         "Status": payment.status === "paid" ? "Pago" : 
                  payment.status === "pending" ? "Pendente" :
                  payment.status === "overdue" ? "Atrasado" :
@@ -1676,15 +1677,15 @@ export default function Financial() {
     ];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `${monthName} ${filterYear}`);
-    XLSX.writeFile(wb, `Financeiro_${monthName}_${filterYear}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, monthName.slice(0, 31));
+    XLSX.writeFile(wb, `Financeiro_${monthName.replace(/[ ,]+/g, "_")}.xlsx`);
 
     showAlert({
       title: "Sucesso!",
       description: "Planilha exportada com sucesso.",
       type: "success",
     });
-  }, [getSortedPayments, filterMonth, filterYear, getPaymentDetails, calculatePaymentNumber, getExpectedAmount, showAlert]);
+  }, [getSortedPayments, filterMonths, filterYear, getPaymentDetails, calculatePaymentNumber, getExpectedAmount, showAlert]);
 
   // KPI Calculations (MEMOIZADOS COM FILTRO DE LOCALIZAÇÃO!)
   const kpiCalculations = useMemo(() => {
@@ -1889,11 +1890,11 @@ export default function Financial() {
 
             {activeTab === "rentals" && (
               <PeriodSelector 
-                selectedMonth={selectedMonth} 
+                selectedMonth={filterMonths[0] ?? 1}
+                selectedMonths={filterMonths}
+                onMonthsChange={setFilterMonths}
                 selectedYear={selectedYear}
-                onMonthChange={(m) => setSelectedMonth(m === 'all' ? new Date().getMonth() + 1 : Number(m))}
                 onYearChange={(y) => setSelectedYear(y === 'all' ? new Date().getFullYear() : Number(y))}
-                onFilterMonthChange={(m) => setFilterMonth(m === 'all' ? new Date().getMonth() + 1 : Number(m))}
                 onFilterYearChange={(y) => setFilterYear(y === 'all' ? new Date().getFullYear() : Number(y))}
                 showAllOption={false}
               />
@@ -2040,7 +2041,7 @@ export default function Financial() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <CardTitle className="flex items-center text-base sm:text-lg print-title">
                     <FileText className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                    Detalhamento de Locações - {format(new Date(filterYear, filterMonth - 1), "MMMM yyyy", { locale: ptBR })}
+                    Detalhamento de Locações - {tituloDoPeriodo(filterMonths, filterYear)}
                   </CardTitle>
                   <div className="flex gap-2 w-full sm:w-auto flex-wrap">
                     <Popover>
@@ -2150,7 +2151,7 @@ export default function Financial() {
               
               {/* Título para impressão */}
               <div className="hidden print:block print-title p-4">
-                Detalhamento de Locações - {format(new Date(filterYear, filterMonth - 1), "MMMM yyyy", { locale: ptBR })}
+                Detalhamento de Locações - {tituloDoPeriodo(filterMonths, filterYear)}
                 {selectedLocationIds.length === 1 && ` - ${locationsMap.get(selectedLocationIds[0])}`}
                 {selectedLocationIds.length > 1 && ` - ${selectedLocationIds.length} Locais Selecionados`}
               </div>
@@ -2162,7 +2163,7 @@ export default function Financial() {
                   </div>
                 ) : getSortedPayments.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
-                    Nenhum recebimento encontrado para {format(new Date(filterYear, filterMonth - 1), "MMMM yyyy", { locale: ptBR })}.
+                    Nenhum recebimento encontrado para {tituloDoPeriodo(filterMonths, filterYear)}.
                   </div>
                 ) : (
                   <div className="w-full overflow-x-auto">

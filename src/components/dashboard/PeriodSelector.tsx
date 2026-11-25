@@ -1,6 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "lucide-react";
 import { memo } from "react";
+import { MonthMultiSelect } from "./MonthMultiSelect";
 
 interface PeriodSelectorProps {
   selectedMonth: number | string;
@@ -14,6 +15,10 @@ interface PeriodSelectorProps {
   onFilterMonthChange?: (month: number | string) => void;
   onFilterYearChange?: (year: number | string) => void;
   showAllOption?: boolean;
+  // #137 (Financeiro): meses em múltipla escolha. Quando `onMonthsChange` é passado,
+  // o combo de mês vira checkboxes e `selectedMonths` manda no que aparece marcado.
+  selectedMonths?: number[];
+  onMonthsChange?: (months: number[]) => void;
 }
 
 const MONTHS = [
@@ -31,7 +36,9 @@ export const PeriodSelector = memo(function PeriodSelector({
   onYearChange,
   onFilterMonthChange,
   onFilterYearChange,
-  showAllOption = true
+  showAllOption = true,
+  selectedMonths,
+  onMonthsChange
 }: PeriodSelectorProps) {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
@@ -68,6 +75,9 @@ export const PeriodSelector = memo(function PeriodSelector({
 
   return (
     <div className="flex items-center gap-2">
+      {onMonthsChange ? (
+        <MonthMultiSelect selectedMonths={selectedMonths || []} onChange={onMonthsChange} />
+      ) : (
       <Select
         value={displayMonth.toString()}
         onValueChange={handleMonthChange}
@@ -97,6 +107,7 @@ export const PeriodSelector = memo(function PeriodSelector({
           ))}
         </SelectContent>
       </Select>
+      )}
 
       <Select
         value={displayYear.toString()}
