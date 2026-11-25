@@ -1032,8 +1032,9 @@ export default function RentalsPage() {
         </div>
 
         {/* Vacant Properties Card + New Rental Button */}
-        <div className="flex gap-[1%] mb-6">
-          <Card className="w-[39%]">
+        {/* #136: no celular os 3 itens ficam um embaixo do outro */}
+        <div className="flex flex-col md:flex-row gap-3 md:gap-[1%] mb-6">
+          <Card className="w-full md:w-[39%]">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Home className="h-4 w-4" />
@@ -1074,7 +1075,7 @@ export default function RentalsPage() {
             </CardContent>
           </Card>
 
-          <Card className="w-[39%]">
+          <Card className="w-full md:w-[39%]">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <User className="h-4 w-4" />
@@ -1103,10 +1104,10 @@ export default function RentalsPage() {
             </CardContent>
           </Card>
 
-          <div className="w-[20%] flex items-center justify-center">
+          <div className="w-full md:w-[20%] flex items-center justify-center">
             <Button 
               onClick={handleCreateNew}
-              className="h-auto py-4 px-6"
+              className="h-auto py-4 px-6 w-full md:w-auto"
             >
               <Plus className="h-5 w-5 mr-2" />
               Nova Locação
@@ -1276,16 +1277,17 @@ export default function RentalsPage() {
                           </p>
                         </div>
 
-                        <div className="flex items-end justify-between gap-3 pt-3 border-t">
+                        {/* #135: valor em uma linha só e botões ABAIXO do valor */}
+                        <div className="flex flex-col gap-3 pt-3 border-t">
                           <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1 whitespace-nowrap">
                               Valor do Aluguel
                             </p>
-                            <p className="text-2xl font-bold text-emerald-600">
+                            <p className="text-2xl font-bold text-emerald-600 whitespace-nowrap">
                               {formatCurrency((rental.value || 0) + (rental.garageValue || 0))}
                             </p>
                           </div>
-                          <div className="flex gap-1.5 flex-shrink-0">
+                          <div className="flex flex-wrap gap-1.5">
                               <Button
                                 id={`rentals-history-${rental.id}`}
                                 variant="outline"

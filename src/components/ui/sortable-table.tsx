@@ -60,7 +60,8 @@ export function SortableTable<T extends Record<string, any>>({
   return (
     <Card className="w-full">
       <CardContent className="p-0">
-        <div className="relative w-full">
+        {/* #134: a página corta o que passa da largura (overflow-x-hidden no Layout); a rolagem lateral tem que ser da própria tabela */}
+        <div className="relative w-full overflow-x-auto">
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-slate-50">
               <TableRow>
