@@ -124,3 +124,22 @@ Funcionalidade: Testes de Regressão Visual
     E estou usando um dispositivo mobile
     Quando acesso a página "/rentals"
     Então os combos e o botão de Locações devem estar um abaixo do outro
+
+  # Varredura de layout no celular (#102/#45): achou "Novo Inquilino" cortado
+  # (25/nov/2026). Nenhuma página principal pode cortar elementos fora da tela.
+  @sistemaCompleto
+  Esquema do Cenário: Nenhum elemento fica cortado no celular em <pagina>
+    Dado que fiz login como "admin"
+    E estou usando um dispositivo mobile
+    Quando acesso a página "<pagina>"
+    Então nenhum elemento deve ficar cortado fora da tela
+
+    Exemplos:
+      | pagina      |
+      | /dashboard  |
+      | /properties |
+      | /tenants    |
+      | /rentals    |
+      | /payments   |
+      | /financial  |
+      | /settings   |

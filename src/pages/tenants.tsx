@@ -286,7 +286,7 @@ export default function TenantsPage() {
               <h1 className="text-3xl font-bold mb-1">Inquilinos</h1>
               <p className="text-sm text-muted-foreground">Gerencie os inquilinos dos seus imóveis</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="sm"
@@ -312,7 +312,7 @@ export default function TenantsPage() {
                 <List className="h-4 w-4 mr-2" />
                 Lista
               </Button>
-              <Button id="tenants-new-button" onClick={handleCreateNew}>
+              <Button id="tenants-new-button" onClick={handleCreateNew} className="flex-1 sm:flex-none">
                 <Plus className="mr-2 h-4 w-4" />
                 Novo Inquilino
               </Button>

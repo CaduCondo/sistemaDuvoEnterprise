@@ -101,3 +101,40 @@ Then('no card da locação o valor fica em uma linha e os botões abaixo dele', 
   // Botões abaixo do valor (e não ao lado).
   expect(b!.y, 'os botões de ação deveriam ficar ABAIXO do valor').toBeGreaterThanOrEqual(v!.y + v!.height - 1);
 });
+
+/**
+ * Varredura de elementos cortados (#102/#45): em tamanho de celular, nenhum botão,
+ * título, campo ou texto pode ficar com parte FORA da largura da tela -- a não ser
+ * dentro de uma área feita para rolar para o lado (tabela). A página inteira também
+ * não pode ganhar rolagem lateral.
+ */
+Then('nenhum elemento deve ficar cortado fora da tela', { timeout: 60 * 1000 }, async function (this: CustomWorld) {
+  await this.page.waitForLoadState('domcontentloaded');
+  await this.page.waitForTimeout(4000); // as telas fazem animação de entrada
+  const r = await this.page.evaluate(() => {
+    const W = window.innerWidth;
+    const dentroDeRolagem = (el: Element) => {
+      let p = el.parentElement;
+      while (p && p !== document.body) {
+        const o = getComputedStyle(p).overflowX;
+        if (o === 'auto' || o === 'scroll') return true;
+        p = p.parentElement;
+      }
+      return false;
+    };
+    const cortados: string[] = [];
+    document.querySelectorAll('h1,h2,h3,p,span,button,a,label,input,select,th,td,[role="combobox"],[role="tab"]').forEach((el) => {
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || cs.display === 'none') return;
+      const rc = el.getBoundingClientRect();
+      if (rc.width === 0 || rc.height === 0) return;
+      if ((rc.right > W + 1 || rc.left < -1) && !dentroDeRolagem(el)) {
+        const t = ((el as HTMLElement).innerText || (el as HTMLInputElement).value || (el as HTMLInputElement).placeholder || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+        cortados.push(`${el.tagName} "${t}" termina em ${Math.round(rc.right)}px (tela de ${W}px)`);
+      }
+    });
+    return { rolaPagina: document.documentElement.scrollWidth > W + 1, cortados };
+  });
+  expect(r.cortados, `elementos cortados fora da tela: ${r.cortados.slice(0, 5).join(' | ')}`).toEqual([]);
+  expect(r.rolaPagina, 'a página inteira ganhou rolagem lateral no celular').toBe(false);
+});
