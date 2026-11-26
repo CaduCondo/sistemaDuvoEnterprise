@@ -3983,3 +3983,34 @@ ponto.
 
 `rentals.status` não tem restrição de valores no banco, então o status novo
 não exigiu migração.
+
+## 🕵️ Trilha de autoria — quem criou e quem alterou (issue #54)
+
+> Regra definida em 26/nov/2026. Antes, o sistema não sabia **quem** mexeu em
+> imóvel, inquilino, locação e recebimento (só **o quê** e **quando**).
+
+**Como funciona, em linguagem simples**
+
+1. Quando você entra no sistema, o navegador passa a mandar **o seu usuário**
+   junto com cada gravação.
+2. O banco de dados anota, em cada **imóvel, inquilino, locação e recebimento**:
+   - **criado por** (nunca muda) e **alterado por** (o último que mexeu);
+   - uma linha no **histórico de auditoria** (Configurações → Logs) para cada
+     criação, alteração e exclusão, com o usuário, o dia/hora e **quais campos**
+     mudaram (e os valores antigo/novo, exceto em **inquilinos**: ali só o nome
+     dos campos, para não copiar dado pessoal para o histórico).
+3. O histórico **não pode ser alterado nem apagado** pelas telas.
+4. Alteração que só mexe na data de atualização não entra no histórico (não
+   polui).
+
+**Detalhes que importam**
+
+- Alteração feita sem usuário identificado (ex.: rotina do servidor) aparece com
+  "sem usuário identificado" — e não com o nome do último que mexeu.
+- Isso é uma **trilha de auditoria, não uma prova de identidade**: quem tiver a
+  chave pública do sistema poderia mandar um usuário falso. A proteção de
+  verdade é a das issues #94/#123 (permissões no servidor).
+- Os registros do banco levam `origem = banco` no detalhe, para distinguir dos
+  registros que as telas já faziam (login, usuário etc.).
+- Banco: migration `20261126120000_trilha_de_autoria.sql`. **Aplicada no DEV;
+  em PRODUÇÃO ainda não** — precisa rodar antes de levar a `develop` para a `main`.
