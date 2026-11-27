@@ -1654,3 +1654,29 @@ Then('o recebimento de aluguel da rescisão deve ser o próprio recebimento do m
   const aluguel = await recebimentoDeAluguelDaRescisao(this);
   expect(aluguel.id, 'devia ter atualizado a parcela do mês, não criado outra').toBe(antigo.id);
 });
+
+/**
+ * #53: o "VALOR TOTAL DA RESCISÃO" tem que dizer o sentido do dinheiro. Confere que o
+ * texto bate com o SINAL do valor mostrado (negativo = a pagar ao inquilino; positivo =
+ * a receber dele) e que os dois valores que compõem o total aparecem na tela.
+ */
+Then('o sentido do total da rescisão deve estar escrito conforme o valor', async function (this: CustomWorld) {
+  const total = this.page.locator('[data-testid="total-da-rescisao"]').first();
+  await expect(total, 'o bloco "VALOR TOTAL DA RESCISÃO" não apareceu').toBeVisible({ timeout: 15000 });
+
+  const valorTexto = ((await total.locator('[data-testid="total-da-rescisao-valor"]').textContent()) || '').trim();
+  const negativo = valorTexto.startsWith('-');
+  const zero = /^-?\s*R\$\s*0,00$/.test(valorTexto.replace(/ /g, ' '));
+  const sentido = ((await total.locator('[data-testid="total-da-rescisao-sentido"]').textContent()) || '').trim();
+
+  if (zero) {
+    expect(sentido, 'total zero deve dizer que não há nada a pagar nem a receber').toMatch(/Nada a pagar/);
+  } else if (negativo) {
+    expect(sentido, `valor ${valorTexto} é negativo: deveria dizer "A pagar ao inquilino"`).toMatch(/A pagar ao inquilino/);
+  } else {
+    expect(sentido, `valor ${valorTexto} é positivo: deveria dizer "A receber do inquilino"`).toMatch(/A receber do inquilino/);
+  }
+
+  await expect(total.getByText('Este recebimento'), 'faltou mostrar o valor deste recebimento').toBeVisible();
+  await expect(total.getByText('Outros recebimentos do mesmo vencimento'), 'faltou mostrar o valor dos outros recebimentos').toBeVisible();
+});

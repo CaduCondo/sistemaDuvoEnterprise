@@ -2437,6 +2437,15 @@ como uma rescisão fecha — as telas mostram, abaixo do `VALOR TOTAL`, a
 linha `VALOR TOTAL DA RESCISÃO` com a soma dos dois. O inquilino costuma
 pagar tudo de uma vez.
 
+**Sentido do dinheiro (issue #53, 27/nov/2026):** abaixo do total a tela mostra os
+dois valores que o compõem ("Este recebimento" e "Outros recebimentos do mesmo
+vencimento") e escreve em palavras de que lado está o dinheiro:
+- total **negativo** (em vermelho) → **"A pagar ao inquilino (a imobiliária devolve)"**;
+- total **positivo** → **"A receber do inquilino"**;
+- total **zero** → "Nada a pagar nem a receber".
+Exemplo: aluguel R$ 1.500,00 + Recebimento de Rescisão −R$ 2.000,00 = **−R$ 500,00,
+a pagar ao inquilino**.
+
 ### Acordo de parcelamento do débito (#119)
 
 > Novo em **07/out/2026**, a pedido do Cadu (caso real: SIGNORE APTO 21).
