@@ -313,6 +313,7 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
     Quando eu registrar a rescisão em "03/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
     E eu abrir o Recebimento de Rescisão
     Então devo ver a linha "VALOR TOTAL DA RESCISÃO" com a soma dos recebimentos que vencem em "03/09/2026"
+    E o sentido do total da rescisão deve estar escrito conforme o valor
 
   # --------------------------------------------------------------------------
   # As três composições da "Formação de Valores"

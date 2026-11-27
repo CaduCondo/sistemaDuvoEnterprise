@@ -1,3 +1,4 @@
+import { formatarPeriodo } from "@/lib/periodo";
 import { memo, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -172,7 +173,7 @@ export const PaymentCard = memo(function PaymentCard({
             </div>
             <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {getMonthName(payment.referenceMonth)}/{payment.referenceYear}
+                {formatarPeriodo(getMonthName(payment.referenceMonth), payment.referenceYear)}
               </span>
               {getStatusBadge(payment.status)}
               {payment.isDeposit && (
@@ -309,7 +310,7 @@ export const PaymentCard = memo(function PaymentCard({
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
                   <span className="text-xs text-muted-foreground">
-                    {getMonthName(payment.referenceMonth)}/{payment.referenceYear}
+                    {formatarPeriodo(getMonthName(payment.referenceMonth), payment.referenceYear)}
                   </span>
                   {getStatusBadge(payment.status)}
                   {payment.isDeposit && (
@@ -444,7 +445,7 @@ export const PaymentCard = memo(function PaymentCard({
           <DialogHeader>
             <DialogTitle>Anexos do Pagamento</DialogTitle>
             <DialogDescription>
-              {property?.location} - {getMonthName(payment.referenceMonth)}/{payment.referenceYear}
+              {property?.location} - {formatarPeriodo(getMonthName(payment.referenceMonth), payment.referenceYear)}
             </DialogDescription>
           </DialogHeader>
           

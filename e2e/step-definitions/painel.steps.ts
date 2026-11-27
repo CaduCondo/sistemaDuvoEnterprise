@@ -75,16 +75,31 @@ Then('o card {string} do Painel deve mostrar {string}', async function (this: Cu
 });
 
 /** Mesma leitura, para os cards ".card"/".card-value" do Financeiro (financial.tsx). */
-Then('o card {string} do Financeiro deve mostrar {string}', async function (this: CustomWorld, titulo: string, valorTexto: string) {
+// ⚠️ 26/nov/2026 (#137, run #168): lia o card UMA vez. Depois de mudar o filtro de
+// meses a tela recarrega e, no CI (banco compartilhado e carregado), o recarregamento
+// do ano inteiro passa de 10 s: o print da falha mostrava o círculo girando e o card
+// ainda com o valor ANTIGO. Agora espera até 30 s o valor certo aparecer. Valor errado
+// continua reprovando, com a mesma mensagem -- só deixou de reprovar a tela atrasada.
+Then('o card {string} do Financeiro deve mostrar {string}', { timeout: 60 * 1000 }, async function (this: CustomWorld, titulo: string, valorTexto: string) {
   const esperado = parseFloat(valorTexto);
   const card = this.page.locator('.card').filter({ hasText: titulo }).first();
   await expect(card, `não encontrei o card "${titulo}" no Financeiro`).toBeVisible({ timeout: 15000 });
 
-  const texto = await card.locator('.card-value').first().textContent();
-  const match = texto?.match(/([\d.,]+)/);
-  expect(match, `não consegui ler o valor do card "${titulo}" (texto: "${texto}")`).toBeTruthy();
+  const ler = async () => {
+    const texto = await card.locator('.card-value').first().textContent();
+    const match = texto?.match(/([\d.,]+)/);
+    expect(match, `não consegui ler o valor do card "${titulo}" (texto: "${texto}")`).toBeTruthy();
+    return parseFloat(match![1].replace(/\./g, '').replace(',', '.'));
+  };
 
-  const valorExibido = parseFloat(match![1].replace(/\./g, '').replace(',', '.'));
+  let valorExibido = await ler();
+  const limite = Date.now() + 30000;
+  while (Math.abs(valorExibido - esperado) >= 0.05 && Date.now() < limite) {
+    await this.page.waitForTimeout(1000);
+    valorExibido = await ler();
+  }
+
   const diff = Math.abs(valorExibido - esperado);
   expect(diff, `esperado R$ ${esperado.toFixed(2)}, mas o card "${titulo}" do Financeiro mostrou R$ ${valorExibido.toFixed(2)} -- Recebimento de Rescisão pode estar contaminando o total (#49/#120)`).toBeLessThan(0.05);
 });
+

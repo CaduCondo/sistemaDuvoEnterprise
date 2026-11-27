@@ -1473,7 +1473,15 @@ async function conferirParcelaDeCaucao(
   esperado: Record<string, string>
 ) {
   const DatabaseHelper = (await import('../helpers/database.helper')).default;
-  const parcelas = await DatabaseHelper.getDepositInstallments(world.rentalId);
+  // As parcelas de caução são gravadas logo DEPOIS da locação: espera até 20s
+  // por elas, em vez de ler uma vez só (falhou assim na rodada da main de
+  // 24/nov/2026, com o mesmo código que tinha passado na develop).
+  let parcelas: any[] = [];
+  for (let tentativa = 0; tentativa < 20; tentativa++) {
+    parcelas = await DatabaseHelper.getDepositInstallments(world.rentalId);
+    if (parcelas.some((p: any) => p.installment_number === numeroDaParcela)) break;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
 
   const parcela = parcelas.find((p: any) => p.installment_number === numeroDaParcela);
   expect(

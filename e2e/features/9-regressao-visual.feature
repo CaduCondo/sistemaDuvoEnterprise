@@ -95,3 +95,51 @@ Funcionalidade: Testes de Regressão Visual
     E retorno para "/properties"
     Então o filtro "São Paulo - Centro" NÃO deve estar aplicado
     E devo ver todos os imóveis
+
+  # Issues #134, #135, #136 (pedido do Cadu, 25/nov/2026, vendo pelo celular).
+  # O cenário "Responsividade em mobile" acima conferia só que EXISTIA algum
+  # elemento com rolagem na página -- não pegou a tabela de Imóveis cortada.
+  # Estes medem a tela de verdade (390 px de largura, como um celular).
+  @sistemaCompleto
+  Cenário: Tabela de Imóveis rola para o lado no celular (#134)
+    Dado que fiz login como "admin"
+    E estou usando um dispositivo mobile
+    E estou na página "/properties"
+    E que existe um imóvel de teste com "Rolagem" no complemento
+    Quando clico no botão de visualização em lista
+    Então a tabela deve rolar para o lado sem a página rolar
+
+  @sistemaCompleto
+  Cenário: Card de locação no celular mantém o valor em uma linha e botões abaixo (#135)
+    Dado que fiz login como "admin"
+    E que existe uma locação ativa do cenário
+    E estou usando um dispositivo mobile
+    Quando acesso a página "/rentals"
+    E clico na visão em grade de Locações
+    Então no card da locação o valor fica em uma linha e os botões abaixo dele
+
+  @sistemaCompleto
+  Cenário: Combos e botão de Locações ficam um abaixo do outro no celular (#136)
+    Dado que fiz login como "admin"
+    E estou usando um dispositivo mobile
+    Quando acesso a página "/rentals"
+    Então os combos e o botão de Locações devem estar um abaixo do outro
+
+  # Varredura de layout no celular (#102/#45): achou "Novo Inquilino" cortado
+  # (25/nov/2026). Nenhuma página principal pode cortar elementos fora da tela.
+  @sistemaCompleto
+  Esquema do Cenário: Nenhum elemento fica cortado no celular em <pagina>
+    Dado que fiz login como "admin"
+    E estou usando um dispositivo mobile
+    Quando acesso a página "<pagina>"
+    Então nenhum elemento deve ficar cortado fora da tela
+
+    Exemplos:
+      | pagina      |
+      | /dashboard  |
+      | /properties |
+      | /tenants    |
+      | /rentals    |
+      | /payments   |
+      | /financial  |
+      | /settings   |

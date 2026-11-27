@@ -70,6 +70,12 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      # Testes unitarios (contas puras, sem navegador nem banco): rodam em
+      # segundos e vao ANTES de tudo, para uma conta quebrada parar a rodada
+      # logo no comeco (issue #129).
+      - name: Rodar os testes unitarios
+        run: npm test
+
       - name: Instalar o navegador de teste
         run: npx playwright install --with-deps chromium
 

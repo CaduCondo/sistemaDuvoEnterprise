@@ -1,3 +1,4 @@
+import { TotalDaRescisao } from "./TotalDaRescisao";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -408,18 +409,9 @@ export function PaymentBreakdownCard({
                   proporcional e a devolucao do caucao caem os dois na data da
                   saida e o inquilino paga tudo de uma vez; sem esta linha
                   alguem precisa somar na mao. */}
-              {somaOutrosDoMesmoVencimento !== null && (() => {
-                const totalDaRescisao = finalTotal + somaOutrosDoMesmoVencimento;
-                return (
-                  <div className="flex justify-between pt-2 mt-1 border-t border-dashed">
-                    <span className="font-bold text-base">VALOR TOTAL DA RESCISÃO</span>
-                    <span className={`font-bold text-base ${totalDaRescisao < 0 ? "text-red-600" : "text-primary"}`}>
-                      {totalDaRescisao < 0 ? "-" : ""}
-                      {formatCurrency(Math.abs(totalDaRescisao))}
-                    </span>
-                  </div>
-                );
-              })()}
+              {somaOutrosDoMesmoVencimento !== null && (
+                <TotalDaRescisao finalTotal={finalTotal} somaOutrosDoMesmoVencimento={somaOutrosDoMesmoVencimento} />
+              )}
 
               {/* Legenda do proporcional, tambem nesta tela. */}
               {(() => {
@@ -547,18 +539,9 @@ export function PaymentBreakdownCard({
                   proporcional e a devolucao do caucao caem os dois na data da
                   saida e o inquilino paga tudo de uma vez; sem esta linha
                   alguem precisa somar na mao. */}
-              {somaOutrosDoMesmoVencimento !== null && (() => {
-                const totalDaRescisao = finalTotal + somaOutrosDoMesmoVencimento;
-                return (
-                  <div className="flex justify-between pt-2 mt-1 border-t border-dashed">
-                    <span className="font-bold text-base">VALOR TOTAL DA RESCISÃO</span>
-                    <span className={`font-bold text-base ${totalDaRescisao < 0 ? "text-red-600" : "text-primary"}`}>
-                      {totalDaRescisao < 0 ? "-" : ""}
-                      {formatCurrency(Math.abs(totalDaRescisao))}
-                    </span>
-                  </div>
-                );
-              })()}
+              {somaOutrosDoMesmoVencimento !== null && (
+                <TotalDaRescisao finalTotal={finalTotal} somaOutrosDoMesmoVencimento={somaOutrosDoMesmoVencimento} />
+              )}
 
 
               {/* Legenda do proporcional (28/ago/2026). As linhas mostram so

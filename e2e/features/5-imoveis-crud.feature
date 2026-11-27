@@ -186,3 +186,25 @@ Funcionalidade: CRUD de Imóveis
     Quando clico em "Sim, Excluir"
     Então devo ver a mensagem de sucesso
     E o imóvel NÃO deve aparecer na lista
+
+  # Issue #54 (25/nov/2026): o sistema passa a registrar QUEM criou/alterou. O
+  # navegador manda o usuário logado em cada chamada e o banco grava o autor
+  # (created_by/updated_by) e uma linha em audit_logs. O teste confere no BANCO,
+  # não só na tela.
+  @sistemaCompleto
+  Cenário: Imóvel criado pela tela registra quem criou (#54)
+    Dado existe uma localização "São Paulo - Centro"
+    E estou na página "/properties"
+    Quando clico no botão "Novo Imóvel"
+    E preencho todos os campos obrigatórios:
+      | campo        | valor              |
+      | Local        | São Paulo - Centro |
+      | Complemento  | Apto 103           |
+      | Quartos      | 2                  |
+      | Banheiros    | 1                  |
+      | Área         | 80                 |
+      | Valor        | 2500.00            |
+    E clico em "Salvar"
+    E fecho a mensagem de sucesso no botão OK
+    Então o imóvel criado deve registrar o usuário "admin" como autor
+    E o histórico de auditoria deve ter a criação desse imóvel com o mesmo autor

@@ -258,6 +258,24 @@ export function buildInitialDepositInstallments(input: InitialDepositInstallment
 }
 
 /**
+ * Garantia (issue #112): parcela de caução NUNCA pode nascer sem data de
+ * vencimento válida (AAAA-MM-DD). Sem ela a tela de Recebimentos não sabe o
+ * período da parcela. Lança erro claro em vez de gravar parcela quebrada.
+ * (O banco tem uma trava igual: migration 20261125120000.)
+ */
+export function exigirVencimentoNasParcelas(
+  installments: Array<{ installment_number: number; due_date?: string | null }>
+): void {
+  for (const inst of installments) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(inst.due_date ?? "")) {
+      throw new Error(
+        `A parcela ${inst.installment_number} do caução está sem data de vencimento válida. Preencha o vencimento antes de salvar.`
+      );
+    }
+  }
+}
+
+/**
  * Criar parcelas de caução para uma locação
  */
 export async function createDepositInstallments(
@@ -274,6 +292,9 @@ export async function createDepositInstallments(
     payment_method?: string | null;
   }>
 ): Promise<DepositInstallment[]> {
+  // Antes de qualquer coisa: nenhuma parcela sem vencimento (#112).
+  exigirVencimentoNasParcelas(installments);
+
   try {
     // ✅ CORREÇÃO CRÍTICA: Verificar se já existem parcelas antes de criar
     const { data: existing, error: checkError } = await supabase

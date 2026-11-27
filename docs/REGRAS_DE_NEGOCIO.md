@@ -1983,6 +1983,8 @@ refletir o novo valor:
 | **Parcelado em 2x** | Caução dividido em 2 parcelas (1º e 2º mês) |
 | **Parcelado em 3x** | Caução dividido em 3 parcelas (1º, 2º e 3º mês) |
 
+> 🔒 **Toda parcela de caução tem data de vencimento** (issue #112, 25/nov/2026). O sistema não deixa salvar uma parcela sem vencimento: a tela avisa qual parcela está sem data, e o banco de dados também barra (nunca mais aparece "/NaN" na coluna Período). Existe 1 parcela antiga em produção, anterior à trava, que ficou sem vencimento — ela aparece com "-" no Período.
+
 > ✅ **Corrigido** (02/set/2026): dois bugs relacionados ao parcelamento do
 > caução foram corrigidos no código (commits `f9d2eb5d` e `0414ca4b`) e já
 > estão em produção — [issue #13](https://github.com/CaduCondo/sistemaDuvoEnterprise/issues/13)
@@ -2400,7 +2402,10 @@ antiga não são recalculados sozinhos.
   na Rescisão quanto no recebimento de Fim de Contrato. Ver se o mês mais
   recente fechou e, se sim, cadastrar o índice é tarefa de manutenção
   mensal (ainda manual; buscar automaticamente pela API do Banco Central é
-  ideia futura, não decidida).
+  ideia futura, não decidida). **Lembrete automático (25/nov/2026):** um teste
+  (`igpmService.test.ts`) fica **vermelho** no GitHub Actions quando um mês
+  fechou há mais de 5 dias e a tabela ainda não tem o índice dele — a mensagem
+  do erro diz exatamente o que fazer. Tabela atualizada até **outubro/2026**.
 
 ### Sinais no Recebimento de Rescisão
 
@@ -2431,6 +2436,15 @@ Quando dois recebimentos da mesma locação vencem no mesmo dia — o que é
 como uma rescisão fecha — as telas mostram, abaixo do `VALOR TOTAL`, a
 linha `VALOR TOTAL DA RESCISÃO` com a soma dos dois. O inquilino costuma
 pagar tudo de uma vez.
+
+**Sentido do dinheiro (issue #53, 27/nov/2026):** abaixo do total a tela mostra os
+dois valores que o compõem ("Este recebimento" e "Outros recebimentos do mesmo
+vencimento") e escreve em palavras de que lado está o dinheiro:
+- total **negativo** (em vermelho) → **"A pagar ao inquilino (a imobiliária devolve)"**;
+- total **positivo** → **"A receber do inquilino"**;
+- total **zero** → "Nada a pagar nem a receber".
+Exemplo: aluguel R$ 1.500,00 + Recebimento de Rescisão −R$ 2.000,00 = **−R$ 500,00,
+a pagar ao inquilino**.
 
 ### Acordo de parcelamento do débito (#119)
 
@@ -2561,12 +2575,31 @@ Apresentar relatórios financeiros consolidados com foco em receitas, despesas e
 - Disponível para: Admin, Broker, Financial
 - Exibe KPIs e tabela de pagamentos
 - Financial vê apenas locais permitidos
+- **Filtro de mês com vários meses** (pedido do Cadu, 25/nov/2026, issue #137):
+  o combo de mês tem uma caixinha (checkbox) por mês. O primeiro item é
+  **"Marcar todos"** e, quando os 12 estão marcados, vira **"Desmarcar todos"**.
+  Passo a passo: abra o Financeiro → escolha o **ano** → abra o combo de mês →
+  marque os meses que quer (ou "Marcar todos" para o **ano completo**). Os
+  cards e a tabela mostram a **soma dos meses marcados**. As regras de cálculo
+  são as mesmas de sempre; só o filtro mudou. Com um mês só, o resultado é o
+  mesmo de antes. Sem nenhum mês marcado, a tela mostra zeros. O Excel e os
+  títulos descrevem o período (ex.: "janeiro a dezembro 2026"). Só o
+  Financeiro tem esse combo; Recebimentos e Painel continuam com um mês só.
+  A tela busca os recebimentos em blocos de 1.000 (o banco entrega no máximo
+  1.000 linhas por vez; sem isso o ano inteiro saía menor).
 
 **1.2 Aba "Detalhamento de Cauções"**
 - Disponível apenas para: Admin, Broker
 - Financial **não** tem acesso (tab oculta)
 - Exibe KPIs e tabela de parcelas de caução
 - Inclui edição de comissões inline
+
+**1.3 Código PIX na tabela (edição direto na célula)** — corrigido em 27/nov/2026 (#138)
+- Clique no Código PIX da linha, digite e aperte **Enter** (ou saia do campo): o código é gravado.
+- Um recebimento **pago em 2 ou mais vezes** aparece em várias linhas; o clique abre o campo **só na linha clicada**
+  (antes abria em todas e o campo se fechava sozinho, salvando vazio e dizendo "sucesso").
+- Clicar e sair **sem digitar nada não grava e não mostra aviso**. **Esc** cancela sem gravar.
+- O código é do **recebimento** (não da linha): as linhas do mesmo recebimento mostram o mesmo código.
 
 #### 2. KPIs de Locações
 
@@ -3910,8 +3943,8 @@ CREATE TABLE location_expenses (
 ### Responsividade
 - Mobile First: Design otimizado para smartphones
 - Breakpoints: sm (640px), md (768px), lg (1024px), xl (1280px)
-- Tabelas: Scroll horizontal em telas pequenas
-- Cards: Stack vertical em mobile, grid em desktop
+- Tabelas: Scroll horizontal em telas pequenas — **a própria tabela rola para o lado** (a página não ganha rolagem lateral); corrigido em 25/nov/2026 (#134)
+- Cards: Stack vertical em mobile, grid em desktop. Card de locação (Grade): "Valor do Aluguel" e o valor ficam em uma linha só, com os botões de ação **abaixo** do valor (#135). Em Locações, "Imóveis Vagos", "Inquilinos Disponíveis" e "Nova Locação" ficam **um embaixo do outro** no celular (#136)
 
 ### Performance
 - **Paginação**: Tabelas longas (>100 itens)
@@ -3966,3 +3999,34 @@ ponto.
 
 `rentals.status` não tem restrição de valores no banco, então o status novo
 não exigiu migração.
+
+## 🕵️ Trilha de autoria — quem criou e quem alterou (issue #54)
+
+> Regra definida em 26/nov/2026. Antes, o sistema não sabia **quem** mexeu em
+> imóvel, inquilino, locação e recebimento (só **o quê** e **quando**).
+
+**Como funciona, em linguagem simples**
+
+1. Quando você entra no sistema, o navegador passa a mandar **o seu usuário**
+   junto com cada gravação.
+2. O banco de dados anota, em cada **imóvel, inquilino, locação e recebimento**:
+   - **criado por** (nunca muda) e **alterado por** (o último que mexeu);
+   - uma linha no **histórico de auditoria** (Configurações → Logs) para cada
+     criação, alteração e exclusão, com o usuário, o dia/hora e **quais campos**
+     mudaram (e os valores antigo/novo, exceto em **inquilinos**: ali só o nome
+     dos campos, para não copiar dado pessoal para o histórico).
+3. O histórico **não pode ser alterado nem apagado** pelas telas.
+4. Alteração que só mexe na data de atualização não entra no histórico (não
+   polui).
+
+**Detalhes que importam**
+
+- Alteração feita sem usuário identificado (ex.: rotina do servidor) aparece com
+  "sem usuário identificado" — e não com o nome do último que mexeu.
+- Isso é uma **trilha de auditoria, não uma prova de identidade**: quem tiver a
+  chave pública do sistema poderia mandar um usuário falso. A proteção de
+  verdade é a das issues #94/#123 (permissões no servidor).
+- Os registros do banco levam `origem = banco` no detalhe, para distinguir dos
+  registros que as telas já faziam (login, usuário etc.).
+- Banco: migration `20261126120000_trilha_de_autoria.sql`. **Aplicada no DEV;
+  em PRODUÇÃO ainda não** — precisa rodar antes de levar a `develop` para a `main`.
