@@ -33,12 +33,15 @@ on:
     branches: [ main, develop ]
   workflow_dispatch:
 
-# Se chegar um push novo enquanto o anterior ainda esta rodando, cancela o
-# anterior — nao adianta testar um commit que ja foi substituido, e evita
-# fila de execucoes empilhadas.
+# UMA rodada por vez no banco de DEV (27/nov/2026). Antes cada branch/PR tinha o seu
+# grupo e duas rodadas (o PR e o push da main, abertos com 11 s de diferenca) usaram o
+# MESMO banco ao mesmo tempo: os cenarios de periodo isolado (ex.: dezembro/2030) viram
+# os recebimentos um do outro e 'Taxa Adm' mostrou R$ 500 em vez de R$ 125 -- falha que
+# nao era do sistema. Agora as rodadas entram numa fila unica; sem cancelar a que esta
+# rodando (o GitHub guarda so a mais nova que estiver esperando).
 concurrency:
-  group: smoke-${{ github.ref }}
-  cancel-in-progress: true
+  group: smoke-banco-dev
+  cancel-in-progress: false
 
 jobs:
   smoke:
