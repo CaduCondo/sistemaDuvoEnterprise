@@ -296,3 +296,110 @@ Lacuna conhecida (31/ago/2026): não existe ainda um cenário `@smoke`
 limpo para "receber aluguel" — os dois candidatos naturais estão
 `@quebrado`. Ver ticket "Escrever cenário de smoke para receber aluguel"
 no kanban/GitHub.
+
+## Processo de desenvolvimento padrão (definido pelo Cadu em 27/nov/2026 — vale em todos os projetos)
+
+> Este é o processo que o Cadu está padronizando em todos os projetos. Vale como regra
+> permanente. Quando algo aqui ainda não existe no projeto, o Claude implementa (como issue)
+> em vez de ignorar.
+
+### 1. Ferramentas (e para que serve cada uma, em palavras simples)
+
+- **GitHub** — guarda o código, o histórico, as issues (o kanban) e roda os testes
+  automáticos (Actions).
+- **Supabase** — o banco de dados (e os arquivos anexos). Hoje há 2 projetos (DEV e PROD).
+  Pode haver limite de projetos no plano gratuito: se faltar, criar outro e-mail/conta ou
+  avaliar outra ferramenta — só trocar se for claramente melhor (custo, segurança, RLS,
+  suporte), e registrar a comparação numa issue antes.
+- **Vercel** — é quem **põe o site no ar**: a cada `git push` ele pega o código no GitHub,
+  monta (build) e publica sozinho. `develop` → site de teste (DEV); `main` → site de
+  produção. Sem Vercel o código só existiria no repositório; com ele vira um endereço que
+  as pessoas acessam.
+
+### 2. Segurança (o sistema não pode ser invadido — padrão mínimo, sempre)
+
+Princípio: **nunca confiar na tela**. Tudo que importa é conferido no servidor/banco.
+
+- **Senhas** sempre com hash forte (bcrypt) — nunca texto puro, nunca voltando para a tela.
+- **Rotas de API** exigem autenticação (token de sessão assinado) **e** conferem o perfil do
+  usuário no servidor (admin/financeiro/corretor) — esconder o menu não é proteção.
+- **Login**: limite de tentativas e bloqueio temporário; mensagens que não revelam se o
+  usuário existe; senha temporária aleatória; troca obrigatória no 1º acesso.
+- **Banco (RLS)**: toda tabela com RLS ligado e política explícita; nada de política "liberada
+  para todos" sem justificativa escrita. Meta final: as telas **não** falam direto com o banco
+  com a chave pública — leitura/escrita sensíveis passam por rotas de API com checagem de
+  perfil (issues #94 e #123 são o caminho). Até lá, cada exceção fica documentada.
+- **Trilha de auditoria**: quem criou/alterou/excluiu cada registro (issue #54).
+- **Segredos** (chaves, tokens) só em variáveis de ambiente/Secrets, nunca no código, nunca
+  no chat; nada de `service_role` no navegador.
+- **Validação de entrada** em toda API (tipo, tamanho, formato) e saída segura contra XSS e
+  injeção. Dependências atualizadas e auditadas (`npm audit`).
+- **Teste de intrusão (pentest)**: roteiro recorrente (OWASP Top 10: autenticação quebrada,
+  controle de acesso, injeção, XSS, configuração) com os testes `@security` e, quando
+  possível, uma varredura automática (ex.: OWASP ZAP) contra o DEV. Toda falha vira issue.
+
+### 3. Testes (pirâmide) — escritos em BDD, o melhor framework para cada camada
+
+1. **Unitários** (Vitest, `npm test`) — contas e regras puras, rápidos, escritos **antes** do
+   código (TDD: vermelho → verde → refatorar). Rodam no CI antes de tudo.
+2. **Funcionais / ponta a ponta** (Cucumber BDD em português + Playwright) com **Page
+   Objects** (técnica ainda é o padrão do mercado): cada tela tem uma classe que conhece os
+   seletores; os passos só chamam a classe. Esquema de tags em "Esquema de tags dos testes BDD".
+3. **Integração** — API + banco juntos (rotas de API, gatilhos/RLS), com massa própria.
+4. **Regressão** — todo bug corrigido ganha um teste que o teria pego; roda a cada push no CI.
+5. **Homologação** — antes de ir à `main`, o Cadu valida no DEV online.
+6. **Carga e stress** (`@performance`/`@stress`, k6 ou Playwright) — tempo de resposta e
+   requisições concorrentes; roda sob demanda/semanal.
+7. **Segurança** (`@security`) — ver seção 2.
+
+Regras dos testes: cada teste cria a **própria massa** (nunca depende de dado real); procurar
+**falso positivo** (teste que passa sem provar nada — ver issues #76/#111): todo teste novo
+deve ser visto **vermelho** no código antigo antes de ficar verde; evidência (print/vídeo) já
+está implementada nos hooks.
+
+### 4. Código
+
+- Comentar o **porquê** (regra de negócio, decisão, número da issue), em português.
+- Orientação a objetos/módulos e **reuso máximo**: regra de dinheiro mora em UM lugar
+  (`src/lib`, `src/services`), testada, e as telas só chamam.
+- **Refatorar sempre** que tocar numa área, para a dívida nunca acumular a ponto de a
+  refatoração ficar inviável (ver issue #83).
+
+### 5. Documentação
+
+Toda regra de negócio nova/alterada vai para `docs/REGRAS_DE_NEGOCIO.md` em passo a passo,
+em linguagem simples, **no mesmo dia** do código. Decisão de arquitetura/segurança vai em
+`docs/`. Doc desatualizada é bug.
+
+### 6. Kanban (GitHub Project) e o caminho de cada issue
+
+Colunas e significado — a issue só anda para a direita quando o critério da coluna é cumprido:
+
+| Coluna | Significa | Critério para sair |
+|---|---|---|
+| **Backlog** | ideia/bug registrado | issue completa (ver "Como escrever a issue") e priorizada |
+| **To-Do** | escolhida para a próxima | Claude/Cadu começa |
+| **WIP** (Working in Progress) | sendo desenvolvida (TDD: teste vermelho → código) | código pronto, testes unitários verdes, commit |
+| **WTT** (Working on The Tests) | escrevendo/rodando os testes funcionais, de integração e regressão; CI na `develop` | CI verde (smoke + completo) e conferência no DEV |
+| **Done** | pronta e testada | Cadu aprovou/validou no DEV (ou regra de autonomia dispensa) |
+| **IN** (In Production) | já em produção | merge `develop` → `main`, CI da `main` verde, conferência em produção |
+
+Depois de **IN**, o processo continua girando: o que o CI/produção achar vira issue nova e
+volta para o **Backlog**. Mover o cartão faz parte do trabalho (o Claude atualiza o Project a
+cada mudança; se a ferramenta não alcançar o Project, avisa em uma linha).
+
+**Como escrever a issue (o melhor conteúdo possível):** cenário (como o usuário vê, com
+prints quando houver), **resultado esperado**, **resultado obtido**, causa raiz (arquivo/linha),
+impacto, tarefas, critérios de aceitação em **BDD (Dado/Quando/Então)** e links (teste,
+run do CI, commit). Tudo interligado: issue ↔ teste ↔ commit ↔ run do Actions.
+
+### 7. O portão para produção (CI/CD)
+
+- **Só sobe para produção o que passou no CI**: `develop` com Actions verde → pull request
+  para `main` → Actions verde na `main` → Vercel publica. Vermelho = não sobe.
+- Erro encontrado (pelo CI, por teste ou em produção) → vira issue (passo 6) → correção →
+  teste que garante que **nunca mais** acontece → o ciclo recomeça.
+- Mudança de banco: migration versionada em `supabase/migrations/`, testada no DEV e aplicada
+  em PROD **antes** do código que depende dela (registrar pendências na issue).
+- Depois de cada push: conferir o Actions, separar falha nova de antiga e agir sem esperar
+  o Cadu pedir. Testar de verdade (DEV/produção com massa própria) antes de dar por concluído.
