@@ -50,3 +50,28 @@ Funcionalidade: Isenção de taxa por Local na tela Financeiro
     Quando marco esse local como isento de Taxa de Gerenciamento
     E abro o Financeiro em "Março/2026" filtrado por esse local
     Então o card "Taxa Ger" deve mostrar "0.00"
+
+  # Issue #138 (Cadu, produção, out/2026): num recebimento pago em 2 partes (1 locação, 2 linhas
+  # de pagamento) o campo do Código PIX abria nas duas linhas ao mesmo tempo, perdia o foco e
+  # salvava vazio com "sucesso" -- impossível digitar.
+  @sistemaCompleto
+  Cenário: Digitar o Código PIX numa linha de um recebimento com 2 pagamentos (#138)
+    Dado que existe um local com um recebimento pago em 2 partes de "1500.00" e "300.00" em "Janeiro/2030"
+    Quando abro o Financeiro em "Janeiro/2030" filtrado por esse local
+    E clico no Código PIX da 2ª linha desse recebimento
+    Então só 1 campo de texto de Código PIX deve estar aberto na tabela
+    Quando digito "PIX-ABC-123" no Código PIX sem confirmar
+    Então o campo de Código PIX deve continuar aberto com o texto digitado
+    E nenhuma mensagem de sucesso deve ter aparecido
+    Quando aperto Enter no Código PIX
+    Então devo ver o aviso "Código PIX atualizado" e fecho no OK
+    E o Código PIX "PIX-ABC-123" deve estar gravado nesse recebimento
+
+  @sistemaCompleto
+  Cenário: Clicar no Código PIX e sair sem digitar não salva nada nem avisa sucesso (#138)
+    Dado que existe um local com um recebimento pago em 2 partes de "1500.00" e "300.00" em "Janeiro/2030"
+    Quando abro o Financeiro em "Janeiro/2030" filtrado por esse local
+    E clico no Código PIX da 1ª linha desse recebimento
+    E clico fora do campo de Código PIX
+    Então nenhuma mensagem de sucesso deve ter aparecido
+    E nenhum Código PIX deve estar gravado nesse recebimento

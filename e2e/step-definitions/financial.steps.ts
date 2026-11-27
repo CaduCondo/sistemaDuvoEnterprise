@@ -343,3 +343,127 @@ Then('os {int} meses devem estar marcados no filtro', async function (this: Cust
   }
   expect(marcados, 'quantidade de meses marcados no filtro').toBe(quantos);
 });
+
+/** =================== Código PIX por linha (#138) =================== */
+
+/**
+ * Recebimento pago em 2 partes: no Financeiro vira 1 locação com 2 LINHAS que têm o
+ * mesmo id (cada uma com sua data e valor) -- o caso em que o campo do Código PIX
+ * abria nas duas linhas ao mesmo tempo e salvava sozinho.
+ */
+Given(
+  'que existe um local com um recebimento pago em 2 partes de {string} e {string} em {string}',
+  { timeout: 60 * 1000 },
+  async function (this: CustomWorld, valorA: string, valorB: string, periodoBR: string) {
+    const DatabaseHelper = (await import('../helpers/database.helper')).default;
+    const { mes, ano } = lerPeriodo(periodoBR);
+    const mm = String(mes).padStart(2, '0');
+    const a = parseFloat(valorA);
+    const b = parseFloat(valorB);
+    const sufixo = Date.now();
+    await DatabaseHelper.setFeePercentages(5, 3);
+
+    const location = await this.createLocation({ name: `Pix E2E ${sufixo}` });
+    const property = await this.createProperty({
+      location_id: location.id, complement: `Pix E2E ${sufixo}`, value: a + b, status: 'available',
+    });
+    const nomeInquilino = `Pix E2E ${sufixo}`;
+    const tenant = await this.createTenant({ name: nomeInquilino });
+    const rental = await this.createRental({
+      property_id: property.id, tenant_id: tenant.id,
+      start_date: `${ano}-${mm}-01`, end_date: `${ano}-12-31`,
+      rent_due_day: 10, rent_value: a + b, security_deposit: 0, deposit_installments: 0,
+    });
+    const pagamento = await DatabaseHelper.upsertPayment({
+      rental_id: rental.id, reference_month: mm, reference_year: String(ano),
+      due_date: `${ano}-${mm}-10`, expected_amount: a + b, status: 'paid', paid_amount: a + b,
+      payment_date: `${ano}-${mm}-23`,
+      breakdown: [{ description: 'Aluguel', amount: a + b, type: 'addition' }],
+      pix_code: null,
+      partial_payments: [
+        { amount: a, expected_amount: a + b, payment_date: `${ano}-${mm}-06`, payment_time: '09:18:30', payment_method: 'pix', notes: '', attachments: [], registered_at: new Date().toISOString() },
+        { amount: b, expected_amount: b, payment_date: `${ano}-${mm}-23`, payment_time: '06:10:33', payment_method: 'pix', notes: '', attachments: [], registered_at: new Date().toISOString() },
+      ],
+    });
+    this.testData = {
+      ...this.testData,
+      isencao: { locationId: location.id, locationName: location.name, valor: a + b },
+      pix: { paymentId: pagamento.id, inquilino: nomeInquilino },
+    };
+  }
+);
+
+/** Linha N (1, 2...) do recebimento de teste: a 1ª tem o nome do inquilino; as seguintes vêm logo abaixo. */
+function linhaDoRecebimento(world: CustomWorld, posicao: number) {
+  const primeira = world.page.locator('tbody tr').filter({ hasText: world.testData.pix.inquilino }).first();
+  return posicao === 1 ? primeira : primeira.locator(`xpath=following-sibling::tr[${posicao - 1}]`);
+}
+
+When('clico no Código PIX da {int}ª linha desse recebimento', async function (this: CustomWorld, posicao: number) {
+  const linha = linhaDoRecebimento(this, posicao);
+  await expect(linha, `não achei a linha ${posicao} do recebimento de teste`).toBeVisible({ timeout: 20000 });
+  await linha.locator('td').last().locator('span').click();
+});
+
+Then('só {int} campo de texto de Código PIX deve estar aberto na tabela', async function (this: CustomWorld, quantos: number) {
+  // Espera um instante: o defeito aparecia logo depois do clique (campo abre e fecha sozinho).
+  await this.page.waitForTimeout(800);
+  await expect(
+    this.page.locator('tbody input[type="text"]'),
+    `deveria haver ${quantos} campo(s) de PIX aberto(s) (antes do conserto abriam todos os da mesma locação)`
+  ).toHaveCount(quantos, { timeout: 5000 });
+});
+
+When('digito {string} no Código PIX sem confirmar', async function (this: CustomWorld, texto: string) {
+  const campo = this.page.locator('tbody input[type="text"]').first();
+  await campo.pressSequentially(texto, { delay: 120 });
+  // O defeito salvava e fechava o campo logo no começo; dá tempo para ele aparecer.
+  await this.page.waitForTimeout(1200);
+  this.testData.pixDigitado = texto;
+});
+
+Then('o campo de Código PIX deve continuar aberto com o texto digitado', async function (this: CustomWorld) {
+  const campo = this.page.locator('tbody input[type="text"]');
+  await expect(campo, 'o campo de Código PIX fechou antes de eu terminar de digitar').toHaveCount(1);
+  await expect(campo.first()).toHaveValue(this.testData.pixDigitado);
+});
+
+Then('nenhuma mensagem de sucesso deve ter aparecido', async function (this: CustomWorld) {
+  await expect(
+    this.page.getByRole('alertdialog'),
+    'apareceu uma mensagem antes de eu confirmar o código (o sistema salvou sozinho)'
+  ).toHaveCount(0);
+});
+
+When('aperto Enter no Código PIX', async function (this: CustomWorld) {
+  await this.page.locator('tbody input[type="text"]').first().press('Enter');
+});
+
+Then('devo ver o aviso {string} e fecho no OK', async function (this: CustomWorld, mensagem: string) {
+  const alerta = this.page.getByRole('alertdialog');
+  await expect(alerta, `a mensagem "${mensagem}" não apareceu`).toBeVisible({ timeout: 15000 });
+  await expect(alerta).toContainText(mensagem);
+  await alerta.getByRole('button', { name: /^OK$/i }).click();
+  await expect(alerta).toBeHidden({ timeout: 10000 });
+});
+
+Then('o Código PIX {string} deve estar gravado nesse recebimento', async function (this: CustomWorld, esperado: string) {
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+  await expect
+    .poll(async () => {
+      const { data } = await supabaseAdmin.from('payments').select('pix_code').eq('id', this.testData.pix.paymentId).single();
+      return data?.pix_code ?? null;
+    }, { timeout: 15000, message: 'o Código PIX não foi gravado no banco' })
+    .toBe(esperado);
+});
+
+When('clico fora do campo de Código PIX', async function (this: CustomWorld) {
+  await this.page.getByRole('heading', { name: /Financeiro/i }).first().click();
+  await this.page.waitForTimeout(1500);
+});
+
+Then('nenhum Código PIX deve estar gravado nesse recebimento', async function (this: CustomWorld) {
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+  const { data } = await supabaseAdmin.from('payments').select('pix_code').eq('id', this.testData.pix.paymentId).single();
+  expect(data?.pix_code ?? null, 'o sistema gravou um Código PIX sem eu digitar nada').toBeNull();
+});

@@ -851,6 +851,9 @@ export class DatabaseHelper {
     breakdown?: Array<{ description: string; amount: number; type: string }>;
     /** Número da parcela -- todo recebimento mensal criado pelo sistema tem um. */
     installment?: number;
+    /** Recebimento pago em várias partes (1 linha por entrada no Financeiro). */
+    partial_payments?: Array<Record<string, unknown>>;
+    pix_code?: string | null;
   }) {
     const { data: existing } = await supabaseAdmin
       .from('payments')
@@ -871,6 +874,8 @@ export class DatabaseHelper {
       payment_date: overrides.payment_date,
       ...(overrides.breakdown ? { breakdown: overrides.breakdown } : {}),
       ...(overrides.installment ? { installment: overrides.installment } : {}),
+      ...(overrides.partial_payments ? { partial_payments: overrides.partial_payments } : {}),
+      ...(overrides.pix_code !== undefined ? { pix_code: overrides.pix_code } : {}),
     };
 
     if (existing) {

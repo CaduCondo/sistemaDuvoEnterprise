@@ -80,6 +80,7 @@ import { useAlert } from "@/contexts/AlertContext";
 import * as XLSX from "xlsx";
 import { Payment, Property, Rental, Tenant } from "@/types";
 import { formatCurrency } from "@/lib/masks";
+import { CelulaPixEmEdicao, chaveDaLinha, deveSalvarPix, linhaEstaEmEdicao } from "@/lib/edicaoPix";
 import { tituloDoPeriodo } from "@/lib/mesesFinanceiro";
 import { HelpDialog } from "@/components/HelpDialog";
 
@@ -546,7 +547,12 @@ export default function Financial() {
   } | null>(null);
   
   // Estados para edição inline do Código PIX na tabela Locações
-  const [editingPixCell, setEditingPixCell] = useState<{ id: string } | null>(null);
+  // #138: a célula em edição é identificada pela LINHA (rowKey), não só pelo id do recebimento.
+  const [editingPixCell, setEditingPixCell] = useState<CelulaPixEmEdicao | null>(null);
+  // Evita salvar duas vezes (Enter e depois a saída do campo disparam a mesma gravação).
+  const salvandoPixRef = useRef(false);
+  // Escape cancela: a saída do campo que vem logo depois NÃO pode gravar o que foi digitado.
+  const cancelouPixRef = useRef(false);
   const [editingPixValue, setEditingPixValue] = useState<string>("");
   
   const [showExpensesDialog, setShowExpensesDialog] = useState(false);
@@ -1607,13 +1613,27 @@ export default function Financial() {
   };
 
   const handleStartPixEdit = (payment: Payment) => {
-    setEditingPixCell({ id: payment.id });
+    cancelouPixRef.current = false; // nova edição: esquece um cancelamento anterior
+    setEditingPixCell({ id: payment.id, rowKey: chaveDaLinha(payment as any) });
     setEditingPixValue(payment.pixCode || "");
   };
 
   const handleSavePixEdit = async () => {
-    if (!editingPixCell) return;
+    if (cancelouPixRef.current) {
+      cancelouPixRef.current = false;
+      return;
+    }
+    if (!editingPixCell || salvandoPixRef.current) return;
 
+    // Clicou e saiu sem mudar nada: só fecha o campo (sem gravar nem avisar "sucesso").
+    const original = payments.find((p) => p.id === editingPixCell.id)?.pixCode;
+    if (!deveSalvarPix(original, editingPixValue)) {
+      setEditingPixCell(null);
+      setEditingPixValue("");
+      return;
+    }
+
+    salvandoPixRef.current = true;
     try {
       const { error } = await supabase
         .from("payments")
@@ -1649,10 +1669,13 @@ export default function Financial() {
         description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido",
         type: "error",
       });
+    } finally {
+      salvandoPixRef.current = false;
     }
   };
 
   const handleCancelPixEdit = () => {
+    cancelouPixRef.current = true;
     setEditingPixCell(null);
     setEditingPixValue("");
   };
@@ -2507,7 +2530,7 @@ export default function Financial() {
                                 
                                 {/* Código PIX */}
                                 <TableCell className="text-center text-xs">
-                                  {editingPixCell?.id === payment.id ? (
+                                  {linhaEstaEmEdicao(editingPixCell, payment) ? (
                                     <Input
                                       type="text"
                                       className="w-full h-8 text-center text-xs border-blue-500"

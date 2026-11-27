@@ -2594,6 +2594,13 @@ Apresentar relatórios financeiros consolidados com foco em receitas, despesas e
 - Exibe KPIs e tabela de parcelas de caução
 - Inclui edição de comissões inline
 
+**1.3 Código PIX na tabela (edição direto na célula)** — corrigido em 27/nov/2026 (#138)
+- Clique no Código PIX da linha, digite e aperte **Enter** (ou saia do campo): o código é gravado.
+- Um recebimento **pago em 2 ou mais vezes** aparece em várias linhas; o clique abre o campo **só na linha clicada**
+  (antes abria em todas e o campo se fechava sozinho, salvando vazio e dizendo "sucesso").
+- Clicar e sair **sem digitar nada não grava e não mostra aviso**. **Esc** cancela sem gravar.
+- O código é do **recebimento** (não da linha): as linhas do mesmo recebimento mostram o mesmo código.
+
 #### 2. KPIs de Locações
 
 > ⚠️ **LEIA ANTES DE COMPARAR OS CARDS COM A TABELA** (escrito em 25/set/2026,
