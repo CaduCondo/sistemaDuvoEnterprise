@@ -1561,3 +1561,29 @@ Then('devo ver apenas pagamentos pagos', async function () {
 
 // Observação: "no bloco {string} devo ver:" vive em rentals.steps.ts (trata
 // o marcador "(vazio)") — não duplicar aqui.
+/**
+ * #87: "a tela do recebimento às vezes abre sem os dados". O formulário começava com
+ * carregando = false e aparecia vazio até a busca terminar (e vazio para sempre se ela
+ * falhasse). Este passo abre e fecha o detalhe várias vezes e, EM TODAS, confere que os
+ * dados reais chegaram (nome do inquilino do cenário, formulário preenchido) e que a tela
+ * não ficou num estado de erro ou girando.
+ */
+When('abro e fecho o recebimento de teste {int} vezes conferindo que os dados aparecem', { timeout: 120 * 1000 }, async function (this: import('../support/world').CustomWorld, vezes: number) {
+  const nome = this.testData?.tenantName;
+  expect(nome, 'nome do inquilino de teste não foi guardado (rode o Given antes)').toBeTruthy();
+  const dialogo = this.page.locator('#payments-manage-dialog');
+
+  for (let i = 1; i <= vezes; i++) {
+    const linha = this.page.locator('tbody tr').filter({ hasText: nome! });
+    await expect(linha.first(), `vez ${i}: não encontrei a linha do pagamento de teste`).toBeVisible({ timeout: 15000 });
+    await linha.first().click();
+    await expect(dialogo, `vez ${i}: o detalhe não abriu`).toBeVisible({ timeout: 15000 });
+
+    await expect(dialogo.locator('[data-testid="payment-load-error"]'), `vez ${i}: a tela mostrou erro ao carregar`).toHaveCount(0);
+    await expect(dialogo.locator('[data-testid="payment-loading"]'), `vez ${i}: a tela ficou girando e os dados não chegaram`).toHaveCount(0, { timeout: 20000 });
+    await expect(dialogo, `vez ${i}: o detalhe abriu SEM o nome do inquilino (tela vazia)`).toContainText(nome!, { timeout: 20000 });
+
+    await this.page.keyboard.press('Escape');
+    await expect(dialogo, `vez ${i}: o detalhe não fechou`).toBeHidden({ timeout: 10000 });
+  }
+});

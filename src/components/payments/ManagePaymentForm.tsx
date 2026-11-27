@@ -110,6 +110,11 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   const router = useRouter();
   const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
+  // #87: a PRIMEIRA carga começa "carregando" (antes o formulário aparecia vazio até os
+  // dados chegarem e, se a busca falhasse, ficava vazio para sempre). `erroAoCarregar`
+  // guarda a falha para mostrar uma mensagem com "Tentar de novo".
+  const [carregandoInicial, setCarregandoInicial] = useState(true);
+  const [erroAoCarregar, setErroAoCarregar] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -259,6 +264,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
   }, []);
 
   const loadPaymentData = useCallback(async () => {
+    setErroAoCarregar(null);
     try {
       const { data: paymentData, error: paymentError } = await supabase
         .from("payments")
@@ -531,6 +537,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
 
     } catch (error) {
       console.error("❌ Error loading payment data:", error);
+      setErroAoCarregar(error instanceof Error ? error.message : "Erro ao carregar dados do pagamento");
       showAlert({
         title: "Erro",
         description: "Erro ao carregar dados do pagamento",
@@ -538,6 +545,7 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       });
     } finally {
       setLoading(false);
+      setCarregandoInicial(false);
     }
   }, [paymentId, showAlert, formatCurrency]);
 
@@ -1289,10 +1297,23 @@ export function ManagePaymentForm({ paymentId, onSuccess, onClose, embedded = fa
       : "Única";
   }, [payment?.installment, payment?.total_installments]);
 
-  if (loading) {
+  if (loading || carregandoInicial) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[400px]" data-testid="payment-loading">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // #87: falhou e não há dados -> mensagem clara em vez de formulário em branco.
+  if (!payment) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] gap-3 text-center px-4" data-testid="payment-load-error">
+        <p className="font-semibold">Não foi possível carregar este recebimento.</p>
+        <p className="text-sm text-muted-foreground">{erroAoCarregar || "Os dados não chegaram."}</p>
+        <Button id="payment-load-retry" onClick={() => { setCarregandoInicial(true); loadPaymentData(); }}>
+          Tentar de novo
+        </Button>
       </div>
     );
   }

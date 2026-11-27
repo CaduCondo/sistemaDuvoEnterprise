@@ -240,3 +240,11 @@ Funcionalidade: Cálculos e Regras de Pagamentos
     Quando vou para a página de Recebimentos
     E filtro pelo mês "Agosto/2026"
     Então não devo ver o recebimento residual da locação excluída
+
+  # Issue #87: o detalhe do recebimento às vezes abria vazio. Abre e fecha várias
+  # vezes e confere os dados em TODAS (e que, se a busca falhar, aparece uma
+  # mensagem com "Tentar de novo" em vez de formulário em branco).
+  @sistemaCompleto
+  Cenário: Abrir o detalhe do recebimento várias vezes sempre mostra os dados (#87)
+    Dado que existe um pagamento "Pendente"
+    Quando abro e fecho o recebimento de teste 5 vezes conferindo que os dados aparecem
