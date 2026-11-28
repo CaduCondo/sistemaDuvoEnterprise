@@ -1583,7 +1583,9 @@ When('abro e fecho o recebimento de teste {int} vezes conferindo que os dados ap
     await expect(dialogo.locator('[data-testid="payment-loading"]'), `vez ${i}: a tela ficou girando e os dados não chegaram`).toHaveCount(0, { timeout: 20000 });
     await expect(dialogo, `vez ${i}: o detalhe abriu SEM o nome do inquilino (tela vazia)`).toContainText(nome!, { timeout: 20000 });
 
-    await this.page.keyboard.press('Escape');
+    // Fecha pelo "X" (como o usuário faz). Esc NÃO fecha de propósito: pedido do Cadu em agosto/2026
+    // (dialog.tsx, preventClose) para ninguém perder o que digitou. O run #172 caiu aqui por usar Esc.
+    await dialogo.getByRole('button', { name: /^Close$/i }).click();
     await expect(dialogo, `vez ${i}: o detalhe não fechou`).toBeHidden({ timeout: 10000 });
   }
 });
