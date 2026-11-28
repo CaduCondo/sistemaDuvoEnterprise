@@ -512,3 +512,14 @@ Funcionalidade: Rescisão de contrato separada da devolução do caução
     Quando eu digitar "200,00" no campo "Valor de Desconto"
     Então o sistema deve registrar o valor como -200,00
     E eu não devo precisar digitar o sinal de menos
+
+  # Issue #86: o recibo do Recebimento de Rescisão lista cada parte do valor (layout próprio da
+  # rescisão). Antes o recibo decidia que era rescisão LENDO O TEXTO do detalhamento; o texto do
+  # Recebimento de Rescisão ("Caução Corrigido p/ Devolução") não batia e o recibo caía no
+  # modelo de aluguel comum.
+  @sistemaCompleto
+  Cenário: Recibo do Recebimento de Rescisão lista cada parte do valor (#86)
+    Dado que o inquilino pagou todas as parcelas de caução
+    Quando eu registrar a rescisão em "03/09/2026" com a cláusula "Multa Proporcional ao Tempo Restante"
+    E abro o recibo do Recebimento de Rescisão depois de pago
+    Então o recibo deve listar cada parte do valor da rescisão gravada no banco

@@ -1,3 +1,4 @@
+import { ehRecebimentoDeRescisao, itensDoReciboDeRescisao } from "@/lib/reciboRescisao";
 import { useAssinaturaDoUsuario } from "@/hooks/useAssinaturaDoUsuario";
 import { useRef, useEffect, useState, useMemo } from "react";
 import { X, Printer, Download, Share2 } from "lucide-react";
@@ -192,101 +193,16 @@ export function PaymentReceipt({
     return String(doAcordo?.description || paymentData.notes || payment.notes || "");
   })();
 
-  // Detectar rescisão baseada no conteúdo do breakdown
-  let isTermination = false;
+  // #86: quem decide que é rescisão é o TIPO gravado (payment_kind), não o texto do
+  // detalhamento (src/lib/reciboRescisao.ts; o texto só vale para registros antigos sem tipo).
+  const tipoDoRecebimento = paymentData.payment_kind || paymentData.paymentKind || payment.paymentKind;
+  const isTermination = ehRecebimentoDeRescisao(tipoDoRecebimento, paymentBreakdown);
 
-  if (paymentBreakdown) {
-    const breakdownStr = JSON.stringify(paymentBreakdown);
-    if (breakdownStr.includes("Multa Rescisória") || 
-        breakdownStr.includes("Devolução de Caução") || 
-        breakdownStr.includes("Aluguel Proporcional") ||
-        breakdownStr.includes("terminationFee") ||
-        breakdownStr.includes("depositRefund") ||
-        breakdownStr.includes("proportionalRent")) {
-      isTermination = true;
-    }
-  }
-  
   console.log("🔍 TIPO DE PAGAMENTO:", isTermination ? "RESCISÃO" : "NORMAL");
-  
-  // Se é rescisão e tem breakdown, processar os valores específicos
+
+  // Se é rescisão e tem breakdown, lista cada parte do valor (layout próprio da rescisão)
   if (isTermination && paymentBreakdown) {
-    console.log("✅ PROCESSANDO BREAKDOWN DE RESCISÃO");
-    try {
-      let breakdownData = paymentBreakdown;
-      
-      // Se for string, fazer parse
-      if (typeof breakdownData === "string") {
-        breakdownData = JSON.parse(breakdownData);
-      }
-
-      console.log("📊 BREAKDOWN PARSEADO:", JSON.stringify(breakdownData, null, 2));
-
-      // Se o breakdown já é um array (formato novo do banco)
-      if (Array.isArray(breakdownData)) {
-        console.log("✅ BREAKDOWN É UM ARRAY");
-        
-        breakdownData.forEach((item: any) => {
-          const amount = Number(item.amount || 0);
-          const description = String(item.description || "");
-          const type = item.type || "addition";
-          
-          // Só adicionar se tiver valor válido e maior que zero
-          if (Number.isFinite(amount) && Math.abs(amount) > 0) {
-            console.log(`  ✅ Item: ${description} = ${amount} (${type})`);
-            breakdownItems.push({
-              description,
-              amount: Math.abs(amount),
-              type: type as "addition" | "deduction"
-            });
-          }
-        });
-      } else {
-        // Formato antigo (objeto com propriedades)
-        console.log("✅ BREAKDOWN É UM OBJETO");
-        
-        const proportionalRent = Number(breakdownData.proportionalRent || 0);
-        const terminationFee = Number(breakdownData.terminationFee || 0);
-        const depositRefund = Number(breakdownData.depositRefund || 0);
-        const additionalExpenses = Number(breakdownData.additionalExpenses || 0);
-
-        if (proportionalRent > 0) {
-          breakdownItems.push({
-            description: "Aluguel Proporcional",
-            amount: proportionalRent,
-            type: "addition"
-          });
-        }
-
-        if (terminationFee > 0) {
-          breakdownItems.push({
-            description: "Multa Rescisória",
-            amount: terminationFee,
-            type: "addition"
-          });
-        }
-
-        if (depositRefund !== 0) {
-          breakdownItems.push({
-            description: "Devolução de Caução",
-            amount: Math.abs(depositRefund),
-            type: depositRefund < 0 ? "deduction" : "addition"
-          });
-        }
-
-        if (additionalExpenses > 0) {
-          breakdownItems.push({
-            description: "Despesas Adicionais",
-            amount: additionalExpenses,
-            type: "addition"
-          });
-        }
-      }
-      
-      console.log("📋 BREAKDOWN DE RESCISÃO PROCESSADO:", breakdownItems);
-    } catch (e) {
-      console.error("❌ ERRO ao processar breakdown de rescisão:", e);
-    }
+    breakdownItems.push(...itensDoReciboDeRescisao(paymentBreakdown));
   } else {
     // PAGAMENTO NORMAL
     console.log("✅ PROCESSANDO PAGAMENTO NORMAL");

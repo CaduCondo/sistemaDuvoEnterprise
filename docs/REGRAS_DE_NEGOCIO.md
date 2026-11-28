@@ -2446,6 +2446,14 @@ vencimento") e escreve em palavras de que lado está o dinheiro:
 Exemplo: aluguel R$ 1.500,00 + Recebimento de Rescisão −R$ 2.000,00 = **−R$ 500,00,
 a pagar ao inquilino**.
 
+### Recibo do Recebimento de Rescisão (#86, 28/nov/2026)
+
+Depois que o Recebimento de Rescisão é pago, o botão **Recibo** (aba Recebimentos Pagos) abre um
+recibo com **cada parte do valor em uma linha** (ex.: Aluguel Proporcional, Multa Rescisória,
+Caução Corrigido p/ Devolução, Despesas Adicionais, Desconto), e não o modelo de aluguel comum.
+O sistema sabe que é recibo de rescisão pelo **tipo** do recebimento (e não lendo o texto do
+detalhamento, que já enganou antes).
+
 ### Acordo de parcelamento do débito (#119)
 
 > Novo em **07/out/2026**, a pedido do Cadu (caso real: SIGNORE APTO 21).

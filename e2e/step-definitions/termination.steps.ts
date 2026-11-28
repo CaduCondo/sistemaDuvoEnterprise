@@ -1680,3 +1680,54 @@ Then('o sentido do total da rescisão deve estar escrito conforme o valor', asyn
   await expect(total.getByText('Este recebimento'), 'faltou mostrar o valor deste recebimento').toBeVisible();
   await expect(total.getByText('Outros recebimentos do mesmo vencimento'), 'faltou mostrar o valor dos outros recebimentos').toBeVisible();
 });
+
+// ============================================================================
+// RECIBO DO RECEBIMENTO DE RESCISÃO (#86)
+// ============================================================================
+
+/**
+ * Marca o Recebimento de Rescisão do cenário como PAGO (direto no banco, é o preparo) e
+ * abre o recibo dele pela tela de Recebimentos (aba "Recebimentos Pagos").
+ */
+When('abro o recibo do Recebimento de Rescisão depois de pago', { timeout: 90 * 1000 }, async function (this: CustomWorld) {
+  const rescisao = await recebimentoDeRescisao(this);
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+  const hoje = new Date().toISOString().slice(0, 10);
+  const { error } = await supabaseAdmin
+    .from('payments')
+    .update({ status: 'paid', paid_amount: rescisao.expected_amount, payment_date: hoje })
+    .eq('id', rescisao.id);
+  expect(error, 'não consegui marcar a rescisão do cenário como paga').toBeNull();
+  this.testData.rescisaoDoRecibo = { ...rescisao, status: 'paid' };
+
+  await abrirRecebimentosDoInquilino(this, rescisao);
+  await this.page.locator('#payments-tab-paid').click();
+  await this.page.waitForTimeout(800);
+
+  const linha = this.page.locator('tbody tr').filter({ hasText: this.tenantName! }).filter({ hasText: /Rescisão/ });
+  await expect(linha.first(), 'não achei a linha do Recebimento de Rescisão pago na aba "Recebimentos Pagos"').toBeVisible({ timeout: 20000 });
+  await linha.first().locator('[title^="Recibo"]').first().click();
+  await expect(this.page.locator('#receipt-content'), 'o recibo da rescisão não abriu').toBeVisible({ timeout: 15000 });
+});
+
+/**
+ * O recibo tem que listar CADA parte do valor que está gravada no detalhamento do
+ * Recebimento de Rescisão (descrição + valor), em vez do modelo de aluguel comum.
+ * A lista esperada vem do BANCO -- não é copiada do código.
+ */
+Then('o recibo deve listar cada parte do valor da rescisão gravada no banco', async function (this: CustomWorld) {
+  const rescisao = this.testData.rescisaoDoRecibo;
+  const partes = (Array.isArray(rescisao.breakdown) ? rescisao.breakdown : []).filter((i: any) => Math.abs(Number(i.amount)) > 0.009);
+  expect(partes.length, 'o Recebimento de Rescisão do cenário não tem partes com valor para conferir').toBeGreaterThan(0);
+
+  const recibo = this.page.locator('#receipt-content');
+  for (const parte of partes) {
+    const linha = recibo.locator('div.flex.justify-between').filter({ hasText: `${parte.description}:` }).first();
+    await expect(
+      linha,
+      `o recibo da rescisão não lista "${parte.description}" (parece o modelo de aluguel comum). Recibo:\n${(await recibo.innerText()).replace(/\s+/g, ' ')}`
+    ).toBeVisible({ timeout: 10000 });
+    await expect(linha, `a linha "${parte.description}" do recibo não mostra ${formatarValorBR(Number(parte.amount))}`)
+      .toContainText(formatarValorBR(Number(parte.amount)));
+  }
+});
