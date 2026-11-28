@@ -248,3 +248,11 @@ Funcionalidade: Cálculos e Regras de Pagamentos
   Cenário: Abrir o detalhe do recebimento várias vezes sempre mostra os dados (#87)
     Dado que existe um pagamento "Pendente"
     Quando abro e fecho o recebimento de teste 5 vezes conferindo que os dados aparecem
+
+  # Issue #141: pagamento atrasado. A tela mostrava aluguel + multa + juros, mas o valor ESPERADO
+  # gravado ficava sem o juros (R$ 1.100,00 em vez de R$ 1.103,00 no caso real reproduzido no DEV).
+  @sistemaCompleto
+  Cenário: Pagamento atrasado grava aluguel mais multa e juros como valor esperado (#141)
+    Dado que existe um recebimento pendente de "1000.00" vencido em janeiro de 2030
+    Quando registro o pagamento desse recebimento em "2030-01-20" sem remover multa nem juros
+    Então o valor esperado gravado deve ser o aluguel mais multa e juros dos percentuais configurados

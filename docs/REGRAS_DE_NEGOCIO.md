@@ -2430,6 +2430,21 @@ arredondamento ou perdão da multa se fazem no campo "Valor de Desconto" do
 Recebimento de Rescisão, onde ficam registrados como desconto em vez de
 escondidos dentro da multa.
 
+### Pagamento atrasado: multa e juros (#141, 28/nov/2026)
+
+Quando o pagamento é registrado **depois do vencimento**, a tela soma ao aluguel (com garagem):
+- **Multa por atraso:** uma vez, % de Configurações > Multas e Juros sobre o valor do aluguel;
+- **Juros por atraso:** % **ao dia** sobre o valor do aluguel, vezes os **dias de atraso**.
+
+Passo a passo do exemplo: aluguel R$ 1.000,00, vencido em 10/01, pago em 20/01 (10 dias), multa
+de 2% e juros de 0,1% ao dia → multa R$ 20,00 + juros R$ 10,00 → **valor a pagar R$ 1.030,00**.
+As caixas "remover multa" e "remover juros" tiram só a parte marcada (só multa removida: R$ 1.010,00;
+só juros removido: R$ 1.020,00; os dois: R$ 1.000,00). O **valor esperado gravado** no recebimento é
+esse valor a pagar (menos o desconto, se houver).
+
+> ⚠️ **Corrigido em 28/nov/2026:** antes, com nada removido, o valor esperado gravado ficava
+> **sem o juros** (ex.: R$ 1.100,00 em vez de R$ 1.103,00), embora a tela mostrasse o total certo.
+
 ### Valor Total da Rescisão
 
 Quando dois recebimentos da mesma locação vencem no mesmo dia — o que é

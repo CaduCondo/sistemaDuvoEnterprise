@@ -1589,3 +1589,76 @@ When('abro e fecho o recebimento de teste {int} vezes conferindo que os dados ap
     await expect(dialogo, `vez ${i}: o detalhe não fechou`).toBeHidden({ timeout: 10000 });
   }
 });
+
+/** =================== Pagamento atrasado: multa + juros no valor esperado (#141) =================== */
+
+/**
+ * Recebimento pendente de aluguel, num mês isolado (janeiro/2030: ninguém mais usa), vencido
+ * em 10/01/2030 -- o teste registra o pagamento depois do vencimento.
+ */
+Given('que existe um recebimento pendente de {string} vencido em janeiro de 2030', { timeout: 60 * 1000 }, async function (this: import('../support/world').CustomWorld, valor: string) {
+  const DatabaseHelper = (await import('../helpers/database.helper')).default;
+  const v = parseFloat(valor);
+  const sufixo = Date.now();
+  const location = await this.createLocation({ name: `Atraso E2E ${sufixo}` });
+  const property = await this.createProperty({ location_id: location.id, complement: `Atraso E2E ${sufixo}`, value: v, status: 'available' });
+  const nome = `Atraso E2E ${sufixo}`;
+  const tenant = await this.createTenant({ name: nome });
+  const rental = await this.createRental({
+    property_id: property.id, tenant_id: tenant.id, start_date: '2030-01-01', end_date: '2030-12-31',
+    rent_due_day: 10, rent_value: v, security_deposit: 0, deposit_installments: 0,
+  });
+  const pagamento = await DatabaseHelper.upsertPayment({
+    rental_id: rental.id, reference_month: '01', reference_year: '2030', due_date: '2030-01-10',
+    expected_amount: v, status: 'pending', paid_amount: 0, installment: 1,
+    breakdown: [{ description: 'Aluguel', amount: v, type: 'addition' }],
+  });
+  this.testData = { ...this.testData, tenantName: nome, atraso: { paymentId: pagamento.id, aluguel: v } };
+});
+
+When('registro o pagamento desse recebimento em {string} sem remover multa nem juros', { timeout: 90 * 1000 }, async function (this: import('../support/world').CustomWorld, dataISO: string) {
+  const nome = this.testData.tenantName;
+  await this.page.goto('/payments');
+  await this.page.waitForLoadState('domcontentloaded');
+  await expect(this.page.locator('#payments-tab-pending'), 'a lista de Recebimentos não carregou').toBeVisible({ timeout: 30000 });
+  await escolherMesesNoSeletor(this.page, ['Janeiro']);
+  await this.page.waitForTimeout(600);
+  await this.page.locator('#period-selector-year').click();
+  await this.page.getByRole('option', { name: '2030', exact: true }).click();
+  await this.page.waitForTimeout(2000);
+  await this.page.locator('#payments-search-input').fill(nome);
+  await this.page.waitForTimeout(1200);
+  await this.page.locator('tbody tr').filter({ hasText: nome }).first().click();
+
+  const dialogo = this.page.locator('#payments-manage-dialog');
+  await expect(dialogo, 'o detalhe do recebimento não abriu').toBeVisible({ timeout: 20000 });
+  await expect(dialogo.locator('[data-testid="payment-loading"]')).toHaveCount(0, { timeout: 20000 });
+  await this.page.locator('#payment_date').fill(dataISO);
+  await this.page.waitForTimeout(1200);
+  await this.page.locator('#manage-payment-submit').click();
+
+  const alerta = this.page.getByRole('alertdialog');
+  await expect(alerta, 'o aviso de sucesso do recebimento não apareceu').toBeVisible({ timeout: 20000 });
+  await alerta.getByRole('button', { name: /^OK$/i }).click();
+});
+
+Then('o valor esperado gravado deve ser o aluguel mais multa e juros dos percentuais configurados', async function (this: import('../support/world').CustomWorld) {
+  const { supabaseAdmin } = await import('../helpers/database.helper');
+  const { data: cfg } = await supabaseAdmin.from('configs').select('late_fee_percentage, interest_rate_percentage').limit(1).maybeSingle();
+  const multaPct = Number(cfg?.late_fee_percentage ?? 0);
+  const jurosPct = Number(cfg?.interest_rate_percentage ?? 0);
+  expect(multaPct + jurosPct, 'o banco de teste não tem multa/juros configurados: a conta ficaria zerada e não provaria nada').toBeGreaterThan(0);
+
+  // Conta feita à mão aqui (não copiada do código): vence 10/01, pago em 20/01 = 10 dias de atraso.
+  const base = this.testData.atraso.aluguel;
+  const multa = Math.round(((base * multaPct) / 100) * 100) / 100;
+  const juros = Math.round(((base * jurosPct) / 100) * 10 * 100) / 100;
+  const esperado = Math.round((base + multa + juros) * 100) / 100;
+
+  await expect
+    .poll(async () => {
+      const { data } = await supabaseAdmin.from('payments').select('expected_amount, status').eq('id', this.testData.atraso.paymentId).single();
+      return data ? Number(data.expected_amount) : null;
+    }, { timeout: 20000, message: `valor esperado gravado deveria ser ${esperado} (aluguel ${base} + multa ${multa} + juros ${juros})` })
+    .toBeCloseTo(esperado, 2);
+});
